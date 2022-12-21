@@ -460,7 +460,9 @@ tf_gpu_kernel_library(
     ],
     copts = if_cuda_is_configured([
         "-DGOOGLE_CUDA=1"
-    ]) + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
+    ]) + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
+    ]),
     deps = if_cuda_is_configured([
         "@cub_archive//:cub",
         "@local_config_cuda//cuda:cuda_headers",
@@ -857,7 +859,9 @@ cuda_library(
     copts = if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
-    ]) + cuda_default_copts(),
+    ]) + cuda_default_copts() + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
+    ]),
     deps = [
         "@local_config_tf//:libtensorflow_framework",
         "@local_config_tf//:tf_header_lib",

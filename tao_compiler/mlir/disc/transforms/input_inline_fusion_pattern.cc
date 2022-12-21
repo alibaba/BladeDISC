@@ -138,7 +138,7 @@ bool elemwiseFuseHelperOr(PatternRewriter& rewriter, Operation* user,
 
 LogicalResult InputInlineFusionPattern::processParallelOp(
     scf::ParallelOp parallel_op, Block* parent_block, PatternRewriter& rewriter,
-    const DominanceInfo& dominance_info) const {
+    const DominanceInfo& dominance_info, Operation* op) const {
   SmallVector<memref::LoadOp, 4> load_ops;
   parallel_op->walk(
       [&](memref::LoadOp load_op) { load_ops.push_back(load_op); });
@@ -175,7 +175,9 @@ LogicalResult InputInlineFusionPattern::processParallelOp(
     // Clean all the ops that do not have LoadOps inside the nested
     // ParallelOps and is not the ancestor of any ops that have LoadOps
     // inside the nested ParallelOps.
-    // cleanUnusedLhloOps(parent_block, &rewriter);
+    if (!isFusionType<FusionType::kWhere>(op)) {
+      cleanUnusedLhloOps(parent_block, &rewriter);
+    }
     return success();
   }
   return failure();

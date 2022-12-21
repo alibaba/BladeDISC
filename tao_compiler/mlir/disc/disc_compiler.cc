@@ -495,6 +495,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscUnhandledAtomicRMWConverterPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscInputInlineFusionPass());
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscOutputInlineFusionPass());
   if (gpu_enabled && isMemIntensiveOptExperimentalEnabled()) {
     // More benchmarks are on the way to evaluate the effectiveness of this
     // optimization. Then this pass will be enabled by default.

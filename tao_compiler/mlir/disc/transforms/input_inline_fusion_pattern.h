@@ -73,7 +73,8 @@ class InputInlineFusionPattern : public RewritePattern {
   LogicalResult processParallelOp(scf::ParallelOp parallel_op,
                                   Block* parent_block,
                                   PatternRewriter& rewriter,
-                                  const DominanceInfo& dominance_info) const;
+                                  const DominanceInfo& dominance_info,
+                                  Operation* op) const;
 
   LogicalResult matchAndRewrite(Operation* op,
                                 PatternRewriter& rewriter) const override {
@@ -95,7 +96,7 @@ class InputInlineFusionPattern : public RewritePattern {
     // Returns success if any of parallelOp is processed.
     for (scf::ParallelOp parallelOp : innermostPloops) {
       if (!failed(processParallelOp(parallelOp, &parent_block, rewriter,
-                                    dominance_info)))
+                                    dominance_info, op)))
         return success();
     }
     return failure();

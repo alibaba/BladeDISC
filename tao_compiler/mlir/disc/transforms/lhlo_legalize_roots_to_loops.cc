@@ -4768,6 +4768,15 @@ LogicalResult lowerWithScheduleWhereOpCPU(
       break;
     }
   }
+
+  if (parent) {
+    llvm::dbgs() << "************before**************\n";
+    for (Operation& op : parent->getOperations()) {
+      op.dump();
+    }
+    llvm::dbgs() << "************end before**************\n";
+  }
+
   auto where = dyn_cast<lmhlo_disc::WhereOp>(where_op);
   if (!where) {
     return dominant_op->emitError()
@@ -4786,6 +4795,7 @@ LogicalResult lowerWithScheduleWhereOpCPU(
   auto input_elem_type = input_type.getElementType();
   auto output_elem_type = index.getType().cast<MemRefType>().getElementType();
 
+  b.setInsertionPoint(where.getOperation());
   Value zero =
       b.create<arith::ConstantOp>(loc, b.getIntegerAttr(b.getIndexType(), 0));
   Value one =
@@ -4867,8 +4877,8 @@ LogicalResult lowerWithScheduleWhereOpCPU(
   b.create<memref::StoreOp>(loc, output_index_count, temp_count);
 
   b.create<scf::YieldOp>(loc, ValueRange({}));  // if (input[i] != 0)
-  b.setInsertionPoint(
-      where.getOperation());  // for (i = 0; i < num_element; ++i)
+  // b.setInsertionPoint(where.getOperation());  // for (i = 0; i < num_element; ++i)
+  b.setInsertionPointAfter(for_op);
 
   b.create<memref::StoreOp>(loc, b.create<memref::LoadOp>(loc, temp_count),
                             num_output_elements, zero_load_index);
@@ -4877,7 +4887,16 @@ LogicalResult lowerWithScheduleWhereOpCPU(
     for (Operation* root_op : root_ops) root_op->erase();
   } else {
     assert(parent != nullptr && "Parent must be provided for fusion lowering");
-    // cleanUnusedLhloOps(parent);
+    if (root_ops.size() != 1) {
+      where_op->erase();
+      llvm::dbgs() << "************after**************\n";
+      for (Operation& op : parent->getOperations()) {
+        op.dump();
+      }
+      llvm::dbgs() << "************end after**************\n";
+    } else {
+      cleanUnusedLhloOps(parent);
+    }
   }
   return success();
 }

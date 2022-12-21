@@ -651,7 +651,8 @@ void mkl_ral_gemm(ExecutionContext* ctx, void* stream_handle,
       unique_name, []() { return new MklGemmState; });
   opaque_t packed_weight;
   {
-    GEMMParamsKey key{m, n, k, 1, tp_a, tp_b, B.data, kDiscCpuDefaultThreadId};
+    GEMMParamsKey key{
+        m, n, k, 1, tp_a, tp_b, B.data, nullptr, kDiscCpuDefaultThreadId};
     std::lock_guard<std::mutex> l(state->mu);
     auto& cache = state->cache;
     auto it = cache.find(key);
@@ -741,8 +742,8 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
       unique_name, []() { return new OnednnAclGemmState; });
   std::shared_ptr<MatmulPrimitive> primitive;
   {
-    GEMMParamsKey key{m,    n,    k,      1,
-                      tp_a, tp_b, B.data, std::this_thread::get_id()};
+    GEMMParamsKey key{
+        m, n, k, 1, tp_a, tp_b, B.data, nullptr, std::this_thread::get_id()};
     std::lock_guard<std::mutex> l(state->mu);
     primitive = getOrCreateMatmulPrimitive(state->cached_primitive, key, src,
                                            weight, output);
@@ -916,8 +917,8 @@ void onednn_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
   std::shared_ptr<MatmulPrimitive> primitive;
   {
     std::lock_guard<std::mutex> l(state->mu);
-    GEMMParamsKey key{m,    n,    k,      b,
-                      tp_a, tp_b, B.data, std::this_thread::get_id()};
+    GEMMParamsKey key{
+        m, n, k, b, tp_a, tp_b, B.data, nullptr, std::this_thread::get_id()};
     primitive = getOrCreateMatmulPrimitive(state->cached_primitive, key, src,
                                            weight, output);
   }

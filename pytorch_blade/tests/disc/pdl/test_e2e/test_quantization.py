@@ -28,12 +28,21 @@ def cpu_support_vnni():
     return 'avx512_vnni' in cpu_info['flags']
 
 
-class CPUDiscPdlQuantizationE2ETestCase(CPUDiscPdlQuantizationTestCase):
+class X86CPUDiscPdlQuantizationE2ETestCase(CPUDiscPdlQuantizationTestCase):
     def setUp(self):
         super().setUp()
         if not cpu_support_vnni():
             self.skipTest("Quantization x86 test case only works on cpu"
                           " with vnni")
+
+
+class AArch64CPUDiscPdlQuantizationE2ETestCase(CPUDiscPdlQuantizationTestCase):
+    def setUp(self):
+        super().setUp()
+        cpu_info = cpuinfo.get_cpu_info()
+        if cpu_info['arch_string_raw'] != 'aarch64':
+            self.skipTest("Tests only works on aarch64")
+
 
 class GPUDiscPdlQuantizationE2ETestCase(GPUDiscPdlQuantizationTestCase):
     def setUp(self):
@@ -48,7 +57,100 @@ class GPUDiscPdlQuantizationE2ETestCase(GPUDiscPdlQuantizationTestCase):
 @unittest.skipIf(TORCH_VERSION < (1, 9),
                  "The patterns corresponding to pytorch before version "
                  "1.9.0 has not yet been implemented ")
-class TestCPULiner(CPUDiscPdlQuantizationE2ETestCase):
+class TestAArch64CPULinear(AArch64CPUDiscPdlQuantizationE2ETestCase):
+    def test_s8s8s8_per_tensor(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.input_scale = 0.1
+                self.input_zero_point = 0
+                self.output_scale = 0.2
+                self.output_zero_point = 0
+                self.weight_scale = 0.3
+                self.weight_zero_point = 0
+                self.weight_quant_min = -128
+                self.weight_quant_max = 127
+                self.activation_quant_min = -128
+                self.activation_quant_max = 127
+                self.register_buffer("weight", torch.randn(64, 64))
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.input_scale, self.input_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                weight = torch.fake_quantize_per_tensor_affine(
+                    self.weight, self.weight_scale, self.weight_zero_point,
+                    self.weight_quant_min, self.weight_quant_max
+                )
+                x = F.linear(x, weight, bias=None)
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.output_scale, self.output_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                return x
+
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "dequant_gemm_quant.pdll")
+        ]
+        pdll_files = ",".join(pdll_files)
+        inp = torch.randn(1, 64).to(self.device)
+        model = Model().eval().to(self.device)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, rtol=1.)
+
+    def test_s8s8s8s32_per_tensor(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.input_scale = 0.1
+                self.input_zero_point = 0
+                self.output_scale = 0.2
+                self.output_zero_point = 0
+                self.weight_scale = 0.3
+                self.weight_zero_point = 0
+                self.weight_quant_min = -128
+                self.weight_quant_max = 127
+                self.activation_quant_min = -128
+                self.activation_quant_max = 127
+                self.register_buffer("weight", torch.randn(64, 64))
+                self.register_buffer("bias", torch.randn(64))
+                self.bias_scale = self.input_scale * self.weight_scale
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.input_scale, self.input_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                weight = torch.fake_quantize_per_tensor_affine(
+                    self.weight, self.weight_scale, self.weight_zero_point,
+                    self.weight_quant_min, self.weight_quant_max
+                )
+                bias = torch.fake_quantize_per_tensor_affine(
+                    self.bias, self.bias_scale, self.weight_zero_point,
+                    -2 ** 31, 2 ** 31 - 1
+                )
+                x = F.linear(x, weight, bias=bias)
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.output_scale, self.output_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                return x
+
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "dequant_gemm_quant.pdll")
+        ]
+        pdll_files = ",".join(pdll_files)
+        inp = torch.randn(1, 64).to(self.device)
+        model = Model().eval().to(self.device)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, rtol=1.)
+
+
+@unittest.skipIf(TORCH_VERSION < (1, 9),
+                 "The patterns corresponding to pytorch before version "
+                 "1.9.0 has not yet been implemented ")
+class TestX86CPULiner(X86CPUDiscPdlQuantizationE2ETestCase):
     def test_s8s8s8s32_per_channel_with_bias(self):
         class Model(nn.Module):
             def __init__(self):

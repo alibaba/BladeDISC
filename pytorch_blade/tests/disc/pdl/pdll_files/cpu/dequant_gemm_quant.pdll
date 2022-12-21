@@ -10,6 +10,99 @@
 ///   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
 /// )pdll";
 
+// Dequant + gemm + quant -> qgemm
+Pattern TorchDequantLinearS32BiasQuantOp {
+  /// match phase: define the pattern
+  let input_dequantize_op = op<torch.operator>(
+    input: Value,
+    input_scale: Value,
+    input_zero_point: Value,
+    input_quant_min: Value,
+    input_quant_max: Value,
+    input_num_bits: Value,
+    input_axis: Value,
+    input_signed: Value,
+    input_symmetric: Value,
+    input_dynamic: Value,
+    input_per_channel: Value
+  ){ name = attr<"\"torch_blade.dequantize\"">};
+
+  let weight_dequantize_op = op<torch.operator>(
+    weight: Value,
+    weight_scale: Value,
+    weight_zero_point: Value,
+    weight_quant_min: Value,
+    weight_quant_max: Value,
+    weight_num_bits: Value,
+    weight_axis: Value,
+    weight_signed: Value,
+    weight_symmetric: Value,
+    weight_dynamic: Value,
+    weight_per_channel: Value
+  ){ name = attr<"\"torch_blade.dequantize\"">};
+
+  let bias_dequantize_op = op<torch.operator>(
+    bias: Value,
+    bias_scale: Value,
+    bias_zero_point: Value,
+    bias_quant_min: Value,
+    bias_quant_max: Value,
+    bias_num_bits: Value,
+    bias_axis: Value,
+    bias_signed: Value,
+    bias_symmetric: Value,
+    bias_dynamic: Value,
+    bias_per_channel: Value
+  ){ name = attr<"\"torch_blade.dequantize\"">};
+
+  let gemm = op<torch.aten.linear>(
+      input_dequantize_op.0,
+      weight_dequantize_op.0,
+      bias_dequantize_op.0
+  );
+
+  let output_quantize_op = op<torch.operator>(
+      gemm.0,
+      output_scale: Value,
+      output_zero_point: Value,
+      output_quant_min: Value,
+      output_quant_max: Value,
+      output_num_bits: Value,
+      output_axis: Value,
+      output_signed: Value,
+      output_symmetric: Value,
+      output_dynamic: Value,
+      output_per_channel: Value
+   ){ name = attr<"\"torch_blade.quantize\"">};
+
+  /// rewrite phase
+  rewrite output_quantize_op with {
+    /// 1. create custom call op
+    let inputs = PackValue_9(attr<"\"in\"">, input, weight, bias, input_scale, input_zero_point, weight_scale, weight_zero_point, output_scale, output_zero_point);
+    let outputs = PackValue_1(attr<"\"out\"">, output_quantize_op.0);
+    let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+    /// 2. set attrs that are used by bladedisc.
+    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_qgemm\"">);
+    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h,h,h,h,h,h,h,h\"">);
+    SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h\"">);
+    SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
+    SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,BA,*,*,*,*,*,*,*\"">);
+    SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+    SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,AB,*,*,*,*,*,*,*\"">);
+    SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+    SetCustomAttr(infos.op, attr<"\"transpose_a\"">, attr<"false">);
+    SetCustomAttr(infos.op, attr<"\"transpose_b\"">, attr<"false">);
+    SetCustomAttr(infos.op, attr<"\"weight_is_const\"">, attr<"true">);
+    SetCustomAttr(infos.op, attr<"\"bias_is_const\"">, attr<"true">);
+
+
+    let rs = UnpackValue_1(infos.new_outputs);
+    replace output_quantize_op with rs;
+  };
+}
+
 // capable with torch >= 1.9.0
 // dequant + aten.linear with bias + quant -> qgemm
 Pattern TorchDequantLinearBiasQuantOp {
@@ -72,7 +165,7 @@ Pattern TorchDequantLinearBiasQuantOp {
     let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
 
     /// 2. set attrs that are used by bladedisc.
-    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_qgemm_s8s8s8f32_pc\"">);
+    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_qgemm\"">);
     SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h,h,h,h,h,h,h,h\"">);
     SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h\"">);
     SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
@@ -80,8 +173,10 @@ Pattern TorchDequantLinearBiasQuantOp {
     SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
     SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,AB,*,*,*,*,*,*,*\"">);
     SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
     SetCustomAttr(infos.op, attr<"\"transpose_a\"">, attr<"false">);
     SetCustomAttr(infos.op, attr<"\"transpose_b\"">, attr<"false">);
+    SetCustomAttr(infos.op, attr<"\"weight_is_const\"">, attr<"true">);
 
     let rs = UnpackValue_1(infos.new_outputs);
     replace output_quantize_op with rs;
@@ -149,7 +244,7 @@ Pattern TorchDequantLinearQuantOp {
     let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
 
     /// 2. set attrs that are used by bladedisc.
-    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_qgemm_s8s8s8_pc\"">);
+    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_qgemm\"">);
     SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h,h,h,h,h,h,h\"">);
     SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h\"">);
     SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
@@ -157,8 +252,10 @@ Pattern TorchDequantLinearQuantOp {
     SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
     SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,AB,*,*,*,*,*,*\"">);
     SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
     SetCustomAttr(infos.op, attr<"\"transpose_a\"">, attr<"false">);
     SetCustomAttr(infos.op, attr<"\"transpose_b\"">, attr<"false">);
+    SetCustomAttr(infos.op, attr<"\"weight_is_const\"">, attr<"true">);
 
     let rs = UnpackValue_1(infos.new_outputs);
     replace output_quantize_op with rs;

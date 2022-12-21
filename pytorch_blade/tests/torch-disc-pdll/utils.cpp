@@ -9,6 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
 #include <unordered_map>
 
 #include "tests/torch-disc-pdll/utils.h"
@@ -39,6 +40,7 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite ConvertTorchConstantIntToI64Attr(cst: Value) -> Attr;
   Rewrite ConvertTorchTensorElemType(old_type: Type, type_str: Attr) -> Type;
   Rewrite GetTorchTensorType(v: Value) -> Type;
+  Rewrite GetTorchQuantizedTensorType(old_type: Type, num_bits: Value, is_signed: Value) -> Type;
 )pdll";
 
 static LogicalResult checkTorchNone(
@@ -212,14 +214,7 @@ static void convertTorchConstantIntToI64Attr(
   results.push_back(rewriter.getIntegerAttr(rewriter.getIntegerType(64), elem));
 }
 
-static void convertTorchTensorElemType(
-    PatternRewriter& rewriter,
-    PDLResultList& results,
-    ArrayRef<PDLValue> values) {
-  auto old_type = values[0].cast<Type>().cast<Torch::ValueTensorType>();
-  auto type_str =
-      values[1].cast<Attribute>().cast<StringAttr>().getValue().str();
-
+Type mapStrToType(PatternRewriter& rewriter, std::string type_str) {
   std::unordered_map<std::string, Type> typeconvert_dict = {
       {"i1", rewriter.getI1Type()},
       {"ui8",
@@ -236,13 +231,44 @@ static void convertTorchTensorElemType(
       {"f32", rewriter.getF32Type()}};
 
   assert(typeconvert_dict.find(type_str) != typeconvert_dict.end());
+  return typeconvert_dict[type_str];
+}
+
+static void convertTorchTensorElemType(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values) {
+  auto old_type = values[0].cast<Type>().cast<Torch::ValueTensorType>();
+  auto type_str =
+      values[1].cast<Attribute>().cast<StringAttr>().getValue().str();
+  auto elemType = mapStrToType(rewriter, type_str);
 
   auto new_type = Torch::ValueTensorType::get(
-      old_type.getContext(),
-      old_type.getOptionalSizes(),
-      typeconvert_dict[type_str]);
+      old_type.getContext(), old_type.getOptionalSizes(), elemType);
 
   results.push_back(Type(new_type));
+}
+
+static void getTorchQuantizedTensorType(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values) {
+  auto old_type = values[0].cast<Type>().cast<Torch::ValueTensorType>();
+  int64_t num_bits;
+  auto status = matchPattern(
+      values[1].cast<Value>(), Torch::m_TorchConstantInt(&num_bits));
+  assert(status);
+  bool is_signed;
+  status = matchPattern(
+      values[2].cast<Value>(), Torch::m_TorchConstantBool(&is_signed));
+  assert(status);
+  std::string is_signed_str = is_signed ? "i" : "ui";
+  std::string num_bits_str = std::to_string(num_bits);
+  std::string type_str = is_signed_str + num_bits_str;
+  auto elem_type = mapStrToType(rewriter, type_str);
+  auto quantized_type = Torch::ValueTensorType::get(
+      old_type.getContext(), old_type.getOptionalSizes(), elem_type);
+  results.push_back(Type(quantized_type));
 }
 
 // Register some pre-defined helper functions for torch pdl patterns.
@@ -257,6 +283,8 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
   pdlPatterns.registerRewriteFunction(
       "ConvertTorchConstantIntToI64Attr", convertTorchConstantIntToI64Attr);
   pdlPatterns.registerRewriteFunction("GetTorchTensorType", getTorchTensorType);
+  pdlPatterns.registerRewriteFunction(
+      "GetTorchQuantizedTensorType", getTorchQuantizedTensorType);
 
   pdlPatterns.registerConstraintFunction("CheckTorchNone", checkTorchNone);
   pdlPatterns.registerConstraintFunction(

@@ -1,10 +1,8 @@
 Pattern TFFusedAddMul {
   /// match phase: define the pattern
-  let inputQuant = op<mhlo_disc.quantize>(input : Value, inputScale : Value, inputZeroPoint : Value);
-  let inputDequant = op<mhlo_disc.dequantize>(inputQuant.0, inputScale, inputZeroPoint);
+  let inputDequant = op<mhlo_disc.dequantize>(input : Value, inputScale : Value, inputZeroPoint : Value);
 
-  let weightQuant = op<mhlo_disc.quantize>(weight : Value, weightScale : Value, weightZeroPoint : Value);
-  let weightDequant = op<mhlo_disc.dequantize>(weightQuant.0, weightScale, weightZeroPoint);
+  let weightDequant = op<mhlo_disc.dequantize>(weight : Value, weightScale : Value, weightZeroPoint : Value);
 
   let transpose_a_attr : Attr;
   let transpose_b_attr : Attr;
@@ -20,7 +18,7 @@ Pattern TFFusedAddMul {
     /// 1. create custom call op
     let inputs = PackValue_8(
         attr<"\"in\"">,
-        inputQuant.0, weightQuant.0,
+        input, weight,
         inputScale, inputZeroPoint,
         weightScale, weightZeroPoint,
         resultScale, resultZeroPoint

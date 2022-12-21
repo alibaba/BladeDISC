@@ -18,6 +18,9 @@ include "mlir/Pass/PassBase.td"
 def DiscLegalizeLmhloFusionToLinalgPass : Pass<"disc-legalize-lmhlo-fusion-to-linalg", "ModuleOp"> {
   let summary = "Pass to convert a lmhlo fusion op to linalg on tensor.";
   let constructor = "createDiscLegalizeLmhloFusionToLinalgPass()";
+  let dependentDialects = [
+      "disc_ral::disc_linalg_ext::DISCLinalgExtDialect",
+  ];
 }
 
 def DiscTransformDialectInterpreterPass : Pass<"disc-transform-dialect-interpreter", "ModuleOp"> {

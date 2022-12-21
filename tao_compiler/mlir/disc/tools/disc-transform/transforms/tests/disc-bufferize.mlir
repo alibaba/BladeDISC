@@ -92,3 +92,19 @@ transform.structured.canonicalized_sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.bufferize %arg1
 }
+
+// -----
+
+// CHECK-LABEL: @bufferize_constant_wrapper
+func.func @bufferize_constant_wrapper() -> tensor<512x1024xf32> {
+  // CHECK: %[[T0:.*]] = disc_linalg_ext.constant_wrapper dense<-8.000000e-01> : tensor<512x1024xf32>
+  // CHECK-NEXT: %[[T1:.*]] = bufferization.to_memref %[[T0]]
+  // CHECK-NEXT: return %[[T1]]
+  %0 = disc_linalg_ext.constant_wrapper dense<-8.000000e-01> : tensor<512x1024xf32>
+  return %0 : tensor<512x1024xf32>
+}
+
+transform.structured.canonicalized_sequence failures(propagate) {
+^bb1(%arg1: !pdl.operation):
+  transform.disc.bufferize %arg1
+}

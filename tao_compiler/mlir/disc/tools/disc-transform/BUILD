@@ -282,6 +282,7 @@ cc_library(
     name = "legalize_lmhlo_fusion_to_linalg",
     srcs = ["transforms/legalize_lmhlo_fusion_to_linalg.cc"],
     deps = [
+        ":DISCLinalgExtDialect",
         ":pass_details",
         "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",

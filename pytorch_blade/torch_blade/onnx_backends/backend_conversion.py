@@ -134,7 +134,7 @@ def build_onnx_engine(
     cast_int_to_i32=False,
     quantization_calib_file=None,
 ):
-    def try_cvt_to_onnx_func(c_module, subgraph, group_name, grp_calib_data=None):
+    def try_cvt_to_onnx_func(c_module, c_module_lock, subgraph, group_name, grp_calib_data=None):
         # NB: clear all cached memory for onnx tuning
         torch.cuda.empty_cache()
         # NB: some onnx lowering pass would modify the subgraph
@@ -162,13 +162,14 @@ def build_onnx_engine(
             return None
 
         group_name = f"{group_id}{group_name}"
-        otype = _register_onnx_engine(
-            c_module,
-            runtime_fallback_subgraph,
-            engine_data,
-            group_name,
-            disable_fallback,
-        )
+        with c_module_lock:
+            otype = _register_onnx_engine(
+                c_module,
+                runtime_fallback_subgraph,
+                engine_data,
+                group_name,
+                disable_fallback,
+            )
         return group_name, otype
 
     group_to_engine_conversion(

@@ -35,6 +35,10 @@ class OperationPass;
 
 namespace disc_ral {
 
+namespace disc_linalg_ext {
+class DISCLinalgExtDialect;
+}
+
 // Converts a lmhlo fusion op in side a function to its linalg on tensor
 // equivalent.
 std::unique_ptr<OperationPass<ModuleOp>>

@@ -57,6 +57,7 @@ CommonExtensions::CommonExtensions() {
 using bufferization::BufferizationOptions;
 using bufferization::OneShotAnalysisState;
 using bufferization::OneShotBufferizationOptions;
+using disc_linalg_ext::ConstantWrapperOp;
 using disc_linalg_ext::MultiLevelPackOp;
 
 namespace {
@@ -107,6 +108,13 @@ OneShotBufferizationOptions getBufferizationOptions() {
   options.allowReturnAllocs = true;
   options.functionBoundaryTypeConversion =
       BufferizationOptions::LayoutMapOption::IdentityLayoutMap;
+
+  // bufferization.to_memref is used to bufferize constant_wrapper ops. DISC has
+  // it's own logic to handle constants. We'd like to leave the these constant
+  // ops as is and insert bufferization.to_memref to convert the tensor to
+  // memref.
+  options.opFilter.denyOperation<disc_linalg_ext::ConstantWrapperOp>();
+  options.opFilter.denyOperation<bufferization::ToMemrefOp>();
 
   // This type converter converts tensor types to memref types when no exact
   // memref type can be inferred from the context.
@@ -444,6 +452,37 @@ struct TransferWriteOfFillOpPattern
   }
 };
 
+/// convert:
+///   %0 = disc_linalg_ext.constant_wrapper ...
+///   %1 = disc_linalg_ext.multi_level_pack %0 ...
+///   use(%1)
+/// to:
+///   %0 = disc_linalg_ext.constant_wrapper ... // folded
+///   use(%0)
+struct FoldMultiLevelPackOfConstantWrapperPattern
+    : public OpRewritePattern<MultiLevelPackOp> {
+  using OpRewritePattern<MultiLevelPackOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(MultiLevelPackOp op,
+                                PatternRewriter& rewriter) const override {
+    auto constOp = op.getInput().getDefiningOp<ConstantWrapperOp>();
+    if (!constOp) return failure();
+
+    Attribute paddingAttr;
+    if (op.getPaddingValue() &&
+        !matchPattern(op.getPaddingValue(), m_Constant(&paddingAttr)))
+      return failure();
+
+    SmallVector<Attribute> attrs{constOp.getValue(), nullptr, paddingAttr};
+    SmallVector<OpFoldResult> results;
+    if (failed(op.fold(attrs, results))) return failure();
+
+    rewriter.replaceOpWithNewOp<ConstantWrapperOp>(op, op.getOutputType(),
+                                                   results[0].get<Attribute>());
+    return success();
+  }
+};
+
 static void addAllRegisteredCanonicalizationPatterns(
     RewritePatternSet& patterns) {
   MLIRContext* ctx = patterns.getContext();
@@ -458,6 +497,7 @@ static void addAllRegisteredCanonicalizationPatterns(
   patterns.insert<FoldSelfInsertSlicePattern>(ctx);
   patterns.insert<TransferReadOfFillOpPattern>(ctx);
   patterns.insert<TransferWriteOfFillOpPattern>(ctx);
+  patterns.insert<FoldMultiLevelPackOfConstantWrapperPattern>(ctx);
 }
 
 }  // namespace

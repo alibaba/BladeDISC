@@ -564,6 +564,61 @@ MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(
   gpu_driver->dealloc(ctx, data_acc);
   return result;
 }
+
+MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention_output_transpose(
+    ExecutionContext* ctx, void* stream_handle /*stream_handle*/,
+    MemRefType<Eigen::half, 3> query, MemRefType<Eigen::half, 3> key,
+    MemRefType<Eigen::half, 4> value, void* customAttrs) {
+  auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_pdll_mem_eff_attention_output_transpose");
+  if (!attr) {
+    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
+  }
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  double alpha_softmax_double =
+      dictAttr.get("alpha").template as<FloatPDLAttr>().getValue();
+  float alpha_softmax = float(alpha_softmax_double);
+
+  auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+  auto stream =
+      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+  void* s = stream->implementation()->GpuStreamHack();
+  Eigen::half* query_data = query.data;
+  Eigen::half* key_data = key.data;
+  Eigen::half* value_data = value.data;
+
+  int64_t batch_size = int64_t(value.sizes[0]);
+  int seq_len = query.sizes[1];
+  int head_dim = query.sizes[2];
+  int num_heads = value.sizes[1];
+  int seq_len_kv = value.sizes[2];
+  int head_dim_v = value.sizes[3];
+
+  int64_t resultSizes[3] = {batch_size, seq_len, head_dim * num_heads};
+
+  if (isEmptyMemref(query) || isEmptyMemref(key) || isEmptyMemref(value)) {
+    TAO_VLOG(1) << "ral_conv_biasadd: early return for empty tensor";
+    return assignMemRef<Eigen::half, 3>(nullptr, resultSizes);
+    ;
+  }
+
+  auto data = static_cast<Eigen::half*>(gpu_driver->alloc(
+      ctx, batch_size * num_heads * seq_len * head_dim * sizeof(Eigen::half)));
+  auto result = assignMemRef<Eigen::half, 3>(data, resultSizes);
+
+  auto data_acc = static_cast<float*>(gpu_driver->alloc(
+      ctx, batch_size * num_heads * seq_len * head_dim * sizeof(float)));
+
+  bool ret = bladnn::mem_eff_attention(
+      result.data, query_data, key_data, value_data, data_acc, &batch_size,
+      seq_len, seq_len_kv, num_heads, head_dim, head_dim_v, 0.0f, alpha_softmax,
+      false, s, true);
+
+  if (!ret) {
+    ctx->signalError(Context::FAILURE, "bladnn fail");
+  }
+  gpu_driver->dealloc(ctx, data_acc);
+  return result;
+}
 #endif
 
 template <typename T, int N>
@@ -1974,6 +2029,8 @@ TAO_RAL_API("ral_pdll_conv_bias", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv_biasadd<float, 4>);
 TAO_RAL_API("ral_pdll_mem_eff_attention", "gpu",
             gpu::se_impl::ral_pdll_mem_eff_attention);
+TAO_RAL_API("ral_pdll_mem_eff_attention_output_transpose", "gpu",
+            gpu::se_impl::ral_pdll_mem_eff_attention_output_transpose);
 TAO_RAL_API("ral_pdll_group_norm", "gpu",
             gpu::se_impl::groupnorm_impl::bladnn_groupnorm<Eigen::half>);
 #endif

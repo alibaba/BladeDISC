@@ -861,6 +861,8 @@ cuda_library(
     ] + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
+    ]) + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]) + cuda_default_copts(),
     deps = [
         "@local_config_tf//:libtensorflow_framework",

@@ -19,6 +19,8 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/PassDetail.h"
 
 #define DEBUG_TYPE "disc-legalize-lmhlo-fusion-to-linalg"
@@ -104,10 +106,23 @@ LogicalResult emitDotGeneralOp(lmhlo::DotGeneralOp op, OpBuilder& b,
   return success();
 }
 
+LogicalResult emitConstOp(lmhlo::ConstantOp op, OpBuilder& b,
+                          BlockAndValueMapping& mapping) {
+  auto resultTy = convertMemRefToTensorType(op->getOperand(0).getType());
+  Location loc = op->getLoc();
+  auto newOp = b.create<disc_linalg_ext::ConstantWrapperOp>(loc, resultTy,
+                                                            op.getValue());
+  mapping.erase(op->getOperand(0));
+  mapping.map(op->getOperand(0), newOp.getResult());
+  return success();
+}
+
 LogicalResult emitLmhloOp(Operation* op, OpBuilder& b,
                           BlockAndValueMapping& mapping) {
   if (auto dotGeneralOp = dyn_cast<lmhlo::DotGeneralOp>(op)) {
     return emitDotGeneralOp(dotGeneralOp, b, mapping);
+  } else if (auto constOp = dyn_cast<lmhlo::ConstantOp>(op)) {
+    return emitConstOp(constOp, b, mapping);
   }
   // TODO(wyzero): support other lmhlo ops.
   return failure();

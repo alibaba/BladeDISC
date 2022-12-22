@@ -2052,6 +2052,7 @@ cc_library(
         "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
+        "//tensorflow/compiler/mlir/disc/tools/disc-transform:DISCLinalgExtDialect",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AffineDialect",
         "@llvm-project//mlir:FuncDialect",

@@ -34,6 +34,8 @@ limitations under the License.
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/LogicalResult.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/passes.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
@@ -155,6 +157,25 @@ LogicalResult DiscTransformLegalizeToLoopPass::inlineTransformedModule(
   b.setInsertionPoint(body, body->begin());
   auto mapping = buildValueMapping(fusionPattern, funcOps[0], true);
   for (auto& nestedOp : funcOps[0].getBody().front().without_terminator()) {
+    // ConstantWrapperOp will be cloned when we handle its corresponding
+    // bufferization::to_memref op.
+    if (isa<disc_linalg_ext::ConstantWrapperOp>(&nestedOp)) continue;
+    if (auto toMemrefOp = dyn_cast<bufferization::ToMemrefOp>(&nestedOp)) {
+      auto constOp = toMemrefOp->getOperand(0)
+                         .getDefiningOp<disc_linalg_ext::ConstantWrapperOp>();
+      if (!constOp)
+        return constOp->emitError()
+               << "unkown operand for bufferization::ToMemrefOp\n";
+      auto ip = b.saveInsertionPoint();
+      b.setInsertionPoint(fusion);
+      Location loc = constOp->getLoc();
+      Value buffer = b.create<memref::AllocOp>(
+          loc, toMemrefOp.getResult().getType().cast<MemRefType>());
+      b.create<lmhlo::ConstantOp>(loc, constOp.getValue(), buffer);
+      mapping.map(toMemrefOp.getResult(), buffer);
+      b.restoreInsertionPoint(ip);
+      continue;
+    }
     Operation* cloned = b.clone(nestedOp, mapping);
   }
   return success();

@@ -40,6 +40,38 @@ class DISCLinalgExt_Op<string mnemonic, list<Trait> traits = []> :
   code extraLinalgExtOpClassDeclaration = "";
 }
 
+// We intentionally mark this op not folable since folding it may lose the
+// specail semantics captured by this op. For example, it maybe be folded to
+// a arith.constant op. It's only supposed to be folded in some special
+// usecases (e.g. for packed weight).
+def DISCLinalgExt_ConstantWrapperOp : Op<DISCLinalgExt_Dialect, "constant_wrapper", [
+    Pure, AllTypesMatch<["value", "result"]>]>{
+  let summary = "integer or floating point tensor constant";
+  let description = [{
+    The `constant` operation produces an SSA value equal to some integer or
+    floating-point constant specified by an attribute. This is the way MLIR
+    forms simple integer and floating point constants.
+
+    Note that this op is not foldable, and is supposed to be used as a placeholder for
+    later rewriting for RAL.
+
+    Example:
+
+    ```
+    // Integer constant
+    %1 = disc_linalg_ext.constant_wrapper dense<42> : tensor<i32>
+
+    // Equivalent generic form
+    %1 = "disc_linalg_ext.constant_wrapper"() {value = dense<42> : tensor<i32>} : () -> tensor<i32>
+    ```
+  }];
+
+  let arguments = (ins ElementsAttr:$value);
+  let results = (outs AnyType:$result);
+
+  let assemblyFormat = "attr-dict $value";
+}
+
 def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
   DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>,
 ]>{

@@ -109,3 +109,21 @@ transform.structured.canonicalized_sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.apply_patterns %arg1 {canonicalization}
 }
+
+// -----
+
+// CHECK-LABEL: @fold_constant_wrapper_and_multi_level_pack
+func.func @fold_constant_wrapper_and_multi_level_pack() -> tensor<64x512x1x16xf32> {
+  // CHECK: %[[T0:.*]] = disc_linalg_ext.constant_wrapper dense<-8.000000e-01> : tensor<64x512x1x16xf32>
+  // CHECK-NEXT: return %[[T0]] : tensor<64x512x1x16xf32>
+  %cst = arith.constant 0.000000e+00 : f32
+  %0 = disc_linalg_ext.constant_wrapper dense<-8.000000e-01> : tensor<512x1024xf32>
+  %1 = tensor.empty() : tensor<64x512x1x16xf32>
+  %2 = disc_linalg_ext.multi_level_pack %0 with padding_value(%cst : f32) tile_levels = [1, 1] tile_sizes = [1, 16] permutation = [2, 0, 1, 3] into %1 : (tensor<512x1024xf32> tensor<64x512x1x16xf32>) -> tensor<64x512x1x16xf32>
+  return %2 : tensor<64x512x1x16xf32>
+}
+
+transform.structured.canonicalized_sequence failures(propagate) {
+^bb1(%arg1: !pdl.operation):
+  transform.disc.apply_patterns %arg1 {canonicalization}
+}

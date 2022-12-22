@@ -558,6 +558,32 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitDynamicReshapeOp(
   return type_str + " " + result_name + " = " + expression;
 }
 
+llvm::Optional<std::string> SourceEmitterCUDA::EmitTransposeOp(
+    Operation* op, ValueNameBinding& binding) {
+  lmhlo::TransposeOp transpose = dyn_cast_or_null<lmhlo::TransposeOp>(op);
+  if (!transpose) {
+    return llvm::None;
+  }
+
+  Value input_value = op->getOperand(0);
+  if (binding.count(input_value) == 0) {
+    return llvm::None;
+  }
+  std::string expression = binding[input_value];
+
+  Value result = op->getOperand(1);
+  MemRefType memref_type = result.getType().cast<MemRefType>();
+  Type result_type = memref_type.getElementType();
+  std::string type_str = MLIRType2CUDATypeStr(result_type);
+
+  std::string result_name = EmitUniqueName("transpose");
+
+  assert(binding.count(result) == 0);
+  binding[result] = result_name;
+
+  return type_str + " " + result_name + " = " + expression;
+}
+
 llvm::Optional<std::string> SourceEmitterCUDA::EmitOp(
     Operation* op, ValueNameBinding& binding) {
   if (isa<lmhlo::AbsOp, lmhlo::CeilOp, lmhlo::ConvertOp, lmhlo::CosineOp,
@@ -577,6 +603,8 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitOp(
     return EmitBroadcastOfScalarOrSplatConstantOp(op, binding);
   } else if (isa<lmhlo::DynamicReshapeOp>(op)) {
     return EmitDynamicReshapeOp(op, binding);
+  } else if (isa<lmhlo::TransposeOp>(op)) {
+    return EmitTransposeOp(op, binding);
   } else {
     return llvm::None;
   }
@@ -611,25 +639,14 @@ bool SourceEmitterCUDA::isSupportedOp(Operation* op) {
           lmhlo::MaxOp, lmhlo::MinOp, lmhlo::CompareOp, lmhlo::AndOp,
           lmhlo::OrOp, lmhlo::RemOp, lmhlo::PowOp>(op) ||
       isa<lmhlo::SelectOp, lmhlo::ClampOp>(op) ||
-      isa<lmhlo::DynamicReshapeOp>(op)) {
+      isa<lmhlo::DynamicReshapeOp, lmhlo::TransposeOp>(op)) {
     return true;
   } else if (isa<lmhlo::ConstantOp>(op)) {
     lmhlo::ConstantOp constant = dyn_cast<lmhlo::ConstantOp>(op);
     MemRefType memref_type = constant.getOutput().getType().cast<MemRefType>();
     return memref_type.getRank() == 0 || constant.getValue().isSplat();
   } else if (isa<lmhlo::DynamicBroadcastInDimOp>(op)) {
-    // Only deal with the case that the last rewriter in the same block is
-    // scalar or splat constant op.
-    auto input_op = findLastWriterInBlock(op->getOperand(0), op->getBlock());
-    if (!input_op.hasValue()) {
-      return false;
-    }
-    lmhlo::ConstantOp constant = dyn_cast<lmhlo::ConstantOp>(input_op.value());
-    if (!constant) {
-      return false;
-    }
-    MemRefType memref_type = constant.getOutput().getType().cast<MemRefType>();
-    return memref_type.getRank() == 0 || constant.getValue().isSplat();
+    return isBroadcastOnScalarOrSplatConstant(op);
   } else {
     return false;
   }

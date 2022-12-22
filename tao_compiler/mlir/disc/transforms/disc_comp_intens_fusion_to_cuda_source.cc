@@ -48,6 +48,7 @@ constexpr const char* kGatherA = "__IsGatherA__";
 constexpr const char* kGatherB = "__IsGatherB__";
 constexpr const char* kScatterD = "__IsScatterD__";
 constexpr const char* kPermuteDLayout = "__EpiloguePermuteDLayout__";
+constexpr const char* kBatchStrideD = "__BATCH_STRIDE_D__";
 
 constexpr const char* kParameterPermute = "__ParameterPermute__";
 
@@ -87,6 +88,7 @@ struct DiscCompIntensFusionToCUDASourcePass
   bool isScatterD(func::FuncOp func);
   bool getPermuteDLayoutString(func::FuncOp func,
                                std::string& permute_d_layout);
+  bool getBatchStrideDString(func::FuncOp func, std::string& batch_stride_d);
 
   void getResults(func::FuncOp func, SmallVector<Value>& results);
   void getEffectiveOperands(func::FuncOp func, SmallVector<Value>& operands);
@@ -267,8 +269,44 @@ bool DiscCompIntensFusionToCUDASourcePass::isScatterD(func::FuncOp func) {
 
 bool DiscCompIntensFusionToCUDASourcePass::getPermuteDLayoutString(
     func::FuncOp func, std::string& permute_d_layout) {
-  // TODO: update according to the problem.
-  permute_d_layout = "cutlass::layout::NoPermute";
+  SmallVector<Operation*> transpose_ops;
+  func.walk([&](Operation* op) {
+    if (isa<lmhlo::TransposeOp>(op)) {
+      transpose_ops.push_back(op);
+    }
+  });
+  if (transpose_ops.empty()) {
+    permute_d_layout = "cutlass::layout::NoPermute";
+  } else {
+    auto memref_ty =
+        transpose_ops[0]->getOperand(0).getType().dyn_cast<ShapedType>();
+    if (!memref_ty) {
+      return false;
+    }
+    auto dim_1 = memref_ty.getDimSize(1);
+    if (dim_1 == ShapedType::kDynamicSize) {
+      return false;
+    }
+    permute_d_layout = "cutlass::layout::Tensor4DPermuteBMM0213<" +
+                       std::to_string(dim_1) + ">";
+  }
+  return true;
+}
+
+bool DiscCompIntensFusionToCUDASourcePass::getBatchStrideDString(
+    func::FuncOp func, std::string& batch_stride_d) {
+  SmallVector<Operation*> transpose_ops;
+  func.walk([&](Operation* op) {
+    if (isa<lmhlo::TransposeOp>(op)) {
+      transpose_ops.push_back(op);
+    }
+  });
+  if (transpose_ops.empty()) {
+    batch_stride_d =
+        "static_cast<long long int>(m_) * static_cast<long long int>(n_)";
+  } else {
+    batch_stride_d = "0";
+  }
   return true;
 }
 
@@ -421,6 +459,7 @@ bool DiscCompIntensFusionToCUDASourcePass::
   std::string gather_b;
   std::string scatter_d;
   std::string permute_d_layout;
+  std::string batch_stride_d;
   std::string gemm_fusion_func_name;
 
   gemm_fusion_func_name = func.getName();
@@ -463,7 +502,8 @@ bool DiscCompIntensFusionToCUDASourcePass::
                                   operator_class_type) ||
       !getSMArchString(sm_arch) || !getScaleKindString(scale_kind) ||
       !getCountVectorizedString(d_type.getElementType(), count_vectorized) ||
-      !getPermuteDLayoutString(func, permute_d_layout)) {
+      !getPermuteDLayoutString(func, permute_d_layout) ||
+      !getBatchStrideDString(func, batch_stride_d)) {
     return false;
   }
 
@@ -567,6 +607,7 @@ bool DiscCompIntensFusionToCUDASourcePass::
       {kGatherB, gather_b},
       {kScatterD, scatter_d},
       {kPermuteDLayout, permute_d_layout},
+      {kBatchStrideD, batch_stride_d},
       {kParameterPermute, parameter_permute},
       {kGemmFusionFuncName, gemm_fusion_func_name}};
   cuda_code = absl::StrReplaceAll(cuda_code, codeToReplace);

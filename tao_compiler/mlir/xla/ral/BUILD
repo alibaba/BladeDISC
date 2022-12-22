@@ -880,9 +880,13 @@ cc_library(
     srcs = [
         "context/transpose_impl.cc",
     ],
-    copts = if_rocm_is_configured([
+    copts = [
+        "-DDISC_BUILD_FROM_TF_BRIDGE",
+    ] + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
+    ]) + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]) + cuda_default_copts(),
     deps = [
         ":ral_context",

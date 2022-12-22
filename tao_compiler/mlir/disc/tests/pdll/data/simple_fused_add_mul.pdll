@@ -47,6 +47,8 @@ Pattern TFFusedAddMul {
     SetCustomAttr(infos.op, attr<"\"dilations1\"">, attr<"[1]">);
     SetCustomAttr(infos.op, attr<"\"dilations22\"">, attr<"[2, 2]">);
     SetCustomAttr(infos.op, attr<"\"dilations1231\"">, attr<"[1,2,3,1]">);
+    let explicit_paddings = GetAttrOrDefault(infos.op, attr<"\"explicit_paddings\"">, attr<"[0,0,1,2,3,4,0,0]">);
+    SetCustomAttr(infos.op, attr<"\"explicit_paddings\"">, explicit_paddings);
 
     let rs = UnpackValue_1(infos.new_outputs);
     replace mul with rs;

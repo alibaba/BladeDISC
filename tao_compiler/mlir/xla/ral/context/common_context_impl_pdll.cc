@@ -278,6 +278,30 @@ MemRefType<T, N> simple_test_fused_add_mul_kernel(ExecutionContext* ctx,
       }
     }
   }
+
+  // check output shape with following variable:
+  // input: 4x16x16x25
+  // kernel: 3x3x25x8
+  // explicit_padding : [0, 0, 1, 2, 3, 4, 0, 0]
+  // strides: [1, 1], [2, 2], [2, 3]
+  // dilations: [1, 1], [2, 2], [2, 3]
+  int resultCheckSizes_1[9][4] = {{4, 17, 21, 8}, {4, 9, 11, 8}, {4, 9, 7, 8},
+                                  {4, 15, 19, 8}, {4, 8, 10, 8}, {4, 8, 7, 8},
+                                  {4, 15, 17, 8}, {4, 8, 9, 8},  {4, 8, 6, 8}};
+  auto& explicit_paddings = dictAttr.get("explicit_paddings")
+                                .template as<IntArrayPDLAttr>()
+                                .getValue();
+  (void)generateExplicitPaddings<4>(reorderDims, explicit_paddings, padding);
+  index = 0;
+  for (auto dilations : dilationsResults) {
+    for (auto strides : stridesResults) {
+      generateResultShape<4>(input, weight, reorderDims, padding, strides,
+                             dilations, resultSizes);
+      for (int i = 0; i < 4; ++i)
+        TAO_CHECK(resultSizes[i] == resultCheckSizes_1[index][i]);
+      index++;
+    }
+  }
 #endif
 
   TAO_VLOG(0) << "custom_attr {\n"

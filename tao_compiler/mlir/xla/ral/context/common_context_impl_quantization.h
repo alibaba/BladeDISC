@@ -28,7 +28,8 @@ inline void parseConvCustomeAttr(PDLAttr* attr, std::string& data_format_str,
                                  std::vector<int64_t>& dilations_arr,
                                  std::vector<int64_t>& strides_arr,
                                  std::string& padding_str,
-                                 bool& weight_is_const) {
+                                 bool& weight_is_const,
+                                 std::vector<int64_t>& explicit_paddings) {
   auto& dictAttr = attr->as<DictPDLAttr>();
   data_format_str = dictAttr.get("data_format").as<StrPDLAttr>().getValue();
   dilations_arr = dictAttr.get("dilations").as<IntArrayPDLAttr>().getValue();
@@ -36,6 +37,8 @@ inline void parseConvCustomeAttr(PDLAttr* attr, std::string& data_format_str,
   padding_str = dictAttr.get("padding").as<StrPDLAttr>().getValue();
   weight_is_const =
       dictAttr.get("weight_is_const").as<BoolPDLAttr>().getValue();
+  explicit_paddings =
+      dictAttr.get("explicit_paddings").as<IntArrayPDLAttr>().getValue();
 }
 
 template <int NDims>
@@ -118,6 +121,27 @@ inline bool generatePadding(MemRefType<int8_t, NDims> input,
     for (int i = 0; i < NDims - 2; ++i) {
       padding.data[2 * i] = 0;
       padding.data[2 * i + 1] = 0;
+    }
+  } else {
+    return false;
+  }
+  return true;
+}
+
+template <int NDims>
+inline bool generateExplicitPaddings(std::vector<int32_t> reorderDims,
+                                     std::vector<int64_t> explicit_paddings,
+                                     MemRefType<int32_t, 1>& padding) {
+  int size = explicit_paddings.size();
+  if (size == (NDims - 2) * 2) {
+    for (int i = 0; i < NDims - 2; ++i) {
+      padding.data[2 * i] = explicit_paddings[2 * i];
+      padding.data[2 * i + 1] = explicit_paddings[2 * i + 1];
+    }
+  } else if (size == NDims * 2) {
+    for (int i = 0; i < NDims - 2; ++i) {
+      padding.data[2 * i] = explicit_paddings[2 * reorderDims[i]];
+      padding.data[2 * i + 1] = explicit_paddings[2 * reorderDims[i] + 1];
     }
   } else {
     return false;

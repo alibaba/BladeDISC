@@ -384,9 +384,10 @@ MemRefType<int8_t, NDims> ral_pdll_qconv_acl_s8_s8_s8_per_channel(
   std::vector<int64_t> strides_arr;
   std::string padding_str = "";
   bool weight_is_const = false;
+  std::vector<int64_t> explicit_paddings;
   // parse conv custom attributes
   parseConvCustomeAttr(attr, data_format_str, dilations_arr, strides_arr,
-                       padding_str, weight_is_const);
+                       padding_str, weight_is_const, explicit_paddings);
 
   // reorder input and output's dimension,
   // transfer "NCHW" or "NHWC" into [spatial_dims, batch, channel]
@@ -411,9 +412,16 @@ MemRefType<int8_t, NDims> ral_pdll_qconv_acl_s8_s8_s8_per_channel(
   padding.sizes[0] = (NDims - 2) * 2;
   int32_t padding_data[padding.sizes[0]] = {0};
   padding.data = padding_data;
-  if (!generatePadding<NDims>(input, weight, padding_str, reorderDims, strides,
-                              dilations, padding))
-    ctx->signalError(Context::FAILURE, "fail to generate paddings");
+  if (padding_str == "EXPLICIT") {
+    if (!generateExplicitPaddings<NDims>(reorderDims, explicit_paddings,
+                                         padding))
+      ctx->signalError(Context::FAILURE, "fail to generate explicit paddings");
+  }
+  {
+    if (!generatePadding<NDims>(input, weight, padding_str, reorderDims,
+                                strides, dilations, padding))
+      ctx->signalError(Context::FAILURE, "fail to generate paddings");
+  }
 
   // generate metadata
   MemRefType<int32_t, 1> metadata;

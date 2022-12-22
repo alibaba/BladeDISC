@@ -43,6 +43,8 @@ Pattern TFQuantizedConv2dI8 {
     SetCustomAttr(infos.op, attr<"\"data_format\"">, data_format_attr);
     let dilations_attr = GetAttrOrDefault(conv2d, attr<"\"dilations\"">, attr<"[1,1,1,1]">);
     SetCustomAttr(infos.op, attr<"\"dilations\"">, dilations_attr);
+    let explicit_paddings = GetAttrOrDefault(conv2d, attr<"\"explicit_paddings\"">, attr<"[]">);
+    SetCustomAttr(infos.op, attr<"\"explicit_paddings\"">, explicit_paddings);
     SetCustomAttr(infos.op, attr<"\"weight_is_const\"">, IsConstantTensor(weight));
 
     let rs = UnpackValue_1(infos.new_outputs);

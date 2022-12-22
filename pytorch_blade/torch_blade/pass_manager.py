@@ -309,6 +309,42 @@ def _jit_pass_clean_script(graph):
     torch._C._jit_pass_dce(graph)
 
 
+def _erase_input_concrete_types(graph):
+    for idx, input in enumerate(graph.inputs()):
+        # skip the 1th self input value
+        is_tensor = input.type().isSubtypeOf(torch._C.TensorType.get())
+        if not is_tensor: continue
+        inp_typ = input.type()
+        dim = inp_typ.dim()
+        if isinstance(dim, int):
+            tools.set_tensor_shape(input, [-1] * dim)
+
+
+def _set_annotate_args(c_module, annotations):
+    graph = c_module.forward.graph
+    for idx, input in enumerate(graph.inputs()):
+        # skip the 1th self input value
+        if idx == 0:
+            continue
+        input_dims, _ = annotations[idx-1]
+        tools.set_tensor_shape(input, input_dims)
+
+
+def _fixup_for_dynamic_shape(cfg, c_module):
+    if cfg.enable_static_shape:
+        return
+
+    from torch_blade.mlir import _DISC_NAME
+    # shape annotations for DISC
+    if cfg.optimization_pipeline != _DISC_NAME:
+        return
+    if cfg.annotate_args:
+        _set_annotate_args(c_module, cfg.annotate_args)
+    else:
+        _erase_input_concrete_types(c_module.forward.graph)
+    torch_blade.jit_pass_propagate_input_shapes(c_module.forward.graph)
+
+
 def _optimize_common(c_module):
     cfg = Config.get_current_context_or_new()
     static_shape = cfg.enable_static_shape
@@ -324,6 +360,7 @@ def _optimize_common(c_module):
         presv_attrs = cfg.preserved_attributes
         c_module = tools.freeze_module(c_module, presv_attrs, disableShapePeephole=not static_shape)
         torch._C._jit_pass_remove_dropout(c_module)
+        _fixup_for_dynamic_shape(cfg, c_module)
         graph = c_module.forward.graph
         _jit_pass_remove_nograd(graph)
         _jit_pass_freeze_requires_grad(graph)

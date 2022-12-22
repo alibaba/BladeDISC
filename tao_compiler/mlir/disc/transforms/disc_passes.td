@@ -575,13 +575,4 @@ def DiscTransformLegalizeToLoopPass : Pass<"disc-transform-legalize-to-loop", "m
     Option<"enableExpensiveChecks_", "enable-expensive-checks", "bool",
            /*default=*/"false", "perform expensive checks to better report errors in the transform IR.">,
   ];
-  let dependentDialects = [
-      "AffineDialect",
-      "LLVM::LLVMDialect",
-      "arith::ArithDialect",
-      "linalg::LinalgDialect",
-      "scf::SCFDialect",
-      "tensor::TensorDialect",
-      "vector::VectorDialect",
-  ];
 }

@@ -12,7 +12,10 @@
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/SourceMgr.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Parser/Parser.h"
+#include "mlir/Support/FileUtilities.h"
 
 #define DEBUG_TYPE "disc-transform-utils"
 
@@ -47,6 +50,26 @@ Operation* createLinalgCopyOp(OpBuilder& b, Location loc, Value from, Value to,
         b.create<linalg::YieldOp>(loc, args.front());
       },
       attributes);
+}
+
+/// Load transform dialect IR from the given file.
+LogicalResult parseTransformModuleFromFile(
+    MLIRContext* context, llvm::StringRef transformFileName,
+    OwningOpRef<ModuleOp>& transformModule) {
+  // Parse transformFileName content into a ModuleOp.
+  std::string errorMessage;
+  auto memoryBuffer = openInputFile(transformFileName, &errorMessage);
+  if (!memoryBuffer) {
+    llvm::errs() << "failed to parse transform file: " << transformFileName
+                 << "\n";
+    return failure();
+  }
+  // Tell sourceMgr about this buffer, the parser will pick it up.
+  llvm::SourceMgr sourceMgr;
+  sourceMgr.AddNewSourceBuffer(std::move(memoryBuffer), llvm::SMLoc());
+  transformModule =
+      OwningOpRef<ModuleOp>(parseSourceFile<ModuleOp>(sourceMgr, context));
+  return success();
 }
 
 }  // namespace disc_ral

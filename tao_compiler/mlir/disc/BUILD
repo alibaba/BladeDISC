@@ -2039,8 +2039,9 @@ disc_cc_library(
 )
 
 cc_library(
-    name = "disc_transform_legalize_to_loop",
-    srcs = ["transforms/disc_transform_legalize_to_loop.cc"],
+    name = "disc_transform_schedule",
+    srcs = ["transforms/disc_transform_schedule.cc"],
+    hdrs = ["transforms/disc_transform_schedule.h"],
     deps = [
         ":codegen_utils",
         ":disc_lhlo_elemental_utils",
@@ -2053,6 +2054,7 @@ cc_library(
         "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
         "//tensorflow/compiler/mlir/disc/tools/disc-transform:DISCLinalgExtDialect",
+        "//tensorflow/tsl/platform:logging",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AffineDialect",
         "@llvm-project//mlir:FuncDialect",
@@ -2065,6 +2067,15 @@ cc_library(
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:Transforms",
         "@llvm-project//mlir:VectorDialect",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_transform_legalize_to_loop",
+    srcs = ["transforms/disc_transform_legalize_to_loop.cc"],
+    deps = [
+        ":disc_transform_schedule",
     ],
     alwayslink = 1,
 )

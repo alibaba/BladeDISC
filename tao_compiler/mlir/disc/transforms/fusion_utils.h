@@ -417,6 +417,9 @@ void setFusionName(OpBuilder& b, lmhlo::FusionOp op, StringRef name);
 // Here different tags is mapping to different variants of the fusion op.
 void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag);
 
+// Returns the tag string attached to the fusion op.
+StringRef getFusionTagStr(lmhlo::FusionOp op);
+
 // Returns the full name of the fusion op
 // Here full name is composed of the name and tag of the fusion op.
 std::string getFusionFullName(lmhlo::FusionOp op);

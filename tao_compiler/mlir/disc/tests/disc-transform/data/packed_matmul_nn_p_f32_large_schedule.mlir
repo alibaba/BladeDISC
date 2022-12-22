@@ -54,7 +54,7 @@ transform.structured.canonicalized_sequence failures(propagate) {
     multireduction_lowering = "innerparallel",
     split_transfers = "linalg-copy",
     // stages = [0, 1, 2, 3, 4, 5, 6, 7],
-    stages = [0, 1, 2, 3],
+    stages = [0, 1, 2, 3, 4],
     transpose_avx2_lowering = false,
     transpose_lowering = "eltwise",
     unroll_vector_transfers = true

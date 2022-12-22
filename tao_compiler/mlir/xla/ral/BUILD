@@ -329,9 +329,9 @@ cc_library(
         "-lm"
     ] + if_blade_gemm([
         "-Wl,--start-group",
-        "$(location //tao/third_party/mkldnn:build)/intel/lib/libmkl_intel_ilp64.a",
-        "$(location //tao/third_party/mkldnn:build)/intel/lib/libmkl_gnu_thread.a",
-        "$(location //tao/third_party/mkldnn:build)/intel/lib/libmkl_core.a",
+        "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",
+        "$(location @mkl_static//:lib)/libmkl_gnu_thread.a",
+        "$(location @mkl_static//:lib)/libmkl_core.a",
         "-Wl,--end-group",
     ]),
     deps = [
@@ -363,9 +363,8 @@ cc_library(
         ":disc_mkl_cmake",
         ":ral_md5",
     ]),
-    data = [
-    ] + if_blade_gemm([
-        "//tao/third_party/mkldnn:build",
+    data = if_blade_gemm([
+        "@mkl_static//:lib",
     ]),
     alwayslink = 1,
 )
@@ -726,10 +725,8 @@ cc_library(
     ]) + if_mkldnn([
         ":disc_mkl_bazel",
         ":ral_md5",
-    ]) + [
-    ],
-    data = [
-    ] + if_blade_gemm([
+    ]),
+    data = if_blade_gemm([
         "@mkl_static//:lib",
     ]),
     alwayslink = 1,

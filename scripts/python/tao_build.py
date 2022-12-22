@@ -468,6 +468,7 @@ def tao_bridge_bazel_config(args):
         bazel_config += " --config=disc_cuda"
         if args.platform_alibaba and args.blade_gemm:
             bazel_config += " --config=blade_gemm"
+            bazel_config += " --config=disc_mkldnn"
     if args.platform_alibaba:
         bazel_config += " --config=platform_alibaba"
     return bazel_config
@@ -803,6 +804,9 @@ def parse_args():
     )
     parser.add_argument(
         "--build_dbg_symbol", action="store_true", help="Add -g to build options"
+    )
+    parser.add_argument(
+        "--blade_gemm", action="store_true", help="build with is_blade_gemm=True"
     )
     parser.add_argument(
         "--blade_gemm_nvcc",

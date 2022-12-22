@@ -369,7 +369,7 @@ def update_cpu_specific_setting(args):
     if not hasattr(args, 'target_cpu_arch'):
         args.target_cpu_arch = ""
 
-    if args.cpu_only or args.blade_gemm:
+    if args.cpu_only:
         auto_detect_host_cpu(args)
         args.enable_mkldnn = (args.x86 or args.aarch64)
 
@@ -677,12 +677,6 @@ def add_arguments_common(parser):
         required=False,
         action="store_true",
         help="Build tao with cpu support only",
-    )
-    parser.add_argument(
-        "--blade_gemm",
-        required=False,
-        action="store_true",
-        help="Build tao with blade_gemm support",
     )
     parser.add_argument(
         "--aarch64",

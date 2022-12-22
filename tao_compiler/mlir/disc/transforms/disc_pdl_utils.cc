@@ -89,6 +89,7 @@ static const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite CreateCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
   Rewrite SetAttr(op : Op, key : Attr, value : Attr);
   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
+  Rewrite GetAttrOrDefault(op : Op, key : Attr, value : Attr) -> (Attr);
 
   Constraint CheckConstantTensor(v : Value);
   Rewrite IsConstantTensor(v : Value) -> Attr;
@@ -258,6 +259,12 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
             NamedAttribute(keyAttr.cast<StringAttr>(), valueAttr));
         auto newCustomAttrs = DictionaryAttr::get(op->getContext(), newAttrs);
         op->setAttr("custom_attrs", newCustomAttrs);
+      });
+  pdlPatterns.registerRewriteFunction(
+      "GetAttrOrDefault", [](PatternRewriter& rewriter, Operation* op,
+                             Attribute keyAttr, Attribute valueAttr) {
+        StringRef key = keyAttr.cast<StringAttr>().getValue();
+        return op->hasAttr(key) ? op->getAttr(key) : valueAttr;
       });
   pdlPatterns.registerRewriteFunction("CreateCustomCall", createCustomCall);
   pdlPatterns.registerRewriteFunction("PackValue_0", packValues<0>);

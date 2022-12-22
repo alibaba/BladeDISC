@@ -4,18 +4,14 @@ Pattern TFQuantizedConv2dI8 {
 
   let weightDequant = op<mhlo_disc.dequantize>(weight : Value, weightScale : Value, weightZeroPoint : Value);
 
-  let data_format_attr : Attr;
-  let dilations_attr : Attr;
   let padding_attr : Attr;
   let strides_attr : Attr;
-  let matmul = op<tf.Conv2D>(inputDequant.0, weightDequant.0) {
-    data_format = data_format_attr,
-    dilations = dilations_attr,
+  let conv2d = op<tf.Conv2D>(inputDequant.0, weightDequant.0) {
     padding = padding_attr,
     strides = strides_attr
   };
 
-  let resultQuant = op<mhlo_disc.quantize>(matmul.0, resultScale : Value, resultZeroPoint : Value);
+  let resultQuant = op<mhlo_disc.quantize>(conv2d.0, resultScale : Value, resultZeroPoint : Value);
 
   /// rewrite phase
   rewrite resultQuant with {
@@ -41,10 +37,12 @@ Pattern TFQuantizedConv2dI8 {
     SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
 
     /// 3. set attrs that are directly passed to the custom call kernel.
-    SetCustomAttr(infos.op, attr<"\"data_format\"">, data_format_attr);
-    SetCustomAttr(infos.op, attr<"\"dilations\"">, dilations_attr);
-    SetCustomAttr(infos.op, attr<"\"padding\"">, padding_attr);
     SetCustomAttr(infos.op, attr<"\"strides\"">, strides_attr);
+    SetCustomAttr(infos.op, attr<"\"padding\"">, padding_attr);
+    let data_format_attr = GetAttrOrDefault(conv2d, attr<"\"data_format\"">, attr<"\"NHWC\"">);
+    SetCustomAttr(infos.op, attr<"\"data_format\"">, data_format_attr);
+    let dilations_attr = GetAttrOrDefault(conv2d, attr<"\"dilations\"">, attr<"[1,1,1,1]">);
+    SetCustomAttr(infos.op, attr<"\"dilations\"">, dilations_attr);
     SetCustomAttr(infos.op, attr<"\"weight_is_const\"">, IsConstantTensor(weight));
 
     let rs = UnpackValue_1(infos.new_outputs);

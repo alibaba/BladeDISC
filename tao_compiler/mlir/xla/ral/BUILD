@@ -857,7 +857,7 @@ cuda_library(
         "context/custom_library/gpu_helper.h"
     ],
     copts = [
-        "DISC_BUILD_FROM_TF_BRIDGE"
+        "-DDISC_BUILD_FROM_TF_BRIDGE"
     ] + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",

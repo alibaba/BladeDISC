@@ -805,9 +805,6 @@ def parse_args():
         "--build_dbg_symbol", action="store_true", help="Add -g to build options"
     )
     parser.add_argument(
-        "--blade_gemm", action="store_true", help="build with is_blade_gemm=True"
-    )
-    parser.add_argument(
         "--blade_gemm_nvcc",
         required=False,
         default="/usr/local/cuda-11.6/bin/nvcc",

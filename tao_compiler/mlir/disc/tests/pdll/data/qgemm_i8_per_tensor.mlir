@@ -8,11 +8,11 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
       (tensor<?x?xf32>, tensor<f32>, tensor<i32>) -> tensor<?x?xf32>
 
       %weight:2 = tf_executor.island wraps "tf.Const"() {value = dense<-0.8> : tensor<25x71xf32>} : () -> tensor<25x71xf32>
-      %weight_scale:2 = tf_executor.island wraps "tf.Const"() {value = dense<1.568627e-2> : tensor<71xf32>} : () -> tensor<71xf32>
-      %weight_zero_point:2 = tf_executor.island wraps "tf.Const"() {value = dense<0> : tensor<71xi32>} : () -> tensor<71xi32>
+      %weight_scale:2 = tf_executor.island wraps "tf.Const"() {value = dense<1.568627e-2> : tensor<f32>} : () -> tensor<f32>
+      %weight_zero_point:2 = tf_executor.island wraps "tf.Const"() {value = dense<0> : tensor<i32>} : () -> tensor<i32>
       %quantized_weight:2 = tf_executor.island wraps "tf.DiscFakeQuant"(%weight, %weight_scale, %weight_zero_point) {
-          axis = [1], use_dynamic = false, use_signed = true, use_symmetric = true, num_bits = 8 : i64, quant_max = 127 : i64, quant_min = -128 : i64} :
-      (tensor<25x71xf32>, tensor<71xf32>, tensor<71xi32>) -> tensor<25x71xf32>
+          axis = [], use_dynamic = false, use_signed = true, use_symmetric = true, num_bits = 8 : i64, quant_max = 127 : i64, quant_min = -128 : i64} :
+      (tensor<25x71xf32>, tensor<f32>, tensor<i32>) -> tensor<25x71xf32>
 
       %result:2 = tf_executor.island wraps "tf.MatMul"(%quantized_input, %quantized_weight)
       {

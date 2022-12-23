@@ -10,11 +10,7 @@
 // limitations under the License.
 
 #if defined(TAO_CPU_ONLY)
-#include <thread>
-
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/pdll_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_quantization.h"
 
 // aarch64 related
 #if defined(TAO_AARCH64)
@@ -38,7 +34,6 @@ namespace {
 
 // aarch64 related
 #if defined(TAO_AARCH64)
-
 template <int NDims>
 void ral_qconv_s8_s8_s8(
     ExecutionContext* ctx, opaque_t /*stream_handle*/,
@@ -351,6 +346,264 @@ void ral_qconv_acl_s8_s8_s8_per_channel(
     dumpConvLikeKernelProflingInfo<int8_t>(
         params, timer.GetNanoSeconds(), "ral_qconv_acl_s8_s8_s8_per_channel");
   }
+}
+
+/// @brief firstly parse custom attributes to generate data_format, padding,
+///        dilations and strides, and then use these information to compute
+///        the result's shape after convolution. Finally call the ACL
+///        convolution creator.
+/// @param input [batch, in_height, in_width, in_channels] with "NHWC" or
+///              [batch, in_channels, in_height, in_width] with "NCHW"
+/// @param weight [filter_height, filter_width, in_channels, out_channels]
+/// @param customAttrs data_format, padding, strides, dilations
+/// @return result [batch, out_height, out_width, out_channels] with "NHWC" or
+///                [batch, out_channels, out_height, out_width] with "NCHW"
+template <int NDims>
+MemRefType<int8_t, NDims> ral_pdll_qconv_acl_s8_s8_s8_per_channel(
+    ExecutionContext* ctx, opaque_t /*stream_handle*/,
+    MemRefType<int8_t, NDims> input, MemRefType<int8_t, NDims> weight,
+    MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
+    MemRefType<float, 1> weightScales, MemRefType<int32_t, 1> weightZeroPoints,
+    MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
+    void* customAttrs) {
+  CpuTimer timer("ral_pdll_qconv");
+  if (isEmptyMemref(input) || isEmptyMemref(weight)) {
+    TAO_VLOG(1) << "ral_pdll_qconv_acl_s8_s8_s8_per_channel: early return for "
+                   "empty tensor";
+    return assignMemRef<int8_t, NDims>(nullptr, (int64_t[NDims]){0});
+  }
+
+  auto attr = getOrParsePDLAttr(ctx, customAttrs,
+                                "ral_pdll_qgemm_acl_s8_s8_s8_per_channel");
+  if (!attr) {
+    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
+  }
+  // parse conv custom attrs
+  std::string data_format_str = "";
+  std::vector<int64_t> dilations_arr;
+  std::vector<int64_t> strides_arr;
+  std::string padding_str = "";
+  bool weight_is_const = false;
+  std::vector<int64_t> explicit_paddings;
+  // parse conv custom attributes
+  parseConvCustomeAttr(attr, data_format_str, dilations_arr, strides_arr,
+                       padding_str, weight_is_const, explicit_paddings);
+
+  // reorder input and output's dimension,
+  // transfer "NCHW" or "NHWC" into [spatial_dims, batch, channel]
+  std::vector<int32_t> reorderDims(NDims, 0);
+  if (!generateReorderDims<NDims>(data_format_str, reorderDims))
+    ctx->signalError(Context::FAILURE, "fail to generate spatial dims");
+
+  // generate strides
+  std::vector<int32_t> strides(NDims - 2, 0);
+  if (!generateStrides<NDims>(reorderDims, strides_arr, strides))
+    ctx->signalError(Context::FAILURE,
+                     "fail to generate strides and dilations");
+
+  // generate dilations
+  std::vector<int32_t> dilations(NDims - 2, 0);
+  if (!generateDilations<NDims>(reorderDims, dilations_arr, dilations))
+    ctx->signalError(Context::FAILURE,
+                     "fail to generate strides and dilations");
+
+  // generate paddings
+  MemRefType<int32_t, 1> padding;
+  padding.sizes[0] = (NDims - 2) * 2;
+  int32_t padding_data[padding.sizes[0]] = {0};
+  padding.data = padding_data;
+  if (padding_str == "EXPLICIT") {
+    if (!generateExplicitPaddings<NDims>(reorderDims, explicit_paddings,
+                                         padding))
+      ctx->signalError(Context::FAILURE, "fail to generate explicit paddings");
+  }
+  {
+    if (!generatePadding<NDims>(input, weight, padding_str, reorderDims,
+                                strides, dilations, padding))
+      ctx->signalError(Context::FAILURE, "fail to generate paddings");
+  }
+
+  // generate metadata
+  MemRefType<int32_t, 1> metadata;
+  metadata.sizes[0] = NDims * 3 + (NDims - 2) * 2 + 1;
+  int32_t metadata_data[metadata.sizes[0]] = {0};
+  metadata.data = metadata_data;
+  if (!generateMetadata<NDims>(strides, dilations, reorderDims, weight_is_const,
+                               metadata))
+    ctx->signalError(Context::FAILURE, "fail to generate metadata");
+
+  // generate result
+  std::vector<int64_t> resultSizes(NDims, 0);
+  generateResultShape<NDims>(input, weight, reorderDims, padding, strides,
+                             dilations, resultSizes);
+  int resultTotalSize = 1;
+  for (auto size : resultSizes) resultTotalSize *= size;
+  auto driver = ctx->getDriver<cpu::CPUDriver>(cpu::CPUDriver::name());
+  auto resultData = static_cast<int8_t*>(
+      driver->alloc(ctx, resultTotalSize * sizeof(int8_t)));
+  MemRefType<int8_t, NDims> result =
+      assignMemRef<int8_t, NDims>(resultData, resultSizes);
+
+  ConvParams params;
+  if (!parseConvParams(ctx, input, weight, padding, result, metadata,
+                       &params)) {
+    ctx->signalError(Context::FAILURE, "invalid conv params");
+  }
+
+  applyACLThreadPoolConfigIfNotSet();
+
+  if (TAO_VLOG_IS_ON(2)) {
+    for (int i = 0; i < Size(input); ++i) {
+      TAO_VLOG(0) << "input[" << i
+                  << "] = " << static_cast<int32_t>(input.data[i]);
+    }
+    for (int i = 0; i < Size(weight); ++i) {
+      TAO_VLOG(0) << "weight[" << i
+                  << "] = " << static_cast<int32_t>(weight.data[i]);
+    }
+  }
+
+  if (TAO_VLOG_IS_ON(1)) {
+    TAO_VLOG(0) << "input scale = " << inputScales.data[0];
+    TAO_VLOG(0) << "input zero point = " << inputZeroPoints.data[0];
+    TAO_VLOG(0) << "result scale = " << resultScales.data[0];
+    TAO_VLOG(0) << "result zero point = " << resultZeroPoints.data[0];
+    for (int i = 0; i < weightScales.sizes[0]; ++i)
+      TAO_VLOG(0) << "weight_scale[" << i << "] = " << weightScales.data[i];
+    for (int i = 0; i < weightZeroPoints.sizes[0]; ++i)
+      TAO_VLOG(0) << "weight_zero_point[" << i
+                  << "] = " << weightZeroPoints.data[i];
+  }
+
+  if (params.groups > 1) {
+    ctx->signalError(Context::FAILURE, "invalid conv params");
+  }
+
+  auto src_dims = params.src.get_dims();
+  auto dst_dims = params.dst.get_dims();
+  auto weight_dims = params.weight.get_dims();
+  int N = src_dims[0];
+  int Ci = src_dims[1];
+  int Ih = src_dims[2];
+  int Iw = src_dims[3];
+  int Co = dst_dims[1];
+  int Oh = dst_dims[2];
+  int Ow = dst_dims[3];
+  int Kh = weight_dims[2];
+  int Kw = weight_dims[3];
+
+  if (TAO_VLOG_IS_ON(1)) {
+    TAO_VLOG(1) << "N = " << N;
+    TAO_VLOG(1) << "Ih = " << Ih;
+    TAO_VLOG(1) << "Iw = " << Iw;
+    TAO_VLOG(1) << "Ci = " << Ci;
+    TAO_VLOG(1) << "Oh = " << Oh;
+    TAO_VLOG(1) << "Ow = " << Ow;
+    TAO_VLOG(1) << "Co = " << Co;
+    TAO_VLOG(1) << "Kh = " << Kh;
+    TAO_VLOG(1) << "Kw = " << Kw;
+    TAO_VLOG(0) << "params.strides[1] = " << params.strides[1];
+    TAO_VLOG(0) << "params.strides[0] = " << params.strides[0];
+    TAO_VLOG(0) << "params.padding_l[1] = " << params.padding_l[1];
+    TAO_VLOG(0) << "params.padding_l[0] = " << params.padding_l[0];
+    TAO_VLOG(0) << "params.padding_r[1] = " << params.padding_r[1];
+    TAO_VLOG(0) << "params.padding_r[0] = " << params.padding_r[0];
+    TAO_VLOG(0) << "params.dilates[1] = " << params.dilates[1];
+    TAO_VLOG(0) << "params.dilates[0] = " << params.dilates[0];
+  }
+
+  auto AclQconvCreator = [&](const arm_compute::ITensorPack* pack) {
+    std::shared_ptr<AclConvInfo> info(new AclConvInfo);
+    auto src_shape = TensorShape(Ci, Iw, Ih, N);
+    auto weights_shape = TensorShape(Ci, Kw, Kh, Co);
+    auto dst_shape = TensorShape(Co, Ow, Oh, N);
+
+    DataLayout data_layout = DataLayout::NHWC;
+    DataType data_type = DataType::QASYMM8_SIGNED;
+    TensorInfo src_info = TensorInfo(src_shape, 1, data_type, data_layout);
+    TensorInfo weights_info =
+        TensorInfo(weights_shape, 1, DataType::QSYMM8_PER_CHANNEL, data_layout);
+    TensorInfo dst_info = TensorInfo(dst_shape, 1, data_type, data_layout);
+    const QuantizationInfo src_qinfo = QuantizationInfo();
+    src_info.set_quantization_info(
+        QuantizationInfo(*inputScales.data, *inputZeroPoints.data));
+    std::vector<float> scales(weightScales.data,
+                              weightScales.data + weightScales.sizes[0]);
+    std::vector<int32_t> zero_points(
+        weightZeroPoints.data,
+        weightZeroPoints.data + weightZeroPoints.sizes[0]);
+    weights_info.set_quantization_info(
+        QuantizationInfo(std::move(scales), std::move(zero_points)));
+    dst_info.set_quantization_info(
+        QuantizationInfo(*resultScales.data, *resultZeroPoints.data));
+
+    info->src.allocator()->init(src_info);
+    info->weights.allocator()->init(weights_info);
+    info->dst.allocator()->init(dst_info);
+    info->src.allocator()->import_memory(input.data);
+    info->weights.allocator()->import_memory(weight.data);
+    info->dst.allocator()->import_memory(result.data);
+
+    if (!info->op.validate(
+            &src_info, &weights_info, nullptr, &dst_info,
+            PadStrideInfo{params.strides[1], params.strides[0],
+                          params.padding_l[1], params.padding_r[1],
+                          params.padding_l[0], params.padding_r[0],
+                          DimensionRoundingType::FLOOR},
+            WeightsInfo{}, Size2D{params.dilates[1], params.dilates[0]})) {
+      ctx->signalError(
+          Context::FAILURE,
+          "fail to validate ral_qconv_acl_s8_s8_s8_per_channel conv");
+    } else {
+      info->op.configure(&info->src, &info->weights, nullptr, &info->dst,
+                         PadStrideInfo{params.strides[1], params.strides[0],
+                                       params.padding_l[1], params.padding_r[1],
+                                       params.padding_l[0], params.padding_r[0],
+                                       DimensionRoundingType::FLOOR},
+                         WeightsInfo{},
+                         Size2D{params.dilates[1], params.dilates[0]});
+    }
+    if (pack) info->op.reuse_packed_weight(*pack);
+    info->op.prepare(&info->src, &info->weights, nullptr, &info->dst);
+    return info;
+  };
+
+  std::shared_ptr<AclConvInfo> info;
+  std::shared_ptr<AclConvThreadSafeInfo> thread_safe_info;
+  if (isWeightPrePackingEnabled() && params.weight_is_const) {
+    std::string unique_name = "disc.ral_qconv_acl_s8_s8_s8_per_channel";
+    auto state = ctx->getOrCreateResource<AclConvState>(
+        unique_name, []() { return new AclConvState; });
+    auto key = makeConvParamsKey(input, weight, padding, result, metadata,
+                                 kDiscCpuDefaultThreadId);
+    auto dynamicKey = makeDynamicShapeConvParamsKey(
+        input, weight, padding, result, metadata, kDiscCpuDefaultThreadId);
+    thread_safe_info = state->getOrCreate(dynamicKey);
+    info = thread_safe_info->getOrCreate(key, AclQconvCreator);
+  } else {
+    info = AclQconvCreator(nullptr);
+  }
+
+  // TOOD(disc): re-import quantization info when online-quantization is
+  // supported.
+  info->src.allocator()->import_memory(input.data);
+  info->dst.allocator()->import_memory(result.data);
+  info->op.run(&info->src, &info->weights, nullptr, &info->dst);
+
+  if (TAO_VLOG_IS_ON(2)) {
+    for (int i = 0; i < Size(result); ++i) {
+      TAO_VLOG(0) << "result[" << i
+                  << "] = " << static_cast<int32_t>(result.data[i]);
+    }
+  }
+
+  timer.Stop();
+  if (isProfilingEnabled()) {
+    dumpConvLikeKernelProflingInfo<int8_t>(
+        params, timer.GetNanoSeconds(),
+        "ral_pdll_qconv_acl_s8_s8_s8_per_channel");
+  }
+  return result;
 }
 
 void ral_qgemm_acl_s8_s8_s8_per_channel(
@@ -1144,6 +1397,9 @@ TAO_RAL_API("ral_qconv_s8_s8_s8", "cpu", ral_qconv_s8_s8_s8<4>);
 
 // new fake_quant based implementation.
 TAO_RAL_API("ral_qconv", "cpu", ral_qconv_acl_s8_s8_s8_per_channel<4>);
+
+TAO_RAL_API("ral_pdll_qconv2d", "cpu",
+            ral_pdll_qconv_acl_s8_s8_s8_per_channel<4>);
 
 TAO_RAL_API("ral_qgemm", "cpu", ral_qgemm_acl_s8_s8_s8_per_channel);
 

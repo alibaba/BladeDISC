@@ -165,7 +165,6 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     return success();
   } else if ("aten.glu" == name) {
     auto inputTy = op.getOperand(0).getType().cast<BaseTensorType>();
-    std::cout << "enter glu" << std::endl;
     int64_t inputRank = inputTy.getSizes().size();
     Value dim = op.getOperand(1);
     int64_t dimInt;
@@ -174,7 +173,6 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
           op, "unimplemented: dim must be a constant");
     if (dimInt < 0)
       dimInt += inputRank;
-    std::cout << "glu step1" << std::endl;
     Value size =
         rewriter.create<AtenSizeIntOp>(op.getLoc(), op.getOperand(0), dim);
     Value constTwo = rewriter.create<Torch::ConstantIntOp>(
@@ -188,7 +186,6 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     SmallVector<int64_t> sliceShape{inputShape.begin(), inputShape.end()};
     sliceShape[dimInt] = ShapedType::kDynamicSize;
 
-    std::cout << "glu step2" << std::endl;
     Type sliceTy = inputTy.getWithSizesAndDtype(
         llvm::makeArrayRef(sliceShape), inputTy.getDtype());
     SmallVector<int64_t> empty;
@@ -204,7 +201,6 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     //     rewriter.create<AtenDivOp>(op.getLoc(), size, constTwo);
     // Value halfSize = rewriter.create<AtenIntFloatOp>(op.getLoc(),
     // halfSizeFloat);
-    std::cout << "glu step3" << std::endl;
     // Value halfSize = rewriter.create<mlir::arith::DivSIOp>(op.getLoc(), size,
     // constTwo);
     Value a = rewriter.create<AtenSliceTensorOp>(
@@ -224,10 +220,8 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
         constNone,
         constOne);
     Value sigmoidB = rewriter.create<AtenSigmoidOp>(op.getLoc(), sliceTy, b);
-    std::cout << "glu step4" << std::endl;
     rewriter.replaceOpWithNewOp<AtenMulTensorOp>(
         op, op->getResultTypes(), a, sigmoidB);
-    std::cout << "glu step5" << std::endl;
     return success();
   }
 

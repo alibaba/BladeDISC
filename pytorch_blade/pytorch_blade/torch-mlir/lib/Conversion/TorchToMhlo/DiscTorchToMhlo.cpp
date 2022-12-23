@@ -260,6 +260,27 @@ class ConvertAtenUnaryOp : public OpConversionPattern<AtenOpT> {
 } // namespace
 
 namespace {
+template <typename AtenOpT, typename ArithOpT>
+class ConvertAtenArithOp : public OpConversionPattern<AtenOpT> {
+ public:
+  using OpConversionPattern<AtenOpT>::OpConversionPattern;
+  using OpAdaptor = typename AtenOpT::Adaptor;
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    rewriter.replaceOpWithNewOp<ArithOpT>(
+        op,
+        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op.getType()),
+        adaptor.a(),
+        adaptor.b());
+    return success();
+  }
+};
+} // namespace
+
+namespace {
 template <typename AtenOpT>
 class ConvertAtenExtractOp : public OpConversionPattern<AtenOpT> {
  public:
@@ -1259,6 +1280,14 @@ class DiscConvertTorchToMhlo
     INSERT_UNARY_PATTERN(AtenCopyOp, mhlo::CopyOp)
     INSERT_UNARY_PATTERN(AtenCosOp, mhlo::CosineOp)
     INSERT_UNARY_PATTERN(AtenSinOp, mhlo::SineOp)
+#undef INSERT_UNARY_PATTERN
+
+#define INSERT_ARITH_PATTERN(AtenOp, ArithOp) \
+  target.addIllegalOp<AtenOp>();              \
+  patterns.add<ConvertAtenArithOp<AtenOp, ArithOp>>(typeConverter, context);
+    INSERT_ARITH_PATTERN(AtenAddIntOp, arith::AddIOp)
+    INSERT_ARITH_PATTERN(AtenSubIntOp, arith::SubIOp)
+    INSERT_ARITH_PATTERN(AtenFloordivIntOp, arith::DivSIOp)
 #undef INSERT_UNARY_PATTERN
 
 #define INSERT_EXTRACT_PATTERN(AtenOp) \

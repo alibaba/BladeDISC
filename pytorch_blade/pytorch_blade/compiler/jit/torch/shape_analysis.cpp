@@ -655,6 +655,41 @@ class ShapePropagator : public PropertyPropBase {
         }
         return;
       }
+      case prim::ListUnpack: {
+        auto input_node = node->input()->node();
+        if (input_node->matches(
+                "aten::split.Tensor(Tensor(a) self, int split_size, int dim=0) -> Tensor(a)[]") ||
+            input_node->matches(
+                "aten::chunk(Tensor(a) self, int chunks, int dim=0) -> Tensor(a)[]") ||
+            input_node->matches(
+                "aten::unbind.int(Tensor(a) self, int dim=0) -> Tensor(a)[]")) {
+          if (auto self_type =
+                  input_node->input(0)->type()->cast<TensorType>()) {
+            auto sizes_opt = self_type->symbolic_sizes().sizes();
+            auto dim_opt = input_node->get<int64_t>(attr::dim);
+            if (!(sizes_opt && dim_opt))
+              return;
+
+            std::vector<c10::ShapeSymbol> new_sizes = sizes_opt.value();
+            int64_t input_rank = new_sizes.size();
+            int64_t dim =
+                at::maybe_wrap_dim(dim_opt.value(), input_rank, false);
+            if (input_node->matches(
+                    "aten::unbind.int(Tensor(a) self, int dim=0) -> Tensor(a)[]")) {
+              new_sizes.erase(new_sizes.begin() + dim);
+            } else {
+              // set default to dynamic
+              new_sizes[dim] = ShapeSymbol::newSymbol();
+            }
+
+            for (size_t i = 0; i < node->outputs().size(); ++i) {
+              if (auto type = node->output(i)->type()->cast<TensorType>())
+                node->output(i)->setType(type->withSymbolicShapes(new_sizes));
+            }
+          }
+        }
+        return;
+      }
       case prim::Constant: {
         if (node->output()->type()->isSubtypeOf(TensorType::get())) {
           node->output()->inferTypeFrom(node->t(attr::value));

@@ -480,7 +480,18 @@ LogicalResult ConvertAtenOp<AtenFloatScalarOp>::matchAndRewrite(
       op, getTypeConverter()->convertType(op.getType()), adaptor.a());
   return success();
 }
-
+template <>
+LogicalResult ConvertAtenOp<AtenFloordivIntOp>::matchAndRewrite(
+    AtenFloordivIntOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  rewriter.replaceOpWithNewOp<arith::DivSIOp>(
+      op,
+      getTypeConverter()->convertType(op.getType()),
+      adaptor.a(),
+      adaptor.b());
+  return success();
+}
 template <>
 LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
     AtenDropoutOp op,
@@ -1290,6 +1301,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenTensorFloatOp);
     INSERT_ATENOP_PATTERN(AtenTensorIntOp);
     INSERT_ATENOP_PATTERN(AtenFloatScalarOp);
+    INSERT_ATENOP_PATTERN(AtenFloordivIntOp);
     INSERT_ATENOP_PATTERN(AtenMaxDimOp);
     INSERT_ATENOP_PATTERN(AtenWhereSelfOp);
 #undef INSERT_ATENOP_PATTERN

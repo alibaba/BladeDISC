@@ -855,7 +855,9 @@ cuda_library(
         "context/custom_library/transpose.h",
         "context/custom_library/dimensions.h",
         "context/custom_library/gpu_helper.h"
-    ],
+    ] + if_cuda_or_rocm([
+        "context/stream_executor_based_impl.h"
+    ]),
     copts = [
         "-DDISC_BUILD_FROM_TF_BRIDGE"
     ] + if_rocm_is_configured([

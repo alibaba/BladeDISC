@@ -391,7 +391,7 @@ def test_tao_compiler(root, args):
         logger.info("Testing bazel target: " + target)
         flag += " --experimental_ui_max_stdouterr_bytes=-1 "
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
-        execute(" ".join([BAZEL_TEST_CMD, flag + ' --test_env=TF_CPP_VMODULE=disc_compiler=1 --test_env=TF_ENABLE_ONEDNN_OPTS=0' , target]))
+        execute(" ".join([BAZEL_TEST_CMD, flag + ' --test_env=TF_CPP_VMODULE=disc_compiler=1,disc_transform_legalize_to_loop=1 --test_env=TF_ENABLE_ONEDNN_OPTS=0' , target]))
 
     with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
         execute(

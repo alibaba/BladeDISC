@@ -262,6 +262,11 @@ void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag) {
   op->setAttr(kFusionOpTagAttr, b.getStringAttr((Twine(oldTag) + tag).str()));
 }
 
+StringRef getFusionTagStr(lmhlo::FusionOp op) {
+  auto attr = op->getAttrOfType<StringAttr>(kFusionOpTagAttr);
+  return attr ? attr.getValue() : "";
+}
+
 // Returns the full name of the fusion op
 // Here full name is composed of the name and tag of the fusion op.
 std::string getFusionFullName(lmhlo::FusionOp op) {

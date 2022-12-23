@@ -15,7 +15,6 @@
 #include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
 #include "iree-dialects/Dialect/LinalgTransform/TransformInterpreterUtils.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/SourceMgr.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
@@ -29,6 +28,7 @@
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/SCF/TransformOps/SCFTransformOps.h"
 #include "mlir/Dialect/SCF/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
@@ -36,13 +36,12 @@
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/Parser/Parser.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Support/FileUtilities.h"
 #include "mlir/Transforms/Passes.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
 #define DEBUG_TYPE "disc-transform-dialect-interpreter"
 
@@ -50,26 +49,50 @@
 
 namespace mlir {
 namespace disc_ral {
-namespace {
 
-LogicalResult parseTransformModuleFromFile(
-    MLIRContext* context, llvm::StringRef transformFileName,
-    OwningOpRef<ModuleOp>& transformModule) {
-  // Parse transformFileName content into a ModuleOp.
-  std::string errorMessage;
-  auto memoryBuffer = openInputFile(transformFileName, &errorMessage);
-  if (!memoryBuffer) {
-    llvm::errs() << "failed to parse transform file: " << transformFileName
-                 << "\n";
-    return failure();
-  }
-  // Tell sourceMgr about this buffer, the parser will pick it up.
-  llvm::SourceMgr sourceMgr;
-  sourceMgr.AddNewSourceBuffer(std::move(memoryBuffer), llvm::SMLoc());
-  transformModule =
-      OwningOpRef<ModuleOp>(parseSourceFile<ModuleOp>(sourceMgr, context));
-  return success();
+void addTransformDialectDependentDialects(DialectRegistry& registry) {
+  // TODO: this is only necessary to make registry subset happy when running
+  // the lowering to LLVM. The lowering should be changed to stop using the
+  // nested pass manager and this will go away.
+
+  // clang-format off
+  registry.insert<arith::ArithDialect,
+                  AffineDialect,
+                  bufferization::BufferizationDialect,
+                  disc_ral::disc_linalg_ext::DISCLinalgExtDialect,
+                  iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,
+                  func::FuncDialect,
+                  linalg::LinalgDialect,
+                  linalg::transform::LinalgTransformDialect,
+                  LLVM::LLVMDialect,
+                  pdl::PDLDialect,
+                  pdl_interp::PDLInterpDialect,
+                  scf::SCFDialect,
+                  tensor::TensorDialect,
+                  transform::TransformDialect,
+                  vector::VectorDialect
+      // clang-format on
+      >();
+
+  // TODO: these should be registered by the extension instead, but there is
+  // no support for it in core currently.
+  arith::registerBufferizableOpInterfaceExternalModels(registry);
+  linalg::registerBufferizableOpInterfaceExternalModels(registry);
+  scf::registerBufferizableOpInterfaceExternalModels(registry);
+  bufferization::func_ext::registerBufferizableOpInterfaceExternalModels(
+      registry);
+  tensor::registerBufferizableOpInterfaceExternalModels(registry);
+  vector::registerBufferizableOpInterfaceExternalModels(registry);
+
+  registry.addExtensions<
+      mlir::iree_compiler::IREE::LinalgExt::LinalgExtTransformOpsExtension,
+      transform_ext::StructuredTransformOpsExtension>();
+  linalg::registerTransformDialectExtension(registry);
+  scf::registerTransformDialectExtension(registry);
+  registerTransformDialectCommonExtension(registry);
 }
+
+namespace {
 
 struct DiscTransformDialectInterpreterPass
     : public DiscTransformDialectInterpreterPassBase<
@@ -84,43 +107,7 @@ struct DiscTransformDialectInterpreterPass
   }
 
   void getDependentDialects(DialectRegistry& registry) const override {
-    // TODO: this is only necessary to make registry subset happy when running
-    // the lowering to LLVM. The lowering should be changed to stop using the
-    // nested pass manager and this will go away.
-
-    // clang-format off
-    registry.insert<arith::ArithDialect,
-                    AffineDialect,
-                    bufferization::BufferizationDialect,
-                    disc_ral::disc_linalg_ext::DISCLinalgExtDialect,
-                    iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,
-                    func::FuncDialect,
-                    linalg::LinalgDialect,
-                    linalg::transform::LinalgTransformDialect,
-                    LLVM::LLVMDialect,
-                    pdl::PDLDialect,
-                    pdl_interp::PDLInterpDialect,
-                    scf::SCFDialect,
-                    tensor::TensorDialect,
-                    vector::VectorDialect
-        // clang-format on
-        >();
-
-    // TODO: these should be registered by the extension instead, but there is
-    // no support for it in core currently.
-    arith::registerBufferizableOpInterfaceExternalModels(registry);
-    linalg::registerBufferizableOpInterfaceExternalModels(registry);
-    scf::registerBufferizableOpInterfaceExternalModels(registry);
-    bufferization::func_ext::registerBufferizableOpInterfaceExternalModels(
-        registry);
-    tensor::registerBufferizableOpInterfaceExternalModels(registry);
-    vector::registerBufferizableOpInterfaceExternalModels(registry);
-
-    registry.addExtensions<
-        mlir::iree_compiler::IREE::LinalgExt::LinalgExtTransformOpsExtension,
-        transform_ext::StructuredTransformOpsExtension>();
-    linalg::registerTransformDialectExtension(registry);
-    registerTransformDialectCommonExtension(registry);
+    addTransformDialectDependentDialects(registry);
   }
 
   void runOnOperation() override;
@@ -161,6 +148,22 @@ void DiscTransformDialectInterpreterPass::runOnOperation() {
   }
 }
 
+struct DiscTransformDialectEraseSchedulePass
+    : public DiscTransformDialectEraseSchedulePassBase<
+          DiscTransformDialectEraseSchedulePass> {
+  void runOnOperation() override;
+};
+
+void DiscTransformDialectEraseSchedulePass::runOnOperation() {
+  getOperation()->walk<WalkOrder::PreOrder>([&](Operation* nestedOp) {
+    if (isa<transform::TransformOpInterface>(nestedOp)) {
+      nestedOp->erase();
+      return WalkResult::skip();
+    }
+    return WalkResult::advance();
+  });
+}
+
 }  // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>>
@@ -168,6 +171,11 @@ createDiscTransformDialectInterpreterPass(const std::string& fileName,
                                           bool enableExpensiveChecks) {
   return std::make_unique<DiscTransformDialectInterpreterPass>(
       fileName, enableExpensiveChecks);
+}
+
+std::unique_ptr<OperationPass<ModuleOp>>
+createDiscTransformDialectEraseSchedulePass() {
+  return std::make_unique<DiscTransformDialectEraseSchedulePass>();
 }
 
 }  // namespace disc_ral

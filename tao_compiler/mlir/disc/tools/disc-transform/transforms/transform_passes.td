@@ -34,6 +34,11 @@ def DiscTransformDialectInterpreterPass : Pass<"disc-transform-dialect-interpret
   ];
 }
 
+def DiscTransformDialectEraseSchedulePass : Pass<"disc-transform-dialect-erase-schedule", "ModuleOp"> {
+  let summary = "Pass to erase transform dialect schedule from the IR.";
+  let constructor = "createDiscTransformDialectEraseSchedulePass()";
+}
+
 def DiscRewritePayloadIRForRALPass : Pass<"disc-rewrite-payload-ir-for-ral", "ModuleOp"> {
   let summary = "Pass to rewrite the payload IR transformed by transform IR to be suitable for RAL.";
   let constructor = "createDiscRewritePayloadIRForRALPass()";

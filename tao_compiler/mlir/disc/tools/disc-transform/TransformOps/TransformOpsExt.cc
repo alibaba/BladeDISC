@@ -198,8 +198,10 @@ DiagnosedSilenceableFailure DISCBufferizeOp::apply(
       }));
   pm.addNestedPass<func::FuncOp>(bufferization::createBufferDeallocationPass());
 
-  if (failed(pm.run(state.getTopLevel())))
+  if (failed(pm.run(moduleOp)))
     return DiagnosedSilenceableFailure::definiteFailure();
+
+  results.set(getResult().cast<OpResult>(), {payload});
 
   return DiagnosedSilenceableFailure::success();
 }

@@ -27,6 +27,14 @@ namespace disc_ral {
 Operation* createLinalgCopyOp(OpBuilder& b, Location loc, Value from, Value to,
                               ArrayRef<NamedAttribute> attributes = {});
 
+/// Load transform dialect IR from the given file.
+LogicalResult parseTransformModuleFromFile(
+    MLIRContext* context, llvm::StringRef transformFileName,
+    OwningOpRef<ModuleOp>& transformModule);
+
+// Appends transform dependent dialects.
+void addTransformDialectDependentDialects(DialectRegistry& registry);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

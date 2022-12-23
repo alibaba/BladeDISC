@@ -66,6 +66,9 @@ class TestDiscActivation(DiscTestCase):
     def test_glu(self):
         self._test_activation(torch.nn.GLU(), torch.nn.functional.glu, [([2, 4, 16, 16], torch.float)])
 
+    def test_selu(self):
+        self._test_activation(torch.nn.SELU(), torch.nn.functional.selu, [([2, 4, 16, 16], torch.float)])
+
     def test_hardswish(self):
 
         def _jit_pass_hardswish(graph):

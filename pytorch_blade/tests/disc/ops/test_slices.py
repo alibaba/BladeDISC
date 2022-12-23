@@ -102,6 +102,17 @@ class TestDiscSlices(DiscTestCase):
         annotations = [([4, -1, 256], dtype), ([4, -1, 256], dtype)]
         self._test_cvt_to_disc(func, test_data, annotations)
 
+    def test_narrow(self):
+
+        @torch.jit.script
+        def func(x):
+            return torch.narrow(x, 1, 32, 16)
+
+        x = torch.randn([4, 64, 12], device=self.device)
+        self._test_slice(func, x=x)
+        x = torch.randn([4, 48, 12], device=self.device)
+        self._test_slice(func, x=x)
+
     def test_unbind(self):
         x = torch.randn([4, 64, 256], device=self.device)
         y = torch.randn([1, 4, 256], device=self.device)

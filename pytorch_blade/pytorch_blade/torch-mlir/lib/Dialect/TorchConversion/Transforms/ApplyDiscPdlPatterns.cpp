@@ -322,6 +322,86 @@ std::string getTorchPredefinedPDLPatterns() {
       };
     }
 
+    Pattern TorchDiffusers07AttentionTransGPTFP16CastGraph {
+      /// match phase: define the pattern
+      let transpose_op = op<torch.aten.transpose.int>(
+          k: Value,
+          int1: Value,
+          int2: Value
+      );
+      let matmul_qk_op = op<torch.aten.matmul>(
+          q: Value,
+          transpose_op.0
+      );
+      let div_qk_op = op<torch.aten.div.Tensor>(
+          matmul_qk_op.0,
+          div_val: Value
+      );
+      let mul_qk_op = op<torch.aten.mul.Tensor>(
+          div_qk_op.0,
+          alpha: Value
+      );
+      let sub_qk_op = op<torch.aten.sub.Tensor>(
+          mul_qk_op.0,
+          sub_val: Value,
+          int1_val: Value
+      );
+      let softmax_op = op<torch.aten.softmax.int>(
+          sub_qk_op.0,
+          s_dim: Value,
+          s_dtype: Value
+      );
+
+      let matmul_qkv_op = op<torch.aten.matmul>(
+          softmax_op.0,
+          v: Value
+      );
+
+      let permute_o_op = op<torch.aten.permute>(
+          matmul_qkv_op.0,
+          permute_o_list: Value
+      );
+
+      let contiguous_o_op = op<torch.aten.contiguous>(
+          permute_o_op.0,
+          int0_value: Value
+      );
+
+      let view_o_op = op<torch.aten.view>(
+          contiguous_o_op.0,
+          view_o_list: Value
+      );
+
+      CheckTorchTensorElemType(q, attr<"\"f16\"">);
+      CheckTorchTensorElemType(k, attr<"\"f16\"">);
+      CheckTorchTensorElemType(v, attr<"\"f16\"">);
+
+      /// rewrite phase
+      rewrite view_o_op with {
+
+        /// 1. create custom call op
+        let inputs = PackValue_3(attr<"\"in\"">, q, k, v);
+        let outputs = PackValue_1(attr<"\"out\"">, view_o_op.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mem_eff_attention_output_transpose_gpt\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+        let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+        SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace view_o_op with rs;
+      };
+    }
+
     Pattern TorchAttentionTransFP16CastGraph {
       /// match phase: define the pattern
       let transpose_op = op<torch.aten.transpose.int>(

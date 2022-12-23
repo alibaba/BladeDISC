@@ -75,7 +75,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::floor_divide",
       "aten::gelu",
       "aten::gelu_backward",
-      "aten::glu",
+      // "aten::glu",
       "aten::hardsigmoid",
       "aten::hardswish",
       "aten::hardtanh",

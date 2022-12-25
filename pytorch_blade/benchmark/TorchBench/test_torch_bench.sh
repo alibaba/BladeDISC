@@ -30,7 +30,7 @@ fi
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
 python3 -m pip install -q -r $script_dir/requirements_$1.txt
 # install dependencies
-git pull && git submodule update --init --recursive --depth 1 && python3 install.py --continue_on_fail
+git pull && git checkout bladnn && git submodule update --init --recursive --depth 1 && python3 install.py --continue_on_fail
 # fix pycocotools after install
 python3 -m pip install -U numpy
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
@@ -41,6 +41,7 @@ ln -s $benchmark_repo_dir torchbenchmark
 export DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE=true \
     DISC_CPU_LARGE_CONCAT_NUM_OPERANDS=4 DISC_CPU_ENABLE_EAGER_TRANSPOSE_FUSION=1 \
     TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2
+export BLADE_AUTH_USE_COUNTING=1 BLADE_GEMM_TUNE_JIT=1
 
 bench_target=$2
 

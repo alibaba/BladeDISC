@@ -20,3 +20,4 @@ RUN apt-get update -y && \
 ENV PATH="/opt/nvidia/nsight-systems/2022.4.1/bin:${PATH}"
 
 RUN python3 -m pip install virtualenv
+RUN python3 -m pip uninstall -y torch_blade && python3 -m pip install http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/unibuild/UniBuildSingle/788/py3.8.5_cu113_tf_torch1.12.0_abiprecxx11/torch_blade-0.0.1%2B1.12.0.cu113-cp38-cp38-linux_x86_64.whl

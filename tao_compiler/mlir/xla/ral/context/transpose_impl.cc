@@ -54,7 +54,7 @@ void ral_transpose(ExecutionContext* ctx, void* stream_handle,
   auto stream =
       static_cast<gpuStream_t>(gpu_driver->asCUStream(ctx, stream_handle));
 
-  LaunchTransposeKernel<T>(stream, d_in, input_dims, d_out);
+  LaunchTransposeKernel(stream, d_in, input_dims, d_out);
 }
 
 TAO_RAL_API("ral_transpose", "gpu", ral_transpose<float, 2>);

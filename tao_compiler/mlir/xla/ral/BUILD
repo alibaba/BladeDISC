@@ -855,7 +855,7 @@ cuda_library(
         "context/custom_library/transpose.h",
         "context/custom_library/dimensions.h",
         "context/custom_library/gpu_helper.h"
-    ] + if_cuda_or_rocm([
+    ] + if_cuda_is_configured([
         "context/stream_executor_based_impl.h"
     ]),
     copts = [
@@ -867,6 +867,7 @@ cuda_library(
         "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]) + cuda_default_copts(),
     deps = [
+        ":ral_context",
         "@local_config_tf//:libtensorflow_framework",
         "@local_config_tf//:tf_header_lib",
     ] + if_cuda_is_configured([

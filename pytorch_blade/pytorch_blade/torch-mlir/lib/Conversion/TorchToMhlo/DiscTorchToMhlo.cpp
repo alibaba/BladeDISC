@@ -40,6 +40,7 @@
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
+#include <numeric>
 #include <unordered_set>
 
 using namespace mlir;
@@ -1210,10 +1211,59 @@ LogicalResult ConvertAtenOp<AtenEmbeddingOp>::matchAndRewrite(
   return success();
 }
 } // namespace
+namespace {
+template <>
+LogicalResult ConvertAtenOp<AtenSqueezeDimOp>::matchAndRewrite(
+    AtenSqueezeDimOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto self = adaptor.self();
+  auto selfTy = self.getType().template cast<RankedTensorType>();
+  if (!selfTy)
+    return op.emitError("only ranked tensor types are supported");
+  int64_t dim;
+  if (!matchPattern(op.dim(), m_TorchConstantInt(&dim)))
+    return rewriter.notifyMatchFailure(
+        op, "only constant dim is currently supported");
+
+  auto rank = selfTy.getRank();
+  if (rank == 0)
+    return rewriter.notifyMatchFailure(
+        op, "the rank of tensor must be greater than 0");
+
+  dim = toPositiveDim(dim, rank);
+  if (selfTy.getShape()[dim] != 1 &&
+      selfTy.getShape()[dim] != ShapedType::kDynamicSize) {
+    rewriter.replaceOpWithNewOp<tensor::CastOp>(
+        op, getTypeConverter()->convertType(op.getType()), adaptor.self());
+    return success();
+  }
+
+  SmallVector<int64_t, 4> dims(rank);
+  std::iota(dims.begin(), dims.end(), 0);
+  dims.erase(dims.begin() + dim);
+  if (dims.size() == 0) {
+    rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(
+        op, getTypeConverter()->convertType(op.getType()), self);
+    return success();
+  }
+  auto newDimSizesInfo =
+      mhlo::getDimSizesOfTensor(rewriter, op, self, dims, kMhloDimSizeBits);
+  if (failed(newDimSizesInfo))
+    return rewriter.notifyMatchFailure(
+        op, "failed to get dimension sizes of the input");
+  auto newDimSizes = *newDimSizesInfo;
+  auto mhloShape =
+      rewriter.create<tensor::FromElementsOp>(op.getLoc(), newDimSizes);
+  rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
+      op, getTypeConverter()->convertType(op.getType()), self, mhloShape);
+  return success();
+}
+} // namespace
+
 // -----------------------------------------------------------------------------
 // TorchToMhlo Pass
 // -----------------------------------------------------------------------------
-
 namespace {
 class DiscConvertTorchToMhlo
     : public TorchConversion::DiscConvertTorchToMhloBase<
@@ -1280,6 +1330,7 @@ class DiscConvertTorchToMhlo
     INSERT_UNARY_PATTERN(AtenCopyOp, mhlo::CopyOp)
     INSERT_UNARY_PATTERN(AtenCosOp, mhlo::CosineOp)
     INSERT_UNARY_PATTERN(AtenSinOp, mhlo::SineOp)
+    INSERT_UNARY_PATTERN(AtenAbsOp, mhlo::AbsOp)
 #undef INSERT_UNARY_PATTERN
 
 #define INSERT_ARITH_PATTERN(AtenOp, ArithOp) \
@@ -1321,6 +1372,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenFloatScalarOp);
     INSERT_ATENOP_PATTERN(AtenMaxDimOp);
     INSERT_ATENOP_PATTERN(AtenWhereSelfOp);
+    INSERT_ATENOP_PATTERN(AtenSqueezeDimOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \

@@ -243,6 +243,50 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
         loc, rewriter.getI64IntegerAttr(1));
     return decomposeSplits(
         rewriter, op, one, op.getOperand(1), chunksInt, /*keepDim*/ false);
+  } else if ("aten.max.other" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenMaximumOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1));
+    return success();
+  } else if ("aten.narrow.Tensor" == name) {
+    // start must be an 0-dim integral Tensor.
+    auto outTy = op.getResult(0).getType();
+    auto start = rewriter.create<AtenItemOp>(
+        loc, Torch::IntType::get(op.getContext()), op.getOperand(2));
+    rewriter.replaceOpWithNewOp<AtenNarrowOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1), start, op.getOperand(3));
+    return success();
+  } else if ("aten.selu" == name || "aten.selu_" == name) {
+    // selu(x) = scale * (max(0,x) + min(0, alpha * (exp(x) - 1)))
+    auto outTy = op.getResult(0).getType();
+    auto self = op.getOperand(0);
+
+    static const double SELU_ALPHA = 1.6732632423543772848170429916717;
+    static const double SELU_SCALE = 1.0507009873554804934193349852946;
+
+    Value noneVal = rewriter.create<ConstantNoneOp>(loc);
+    Value zeros = rewriter.create<AtenZerosLikeOp>(
+        loc, outTy, self, noneVal, noneVal, noneVal, noneVal, noneVal);
+    Value floatOne =
+        rewriter.create<ConstantFloatOp>(loc, rewriter.getF64FloatAttr(1));
+    Value floatAlpha = rewriter.create<ConstantFloatOp>(
+        loc, rewriter.getF64FloatAttr(SELU_ALPHA));
+    Value floatScale = rewriter.create<ConstantFloatOp>(
+        loc, rewriter.getF64FloatAttr(SELU_SCALE));
+
+    Value expVal = rewriter.create<AtenExpOp>(loc, outTy, self);
+    Value expValMinus1 = rewriter.create<AtenSubScalarOp>(
+        loc, outTy, expVal, floatOne, floatOne);
+    Value alphaVal =
+        rewriter.create<AtenMulScalarOp>(loc, outTy, expValMinus1, floatAlpha);
+
+    Value maxVal = rewriter.create<AtenMaximumOp>(loc, outTy, self, zeros);
+    Value minVal = rewriter.create<AtenMinimumOp>(loc, outTy, alphaVal, zeros);
+    Value addVal =
+        rewriter.create<AtenAddTensorOp>(loc, outTy, maxVal, minVal, floatOne);
+
+    rewriter.replaceOpWithNewOp<AtenMulScalarOp>(op, outTy, addVal, floatScale);
+    return success();
   }
 
   return failure();
@@ -471,6 +515,10 @@ class DiscDecomposeComplexOpsPass
           "aten.split.Tensor",
           "aten.chunk",
           "aten.unbind.int",
+          "aten.max.other",
+          "aten.narrow.Tensor",
+          "aten.selu",
+          "aten.selu_",
       };
 
       if (illegalSet.find(op.name().str()) != illegalSet.end()) {

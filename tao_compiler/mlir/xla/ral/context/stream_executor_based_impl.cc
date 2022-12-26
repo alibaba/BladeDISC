@@ -1942,6 +1942,46 @@ MemRefType<T, NDims> ral_conv_biasadd(ExecutionContext* ctx,
 ///////////////
 ////////////////////////////////////////////////////////////////////////
 
+namespace groupnorm_impl {
+
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+
+// Pre-requirement: input has layout NHWC
+template <typename T>
+MemRefType<T, 4> bladnn_groupnorm(ExecutionContext* ctx, void* stream_handle,
+                                  MemRefType<T, 4> input,
+                                  MemRefType<T, 1> weight,
+                                  MemRefType<T, 1> bias, void* customAttrs) {
+  size_t nElems = Size(input);
+  auto driver = ctx->getDriver<gpu::GPUDriver>(gpu::GPUDriver::name());
+  TAO_CHECK(driver);
+  auto ptr = static_cast<T*>(driver->alloc(ctx, nElems * sizeof(T)));
+  auto output = assignMemRef<T, 4>(ptr, input.sizes);
+
+  auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_groupnorm");
+  if (!attr) {
+    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
+  }
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  auto num_group =
+      dictAttr.get("num_group").template as<IntPDLAttr>().getValue();
+  auto eps = dictAttr.get("eps").template as<FloatPDLAttr>().getValue();
+  auto use_silu = dictAttr.get("silu").template as<BoolPDLAttr>().getValue();
+  auto stream = driver->asCUStream(ctx, stream_handle);
+  bool ret =
+      bladnn::groupnorm(output.data, input.data, weight.data, bias.data,
+                        input.sizes[0], input.sizes[1], input.sizes[2],
+                        input.sizes[3], num_group, use_silu, eps, stream);
+  if (!ret) {
+    ctx->signalError(Context::FAILURE, "fail to call bladnn::groupnorm\n");
+  }
+  return output;
+}
+
+#endif
+
+}  // namespace groupnorm_impl
+
 }  // namespace se_impl
 }  // namespace gpu
 
@@ -1983,6 +2023,8 @@ TAO_RAL_API("ral_pdll_conv_bias", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv_biasadd<Eigen::half, 4>);
 TAO_RAL_API("ral_pdll_conv_bias", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv_biasadd<float, 4>);
+TAO_RAL_API("ral_pdll_group_norm", "gpu",
+            gpu::se_impl::groupnorm_impl::bladnn_groupnorm<Eigen::half>);
 #endif
 
 // compute-intensive fusion

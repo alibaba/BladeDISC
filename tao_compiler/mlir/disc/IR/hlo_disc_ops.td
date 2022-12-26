@@ -355,6 +355,22 @@ def HLO_SparseSegmentMeanOp : HLODISC_ShapedInterfaceOp<"sparse_segment_mean", [
   );
 }
 
+def HLO_SparseSegmentSumOp : HLODISC_ShapedInterfaceOp<"sparse_segment_sum", [Pure]> {
+  let summary = "One-to-one mapping of TF_SparseSegmentSumOp";
+  let description = [{
+    See tf's sparse_segment_sum operator.
+  }];
+  let arguments = (ins
+    HLO_FpTensor:$data,
+    HLO_I32OrI64Tensor:$indices,
+    HLO_I32OrI64Tensor:$segment_ids
+  );
+
+  let results = (outs
+    HLO_FpTensor:$output
+  );
+}
+
 def HLO_WhereOp : HLODISC_ShapedInterfaceOp<"where", [Pure]> {
   let summary = "One-to-one mapping of TF_WhereOp";
   let description = [{

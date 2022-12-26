@@ -224,6 +224,19 @@ def LHLO_SparseSegmentMeanOp : LHLODISC_Op<"sparse_segment_mean", []> {
   );
 }
 
+def LHLO_SparseSegmentSumOp : LHLODISC_Op<"sparse_segment_sum", []> {
+  let summary = "One-to-one mapping of TF_SparseSegmentSumOp";
+  let description = [{
+    See tf's sparse_segment_sum operator.
+  }];
+  let arguments = (ins
+    Arg<LHLO_FpBuffer, "", [MemRead]>:$data,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$indices,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$segment_ids,
+    Arg<LHLO_FpBuffer, "", [MemWrite]>:$output
+  );
+}
+
 def LHLO_WhereOp : LHLODISC_Op<"where", []> {
   let summary = "One-to-one mapping of TF_WhereOp";
   let description = [{

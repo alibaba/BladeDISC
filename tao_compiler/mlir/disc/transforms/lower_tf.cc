@@ -1402,6 +1402,23 @@ class ConvertSparseSegmentMeanOp
   }
 };
 
+class ConvertSparseSegmentSumOp
+    : public OpRewritePattern<TF::SparseSegmentSumOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::SparseSegmentSumOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op.getLoc();
+    auto hlo_sparse_segment_sum =
+        rewriter.create<mhlo_disc::SparseSegmentSumOp>(
+            loc, op.output().getType(), op.data(), op.indices(),
+            op.segment_ids());
+    rewriter.replaceOp(op, hlo_sparse_segment_sum.getResult());
+    return success();
+  }
+};
+
 class ConvertWhereOp : public OpRewritePattern<TF::WhereOp> {
  public:
   using OpRewritePattern::OpRewritePattern;
@@ -1536,6 +1553,7 @@ void PrepareTFPass::runOnOperation() {
       ConvertSparseReshapeOp,
       ConvertSparseFillEmptyRowsOp,
       ConvertSparseSegmentMeanOp,
+      ConvertSparseSegmentSumOp,
       ConvertWhereOp
   >(ctx);
 

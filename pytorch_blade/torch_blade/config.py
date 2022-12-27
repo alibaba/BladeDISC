@@ -17,7 +17,7 @@ from typing import List, Optional, Tuple
 
 import torch
 import torch_blade._torch_blade._backends as _backends
-import torch_blade.utils as utils
+
 
 class OptPipelines:
 
@@ -454,21 +454,21 @@ class Config(ConfigContext):
     @customize_onnx_opset_version.setter
     def customize_onnx_opset_version(self, version):
         import torch
-        TORCH_VERSION = utils.torch_version_number()
-        if TORCH_VERSION < utils.parse_version("1.8.0"):
+        TORCH_VERSION = tuple(int(x) for x in torch.__version__.split(".")[:2])
+        if TORCH_VERSION < (1, 8):
             from torch.onnx.symbolic_helper import (
                 _default_onnx_opset_version,
                 _onnx_master_opset,
                 _onnx_stable_opsets
             )
-        elif TORCH_VERSION < utils.parse_version("1.12.0"):
+        elif TORCH_VERSION < (1, 12):
             from torch.onnx.symbolic_helper import (
                 _default_onnx_opset_version,
                 _onnx_main_opset,
                 _onnx_stable_opsets
             )
             _onnx_master_opset = _onnx_main_opset
-        elif TORCH_VERSION <= utils.parse_version("1.12.1"):
+        elif TORCH_VERSION < (1, 13):
             from torch.onnx._constants import onnx_default_opset as _default_onnx_opset_version
             from torch.onnx._constants import onnx_main_opset as _onnx_master_opset
             from torch.onnx._constants import onnx_stable_opsets as _onnx_stable_opsets

@@ -121,6 +121,9 @@ class LogMessageNull : public std::basic_ostringstream<char> {
           ::tao::ral::internal::LogMessage(__FILE__, __LINE__, \
                                            ::tao::ral::INFO)
 
+#define TAO_CHECK(expr) \
+  while (!(expr)) TAO_LOG(FATAL) << "TAO_CHECK failed: "
+
 }  // namespace ral
 }  // namespace tao
 

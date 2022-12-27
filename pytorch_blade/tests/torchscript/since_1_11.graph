@@ -1,0 +1,10 @@
+// RUN: shape_analysis_tool --since 1.11.0 -f %s | FileCheck %s
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(8, 768, 512), %p2: Float(1, 768, 512)):
+  %cst0: int = prim::Constant[value=0]()
+  %cst1: int = prim::Constant[value=1]()
+  %int_max: int = prim::Constant[value=9223372036854775807]()
+// CHECK: Float(8, 768, 512) = aten::slice_scatter
+  %ret : Tensor = aten::slice_scatter(%p1, %p2, %cst0, %cst0, %int_max, %cst1) 
+  return (%ret)

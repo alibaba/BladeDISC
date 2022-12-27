@@ -270,6 +270,9 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_binary_type_promotion(torch.lt)
         self._test_cmp_func(torch.lt)
 
+    def test_max(self):
+        self._test_func(torch.max)
+
     def test_arange(self):
         # Given int dtype.
         @torch.jit.script

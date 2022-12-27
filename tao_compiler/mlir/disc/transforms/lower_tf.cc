@@ -39,6 +39,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_pdl_utils.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_types.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/convert_tensor.h"
@@ -69,13 +70,19 @@ StringAttr PackRandomUniformBackendConfig(IntegerAttr seed, IntegerAttr seed2,
 
 // Prepare TF operations in functions for subsequent legalization.
 struct PrepareTFPass : public DiscLowerTfPassBase<PrepareTFPass> {
-  using DiscLowerTfPassBase<PrepareTFPass>::DiscLowerTfPassBase;
+  PrepareTFPass(const std::string& pdll_files,
+                const std::string& pdll_include_dirs)
+      : DiscLowerTfPassBase<PrepareTFPass>::DiscLowerTfPassBase() {
+    this->pdll_files_ = pdll_files;
+    this->pdll_include_dirs_ = pdll_include_dirs;
+  }
 
   // TODO: move to td file
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<mhlo::MhloDialect>();
     registry.insert<mhlo_disc::MhloDiscDialect>();
     registry.insert<tensor::TensorDialect>();
+    getPDLDependentDialects(registry);
   }
 
   void runOnOperation() override;
@@ -644,6 +651,8 @@ LogicalResult ConvertDequantizeOp::dequantize(TF::DequantizeOp op,
                          << "\n";
 }
 
+// TODO(wyzero): Deprecated. It'll be removed after we change the behavior
+// of the fake_quant op.
 struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
   using OpRewritePattern::OpRewritePattern;
 
@@ -671,6 +680,52 @@ struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
         op.num_bitsAttr(), op.quant_minAttr(), op.quant_maxAttr(),
         op.use_dynamicAttr(), round_mode_attr);
     rewriter.replaceOp(op, {new_op});
+    return success();
+  }
+};
+
+// Directly lower TF::FakeQuantOp to mhlo_disc::Quant + mhlo_disc::Dequant.
+struct ConvertFakeQuantV2Op : public OpRewritePattern<TF::DiscFakeQuantOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::DiscFakeQuantOp op,
+                                PatternRewriter& rewriter) const final {
+    Location loc = op.getLoc();
+    auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
+    if (!inputTy)
+      return op->emitError("Only support input with ranked tensor type");
+
+    SmallVector<int64_t> axis;
+    for (auto& v : op.axis()) {
+      axis.push_back(v.cast<IntegerAttr>().getInt());
+    }
+
+    int64_t numBits = op.num_bitsAttr().getInt();
+    auto quantizedElemTy =
+        op.use_signedAttr().getValue()
+            ? IntegerType::get(rewriter.getContext(), numBits)
+            : IntegerType::get(
+                  rewriter.getContext(), numBits,
+                  mlir::IntegerType::SignednessSemantics::Unsigned);
+    auto quantizedTy = RankedTensorType::get(
+        inputTy.getShape(), quantizedElemTy, inputTy.getEncoding());
+
+    // Default mode of round in tf is RoundHalfAwayFromZero
+    // todo(disc): should read it from TF::DiscFakeQuantOp
+    auto round_mode_attr = mlir::mhlo_disc::RoundModeEnumAttr::get(
+        rewriter.getContext(),
+        mlir::mhlo_disc::RoundModeEnum::RoundHalfAwayFromZero);
+
+    Value quantizedValue = rewriter.create<mhlo_disc::QuantizeOp>(
+        loc, quantizedTy, op.input(), op.scale(), op.zero_point(),
+        op.use_symmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
+        op.quant_minAttr(), op.quant_maxAttr(), op.use_dynamicAttr(),
+        round_mode_attr);
+    Value dequantizedValue = rewriter.create<mhlo_disc::DequantizeOp>(
+        loc, op.getType(), quantizedValue, op.scale(), op.zero_point(),
+        op.use_symmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
+        op.use_dynamicAttr(), round_mode_attr);
+    rewriter.replaceOp(op, {dequantizedValue});
     return success();
   }
 };
@@ -1404,6 +1459,55 @@ class ConvertWhereOp : public OpRewritePattern<TF::WhereOp> {
 
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
+// add pre-defined pdll patterns here.
+std::string getPredefinedPDLPatterns() {
+  std::string preDefinedPatterns;
+
+  /// Examples: FusedConvRelu
+  ///
+  /// static const char* fused_conv_relu = R"pdll(
+  ///   Pattern TFFusedConvRelu {
+  ///
+  ///     /// match phase: define the pattern
+  ///     let data_format_attr : Attr;
+  ///     let dilations_attr : Attr;
+  ///     let padding_attr : Attr;
+  ///     let strides_attr : Attr;
+  ///     let conv = op<tf.Conv2D>(input : Value, weights : Value) { data_format
+  ///     = data_format_attr, dilations = dilations_attr, padding =
+  ///     padding_attr, strides = strides_attr }; let relu =
+  ///     op<tf.Relu>(conv.0);
+  ///
+  ///     /// rewrite phase
+  ///     rewrite relu with {
+  ///       /// 1. create custom call op
+  ///       let inputs = PackValue_2(attr<"\"in\"">, input, weights);
+  ///       let outputs = PackValue_2(attr<"\"out\"">, conv.0, relu.0);
+  ///       let infos = CreateCustomCall(attr<"\"op\"">, inputs, outputs);
+  ///
+  ///       /// 2. set attrs that are used by bladedisc.
+  ///       SetAttr(infos.op, attr<"\"call_target_name\"">,
+  ///       attr<"\"disc.custom_call.fused_conv_relu\"">); SetAttr(infos.op,
+  ///       attr<"\"input_placements\"">, attr<"\"h,h\"">); SetAttr(infos.op,
+  ///       attr<"\"output_placements\"">, attr<"\"h\"">);
+  ///
+  ///       /// 3. set attrs that are directly passed to the custom call kernel.
+  ///       SetCustomAttr(infos.op, attr<"\"data_format\"">, data_format_attr);
+  ///       SetCustomAttr(infos.op, attr<"\"dilation\"">, dilations_attr);
+  ///       SetCustomAttr(infos.op, attr<"\"padding\"">, padding_attr);
+  ///       SetCustomAttr(infos.op, attr<"\"strides\"">, strides_attr);
+  ///
+  ///       let rs = UnpackValue_2(infos.new_outputs);
+  ///       replace conv with rs.0;
+  ///       replace relu with rs.1;
+  ///     };
+  ///   }
+  /// )pdll";
+  /// preDefinedPatterns += fused_conv_relu + "\n";
+
+  return preDefinedPatterns;
+}
+
 void PrepareTFPass::runOnOperation() {
   MLIRContext* ctx = &getContext();
   RewritePatternSet patterns(ctx);
@@ -1414,12 +1518,17 @@ void PrepareTFPass::runOnOperation() {
     return;
   }
 
+  // add pre-defined pdl patterns
+  populateDiscPdlPatternsFromString(&patterns, getPredefinedPDLPatterns());
+
+  populateDiscPdlPatternsFromFiles(&patterns, ParseFileString(pdll_files_),
+                                   ParseFileString(pdll_include_dirs_));
+
   populateWithGenerated(patterns);
   // clang-format off
   patterns.insert<
       ConvertDequantizeOp,
       ConvertQuantizeV2Op,
-      ConvertFakeQuantOp,
       ConvertSqueezeOpDynamic,
       ConvertTopKV2OpDynamic,
       ConvertUniformOp,
@@ -1429,6 +1538,13 @@ void PrepareTFPass::runOnOperation() {
       ConvertSparseSegmentMeanOp,
       ConvertWhereOp
   >(ctx);
+
+  if (lowerFakeQuantToQuantAndDequant()) {
+    patterns.insert<ConvertFakeQuantV2Op>(ctx);
+  } else {
+    patterns.insert<ConvertFakeQuantOp>(ctx);
+  }
+
   // clang-format on
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));
 }
@@ -1436,8 +1552,9 @@ void PrepareTFPass::runOnOperation() {
 }  // namespace
 
 // Lower some tf ops before tf2mhlo lowering.
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscLowerTfPass() {
-  return std::make_unique<PrepareTFPass>();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscLowerTfPass(
+    const std::string& pdll_files, const std::string& pdll_include_dirs) {
+  return std::make_unique<PrepareTFPass>(pdll_files, pdll_include_dirs);
 }
 
 }  // namespace disc_ral

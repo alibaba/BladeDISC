@@ -17,6 +17,7 @@
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include <torch/csrc/jit/passes/inliner.h>
 #include <torch/script.h>
+#include <cmath>
 
 namespace torch {
 namespace blade {
@@ -153,13 +154,10 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
         use_per_channel = insert_prim_constant<bool>(g, n, false, false);
       }
 
-      // For now, only 8 bit quantization is supported
-      Value* num_bits = insert_prim_constant<int>(g, n, false, 8);
-
       Value* use_signed;
       Value* use_symmetric;
-      int quant_min_num = quant_min->node()->i(attr::value);
-      int quant_max_num = quant_max->node()->i(attr::value);
+      int64_t quant_min_num = quant_min->node()->i(attr::value);
+      int64_t quant_max_num = quant_max->node()->i(attr::value);
       if ((quant_min_num ^ quant_max_num) < 0) {
         use_signed = insert_prim_constant<bool>(g, n, false, true);
         use_symmetric = insert_prim_constant<bool>(g, n, false, true);
@@ -167,6 +165,8 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
         use_signed = insert_prim_constant<bool>(g, n, false, false);
         use_symmetric = insert_prim_constant<bool>(g, n, false, false);
       }
+      int num_bits_val = int(std::round(log2(quant_max_num - quant_min_num)));
+      Value* num_bits = insert_prim_constant<int>(g, n, false, num_bits_val);
 
       // aten::fake_quant is aimed for static quantization.
       // So use_dynamic is set to false.

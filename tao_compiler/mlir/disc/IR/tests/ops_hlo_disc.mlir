@@ -235,3 +235,22 @@ func.func @where(%input: tensor<?x?xf32>) -> (tensor<?x?xi64>, tensor<1xi64>) {
   %index, %num_output_elements = "mhlo_disc.where"(%input) {} : (tensor<?x?xf32>) -> (tensor<?x?xi64>, tensor<1xi64>)
   return %index, %num_output_elements: tensor<?x?xi64>, tensor<1xi64>
 }
+
+// -----
+
+// CHECK-LABEL: func.func @custom_call_v2
+func.func @custom_call_v2(%input: tensor<?x?xf32>, %weight : tensor<?x?xf32>) -> tensor<?x?xf32> {
+  %output = "mhlo_disc.custom_call_v2"(%input, %weight) {
+      call_target_name = "test",
+      custom_attrs = {},
+      has_side_effect = false,
+      device = "d",
+      input_placements = "d,h",
+      output_placements = "h",
+      input_layouts = "AB,AB",
+      expected_input_layouts = "AB,AB",
+      output_layouts = "Ab",
+      expected_output_layouts = "AB"
+  } : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %output : tensor<?x?xf32>
+}

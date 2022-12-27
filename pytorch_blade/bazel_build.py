@@ -16,6 +16,7 @@ import subprocess
 import sys
 import torch
 import venv
+
 from common_setup import (
     running_on_ci,
     remote_cache_token,
@@ -67,6 +68,7 @@ class BazelBuild(TorchBladeBuild):
             "//pytorch_blade:libtorch_blade.so",
             "//pytorch_blade:_torch_blade.so",
             "//tests/mhlo/torch-mlir-opt:torch-mlir-opt",
+            "//tests/torchscript:shape_analysis_tool",
             "//tests/torch-disc-pdll:torch-disc-pdll",
         ]
 
@@ -101,7 +103,7 @@ class BazelBuild(TorchBladeBuild):
             "--action_env TORCH_BLADE_TORCH_INSTALL_PATH={}".format(self.torch_dir),
         ] + ['--copt={}'.format(cflag) for cflag in self.pybind11_cflags()]
 
-        if self.torch_major_version >= 1 and self.torch_minor_version == 12:
+        if (self.torch_major_version, self.torch_minor_version) == (1, 12):
             # LTC features only tested on torch==1.12.0+cu113 for now
             self.torch_extra_opts.append("--config=torch_ltc_disc_backend")
         if self.is_debug:
@@ -144,8 +146,17 @@ class BazelBuild(TorchBladeBuild):
         if self.build_hie:
             self.configs += ["--config=hie"]
 
+        if self.skip_compute_intensive_fusion:
+            self.configs += ["--config=skip_compute_intensive_fusion"]
+
         if running_on_ci():
             self.configs += ["--config=ci_build"]
+
+        root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
+        self.configs += [
+            build_tao_compiler_add_flags_platform_alibaba_cached(root_dir, ""),
+            test_tao_compiler_add_flags_platform_alibaba_cached(root_dir, "")
+        ]
 
         # ----------------------------------------------------------------------- #
         # --------------------   Settings for Quantization   -------------------- #
@@ -163,6 +174,13 @@ class BazelBuild(TorchBladeBuild):
         )
         if is_enable_quantization:
             self.torch_extra_opts.append("--config=torch_enable_quantization")
+
+        # ----------------------------------------------------------------------- #
+        # --------------------   Settings for Neural Engine   ------------------- #
+        # ----------------------------------------------------------------------- #
+        if self.build_neural_engine:
+            print("=================enable neural engine=============")
+            self.torch_extra_opts.append("--config=torch_enable_neural_engine")
 
         self.shell_setting = "set -e; set -o pipefail; "
         # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3
@@ -246,8 +264,12 @@ class BazelBuild(TorchBladeBuild):
         self.test_suites = [
             "//tests/mhlo/...",
             "//pytorch_blade:torch_blade_test_suite",
-            "//tests/torch-disc-pdll/...",
+            "//tests/torch-disc-pdll/tests/...",
         ]
+        if (self.torch_major_version, self.torch_minor_version) > (1,6):
+            # torchscript graph ir parser changed after torch 1.6.
+            # We will not test torchscript graph ir before torch 1.6
+            self.test_suites.append("//tests/torchscript/...")
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

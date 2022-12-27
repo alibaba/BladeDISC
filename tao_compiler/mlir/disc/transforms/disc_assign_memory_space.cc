@@ -44,13 +44,7 @@ namespace disc_ral {
 
 namespace {
 
-// Returns a new memref type with provided memory space
-MemRefType copyWithMemorySpace(MLIRContext* ctx, MemRefType type,
-                               StringRef memory_space) {
-  Attribute memSpace = StringAttr::get(ctx, memory_space);
-  return MemRefType::get(type.getShape(), type.getElementType(),
-                         type.getLayout(), memSpace);
-}
+using placement_utils::copyWithMemorySpace;
 
 // return a new memref type with provided memory space if the input type if a
 // memref type otherwise return the original type.
@@ -342,6 +336,39 @@ LogicalResult DiscAssignMemorySpacePass::processOperation(
     return status;
   }
 
+  if (auto customCallV2Op = dyn_cast<lmhlo_disc::CustomCallV2Op>(op)) {
+    auto parseAndApply = [&](StringRef s, ValueRange vs) {
+      SmallVector<StringRef, 4> parsedItems;
+      s.split(parsedItems, ',', /*MaxSplit=*/-1, /*KeepEmpty=*/false);
+      if (parsedItems.size() != vs.size()) return failure();
+      for (const auto& z : llvm::zip(parsedItems, vs)) {
+        auto placement = std::get<0>(z);
+        if (placement == "s" || placement == "h" ||
+            placement == "x" && !this->gpu_enabled_) {
+          if (failed(updateAssignment(assignment, std::get<1>(z),
+                                      placement_utils::kCpu, converged)))
+            return failure();
+        } else if (placement == "d" || placement == "x" && this->gpu_enabled_) {
+          if (failed(updateAssignment(assignment, std::get<1>(z),
+                                      placement_utils::kGpu, converged)))
+            return failure();
+        } else {
+          return failure();
+        }
+      }
+      return success();
+    };
+    if (failed(parseAndApply(customCallV2Op.getInputPlacements(),
+                             op->getOperands())))
+      return op->emitError()
+             << " failed to parse and apply the input placements\n";
+    if (failed(parseAndApply(customCallV2Op.getOutputPlacements(),
+                             op->getResults())))
+      return op->emitError()
+             << " failed to parse and apply the output placements\n";
+    return success();
+  }
+
   // process lmhlo ops
   if (isa<lmhlo::LmhloOp>(op)) {
     return processLmhloOperation(op, input_placements, output_placements,
@@ -412,12 +439,11 @@ LogicalResult DiscAssignMemorySpacePass::processLmhloOperation(
 
   for (Value non_shape_operand : non_shape_operands) {
     auto it = assignment.find(non_shape_operand);
-    if (it == assignment.end()) {
-      continue;
-    }
+    if (it == assignment.end()) continue;
     if (!placement.empty() && it->second != placement) {
-      op->emitError("non shape operands not have same placements");
-      return failure();
+      return op->emitError()
+             << "non shape operands not have same placements " << placement
+             << " vs " << it->second << " (expected vs actual)\n";
     }
     placement = it->second;
   }
@@ -518,14 +544,29 @@ Operation* replaceResultType(Operation* op,
                              DenseMap<Value, StringRef>& assignment) {
   OpBuilder b(op);
   Location loc = op->getLoc();
-  Value oldValue = op->getResult(0);
-  Type oldType = oldValue.getType();
-  StringRef placement = assignment[oldValue];
-  Type newType = maybeConvert(op->getContext(), oldType, placement);
-  auto newOp = b.create<OpTy>(loc, newType, op->getOperands(), op->getAttrs());
-  oldValue.replaceAllUsesWith(newOp.getResult());
-  assignment[newOp.getResult()] = placement;
-  assignment.erase(oldValue);
+  SmallVector<Type> newResultTypes;
+  for (Value oldValue : op->getResults()) {
+    Type oldType = oldValue.getType();
+    auto it = assignment.find(oldValue);
+    if (it != assignment.end()) {
+      newResultTypes.push_back(
+          maybeConvert(op->getContext(), oldType, it->second));
+    } else {
+      newResultTypes.push_back(oldType);
+    }
+  }
+  auto newOp =
+      b.create<OpTy>(loc, newResultTypes, op->getOperands(), op->getAttrs());
+  for (const auto& z : llvm::zip(op->getResults(), newOp->getResults())) {
+    Value oldValue = std::get<0>(z);
+    Value newValue = std::get<1>(z);
+    oldValue.replaceAllUsesWith(newValue);
+    auto it = assignment.find(oldValue);
+    if (it != assignment.end()) {
+      assignment[newValue] = it->second;
+      assignment.erase(oldValue);
+    }
+  }
   op->erase();
   return newOp;
 }
@@ -553,10 +594,10 @@ LogicalResult DiscAssignMemorySpacePass::applyOperationAssignment(
   }
 
   // clang-format: off
-  Operation* newOp =
-      tryReplaceResultType<memref::AllocOp, memref::AllocaOp, memref::SubViewOp,
-                           memref::ViewOp, memref::CastOp,
-                           memref::ReinterpretCastOp>(op, assignment);
+  Operation* newOp = tryReplaceResultType<
+      memref::AllocOp, memref::AllocaOp, memref::SubViewOp, memref::ViewOp,
+      memref::CastOp, memref::ReinterpretCastOp, lmhlo_disc::CustomCallV2Op>(
+      op, assignment);
   // clang-format: on
 
   if (newOp) {

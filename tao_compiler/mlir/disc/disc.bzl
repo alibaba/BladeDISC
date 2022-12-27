@@ -68,3 +68,9 @@ def if_torch_disc(if_true, if_false=[]):
         "//tensorflow/compiler/mlir/disc:is_torch_disc": if_true,
         "//conditions:default": if_false
     })
+
+def if_skip_compute_intensive_fusion(if_true, if_false=[]):
+    return select({
+        "//tensorflow/compiler/mlir/disc:skip_compute_intensive_fusion": if_true,
+        "//conditions:default": if_false
+    })

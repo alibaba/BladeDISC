@@ -83,7 +83,8 @@ RUN apt-get -y update && \
       xz-utils \
       zip \
       zlib1g-dev \
-      openjdk-11-jdk
+      openjdk-11-jdk \
+      patchelf
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 1 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 1 && \

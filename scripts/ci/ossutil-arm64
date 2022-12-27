@@ -1,0 +1,2 @@
+wget -nv https://gosspublic.alicdn.com/ossutil/1.7.14/ossutilarm64 -O ossutil && chmod +x ossutil
+./ossutil -e ${OSS_ENDPOINT} -i ${OSS_AK} -k ${OSS_SK} $@

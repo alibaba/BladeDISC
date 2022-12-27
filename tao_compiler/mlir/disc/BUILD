@@ -21,6 +21,7 @@ load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured")
 load("//tensorflow/compiler/mlir/disc:disc.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
+     "if_skip_compute_intensive_fusion",
 )
 load("//tensorflow/compiler/mlir/disc:disc.bzl", "if_torch_disc")
 
@@ -57,6 +58,11 @@ config_setting(
 config_setting(
     name = "is_torch_disc",
     define_values = {"is_torch_disc": "true"},
+)
+
+config_setting(
+    name = "skip_compute_intensive_fusion",
+    define_values = {"skip_compute_intensive_fusion": "true"},
 )
 
 package(
@@ -277,6 +283,14 @@ cc_library(
         "@llvm-project//mlir:AllPassesAndDialects",
         "@llvm-project//mlir:Analysis",
         "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:ArmSVEDialect",
+        "@llvm-project//mlir:ArmSVETransforms",
+        "@llvm-project//mlir:ArmNeonDialect",
+        "@llvm-project//mlir:X86VectorDialect",
+        "@llvm-project//mlir:X86VectorTransforms",
+        "@llvm-project//mlir:AMXDialect",
+        "@llvm-project//mlir:AMXTransforms",
+        "@llvm-project//mlir:VectorDialect",
         "@llvm-project//mlir:GPUDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:LLVMDialect",
@@ -756,7 +770,10 @@ cc_library(
     name = "fusion_utils",
     srcs = [
         "transforms/fusion_utils.cc",
-        "transforms/fusion_utils_stitch_gpu.cc"],
+        "transforms/fusion_utils_stitch_gpu.cc",
+        "transforms/fusion_utils_dot_gpu.cc",
+        "transforms/fusion_utils_transform_based.cc",
+    ],
     hdrs = ["transforms/fusion_utils.h"],
     deps = [
         ":codegen_utils",
@@ -810,6 +827,7 @@ cc_library(
     hdrs = ["transforms/passes.h"],
     deps = [
         ":disc_ral",
+        ":disc_util",
         ":pass_details",
         ":placement_utils",
         "//tensorflow/compiler/mlir/xla/ral:ral_metadata",
@@ -853,6 +871,7 @@ cc_library(
         ":qconv_custom_call",
         ":sparse_custom_call",
         ":topk_custom_call",
+        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1237,6 +1256,7 @@ cc_library(
         ":disc_lower_tf_inc_gen",
         ":disc_tf_additional_ops",
         ":disc_util",
+        ":disc_pdl_utils",
         ":mhlo_disc",
         ":pass_details",
         ":rng_uniform_custom_call",
@@ -1692,8 +1712,8 @@ cc_library(
 )
 
 cc_library(
-    name = "disc_algebra_simplifier",
-    srcs = ["transforms/disc_algebra_simplifier.cc"],
+    name = "disc_algebraic_simplifier",
+    srcs = ["transforms/disc_algebraic_simplifier.cc"],
     deps = [
         ":disc_shape_optimization_utils",
         ":mhlo_disc",
@@ -1906,6 +1926,161 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_buffer_deallocation",
+    srcs = ["transforms/disc_buffer_deallocation.cc"],
+    deps = [
+        ":lmhlo_disc",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:BufferizationTransforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_custom_call_rewriter",
+    srcs = ["transforms/disc_custom_call_rewriter.cc"],
+    deps = [
+        ":mhlo_disc",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_comp_intens_fusion_to_func",
+    srcs = ["transforms/disc_comp_intens_fusion_to_func.cc"],
+    deps = [
+        ":fusion_utils",
+        ":pass_details",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_comp_intens_fusion_to_cuda_source",
+    srcs = [
+        "transforms/disc_comp_intens_fusion_to_cuda_source.cc",
+        "utils/gemm_fusion_linear_base_template_sm75.hpp",
+        "utils/gemm_fusion_linear_base_template_sm80.hpp"],
+    deps = [
+        ":disc_util",
+        ":pass_details",
+        ":source_emitter",
+        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+    ],
+    alwayslink = 1,
+)
+
+genrule(
+  name = "cutlass_header_preprocess",
+  srcs = ["cutlass", "utils/cutlass_required_headers.cu"],
+  outs = [
+      "utils/cutlass_header_preprocess.cpp1.ii.h",
+      "utils/cutlass_header_preprocess.cpp4.ii.h"],
+  cmd = """
+        UTILS_DIR=$$(dirname $(location utils/cutlass_required_headers.cu));
+        bash $${UTILS_DIR}/preprocess_cutlass_headers.sh $(SRCS) $(OUTS);
+        sed -i '1s/^/R\"bladedisc_rstr(\\n/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
+        sed -i '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
+        sed -i '1s/^/R\"bladedisc_rstr(\\n/' $(location utils/cutlass_header_preprocess.cpp4.ii.h);
+        sed -i '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp4.ii.h)
+        """
+)
+
+cc_library(
+    name = "compute_intensive_fusion_deps",
+    srcs = if_skip_compute_intensive_fusion(
+        [],
+        [
+            ":cutlass_header_preprocess",
+        ],
+    ),
+    alwayslink = 1,
+)
+
+disc_cc_library(
+    name = "disc_gpu_source_to_lib",
+    srcs = [
+        "transforms/disc_gpu_source_to_lib.cc",
+    ],
+    deps = [
+        ":disc_util",
+        ":lmhlo_disc",
+        ":pass_details",
+        "@llvm-project//mlir:Pass",
+        "//tensorflow/tsl/platform:cuda_libdevice_path",
+        "//tensorflow/core:lib",
+    ] + if_cuda_is_configured([
+        ":compute_intensive_fusion_deps",
+    ]),
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_transform_schedule",
+    srcs = ["transforms/disc_transform_schedule.cc"],
+    hdrs = ["transforms/disc_transform_schedule.h"],
+    deps = [
+        ":codegen_utils",
+        ":disc_lhlo_elemental_utils",
+        ":disc_util",
+        ":fusion_utils",
+        ":pass_details",
+        ":placement_utils",
+        "//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
+        "//tensorflow/compiler/mlir/disc/tools/disc-transform:DISCLinalgExtDialect",
+        "//tensorflow/tsl/platform:logging",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:AffineDialect",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:LinalgDialect",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:VectorDialect",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_transform_legalize_to_loop",
+    srcs = ["transforms/disc_transform_legalize_to_loop.cc"],
+    deps = [
+        ":disc_transform_schedule",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -1918,20 +2093,26 @@ cc_library(
         ":conv_rewriter",
         ":quantized_dot_rewriter",
         ":disc_dot_merge",
-        ":disc_algebra_simplifier",
-        ":disc_dynamic_slice_converter",
+        ":disc_algebraic_simplifier",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
+        ":disc_buffer_deallocation",
         ":disc_canonicalizer",
+        ":disc_comp_intens_fusion_to_cuda_source",
+        ":disc_comp_intens_fusion_to_func",
         ":disc_dense_to_sparse",
         ":disc_convert_const_to_ral",
         ":disc_convert_fake_quant_op",
+        ":disc_custom_call_rewriter",
         ":disc_cpu_map_parallel_loop",
         ":disc_duplicate_computation_for_fusion",
+        ":disc_dynamic_slice_converter",
         ":disc_flatten_memref_access",
         ":disc_for_loop_unroll_interleave",
         ":disc_fuse_splat_const",
         ":disc_fusion",
+        ":disc_gpu_kernel_to_blob",
+        ":disc_gpu_source_to_lib",
         ":disc_hlo_legalize_to_lhlo",
         ":disc_hlo_to_std",
         ":disc_lhlo_legalize_roots_to_loops",
@@ -1940,7 +2121,6 @@ cc_library(
         ":disc_lower_to_library_call",
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
-        ":disc_gpu_kernel_to_blob",
         ":disc_outline_cpu_kernel",
         ":disc_parallel_loop_collapsing",
         ":disc_parallel_loop_tiling",
@@ -1955,6 +2135,7 @@ cc_library(
         ":disc_strip_shape_constraint_ops",
         ":disc_tensor_to_std",
         ":disc_to_llvm",
+        ":disc_transform_legalize_to_loop",
         ":disc_transpose_simplifier",
         ":dot_rewriter",
         ":element_type_converter",
@@ -1976,6 +2157,7 @@ cc_library(
         ":disc_function_dead_argument_elimination",
         ":disc_side_effect_loop_invariant_code_motion",
         ":disc_unhandled_atomic_rmw_converter",
+        "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
         "@llvm-project//mlir:Pass",
     ],
     alwayslink = 1,

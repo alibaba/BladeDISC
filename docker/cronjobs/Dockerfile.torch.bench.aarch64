@@ -1,0 +1,7 @@
+ARG BASEIMAGE=bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
+FROM ${BASEIMAGE}
+
+RUN apt-get install -y git git-lfs libglib2.0-0 libsndfile1 libgl1 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install virtualenv

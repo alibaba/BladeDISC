@@ -10,6 +10,7 @@
 // limitations under the License.
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
@@ -17,6 +18,34 @@
 namespace mlir_test {
 
 enum class BackendType;
+
+// key -> (value, pre-exist?)
+using EnvSetting =
+    std::unordered_map<std::string, std::pair<std::string, bool>>;
+using EnvSettings = std::vector<EnvSetting>;
+
+struct EnvSettingContext {
+  explicit EnvSettingContext(const EnvSetting& setting) : setting(setting) {
+    VLOG(0) << "Apply env setting:";
+    for (const auto& kv : setting) {
+      VLOG(0) << "\t" << kv.first << " = " << kv.second.first;
+      setenv(kv.first.c_str(), kv.second.first.c_str(), 1);
+    }
+  }
+
+  ~EnvSettingContext() {
+    VLOG(0) << "Unset env setting:";
+    for (const auto& kv : setting) {
+      // not a pre-exist flag, unset it.
+      if (!kv.second.second) {
+        VLOG(0) << "\t" << kv.first << " = " << kv.second.first;
+        unsetenv(kv.first.c_str());
+      }
+    }
+  }
+
+  EnvSetting setting;
+};
 
 bool feature_test_main(
     const std::string& mlir_file_path,

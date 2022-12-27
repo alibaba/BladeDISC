@@ -13,6 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include "iree-dialects/Dialect/Input/InputDialect.h"
+#include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtDialect.h"
+#include "iree-dialects/Dialect/LinalgExt/Passes/Passes.h"
+#include "iree-dialects/Dialect/LinalgExt/TransformOps/LinalgExtTransformOps.h"
+#include "iree-dialects/Dialect/LinalgTransform/LinalgTransformOps.h"
+#include "iree-dialects/Dialect/LinalgTransform/Passes.h"
+#include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/passes.h"
 #include "mlir-hlo/Dialect/lhlo_gpu/IR/lhlo_gpu_ops.h"
@@ -26,6 +33,9 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/register_passes.h"
 #include "tensorflow/compiler/mlir/disc/transforms/register_passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 
@@ -34,10 +44,12 @@ int main(int argc, char** argv) {
   mlir::mhlo::registerAllMhloPasses();
   mlir::lmhlo::registerAllLmhloPasses();
   mlir::disc_ral::registerAllDiscPasses();
+  mlir::disc_ral::registerAllDiscTransformPasses();
   mlir::mhlo_disc::registerAllMhloDiscPasses();
 
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
+  mlir::disc_ral::registerTransformDialectCommonExtension(registry);
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
   registry.insert<mlir::chlo::ChloDialect>();
@@ -45,8 +57,16 @@ int main(int argc, char** argv) {
   registry.insert<mlir::lmhlo_disc::LmhloDiscDialect>();
   registry.insert<mlir::lmhlo_gpu::LmhloGpuDialect>();
   registry.insert<mlir::disc_ral::RalDialect>();
+  registry.insert<mlir::disc_ral::disc_linalg_ext::DISCLinalgExtDialect>();
   registry.insert<mlir::TF::TensorFlowDialect>();
   registry.insert<mlir::disc_shape::DISCShapeDialect>();
+  registry.insert<mlir::iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,
+                  mlir::linalg::transform::LinalgTransformDialect,
+                  mlir::iree_compiler::IREE::Input::IREEInputDialect>();
+
+  registry.addExtensions<
+      mlir::iree_compiler::IREE::LinalgExt::LinalgExtTransformOpsExtension,
+      transform_ext::StructuredTransformOpsExtension>();
 
   return failed(mlir::MlirOptMain(argc, argv, "MLIR HLO pass driver\n",
                                   registry,

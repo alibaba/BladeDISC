@@ -48,6 +48,8 @@ def _run_lit_test(name, data, size, tags, driver, features, exec_properties):
     # just a placeholder from the copybara rewrite.
     data = [d for d in data if d != _default_driver]
 
+    if name.startswith('metadata-only'):
+        return
     if name.startswith('gpu-only'):
         tags.append('gpu')
     if name.startswith('cpu-only'):

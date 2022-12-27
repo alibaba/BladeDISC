@@ -29,13 +29,10 @@ using namespace torch::jit;
 // NB: those ops (with slight adjustments) are good candidates for restarts.
 //     Knowing the type and device of weights or biases is usually enough to
 //     infer the output type.
-std::shared_ptr<OperatorSet> nn_ops_first_input_preserving() {
+std::shared_ptr<SchemaSet> nn_ops_first_input_preserving() {
   // clang-format off
-  std::shared_ptr<OperatorSet> ops = std::make_shared<OperatorSet>(
-    OperatorSet {
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
-      "aten::_autocast_to_reduced_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled, ScalarType cuda_dtype, ScalarType cpu_dtype) -> Tensor(a)",
-#endif
+  std::shared_ptr<SchemaSet> ops = std::make_shared<SchemaSet>(
+    SchemaSet {
       "aten::batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, bool cudnn_enabled) -> Tensor",
       "aten::layer_norm(Tensor input, int[] normalized_shape, Tensor? weight=None, Tensor? bias=None, float eps=1e-05, bool cudnn_enable=True) -> Tensor",
       "aten::conv1d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, int groups) -> Tensor",
@@ -49,6 +46,7 @@ std::shared_ptr<OperatorSet> nn_ops_first_input_preserving() {
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
       "aten::_convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool benchmark, bool deterministic, bool cudnn_enabled, bool allow_tf32) -> Tensor",
 #endif
+      "aten::convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor",
       "aten::_convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool benchmark, bool deterministic, bool cudnn_enabled) -> Tensor",
       "aten::adaptive_avg_pool1d(Tensor self, int[] output_size) -> Tensor",
       "aten::adaptive_avg_pool2d(Tensor self, int[] output_size) -> Tensor",
@@ -92,8 +90,8 @@ std::shared_ptr<OperatorSet> nn_ops_first_input_preserving() {
 //   device         : always matching and preserved
 //   tensor inputs  : 1
 //   tensor outputs : 1
-std::shared_ptr<OperatorSet> ops_one_tensor_in_shape_transform() {
-  std::shared_ptr<OperatorSet> ops = std::make_shared<OperatorSet>(OperatorSet{
+std::shared_ptr<SchemaSet> ops_one_tensor_in_shape_transform() {
+  std::shared_ptr<SchemaSet> ops = std::make_shared<SchemaSet>(SchemaSet{
       "aten::flatten(Tensor self, int start_dim, int end_dim) -> Tensor",
   });
   return ops;

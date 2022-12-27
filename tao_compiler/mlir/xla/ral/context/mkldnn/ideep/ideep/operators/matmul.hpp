@@ -303,8 +303,8 @@ struct matmul_forward : public dnnl::matmul,
         }
       } else {
         for (int i = 0; i < weight_scale_size; i++) {
-          bias_scales[i] = src_scales_in[0] * weights_scales_in[i] /
-                           (dst_coeff * bias_scales_in[i]);
+          bias_scales[i] = (dst_coeff * bias_scales_in[i]) /
+                           (src_scales_in[0] * weights_scales_in[i]);
           // according to here:
           // https://github.com/oneapi-src/oneDNN/blob/51ad89de16e35f5212ad96511bf3074808830894/doc/programming_model/attributes_quantization.md
           // output scales should be src_scales * weight_scales / dst_scales

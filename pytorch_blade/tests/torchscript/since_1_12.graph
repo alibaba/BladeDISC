@@ -1,0 +1,56 @@
+// RUN: shape_analysis_tool --since 1.12.0 -f %s | FileCheck %s
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(2, 3, 4, device=cuda:0)):
+  %1 : bool = prim::Constant[value=1]()
+  %2 : bool = prim::Constant[value=0]()
+  %3 : int = prim::Constant[value=5]()
+  %4 : int = prim::Constant[value=15]()
+// CHECK: Half(2, 3, 4, device=cuda:0) = aten::_autocast_to_reduced_precision(%p1, %1, %2, %3, %4)
+  %4 : Tensor = aten::_autocast_to_reduced_precision(%p1, %1, %2, %3, %4)
+  return (%4)
+
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, device=cuda:0)):
+  %1 : bool = prim::Constant[value=1]()
+  %2 : bool = prim::Constant[value=0]()
+  %3 : int = prim::Constant[value=5]()
+  %4 : int = prim::Constant[value=15]()
+// CHECK: Half(*, *, *, device=cuda:0) = aten::_autocast_to_reduced_precision(%p1, %1, %2, %3, %4)
+  %4 : Tensor = aten::_autocast_to_reduced_precision(%p1, %1, %2, %3, %4)
+  return (%4)
+
+// CHECK-LABEL: graph
+graph(%p1 : Double(*, *, *, device=cuda:0)):
+  %1 : bool = prim::Constant[value=1]()
+  %2 : bool = prim::Constant[value=0]()
+  %3 : int = prim::Constant[value=5]()
+  %4 : int = prim::Constant[value=15]()
+// CHECK: Double(*, *, *, device=cuda:0) = aten::_autocast_to_reduced_precision(%p1, %1, %2, %3, %4)
+  %4 : Tensor = aten::_autocast_to_reduced_precision(%p1, %1, %2, %3, %4)
+  return (%4)
+
+// CHECK-LABEL: graph
+graph(%p1 : Half(2, 3, 4, device=cuda:0)):
+  %1 : bool = prim::Constant[value=1]()
+  %2 : bool = prim::Constant[value=0]()
+// CHECK: Float(2, 3, 4, device=cuda:0) = aten::_autocast_to_full_precision(%p1, %1, %2)
+  %2 : Tensor = aten::_autocast_to_full_precision(%p1, %1, %2)
+  return (%2)
+
+// CHECK-LABEL: graph
+graph(%p1 : Half(*, *, *, device=cuda:0)):
+  %1 : bool = prim::Constant[value=1]()
+  %2 : bool = prim::Constant[value=0]()
+// CHECK: Float(*, *, *, device=cuda:0) = aten::_autocast_to_full_precision(%p1, %1, %2)
+  %2 : Tensor = aten::_autocast_to_full_precision(%p1, %1, %2)
+  return (%2)
+
+// CHECK-LABEL: graph
+graph(%p1 : Double(*, *, *, device=cuda:0)):
+  %1 : bool = prim::Constant[value=1]()
+  %2 : bool = prim::Constant[value=0]()
+// CHECK: Double(*, *, *, device=cuda:0) = aten::_autocast_to_full_precision(%p1, %1, %2)
+  %2 : Tensor = aten::_autocast_to_full_precision(%p1, %1, %2)
+  return (%2)

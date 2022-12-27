@@ -19,6 +19,8 @@ limitations under the License.
 #include <algorithm>
 #include <utility>
 
+#include "llvm/Support/Debug.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
@@ -184,6 +186,27 @@ struct HloToLhloCustomCallOpConverter : public BaseOpConversion<CustomCallOp> {
   }
 };
 
+struct HloToLhloCustomCallOpV2Converter
+    : public BaseOpConversion<CustomCallV2Op> {
+ public:
+  using BaseOpConversion<CustomCallV2Op>::BaseOpConversion;
+
+  LogicalResult matchAndRewrite(
+      CustomCallV2Op hloOp, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    Location loc = hloOp->getLoc();
+    SmallVector<Type> resultTypes;
+    for (Value v : hloOp->getResults()) {
+      auto ty = v.getType().cast<RankedTensorType>();
+      resultTypes.push_back(
+          MemRefType::get(ty.getShape(), ty.getElementType()));
+    }
+    rewriter.replaceOpWithNewOp<lmhlo_disc::CustomCallV2Op>(
+        hloOp, resultTypes, adaptor.getOperands(), hloOp->getAttrs());
+    return success();
+  }
+};
+
 struct TieShapeOpConverter : public BaseOpConversion<TieShapeOp> {
  public:
   using BaseOpConversion<TieShapeOp>::BaseOpConversion;
@@ -216,7 +239,8 @@ struct DiscHloLegalizeToLhlo
 
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<lmhlo_disc::LmhloDiscDialect, memref::MemRefDialect,
-                    shape::ShapeDialect, bufferization::BufferizationDialect>();
+                    shape::ShapeDialect, bufferization::BufferizationDialect,
+                    lmhlo::LmhloDialect>();
   }
 
  public:
@@ -229,7 +253,7 @@ struct DiscHloLegalizeToLhlo
     target.addLegalDialect<arith::ArithDialect, lmhlo_disc::LmhloDiscDialect,
                            bufferization::BufferizationDialect,
                            memref::MemRefDialect, shape::ShapeDialect,
-                           tensor::TensorDialect>();
+                           tensor::TensorDialect, lmhlo::LmhloDialect>();
     target.addIllegalDialect<mhlo_disc::MhloDiscDialect>();
     target.addIllegalOp<disc_shape::TieShapeOp>();
 
@@ -257,6 +281,7 @@ void populateDiscHLOToLHLOConversionPattern(
       HloToLhloOpConverter<mhlo_disc::SparseSegmentMeanOp>,
       HloToLhloOpConverter<mhlo_disc::WhereOp>,
       HloToLhloCustomCallOpConverter,
+      HloToLhloCustomCallOpV2Converter,
       TieShapeOpConverter
   >(*converter, context);
   // clang-format on

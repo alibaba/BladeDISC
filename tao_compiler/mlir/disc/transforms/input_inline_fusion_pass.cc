@@ -83,7 +83,7 @@ void InputInlineFusion::runOnOperation() {
   // properly optimized by general DCE pass
   std::vector<Operation*> to_be_removed;
   func.walk([&](FusionOp fusion) {
-    if (isStitchFusion(fusion.getOperation())) return;
+    if (isFusionType<FusionType::kStitch>(fusion.getOperation())) return;
     fusion.getRegion().walk([&](LmhloOp op) {
       if (isa<TerminatorOp>(op)) {
         return;

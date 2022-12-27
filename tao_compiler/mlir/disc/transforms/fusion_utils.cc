@@ -46,6 +46,7 @@ using placement_utils::kDiscPlaceAssignment;
 using placement_utils::kDiscShapeCalcAttr;
 
 void dumpFusionPattern(FusionPattern& pattern) {
+  llvm::dbgs() << "FusionType: " << pattern.getFusionTypeStr() << "\n";
   for (Operation* subOp : pattern.getOpList()) {
     llvm::dbgs() << "  " << *subOp << "\n";
   }
@@ -108,7 +109,8 @@ DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops) {
 void cleanUnusedLhloOps(Block* parent, PatternRewriter* rewriter) {
   SmallVector<Operation*, 4> lhlo_ops;
   for (Operation& op : parent->getOperations()) {
-    if (op.getDialect() == op.getContext()->getLoadedDialect("lmhlo") &&
+    if ((op.getDialect() == op.getContext()->getLoadedDialect("lmhlo") ||
+         op.getDialect() == op.getContext()->getLoadedDialect("lmhlo_disc")) &&
         (!isa<lmhlo::TerminatorOp>(op)))
       lhlo_ops.push_back(&op);
   }
@@ -185,6 +187,12 @@ StringRef fusionTypeToString(FusionType ft) {
       return "kStitch";
     case FusionType::kLargeConcat:
       return "kLargeConcat";
+    case FusionType::kDot:
+      return "kDot";
+    case FusionType::kWhere:
+      return "kWhere";
+    case FusionType::kTransform:
+      return "kTransform";
     default:
       assert(false && "unknown fusion type");
       return "";
@@ -207,7 +215,14 @@ FusionType fusionTypeFromString(StringRef ft) {
     return FusionType::kStitch;
   } else if (ft == "kLargeConcat") {
     return FusionType::kLargeConcat;
+  } else if (ft == "kDot") {
+    return FusionType::kDot;
+  } else if (ft == "kWhere") {
+    return FusionType::kWhere;
+  } else if (ft == "kTransform") {
+    return FusionType::kTransform;
   }
+
   assert(false && "unknown fusion type");
   return FusionType::kNone;
 }
@@ -245,6 +260,11 @@ void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag) {
     oldTag = (Twine(attr.getValue()) + "X").str();
   }
   op->setAttr(kFusionOpTagAttr, b.getStringAttr((Twine(oldTag) + tag).str()));
+}
+
+StringRef getFusionTagStr(lmhlo::FusionOp op) {
+  auto attr = op->getAttrOfType<StringAttr>(kFusionOpTagAttr);
+  return attr ? attr.getValue() : "";
 }
 
 // Returns the full name of the fusion op
@@ -412,12 +432,12 @@ bool isRank2ColReduction(Operation* op) {
 }
 
 // Return true if this op is a rank-2 transpose
-bool isRank2Transpose(Operation* op) {
+bool isRank2or3Transpose(Operation* op) {
   auto transpose_op = dyn_cast<lmhlo::TransposeOp>(op);
   if (!transpose_op) return false;
 
   int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
-  return rank == 2;
+  return rank == 2 || rank == 3;
 }
 
 // Returns true if the op is supported by the downstreaming fusion codegen
@@ -432,6 +452,10 @@ bool isFusible(Operation* op) {
 
   // All element ops are supported by the fusion codegen engine.
   if (isElementWise(op)) return true;
+
+  // lmhlo_disc.where is supported for fusion, fuse input element-wise ops like
+  // kInput fusion.
+  if (isa<lmhlo_disc::WhereOp>(op)) return true;
 
   // clang-format off
   return isa<
@@ -454,6 +478,41 @@ bool isFusible(Operation* op) {
     lmhlo::TransposeOp
   >(op);
   // clang-format on
+}
+
+bool initFusionPatternBase(ShapeAnalysis& shapeAnalysis,
+                           FusionPattern& fusion_pattern) {
+  Operation* inferredDominantOp = nullptr;
+  FusionType inferredFusionType = FusionType::kNone;
+  for (Operation* op : fusion_pattern.getOpList()) {
+    if (isRank2RowReduction(op)) {
+      inferredFusionType = FusionType::kRowReduction;
+      inferredDominantOp = op;
+    } else if (isRank2ColReduction(op)) {
+      if (inferredFusionType != FusionType::kRowReduction) {
+        inferredFusionType = FusionType::kColReduction;
+        inferredDominantOp = op;
+      }
+    } else if (isFusible(op)) {
+      // Ignore if already a kRowReduction or kColReduction, otherwise update
+      // the fusion type to kLoop and dominant op to current op. This supposes
+      // that the last op inside the block is a valid candidate dominant op if
+      // the fusion pattern is a kLoop.
+      if (inferredFusionType == FusionType::kNone ||
+          inferredFusionType == FusionType::kLoop) {
+        inferredFusionType = FusionType::kLoop;
+        inferredDominantOp = op;
+      }
+    } else if (!isa<lmhlo::TerminatorOp>(op)) {
+      // Not a supported fusionOp, early stop.
+      inferredFusionType = FusionType::kNone;
+      inferredDominantOp = nullptr;
+      break;
+    }
+  }
+  fusion_pattern.setDominantOp(inferredDominantOp);
+  fusion_pattern.setFusionType(inferredFusionType);
+  return (inferredFusionType != FusionType::kNone && inferredDominantOp);
 }
 
 int64_t getFirstOperandIndex(Operation* op, Value value) {
@@ -498,7 +557,7 @@ FusionPatternBase::FusionPatternBase(SmallVectorImpl<Operation*>& op_list)
 // fusion pattern contains.
 int FusionPatternBase::effectiveSize() {
   return llvm::count_if(
-      op_list_, [](Operation* op) { return !matchPattern(op, m_Constant()); });
+      op_list_, [](Operation* op) { return !isa<lmhlo::ConstantOp>(op); });
 }
 
 // Sorts the ops inside the fusion pattern according to the keys provided.
@@ -585,7 +644,10 @@ void FusionPatternBase::calculateOperandsAndResults() {
 
       if (has_external_user) {
         results_.push_back(v);
-        root_ops_.push_back(op);
+        // For op with multi-output
+        if (!alreadyInRootOps(op)) {
+          root_ops_.push_back(op);
+        }
         if (!has_internal_user) {
           external_only_results_.push_back(v);
         }
@@ -618,29 +680,32 @@ FusionPattern::FusionPattern(Operation* op) : FusionPatternBase(op) {
 // Create a new fusion pattern from the ops inside the lmhlo fusion op.
 FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
     : FusionPatternBase(op) {
-  if (shape_analysis != nullptr) {
-    FusionType fusionType = FusionType::kNone;
-    auto deviceAttr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);
-    auto fusionTypeAttr =
-        op->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
-    if (fusionTypeAttr) {
-      fusionType = fusionTypeFromString(fusionTypeAttr.getValue());
-    }
-    if (!deviceAttr || fusionType == FusionType::kNone) {
-      fusion_type_ = FusionType::kNone;
-      dominant_op_ = (size() == 0 ? nullptr : getOpList()[0]);
-      return;
-    }
-    StringRef strategyStr = "base";
-    if (fusionType == FusionType::kStitch) {
-      strategyStr = "stitch";
-    }
-    FusionStrategy& strategy =
-        getFusionStrategy(deviceAttr.getValue(), strategyStr);
-    bool status = strategy.initFusionPattern(*shape_analysis, *this);
-    assert(status);
-    (void)(status);
+  assert(shape_analysis != nullptr & "shape_analysis should not be nullptr.");
+
+  FusionType fusionType = FusionType::kNone;
+  auto deviceAttr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);
+  auto fusionTypeAttr = op->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
+  if (fusionTypeAttr) {
+    fusionType = fusionTypeFromString(fusionTypeAttr.getValue());
   }
+  if (!deviceAttr || fusionType == FusionType::kNone) {
+    fusion_type_ = FusionType::kNone;
+    dominant_op_ = (size() == 0 ? nullptr : getOpList()[0]);
+    return;
+  }
+  StringRef strategyStr = "base";
+  if (fusionType == FusionType::kStitch) {
+    strategyStr = "stitch";
+  } else if (fusionType == FusionType::kDot) {
+    strategyStr = "dot";
+  } else if (fusionType == FusionType::kTransform) {
+    strategyStr = "transform_based";
+  }
+  FusionStrategy& strategy =
+      getFusionStrategy(deviceAttr.getValue(), strategyStr);
+  bool status = strategy.initFusionPattern(*shape_analysis, *this);
+  assert(status);
+  (void)(status);
 }
 
 // Create a new fusion pattern from a valid fusion op list.
@@ -660,6 +725,11 @@ FusionPattern FusionPattern::mergeWithoutInit(FusionPattern& other) {
                      other.getOpList().end());
   FusionPattern new_fusion_pattern{new_op_list};
   return new_fusion_pattern;
+}
+
+FusionPattern FusionPattern::createWithoutInit(
+    SmallVectorImpl<Operation*>& op_list) {
+  return FusionPattern(op_list);
 }
 
 void FusionPattern::findOpsOfSkeletonGroup(SkeletonGroup group,
@@ -950,6 +1020,12 @@ bool FusionStrategy::isFusible(FusionPattern& fusion_pattern) {
   return true;
 }
 
+bool FusionStrategy::pruneFusionPattern(
+    ShapeAnalysis& shapeAnalysis, FusionPattern& fused_pattern,
+    SmallVectorImpl<Operation*>& excluded_ops) {
+  return true;
+}
+
 bool FusionStrategy::tryFuseInplace(ShapeAnalysis& shapeAnalysis,
                                     FusionPattern& lhs, FusionPattern& rhs) {
   // both lhs & rhs should be fusible
@@ -964,6 +1040,7 @@ bool FusionStrategy::tryFuseInplace(ShapeAnalysis& shapeAnalysis,
     return false;
   }
   lhs = result;
+
   return true;
 }
 
@@ -994,25 +1071,6 @@ bool FusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
 
 ////////////////////// Base FusionStrategy Implemenation /////////
 //////////////////////////////////////////////////////////////////
-class BaseFusionStrategy : public FusionStrategy {
- public:
-  using FusionStrategy::FusionStrategy;
-
-  using FusionStrategy::isFusible;
-  bool isFusible(FusionPattern& fusion_pattern) override;
-  bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
-               FusionPattern& rhs, FusionPattern& target) override;
-  bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
-                         FusionPattern& fusion_pattern) override;
-  virtual StringRef getName() override { return "BaseFusionStrategy"; }
-
- protected:
-  virtual Value getEffectiveShape(FusionPattern& target, Value value) = 0;
-  virtual bool checkSameShape(FusionPattern& lhs, FusionPattern& rhs,
-                              FusionPattern& target) {
-    return false;
-  }
-};
 
 bool BaseFusionStrategy::isFusible(FusionPattern& fusion_pattern) {
   if (fusion_pattern.isStitchFusion()) return false;
@@ -1021,37 +1079,7 @@ bool BaseFusionStrategy::isFusible(FusionPattern& fusion_pattern) {
 
 bool BaseFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                            FusionPattern& fusion_pattern) {
-  Operation* inferredDominantOp = nullptr;
-  FusionType inferredFusionType = FusionType::kNone;
-  for (Operation* op : fusion_pattern.getOpList()) {
-    if (isRank2RowReduction(op)) {
-      inferredFusionType = FusionType::kRowReduction;
-      inferredDominantOp = op;
-    } else if (isRank2ColReduction(op)) {
-      if (inferredFusionType != FusionType::kRowReduction) {
-        inferredFusionType = FusionType::kColReduction;
-        inferredDominantOp = op;
-      }
-    } else if (this->isFusible(op)) {
-      // Ignore if already a kRowReduction or kColReduction, otherwise update
-      // the fusion type to kLoop and dominant op to current op. This supposes
-      // that the last op inside the block is a valid candidate dominant op if
-      // the fusion pattern is a kLoop.
-      if (inferredFusionType == FusionType::kNone ||
-          inferredFusionType == FusionType::kLoop) {
-        inferredFusionType = FusionType::kLoop;
-        inferredDominantOp = op;
-      }
-    } else if (!isa<lmhlo::TerminatorOp>(op)) {
-      // Not a supported fusionOp, early stop.
-      inferredFusionType = FusionType::kNone;
-      inferredDominantOp = nullptr;
-      break;
-    }
-  }
-  fusion_pattern.setDominantOp(inferredDominantOp);
-  fusion_pattern.setFusionType(inferredFusionType);
-  return (inferredFusionType != FusionType::kNone && inferredDominantOp);
+  return initFusionPatternBase(shapeAnalysis, fusion_pattern);
 }
 
 bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
@@ -1083,6 +1111,9 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   // Here `compatible` means:
   // - if `to` and `from` are both kInput fusion, all output should have same
   // shape.
+  // - if `to` or `from` is kWhere fusion, there should be no constrains for
+  // output shape, since lmhlo_disc.where's output shape is determined by values
+  // from its input, which cannot be decided at compile-time.
   // - otherwise, all output should have same number of elements.
 
   // No outside users, these ops may be eliminated. We fused it here and let
@@ -1091,14 +1122,26 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
     return true;
   }
 
-  Value ref_shape = getEffectiveShape(target, results[0]);
-  if (!llvm::all_of(results, [&](Value result) {
-        Value shape = getEffectiveShape(target, result);
-        return checkSameShape(lhs, rhs, target)
-                   ? shapeAnalysis.isShapeEqual(ref_shape, shape)
-                   : shapeAnalysis.isSameNumElements(ref_shape, shape);
-      })) {
-    return false;
+  if (rhs.getFusionType() != FusionType::kWhere &&
+      lhs.getFusionType() != FusionType::kWhere) {
+    Value ref_shape = getEffectiveShape(target, results[0]);
+    if (!llvm::all_of(results, [&](Value result) {
+          Value shape = getEffectiveShape(target, result);
+          return checkSameShape(lhs, rhs, target)
+                     ? shapeAnalysis.isShapeEqual(ref_shape, shape)
+                     : shapeAnalysis.isSameNumElements(ref_shape, shape);
+        })) {
+      return false;
+    }
+  } else {
+    // TODO(lanbo.llb): make a more general rule for kWhere fusion
+    if ((target.getRootOps().size() != 1) ||
+        (target.getRootOps().size() == 1 &&
+         !isa<lmhlo_disc::WhereOp>(target.getRootOps()[0]))) {
+      // Currently we only support input-fusion like kWhere fusion
+      // with one root op, which should be mhlo_disc.where
+      return false;
+    }
   }
   LLVM_DEBUG(llvm::dbgs() << "BaseFusionStrategy::tryFuse success()\n");
   return true;
@@ -1161,11 +1204,17 @@ bool BaseCpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
       // the fusion type to kLoop and dominant op to current op. This supposes
       // that the last op inside the block is a valid candidate dominant op if
       // the fusion pattern is a kLoop.
-      if (inferredFusionType == FusionType::kNone ||
-          inferredFusionType == FusionType::kLoop) {
-        inferredFusionType = FusionType::kLoop;
+      if (!isa<lmhlo_disc::WhereOp>(op)) {
+        if (inferredFusionType == FusionType::kNone ||
+            inferredFusionType == FusionType::kLoop) {
+          inferredFusionType = FusionType::kLoop;
+          inferredDominantOp = op;
+        }
+      } else {
+        inferredFusionType = FusionType::kWhere;
         inferredDominantOp = op;
       }
+
     } else if (!isa<lmhlo::TerminatorOp>(op)) {
       // Not a supported fusionOp, early stop.
       inferredFusionType = FusionType::kNone;
@@ -1285,21 +1334,8 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   return true;
 }
 
-////////////////////// Base GPU FusionStrategy Implemenation /////////
+////////////////////// Base GPU FusionStrategy Implementation /////////
 //////////////////////////////////////////////////////////////////
-class BaseGpuFusionStrategy : public BaseFusionStrategy {
- public:
-  using BaseFusionStrategy::BaseFusionStrategy;
-
-  bool isFusible(Operation* op) override;
-  bool checkSameShape(FusionPattern& lhs, FusionPattern& rhs,
-                      FusionPattern& target) {
-    return lhs.isKInputFusion() && rhs.isKInputFusion();
-  }
-
-  Value getEffectiveShape(FusionPattern& target, Value v) override;
-  virtual StringRef getName() override { return "BaseGpuFusionStrategy"; }
-};
 
 bool BaseGpuFusionStrategy::isFusible(Operation* op) {
   // Only rank-2 tensor -> rank-1 tensor reduction are supported now.
@@ -1307,7 +1343,7 @@ bool BaseGpuFusionStrategy::isFusible(Operation* op) {
       (!isRank2RowReduction(op) && !isRank2ColReduction(op)))
     return false;
 
-  if (isa<lmhlo::TransposeOp>(op) && isRank2Transpose(op)) return false;
+  if (isa<lmhlo::TransposeOp>(op) && isRank2or3Transpose(op)) return false;
 
   return BaseFusionStrategy::isFusible(op);
 }
@@ -1416,12 +1452,19 @@ std::unique_ptr<FusionStrategy> makeNewDeviceStrategy(StringRef device,
     return std::make_unique<BaseGpuFusionStrategy>(options);
   } else if (device == placement_utils::kCpu && strategy == "stitch") {
     return std::make_unique<StitchCpuFusionStrategy>(options);
+  } else if (device == placement_utils::kCpu && strategy == "transform_based") {
+    return std::make_unique<TransformBasedCpuFusionStrategy>(options);
   } else if (device == placement_utils::kGpu && strategy == "stitch") {
     return std::make_unique<StitchGpuFusionStrategy>(options);
   } else if (device == placement_utils::kCpu && strategy == "stitch_base") {
     return std::make_unique<StitchBaseCpuFusionStrategy>(options);
+  } else if (device == placement_utils::kGpu && strategy == "pre_dot") {
+    return std::make_unique<PreDotGpuFusionStrategy>(options);
+  } else if (device == placement_utils::kGpu && strategy == "dot") {
+    return std::make_unique<DotGpuFusionStrategy>(options);
   } else {
     assert(false && "not support fusion strategy");
+    return nullptr;
   }
 }
 
@@ -1445,44 +1488,6 @@ FusionStrategy& getFusionStrategy(StringRef device, StringRef strategy) {
   return *it->second;
 }
 
-using DeviceStrategyMap = DenseMap<StringRef, FusionStrategy*>;
-
-class PlacementAwareFusionStrategy : public FusionStrategy {
- public:
-  PlacementAwareFusionStrategy(const FusionOptions& options,
-                               StringRef defaultDevice,
-                               DeviceStrategyMap deviceStrategyMap)
-      : FusionStrategy(options),
-        deviceStrategyMap_(std::move(deviceStrategyMap)),
-        defaultDevice_(defaultDevice) {}
-
-  bool isFusible(Operation* op) override;
-  bool isFusible(FusionPattern& fusion_pattern) override;
-  bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
-               FusionPattern& rhs, FusionPattern& target) override;
-  bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
-                         FusionPattern& fusion_pattern) override;
-  virtual StringRef getName() override {
-    return "PlacementAwareFusionStrategy";
-  }
-
- private:
-  StringRef getPlacement(Operation* op);
-  StringRef getPlacement(FusionPattern& fusion_pattern) {
-    return getPlacement(fusion_pattern.getDominantOp());
-  }
-  FusionStrategy* getStrategy(StringRef placement);
-  FusionStrategy* getStrategy(Operation* op) {
-    return getStrategy(getPlacement(op));
-  }
-  FusionStrategy* getStrategy(FusionPattern& fusion_pattern) {
-    return getStrategy(getPlacement(fusion_pattern));
-  }
-
-  StringRef defaultDevice_;
-  DeviceStrategyMap deviceStrategyMap_;
-};
-
 StringRef PlacementAwareFusionStrategy::getPlacement(Operation* op) {
   if (!op) return "";
   auto attr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);
@@ -1495,6 +1500,14 @@ StringRef PlacementAwareFusionStrategy::getPlacement(Operation* op) {
       return strAttr.getValue();
   }
   return defaultDevice_;
+}
+
+StringRef PlacementAwareFusionStrategy::getPlacement(
+    FusionPattern& fusion_pattern) {
+  auto op = !fusion_pattern.getRootOps().empty()
+                ? fusion_pattern.getRootOps()[0]
+                : nullptr;
+  return getPlacement(op);
 }
 
 FusionStrategy* PlacementAwareFusionStrategy::getStrategy(StringRef placement) {
@@ -1531,6 +1544,19 @@ bool PlacementAwareFusionStrategy::initFusionPattern(
   if (fusion_pattern.getOpList().empty()) return true;
   FusionStrategy* strategy = getStrategy(fusion_pattern.getOpList()[0]);
   return strategy && strategy->initFusionPattern(shapeAnalysis, fusion_pattern);
+}
+
+bool PlacementAwareFusionStrategy::pruneFusionPattern(
+    ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
+    SmallVectorImpl<Operation*>& excluded_ops) {
+  if (fusion_pattern.getOpList().empty() ||
+      fusion_pattern.getFusionType() == FusionType::kNone) {
+    // Do not deal with invalid fusion pattern.
+    return true;
+  }
+  FusionStrategy* strategy = getStrategy(fusion_pattern.getOpList()[0]);
+  return strategy && strategy->pruneFusionPattern(shapeAnalysis, fusion_pattern,
+                                                  excluded_ops);
 }
 
 std::unique_ptr<FusionStrategy> makeNewPlacementAwareFusionStrategy(
@@ -3198,7 +3224,7 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
 //  ```
 bool StitchCPUAnalysis::doCodeGeneration(OpBuilder& b, lmhlo::FusionOp fusion) {
   LLVM_DEBUG(llvm::dbgs() << "Try to doCodeGeneration for fusion:\n" << fusion);
-  if (!isStitchFusion(fusion)) return false;
+  if (!isFusionType<FusionType::kStitch>(fusion)) return false;
   if (!fusibilityAnalysis()) return false;
 
   // 1, create parallel for loop according to dominant value parallel info.

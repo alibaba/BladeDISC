@@ -1,6 +1,7 @@
 pytest==5.0.0
 networkx
 onnx>=1.6.0
+py-cpuinfo
 torch==1.10.0
 torchvision==0.11.0
 expecttest

@@ -88,7 +88,7 @@ class TestTools(TestCase):
         schemas = [tools.node_schema_str(n) for n in shape.graph.nodes()]
         self.assertEqual(schemas[0], "prim::Constant")
 
-        if utils.torch_version_number() < utils.parse_version("1.14.0"):
+        if utils.torch_version_number() < utils.parse_version("1.13.0"):
             self.assertEqual(schemas[1], "aten::size(Tensor self) -> (int[])")
             self.assertEqual(schemas[2], "aten::__getitem__.t(t[](a) list, int idx) -> (t(*))")
         else:

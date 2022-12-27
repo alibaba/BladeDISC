@@ -1,0 +1,8 @@
+pytest==5.0.0
+networkx
+onnx>=1.6.0
+torch==1.13.1
+torchvision==0.14.1
+py-cpuinfo
+torchaudio==0.13.1
+expecttest

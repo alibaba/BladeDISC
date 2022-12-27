@@ -50,6 +50,13 @@ bool findValidReductionOps(FusionPatternBase& target,
   return true;
 }
 
+bool StitchGpuFusionStrategy::isFusible(Operation* op) {
+  if (isa<lmhlo::TransposeOp>(op)) {
+    return isRank2or3Transpose(op);
+  }
+  return true;
+}
+
 Value StitchGpuFusionStrategy::getEffectiveShape(FusionPattern& target,
                                                  Value v) {
   Operation* result_op = target.findLastWriter(v);

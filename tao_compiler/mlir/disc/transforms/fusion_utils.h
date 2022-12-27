@@ -151,6 +151,9 @@ bool isRowReduction(Operation* op);
 // Returns true if this op is a rank-2 column reduction.
 bool isRank2ColReduction(Operation* op);
 
+// Returns true if this op is a rank-2 or rank-3 transpose
+bool isRank2or3Transpose(Operation* op);
+
 // Returns true if the op is supported by the downstreaming fusion codegen
 // engine.
 bool isFusible(Operation* op);
@@ -770,16 +773,7 @@ class StitchGpuFusionStrategy : public FusionStrategy {
  public:
   StitchGpuFusionStrategy(const FusionOptions& options)
       : FusionStrategy(options) {}
-  virtual bool isFusible(Operation* op) override {
-    if (isa<lmhlo::TransposeOp>(op)) {
-      auto transpose = cast<lmhlo::TransposeOp>(op);
-      auto permutation = transpose.getPermutation().getValues<int64_t>();
-      Value out_value = transpose.getOutput();
-      int64_t rank = out_value.getType().cast<MemRefType>().getRank();
-      if (rank == 2 || rank == 3) return false;
-    }
-    return true;
-  }
+  virtual bool isFusible(Operation* op) override;
 
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fusion_pattern) override;

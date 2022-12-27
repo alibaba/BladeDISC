@@ -52,6 +52,15 @@ class PatternDescription {
   // Returns the full pattern kind str + tag str.
   std::string getTaggedPatternStr() const;
 
+  // Returns the fusion op this descriptor holds.
+  lmhlo::FusionOp getFusionOp() { return op_; }
+
+  // Returns the fusion pattern this descriptor holds.
+  FusionPattern& getFusionPattern() { return fusionPattern_; }
+
+  // Returns the fusion pattern this descriptor holds.
+  ShapeAnalysis& shapeAnalysis() { return shapeAnalysis_; }
+
  private:
   lmhlo::FusionOp op_;
   FusionPattern& fusionPattern_;

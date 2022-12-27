@@ -48,21 +48,4 @@ TEST(PackedMatmul, F32_304x1024x512) {
       /*profiling*/ true));
 }
 
-TEST(PackedMatmul, F32_304x1024x512_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
-  EnvSettingContext ctx(setting);
-  EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "packed_matmul_nn_p_512x1024_f32.mlir",
-      /*backend_types*/ {BackendType::kAArch64},
-      /*num_inputs*/ 1,
-      /*num_outputs*/ 1,
-      /*input_descriptors*/ {"304x512xf32_X"},
-      /*output_descriptors*/ {"f32_X"},
-      /*input_vals*/ {},
-      /*expected_output_vals*/ {},
-      /*profiling*/ true));
-}
-
 }  // namespace mlir_test

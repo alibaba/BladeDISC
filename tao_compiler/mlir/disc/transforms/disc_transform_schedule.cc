@@ -234,6 +234,38 @@ LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
 
+  auto& fusionPattern = pd.getFusionPattern();
+  auto dotOp =
+      dyn_cast_or_null<lmhlo::DotGeneralOp>(fusionPattern.getDominantOp());
+  if (!dotOp) {
+    return m->emitError() << "expect dot_general op as dominant\n";
+  }
+  Value lhs = dotOp->getOperand(0);
+  Value rhs = dotOp->getOperand(1);
+  auto lhsTy = lhs.getType().cast<MemRefType>();
+  auto rhsTy = rhs.getType().cast<MemRefType>();
+  if (lhsTy.getRank() != 2 || rhsTy.getRank() != 2) {
+    return m->emitError() << "only support rank 2 GEMM a.t.m.\n";
+  }
+
+  auto dimNumbers = dotOp.getDotDimensionNumbers();
+  auto lhsCntractingDims = dimNumbers.getLhsContractingDimensions();
+  auto rhsCntractingDims = dimNumbers.getRhsContractingDimensions();
+  if (lhsCntractingDims.size() != 1 || rhsCntractingDims.size() != 1) {
+    return m->emitError() << "only support exactly 1 contract dim\n";
+  }
+  bool lhsTranspose = (lhsCntractingDims[0] == lhsTy.getRank() - 2);
+  bool rhsTranspose = (rhsCntractingDims[0] == rhsTy.getRank() - 1);
+  if (lhsTranspose || rhsTranspose) {
+    return m->emitError() << "not support transposed gemm a.t.m.\n";
+  }
+  int64_t M = lhsTranspose ? lhsTy.getShape()[lhsTy.getRank() - 1]
+                           : lhsTy.getShape()[lhsTy.getRank() - 2];
+  int64_t K = lhsTranspose ? lhsTy.getShape()[lhsTy.getRank() - 2]
+                           : lhsTy.getShape()[lhsTy.getRank() - 1];
+  int64_t N = rhsTranspose ? rhsTy.getShape()[rhsTy.getRank() - 2]
+                           : rhsTy.getShape()[rhsTy.getRank() - 1];
+
   // %fill = transform.structured.match ops{["linalg.fill"]} in %variant
   Value fill = buildMatchOp(b, loc, variant, {"linalg.fill"});
   // %matmul = transform.structured.match ops{["linalg.matmul"]} in %arg1
@@ -248,16 +280,23 @@ LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
   auto fuseIntoContainingOp =
       buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
 
+  // first/second level tile size for dimension m
+  int64_t M0 = 288, M1 = 6;
+  // first/second level tile size for dimension n
+  int64_t N0 = 48, N1 = 16;
+  // first level tile size for dimension k
+  int64_t K0 = 1;
+
   // first level tile and fuse matmul and fill op.
-  auto fuseOp0 = buildFuseOp(b, loc, tiledMatmul, {288, 48, 0}, {0, 1, 2});
+  auto fuseOp0 = buildFuseOp(b, loc, tiledMatmul, {M0, N0, 0}, {0, 1, 2});
 
   // second level tile and fuse matmul and fill op.
   auto fuseOp1 =
-      buildFuseOp(b, loc, fuseOp0->getResult(0), {6, 16, 0}, {0, 1, 2});
+      buildFuseOp(b, loc, fuseOp0->getResult(0), {M1, N1, 0}, {0, 1, 2});
 
   // gemm reduction axis tiling
   auto tileOp =
-      buildTileOp(b, loc, fuseOp1->getResult(0), {0, 0, 1}, {0, 1, 2});
+      buildTileOp(b, loc, fuseOp1->getResult(0), {0, 0, K0}, {0, 1, 2});
 
   variant = buildRunCanonicalizer(b, loc, variant);
 
@@ -272,12 +311,65 @@ LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
 
   Value padForInput = buildGetProducerOfOperand(b, loc, padOp, 0);
   Value padForWeight = buildGetProducerOfOperand(b, loc, padOp, 1);
-  forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
-  auto outterLoopForN = buildGetParentForOp(b, loc, padForInput, 4);
-  buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, {1, 16}, true,
-                 {2, 0, 1, 3});
-  buildCacheRead(b, loc, padForInput, outterLoopForN, {1, 1}, {6, 1}, true,
-                 {0, 2, 3, 1});
+
+  // Check if we need to pad dimension `m/n/k` if input or weight is packed
+  bool mIsPadded = (M1 != 1) && (M == ShapedType::kDynamicSize ||
+                                 (M > M0 && (M % M0 != 0 || M0 % M1 != 0)) ||
+                                 (M <= M0 && M > M1 && M % M1 != 0));
+  bool nIsPadded = (N1 != 1) && (N == ShapedType::kDynamicSize ||
+                                 (N > N0 && (N % N0 != 0 || N0 % N1 != 0)) ||
+                                 (N <= N0 && N > N1 && N % N1 != 0));
+  bool kIsPadded =
+      (K0 != 1) && (K == ShapedType::kDynamicSize || K > K0 && K % K0 != 0);
+
+  // Check if we need to pack the input:
+  bool packInput = ((M == ShapedType::kDynamicSize || M >= M1) &&
+                    (K == ShapedType::kDynamicSize || K > K0) &&
+                    (N == ShapedType::kDynamicSize || N > N0));
+  if (packInput) {
+    // supposed loop order:
+    //  loop_m0
+    //   loop_n0
+    //    loop_m1
+    //     loop_n1
+    //      loop_k0 {
+    //        inner_most_gemm
+    //      }
+    // We want to cache the packed A below loop_m0 and above loop_n0.
+    // Thus the initial loop_level is 4.
+    int loopLevel = 4;
+    // in case:
+    // - the size of dimension N <= N0, then loop_n0 will be folded.
+    loopLevel -= (N != ShapedType::kDynamicSize && N <= N0);
+    // - the size of dimension M <= M1, then loop_m1 will be folded.
+    loopLevel -= (M != ShapedType::kDynamicSize && M <= M1);
+    // - the size of dimension N <= N1, then loop_n1 will be folded.
+    loopLevel -= (N != ShapedType::kDynamicSize && N <= N1);
+    // - the size of dimension K <= K0, then loop_k0 will be folded.
+    loopLevel -= (K != ShapedType::kDynamicSize && K <= K0);
+
+    if (loopLevel <= 0) {
+      return m->emitError()
+             << "failed to cache the packed input due to loopLevel = "
+             << loopLevel << " is invalid\n";
+    }
+    auto loopN0 = buildGetParentForOp(b, loc, padForInput, loopLevel);
+    bool inputIsPadded = mIsPadded || kIsPadded;
+    buildCacheRead(b, loc, padForInput, loopN0, {1, 1}, {6, 1}, inputIsPadded,
+                   {0, 2, 3, 1});
+  }
+
+  // Check if we need to pack the weight, one of the following conditions:
+  // - if M, N and K are both dynamic, we always pad input a.t.m.
+  // - if N is known and N >= N0 && N0 > N1
+  bool packWeight = ((K == ShapedType::kDynamicSize || K > K0) &&
+                     (N == ShapedType::kDynamicSize || N > N1));
+  if (packWeight) {
+    bool weightIsPadded = nIsPadded || kIsPadded;
+    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, {1, 16},
+                   weightIsPadded, {2, 0, 1, 3});
+  }
 
   variant = buildRunCanonicalizer(b, loc, variant);
 

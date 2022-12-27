@@ -12,6 +12,7 @@
 #include "tensorflow/compiler/mlir/xla/ral/context/custom_library/gpu_helper.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/custom_library/tf_transpose.cu.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/custom_library/transpose.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
 
 namespace tao {
 namespace ral {
@@ -56,6 +57,10 @@ void LaunchTransposeKernel(cudaStream_t stream, T* input,
 template void LaunchTransposeKernel<float>(cudaStream_t stream, float* input,
                                            std::vector<int64_t> input_dims,
                                            float* output);
+
+template void LaunchTransposeKernel<Eigen::half>(
+    cudaStream_t stream, Eigen::half* input, std::vector<int64_t> input_dims,
+    Eigen::half* output);
 #endif
 
 }  //  namespace ral

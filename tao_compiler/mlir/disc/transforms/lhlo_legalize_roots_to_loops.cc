@@ -4511,33 +4511,49 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
   return success();
 }
 
-LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
+LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
     ArrayRef<Operation*> root_ops, Operation* dominant_op,
     Block* parent = nullptr, bool non_fusion = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
   if (!(root_ops.size() == 1 &&
-        isa<lmhlo_disc::SparseSegmentMeanOp>(root_ops[0]))) {
+        (isa<lmhlo_disc::SparseSegmentMeanOp>(root_ops[0]) ||
+         isa<lmhlo_disc::SparseSegmentSumOp>(root_ops[0])))) {
     return dominant_op->emitError()
-           << "root_ops[0] is not a lmhlo_disc::SparseSegmentMeanOp";
+           << "root_ops[0] is not a lmhlo_disc::SparseSegmentMeanOp or "
+              "lmhlo_disc::SparseSegmentSumOp";
   }
-  auto sparse_segment_mean =
+  auto sparse_segment_mean_op =
       dyn_cast<lmhlo_disc::SparseSegmentMeanOp>(root_ops[0]);
-  if (!sparse_segment_mean) {
+  auto sparse_segment_sum_op =
+      dyn_cast<lmhlo_disc::SparseSegmentSumOp>(root_ops[0]);
+  if (!sparse_segment_mean_op && !sparse_segment_sum_op) {
     return dominant_op->emitError()
-           << "can not cast root_ops[0] to lmhlo_disc::SparseSegmentMeanOp";
+           << "can not cast root_ops[0] to lmhlo_disc::SparseSegmentMeanOp "
+              "or lmhlo_disc::SparseSegmentSumOp";
   }
 
-  auto loc = sparse_segment_mean.getLoc();
+  auto loc = sparse_segment_mean_op ? sparse_segment_mean_op.getLoc()
+                                    : sparse_segment_sum_op.getLoc();
   OpBuilder b(root_ops.back());
 
-  b.setInsertionPoint(sparse_segment_mean.getOperation());
+  auto operation = sparse_segment_mean_op
+                       ? sparse_segment_mean_op.getOperation()
+                       : sparse_segment_sum_op.getOperation();
+  auto context = sparse_segment_mean_op ? sparse_segment_mean_op.getContext()
+                                        : sparse_segment_sum_op.getContext();
 
   // input
-  Value input = sparse_segment_mean.getData();
-  Value indices = sparse_segment_mean.getIndices();
-  Value segment_ids = sparse_segment_mean.getSegmentIds();
+  Value data = sparse_segment_mean_op ? sparse_segment_mean_op.getData()
+                                      : sparse_segment_sum_op.getData();
+  Value indices = sparse_segment_mean_op ? sparse_segment_mean_op.getIndices()
+                                         : sparse_segment_sum_op.getIndices();
+  Value segment_ids = sparse_segment_mean_op
+                          ? sparse_segment_mean_op.getSegmentIds()
+                          : sparse_segment_sum_op.getSegmentIds();
   // output
-  Value output = sparse_segment_mean.getOutput();
+  Value output = sparse_segment_mean_op ? sparse_segment_mean_op.getOutput()
+                                        : sparse_segment_sum_op.getOutput();
+
   MemRefType output_type = output.getType().template cast<MemRefType>();
   int64_t output_rank = output_type.getRank();
 
@@ -4562,8 +4578,7 @@ LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
         loc,
         MemRefType::get({-1}, output_type.getElementType(),
                         MemRefLayoutAttrInterface(),
-                        StringAttr::get(sparse_segment_mean->getContext(),
-                                        placement_utils::kCpu)),
+                        StringAttr::get(context, placement_utils::kCpu)),
         num_results);
     segment_count_memref = alloc.getResult();
 
@@ -4602,41 +4617,64 @@ LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
 
   // memset multidim output to 0
   {
-    llvm::SmallVector<scf::ForOp, 4> for_ops_output_init;
-    llvm::SmallVector<Value, 4> multidim_index_output_init;
-    for (int i = 0; i < output_rank; i++) {
-      Value dim_i = b.create<memref::DimOp>(loc, output, i);
-      auto for_op =
-          b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                               /* upperBound */ dim_i, /* step */ one);
-      for_op.getBody()->clear();
-      b.setInsertionPointToStart(for_op.getBody());
-      for_ops_output_init.push_back(for_op);
-      multidim_index_output_init.push_back(for_op.getInductionVar());
+    llvm::SmallVector<Value, 2> lower(zero, output_rank), upper,
+        step(one, output_rank);
+    llvm::SmallVector<Value, 4> output_indices;
+    for (int i = 0; i < output_rank; ++i) {
+      upper.push_back(b.create<memref::DimOp>(loc, output, i));
     }
-    b.create<memref::StoreOp>(loc, zero_floating, output,
-                              multidim_index_output_init);
-    for (int i = output_rank - 1; i > 0; i--) {
-      b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointToEnd(for_ops_output_init[i - 1].getBody());
+    auto parallel_op =
+        b.create<scf::ParallelOp>(loc, /* lowerBound */ lower,
+                                  /* upperBound */ upper, /* step */ step);
+    b.setInsertionPointToStart(parallel_op.getBody());
+    for (int i = 0; i < output_rank; ++i) {
+      output_indices.push_back(b.create<arith::IndexCastOp>(
+          loc, b.getIndexType(), parallel_op.getInductionVars()[i]));
     }
-    b.create<scf::YieldOp>(loc, ValueRange({}));
-    b.setInsertionPointAfter(for_ops_output_init[0]);
+    b.create<memref::StoreOp>(loc, zero_floating, output, output_indices);
+    b.setInsertionPointAfter(parallel_op);
   }
 
+  // data/output's dim 1~(rank-1) are the same
   // for (i = 0; i < indices.shape(0), ++i) {
   //   row_idx = indices[i]
   //   segment_idx = segment_ids[i]
-  //   for (j = 0; j < output.shape(1); ++j) {
-  //     for (k = 0; j < output.shape(2); ++k) {
+  //   for (j = 0; j < data.shape(1); ++j) {
+  //     for (k = 0; j < data.shape(2); ++k) {
   //       ...
-  //         for (m = 0; j < output.shape(rank-1); ++m) {
+  //         for (m = 0; j < data.shape(rank-1); ++m) {
   //           output[segment_idx][j]...[m] += data[row_idx][j]...[m]
   //         }
   //       ...
   //     }
   //   }
   // }
+#if 1
+  {
+    llvm::SmallVector<Value, 2> lower(zero, output_rank), upper,
+        step(one, output_rank);
+    llvm::SmallVector<Value, 4> output_index, data_index;
+    upper.push_back(b.create<memref::DimOp>(loc, indices, 0));
+    for (int i = 1; i < output_rank; i++) {
+      upper.push_back(b.create<memref::DimOp>(loc, data, i));
+    }
+    auto parallel_op =
+        b.create<scf::ParallelOp>(loc, /* lowerBound */ lower,
+                                  /* upperBound */ upper, /* step */ step);
+    b.setInsertionPointToStart(parallel_op.getBody());
+    auto index_i = parallel_op.getInductionVars()[0];
+    data_index.push_back(
+        b.create<arith::IndexCastOp>(loc, b.getIndexType(), b.create<memref::LoadOp>(loc, indices, index_i));
+    output_index.push_back(
+        b.create<arith::IndexCastOp>(loc, b.getIndexType(), b.create<memref::LoadOp>(loc, segment_ids, index_i));
+    for (int i = 1; i < output_rank; ++i) {
+      auto index = b.create<arith::IndexCastOp>(
+          loc, b.getIndexType(), parallel_op.getInductionVars()[i]);
+      data_index.push_back(index);
+      output_indices.push_back(index);
+    }
+  }
+#else
   {
     llvm::SmallVector<scf::ForOp, 4> for_ops_output_sum;
     llvm::SmallVector<Value, 4> multidim_index_output_sum;
@@ -4658,7 +4696,7 @@ LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
 
     // input_rank equals output_rank
     for (int i = 1; i < output_rank; i++) {
-      Value dim_i = b.create<memref::DimOp>(loc, input, i);
+      Value dim_i = b.create<memref::DimOp>(loc, data, i);
       auto for_ops =
           b.create<scf::ForOp>(loc, /* lowerBound */ zero,
                                /* upperBound */ dim_i, /* step */ one);
@@ -4670,7 +4708,7 @@ LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
       multidim_index_input.push_back(loop_index);
     }
     Value input_data =
-        b.create<memref::LoadOp>(loc, input, multidim_index_input);
+        b.create<memref::LoadOp>(loc, data, multidim_index_input);
     b.create<memref::StoreOp>(
         loc,
         b.create<arith::AddFOp>(
@@ -4685,6 +4723,7 @@ LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
     b.create<scf::YieldOp>(loc, ValueRange({}));
     b.setInsertionPointAfter(for_i);
   }
+#endif
 
   // for (i = 0; i < output.shape(0), ++i) {
   //   if (segment_count[i] != 0) {
@@ -4699,7 +4738,7 @@ LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
   //     }
   //   }
   // }
-  {
+  if (isa<lmhlo_disc::SparseSegmentMeanOp>(root_ops[0])) {
     llvm::SmallVector<scf::ForOp, 4> for_ops_output_mean;
     llvm::SmallVector<Value, 4> multidim_index_output_mean;
     auto for_i =
@@ -4745,196 +4784,13 @@ LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
     b.create<scf::YieldOp>(loc, ValueRange({}));
     b.setInsertionPointToEnd(for_i.getBody());
     b.create<scf::YieldOp>(loc, ValueRange({}));
-    b.setInsertionPoint(sparse_segment_mean.getOperation());
   }
+  b.setInsertionPoint(operation);
 
   // TODO: Support fusion
   for (Operation* root_op : root_ops) root_op->erase();
   return success();
 }
-
-LogicalResult lowerWithScheduleSparseSegmentSumOpCPU(
-    ArrayRef<Operation*> root_ops, Operation* dominant_op,
-    Block* parent = nullptr, bool non_fusion = false,
-    const ShapeAnalysis* shape_analysis = nullptr) {
-  if (!(root_ops.size() == 1 &&
-        isa<lmhlo_disc::SparseSegmentSumOp>(root_ops[0]))) {
-    return dominant_op->emitError()
-           << "root_ops[0] is not a lmhlo_disc::SparseSegmentSumOp";
-  }
-  auto sparse_segment_mean =
-      dyn_cast<lmhlo_disc::SparseSegmentSumOp>(root_ops[0]);
-  if (!sparse_segment_mean) {
-    return dominant_op->emitError()
-           << "can not cast root_ops[0] to lmhlo_disc::SparseSegmentSumOp";
-  }
-
-  auto loc = sparse_segment_mean.getLoc();
-  OpBuilder b(root_ops.back());
-
-  b.setInsertionPoint(sparse_segment_mean.getOperation());
-
-  // input
-  Value input = sparse_segment_mean.getData();
-  Value indices = sparse_segment_mean.getIndices();
-  Value segment_ids = sparse_segment_mean.getSegmentIds();
-  // output
-  Value output = sparse_segment_mean.getOutput();
-  MemRefType output_type = output.getType().template cast<MemRefType>();
-  int64_t output_rank = output_type.getRank();
-
-  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
-  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
-
-  Value zero_floating = b.create<arith::ConstantOp>(
-      loc, b.getFloatAttr(output_type.getElementType(), 0));
-  Value one_floating = b.create<arith::ConstantOp>(
-      loc, b.getFloatAttr(output_type.getElementType(), 1));
-
-  Value num_results = b.create<memref::DimOp>(loc, output, 0);
-
-  Value segment_count_memref;
-  // segment_count[max_segment_ids]
-  // for (i = 0; i < segment_ids.shape(0); ++i) {
-  //   segment_idx = segment_ids[i]
-  //   segment_count[segment_idx]++
-  // }
-  {
-    auto alloc = b.create<memref::AllocOp>(
-        loc,
-        MemRefType::get({-1}, output_type.getElementType(),
-                        MemRefLayoutAttrInterface(),
-                        StringAttr::get(sparse_segment_mean->getContext(),
-                                        placement_utils::kCpu)),
-        num_results);
-    segment_count_memref = alloc.getResult();
-
-    {
-      auto for_op =
-          b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                               /* upperBound */ num_results, /* step */ one);
-      for_op.getBody()->clear();
-      b.setInsertionPointToStart(for_op.getBody());
-      Value i = for_op.getInductionVar();
-      b.create<memref::StoreOp>(loc, zero_floating, segment_count_memref, i);
-      b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointAfter(for_op);
-    }
-    {
-      Value num_segment_ids = b.create<memref::DimOp>(loc, segment_ids, 0);
-      auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                                         /* upperBound */ num_segment_ids,
-                                         /* step */ one);
-      for_op.getBody()->clear();
-      b.setInsertionPointToStart(for_op.getBody());
-      Value i = for_op.getInductionVar();
-      Value segment_idx = b.create<arith::IndexCastOp>(
-          loc, b.getIndexType(), b.create<memref::LoadOp>(loc, segment_ids, i));
-      b.create<memref::StoreOp>(
-          loc,
-          b.create<arith::AddFOp>(
-              loc,
-              b.create<memref::LoadOp>(loc, segment_count_memref, segment_idx),
-              one_floating),
-          segment_count_memref, segment_idx);
-      b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointAfter(for_op);
-    }
-  }
-
-  // memset multidim output to 0
-  {
-    llvm::SmallVector<scf::ForOp, 4> for_ops_output_init;
-    llvm::SmallVector<Value, 4> multidim_index_output_init;
-    for (int i = 0; i < output_rank; i++) {
-      Value dim_i = b.create<memref::DimOp>(loc, output, i);
-      auto for_op =
-          b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                               /* upperBound */ dim_i, /* step */ one);
-      for_op.getBody()->clear();
-      b.setInsertionPointToStart(for_op.getBody());
-      for_ops_output_init.push_back(for_op);
-      multidim_index_output_init.push_back(for_op.getInductionVar());
-    }
-    b.create<memref::StoreOp>(loc, zero_floating, output,
-                              multidim_index_output_init);
-    for (int i = output_rank - 1; i > 0; i--) {
-      b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointToEnd(for_ops_output_init[i - 1].getBody());
-    }
-    b.create<scf::YieldOp>(loc, ValueRange({}));
-    b.setInsertionPointAfter(for_ops_output_init[0]);
-  }
-
-  // for (i = 0; i < indices.shape(0), ++i) {
-  //   row_idx = indices[i]
-  //   segment_idx = segment_ids[i]
-  //   for (j = 0; j < output.shape(1); ++j) {
-  //     for (k = 0; j < output.shape(2); ++k) {
-  //       ...
-  //         for (m = 0; j < output.shape(rank-1); ++m) {
-  //           output[segment_idx][j]...[m] += data[row_idx][j]...[m]
-  //         }
-  //       ...
-  //     }
-  //   }
-  // }
-  {
-    llvm::SmallVector<scf::ForOp, 4> for_ops_output_sum;
-    llvm::SmallVector<Value, 4> multidim_index_output_sum;
-    llvm::SmallVector<Value, 4> multidim_index_input;
-    Value num_indices = b.create<memref::DimOp>(loc, indices, 0);
-    auto for_i =
-        b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                             /* upperBound */ num_indices, /* step */ one);
-    for_i.getBody()->clear();
-    b.setInsertionPointToStart(for_i.getBody());
-    for_ops_output_sum.push_back(for_i);
-    Value i = for_i.getInductionVar();
-    Value row_idx = b.create<arith::IndexCastOp>(
-        loc, b.getIndexType(), b.create<memref::LoadOp>(loc, indices, i));
-    multidim_index_input.push_back(row_idx);
-    Value segment_idx = b.create<arith::IndexCastOp>(
-        loc, b.getIndexType(), b.create<memref::LoadOp>(loc, segment_ids, i));
-    multidim_index_output_sum.push_back(segment_idx);
-
-    // input_rank equals output_rank
-    for (int i = 1; i < output_rank; i++) {
-      Value dim_i = b.create<memref::DimOp>(loc, input, i);
-      auto for_ops =
-          b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                               /* upperBound */ dim_i, /* step */ one);
-      for_ops.getBody()->clear();
-      b.setInsertionPointToStart(for_ops.getBody());
-      for_ops_output_sum.push_back(for_ops);
-      Value loop_index = for_ops.getInductionVar();
-      multidim_index_output_sum.push_back(loop_index);
-      multidim_index_input.push_back(loop_index);
-    }
-    Value input_data =
-        b.create<memref::LoadOp>(loc, input, multidim_index_input);
-    b.create<memref::StoreOp>(
-        loc,
-        b.create<arith::AddFOp>(
-            loc,
-            b.create<memref::LoadOp>(loc, output, multidim_index_output_sum),
-            input_data),
-        output, multidim_index_output_sum);
-    for (int i = output_rank - 1; i > 0; i--) {
-      b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointToEnd(for_ops_output_sum[i - 1].getBody());
-    }
-    b.create<scf::YieldOp>(loc, ValueRange({}));
-    b.setInsertionPointAfter(for_i);
-  }
-
-  b.setInsertionPoint(sparse_segment_mean.getOperation());
-
-  // TODO: Support fusion
-  for (Operation* root_op : root_ops) root_op->erase();
-  return success();
-}
-
 
 LogicalResult lowerWithScheduleWhereOpCPU(
     ArrayRef<Operation*> root_ops, Operation* dominant_op,
@@ -5060,7 +4916,6 @@ LogicalResult lowerWithScheduleWhereOpCPU(
   b.create<memref::StoreOp>(loc, output_index_count, temp_count);
 
   b.create<scf::YieldOp>(loc, ValueRange({}));  // if (input[i] != 0)
-  // b.setInsertionPoint(where.getOperation());  // for (i = 0; i < num_element; ++i)
   b.setInsertionPointAfter(for_op);
 
   b.create<memref::StoreOp>(loc, b.create<memref::LoadOp>(loc, temp_count),
@@ -5123,16 +4978,11 @@ LogicalResult lowerWithScheduleLoopCPU(
         root_ops, dominant_op, parent, non_fusion, shape_analysis);
   }
 
-  if (non_fusion && isa<lmhlo_disc::SparseSegmentMeanOp>(dominant_op)) {
-    return lowerWithScheduleSparseSegmentMeanOpCPU(
+  if (non_fusion && (isa<lmhlo_disc::SparseSegmentMeanOp>(dominant_op) ||
+                     isa<lmhlo_disc::SparseSegmentSumOp>(dominant_op))) {
+    return lowerWithScheduleSparseSegmentReductionOpCPU(
         root_ops, dominant_op, parent, non_fusion, shape_analysis);
   }
-
-  if (non_fusion && isa<lmhlo_disc::SparseSegmentSumOp>(dominant_op)) {
-    return lowerWithScheduleSparseSegmentSumOpCPU(
-        root_ops, dominant_op, parent, non_fusion, shape_analysis);
-  }
-
 
   if (non_fusion && isa<lmhlo_disc::WhereOp>(dominant_op)) {
     return lowerWithScheduleWhereOpCPU(root_ops, dominant_op, parent,

@@ -1016,10 +1016,6 @@ bool FusionStrategy::tryFuseInplace(ShapeAnalysis& shapeAnalysis,
   }
   FusionPattern result = lhs.mergeWithoutInit(rhs);
   if (!tryFuse(shapeAnalysis, lhs, rhs, result)) {
-    llvm::dbgs() << "**********************shit************************ \n";
-    dumpFusionPattern(lhs);
-    dumpFusionPattern(rhs);
-    llvm::dbgs() << "**********************shit************************ \n \n";
     return false;
   }
   if (!initFusionPattern(shapeAnalysis, result)) {
@@ -1544,7 +1540,6 @@ bool PlacementAwareFusionStrategy::initFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern) {
   if (fusion_pattern.getOpList().empty()) return true;
   FusionStrategy* strategy = getStrategy(fusion_pattern.getOpList()[0]);
-  llvm::dbgs() << "FUCK FusionStrategy name " << strategy->getName() << "\n";
   return strategy && strategy->initFusionPattern(shapeAnalysis, fusion_pattern);
 }
 

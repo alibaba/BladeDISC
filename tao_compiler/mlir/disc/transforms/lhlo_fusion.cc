@@ -559,7 +559,6 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
 
   FusionPipeline makeFusionPipeline() {
     FusionPipeline pipeline;
-    llvm::dbgs() << "lanbo.llb: Fusion Strategy: " << fusion_strategy_ << "\n";
     if (fusion_strategy_ == "base") {
       pipeline.emplace_back(
           makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));

@@ -63,9 +63,6 @@ bool miscFuseHelper<lmhlo::DynamicGatherOp>(
     PatternRewriter& rewriter, scf::ParallelOp parallel_op, Operation* consumer,
     memref::StoreOp store_op, std::vector<memref::StoreOp>& store_ops) {
   if (!isa<lmhlo::DynamicGatherOp>(consumer)) return false;
-  llvm::dbgs() << "Enter miscFuseHelper<lmhlo::DynamicGatherOp> \n";
-  consumer->dump();
-  llvm::dbgs() << "**********************************************\n";
   auto gather_op = dyn_cast<lmhlo::DynamicGatherOp>(consumer);
   auto operand = gather_op.getOperand();
   auto operand_ty = operand.getType().dyn_cast<MemRefType>();
@@ -76,7 +73,7 @@ bool miscFuseHelper<lmhlo::DynamicGatherOp>(
   auto loc = consumer->getLoc();
   rewriter.setInsertionPoint(store_ops.front().getOperation());
 
-  parallel_op->getParentOfType<func::FuncOp>()->dump();
+  // parallel_op->getParentOfType<func::FuncOp>()->dump();
   Value indice;
   // Here we only support one store_op
   Value v = store_op.getValueToStore();
@@ -94,7 +91,7 @@ bool miscFuseHelper<lmhlo::DynamicGatherOp>(
     Value store_value = rewriter.create<memref::LoadOp>(
         loc, gather_op.getOperand(), load_index);
     rewriter.create<memref::StoreOp>(loc, store_value, gather_op.getOutput(),
-                                       store_index);
+                                     store_index);
   } else if (operand_rank == 2) {
     for (int i = 0; i < operand_rank; i++) {
       auto rank_index = rewriter.create<arith::ConstantIndexOp>(loc, i);
@@ -111,7 +108,6 @@ bool miscFuseHelper<lmhlo::DynamicGatherOp>(
     }
   }
 
-  llvm::dbgs() << "Exit miscFuseHelper<lmhlo::DynamicGatherOp> \n";
   return true;
 }
 
@@ -119,17 +115,13 @@ template <>
 bool miscFuseHelper<lmhlo::DynamicReshapeOp>(
     PatternRewriter& rewriter, scf::ParallelOp parallel_op, Operation* consumer,
     memref::StoreOp store_op, std::vector<memref::StoreOp>& store_ops) {
-  llvm::dbgs() << "Enter miscFuseHelper<lmhlo::DynamicReshapeOp> \n";
   if (!isa<lmhlo::DynamicReshapeOp>(consumer)) {
-    llvm::dbgs() << "Fail miscFuseHelper<lmhlo::DynamicReshapeOp> \n";
     return false;
   }
-  llvm::dbgs() << "In miscFuseHelper<lmhlo::DynamicReshapeOp> 0\n";
   auto reshape_op = dyn_cast<lmhlo::DynamicReshapeOp>(consumer);
 
   auto loc = consumer->getLoc();
   rewriter.setInsertionPoint(store_ops.front().getOperation());
-  llvm::dbgs() << "In miscFuseHelper<lmhlo::DynamicReshapeOp> 1\n";
 
   Value operand_memref = reshape_op->getOperand(0);
   auto operand_shape = getShapeValues(&rewriter, operand_memref);
@@ -146,7 +138,6 @@ bool miscFuseHelper<lmhlo::DynamicReshapeOp>(
                                      output_memref, output_index);
   }
 
-  llvm::dbgs() << "Exit miscFuseHelper<lmhlo::DynamicReshapeOp> \n";
   return true;
 }
 
@@ -172,20 +163,19 @@ class OutputInlineFusionPattern : public RewritePattern {
     SmallVector<scf::ParallelOp, 2> innermostPloops;
     getInnermostParallelLoops(op, innermostPloops);
 
-    llvm::dbgs() << "innermostPloops size: " << innermostPloops.size() << "\n";
     // Returns success if any of parallelOp is processed.
     for (scf::ParallelOp parallelOp : innermostPloops) {
       if (!failed(processParallelOp(parallelOp, &parent_block, rewriter))) {
-        llvm::dbgs() << "****************success**************** \n";
-        auto func = parallelOp->getParentOfType<func::FuncOp>();
-        func->dump();
-        llvm::dbgs() << "****************success**************** \n";
+        // llvm::dbgs() << "****************success**************** \n";
+        // auto func = parallelOp->getParentOfType<func::FuncOp>();
+        // func->dump();
+        // llvm::dbgs() << "****************success**************** \n";
         return success();
       }
-      llvm::dbgs() << "****************fail**************** \n";
-      auto func = parallelOp->getParentOfType<func::FuncOp>();
-      func->dump();
-      llvm::dbgs() << "****************fail**************** \n";
+      // llvm::dbgs() << "****************fail**************** \n";
+      // auto func = parallelOp->getParentOfType<func::FuncOp>();
+      // func->dump();
+      // llvm::dbgs() << "****************fail**************** \n";
     }
     return failure();
   }
@@ -193,21 +183,16 @@ class OutputInlineFusionPattern : public RewritePattern {
   LogicalResult processParallelOp(scf::ParallelOp parallel_op,
                                   Block* parent_block,
                                   PatternRewriter& rewriter) const {
-    llvm::dbgs() << "Enter processParallelOp \n";
     SmallVector<memref::StoreOp, 4> store_ops;
     parallel_op->walk(
         [&](memref::StoreOp store_op) { store_ops.push_back(store_op); });
 
-    llvm::dbgs() << "store_ops size: " << store_ops.size() << "\n";
     for (auto store_op : store_ops) {
       Operation* lhlo_op = getStorableOperation(store_op);
       if (!lhlo_op) continue;
 
       std::vector<memref::StoreOp> store_ops_in_block =
           collectStoreToSameMemref(store_op);
-
-      llvm::dbgs() << "store_ops_in_block size: " << store_ops_in_block.size()
-                   << "\n";
 
       if (!failed(inlineFuseLhloOp(rewriter, parallel_op, lhlo_op, store_op,
                                    store_ops_in_block))) {
@@ -233,14 +218,14 @@ class OutputInlineFusionPattern : public RewritePattern {
         }
 #endif
         // cleanUnusedLhloOps(parent_block, &rewriter);
-        auto func = parallel_op->getParentOfType<func::FuncOp>();
-        func->dump();
+        // auto func = parallel_op->getParentOfType<func::FuncOp>();
+        // func->dump();
         return success();
       }
     }
 
-    // Since we did not clean lhlo ops in InputInlineFusionPass for kWhere fusion
-    // for possible output fusion, we need to do clean here.
+    // Since we did not clean lhlo ops in InputInlineFusionPass for kWhere
+    // fusion for possible output fusion, we need to do clean here.
     cleanUnusedLhloOps(parent_block, &rewriter);
     return failure();
   }
@@ -248,16 +233,16 @@ class OutputInlineFusionPattern : public RewritePattern {
  private:
   Operation* getStorableOperation(memref::StoreOp store_op) const {
     llvm::dbgs() << "enter getStorableOperation \n";
-    store_op.getOperation()->dump();
+    // store_op.getOperation()->dump();
     Operation* lhlo_op = nullptr;
     auto users = getValueUsersInFusionLike(store_op.getMemRef(), store_op);
-    llvm::dbgs() << "users size: " << users.size() << "\n";
     for (Operation* user : users) {
       if (isa<LmhloOp>(user)) {
         auto user_operand_index = isa<lmhlo::DynamicGatherOp>(user) ? 1 : 0;
         if (isSameUnderlineBuffer(
-              cast<LmhloOp>(user).getOperation()->getOperand(user_operand_index),
-              store_op.getMemRef())) {
+                cast<LmhloOp>(user).getOperation()->getOperand(
+                    user_operand_index),
+                store_op.getMemRef())) {
           if (lhlo_op) {
             if (isa<lmhlo::DynamicGatherOp>(user)) {
               return lhlo_op;
@@ -267,7 +252,8 @@ class OutputInlineFusionPattern : public RewritePattern {
                          << lhlo_op->getName() << " and " << user->getName()
                          << ")";
             // llvm::report_fatal_error(
-            //     "More than one lhlo_op write to one Memref within one fusion");
+            //     "More than one lhlo_op write to one Memref within one
+            //     fusion");
           }
           lhlo_op = user;
         }
@@ -285,15 +271,11 @@ class OutputInlineFusionPattern : public RewritePattern {
     std::vector<memref::StoreOp> store_ops;
     for (auto& op : block->getOperations()) {
       if (!isa<memref::StoreOp>(&op)) continue;
-      llvm::dbgs() << "************************************* \n";
-      op.dump();
-      llvm::dbgs() << "************************************* \n";
-
       auto store_op_in_block = dyn_cast<memref::StoreOp>(&op);
-      llvm::dbgs() << "************************************* \n";
-      store_op.getMemRef().dump();
-      store_op_in_block.getMemRef().dump();
-      llvm::dbgs() << "************************************* \n";
+      // llvm::dbgs() << "************************************* \n";
+      // store_op.getMemRef().dump();
+      // store_op_in_block.getMemRef().dump();
+      // llvm::dbgs() << "************************************* \n";
 
       if (store_op_in_block.getMemRef() != store_op.getMemRef()) continue;
       store_ops.push_back(store_op_in_block);
@@ -329,7 +311,7 @@ createDiscOutputInlineFusionPass() {
 
 namespace {
 
-constexpr unsigned c_MAX_ITERATION = 4096 * 1000;
+constexpr unsigned c_MAX_ITERATION = 4 * 1000;
 
 void OutputInlineFusion::runOnOperation() {
   func::FuncOp func = getOperation();

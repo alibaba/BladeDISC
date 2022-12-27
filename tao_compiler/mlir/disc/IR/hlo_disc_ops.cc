@@ -794,7 +794,8 @@ LogicalResult SparseFillEmptyRowsOp::verify() {
     return this->emitOpError() << "default_value must be a scalar";
   }
   // if (!dense_shape_type.hasStaticShape()) {
-  //   return this->emitOpError() << "DISC only support static-rank optimization, "
+  //   return this->emitOpError() << "DISC only support static-rank
+  //   optimization, "
   //                                 "thus dense_shape should has static shape";
   // }
 
@@ -991,7 +992,6 @@ LogicalResult SparseSegmentSumOp::verify() {
 
   return success();
 }
-
 
 // CustomCallV2Op
 //===----------------------------------------------------------------------===//

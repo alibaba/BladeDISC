@@ -28,11 +28,13 @@ bool isOutputFusible(Operation* op) {
 
 bool SparseOpCpuFusionStrategy::isFusible(Operation* op) {
   return isa<lmhlo_disc::WhereOp>(op) || mlir::disc_ral::isFusible(op);
+  // return isa<lmhlo_disc::WhereOp>(op) ||
+  // isa<lmhlo::DynamicBroadcastInDimOp>(op) || isa<lmhlo::CompareOp>(op) ||
+  // isOutputFusible(op);
 }
 
 bool SparseOpCpuFusionStrategy::initFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern) {
-  llvm::dbgs() << "fuck SparseOpCpuFusionStrategy::initFusionPattern \n";
   Operation* inferredDominantOp = nullptr;
   FusionType inferredFusionType = FusionType::kNone;
   SmallVector<Operation*> where_ops;
@@ -64,24 +66,21 @@ bool SparseOpCpuFusionStrategy::initFusionPattern(
   fusion_pattern.setFusionType(FusionType::kWhere);
   fusion_pattern.setDominantOp(where_ops[0]);
 
-  llvm::dbgs()
-      << "fuck SparseOpCpuFusionStrategy::initFusionPattern success()\n";
   return true;
 }
 
 bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
                                         FusionPattern& lhs, FusionPattern& rhs,
                                         FusionPattern& target) {
-  llvm::dbgs() << "fuck SparseOpCpuFusionStrategy::tryFuse\n";
-  if (rhs.getFusionType() == FusionType::kWhere) {
-    // Basic Input fusion for where op, rhs should be a kWhere fusion
+  if (lhs.getFusionType() == FusionType::kWhere ||
+      rhs.getFusionType() == FusionType::kWhere) {
+    // make sure lhs and rhs are producer-consumer pair
     auto lhs_results = lhs.getResults();
     auto rhs_ops = rhs.getOpList();
-    // rhs should consume lhs's output
     bool found = false;
     for (Value v : lhs_results) {
       for (Operation* user : getValueUsers(v)) {
-        user->dump();
+        // user->dump();
         if (std::find(rhs_ops.begin(), rhs_ops.end(), user) != rhs_ops.end()) {
           found = true;
           break;
@@ -91,38 +90,38 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
     if (!found) {
       return false;
     }
+  } else {
+    return false;
+  }
+
+  // check fusiblity
+  if (rhs.getFusionType() == FusionType::kWhere) {
+    // Basic Input fusion for where op
     for (Operation* op : lhs.getOpList()) {
-      if (!this->isFusible(op)) {
-        llvm::dbgs()
-            << "fuck SparseOpCpuFusionStrategy::tryFuse output fusion failed\n";
-        return false;
-      }
-      if (op->getAttr(kDiscShapeCalcAttr) != nullptr) {
+      if (!this->isFusible(op) || op->getAttr(kDiscShapeCalcAttr) != nullptr) {
         return false;
       }
     }
   } else if (lhs.getFusionType() == FusionType::kWhere) {
-    // Output fusion with where op, lhs should be a kWhere fusion
+    // Output fusion with where op
     for (Operation* op : rhs.getOpList()) {
       if (!isOutputFusible(op)) {
-        llvm::dbgs()
-            << "fuck SparseOpCpuFusionStrategy::tryFuse output fusion failed\n";
         return false;
       }
     }
   } else {
-    llvm::dbgs()
-        << "fuck SparseOpCpuFusionStrategy::tryFuse unhandled fusion type()\n";
     return false;
   }
-  llvm::dbgs() << "SparseOpCpuFusionStrategy::tryFuse success() \n";
-  llvm::dbgs() << "*********************lhs*********************\n";
-  dumpFusionPattern(lhs);
-  llvm::dbgs() << "*********************rhs*********************\n";
-  dumpFusionPattern(rhs);
-  llvm::dbgs() << "*********************res*********************\n";
-  dumpFusionPattern(target);
-  llvm::dbgs() << "*********************end*********************\n\n";
+  if (target.getOpList().size() >= 6) {
+    llvm::dbgs() << "SparseOpCpuFusionStrategy::tryFuse success() \n";
+    llvm::dbgs() << "*********************lhs*********************\n";
+    dumpFusionPattern(lhs);
+    llvm::dbgs() << "*********************rhs*********************\n";
+    dumpFusionPattern(rhs);
+    llvm::dbgs() << "*********************res*********************\n";
+    dumpFusionPattern(target);
+    llvm::dbgs() << "*********************end*********************\n\n";
+  }
   return true;
 }
 

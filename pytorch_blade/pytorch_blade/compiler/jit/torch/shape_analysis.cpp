@@ -11,6 +11,8 @@
  * Institute (Samy Bengio) Copyright (c) 2001-2004 Idiap Research Institute
  * (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
  */
+
+#define CAFFE2_LOG_THRESHOLD 3
 #include "pytorch_blade/compiler/jit/torch/shape_analysis.h"
 #include "pytorch_blade/common_utils/macros.h"
 
@@ -43,6 +45,7 @@
 #include <vector>
 
 #include "op_registry.h"
+#include "c10/util/logging_is_not_google_glog.h"
 
 namespace c10 {
 inline std::vector<size_t> irange(size_t start, size_t end) {
@@ -765,6 +768,7 @@ class ShapePropagator : public PropertyPropBase {
     if (PropagateShapeOnNodeByRunningIt(node)) {
       return;
     }
+
     return setUnshapedType(node);
   }
 
@@ -969,6 +973,11 @@ class ShapePropagator : public PropertyPropBase {
     static const register_formula_for simple_unary_ops{
         {
             "aten::narrow(Tensor self, int dim, int start, int length) -> Tensor",
+#if PYTORCH_VERSION_GE(1, 14)
+            "aten::narrow.Tensor(Tensor(a) self, int dim, Tensor start, SymInt length) -> Tensor(a)",
+#else
+            "aten::narrow.Tensor(Tensor(a) self, int dim, Tensor start, int length) -> Tensor(a)",
+#endif
             "aten::permute(Tensor self, int[] dims) -> Tensor",
             "aten::t(Tensor self) -> Tensor",
             "aten::transpose(Tensor self, int dim0, int dim1) -> Tensor",
@@ -1597,6 +1606,19 @@ class ShapePropagator : public PropertyPropBase {
           return output_types;
         }};
 
+    static const register_formula_for dim_squeeze_ops{
+        {"aten::squeeze.dim(Tensor(a) self, int dim) -> Tensor(a)",},
+        [](Node* node) -> type_vec_t {
+          auto dimOptional = node->get<int64_t>(attr::dim);
+         if (dimOptional) {
+            c10::List<int64_t> dims{dimOptional.value()};
+            return reduce_op_handler(
+              node, /*num_reduce_dim=*/1, /*integer_upcast=*/false, c10::nullopt, dims);
+         } else {
+            return reduce_op_handler(node, /*num_reduce_dim=*/1);
+         }
+        }};
+
     // Requirements:
     //   dims           : preserved if keepdim == false, 1 smaller otherwise
     //   scalar type    : dtype if specified. preserved if floating point,
@@ -2013,6 +2035,14 @@ class ShapePropagator : public PropertyPropBase {
     };
 
     if (node->matches(
+            "aten::topk(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)") ||
+       node->matches("aten::topk(Tensor self, int k, int dim, bool largest, bool sorted) -> (Tensor, Tensor)")) {
+      if (auto type = input_type(0)) {
+        node->output(0)->setType(type);
+        node->output(1)->setType(type->withScalarType(at::kLong));
+        return true;
+      }
+    } else if (node->matches(
             "aten::masked_select(Tensor self, Tensor mask) -> Tensor")) {
       if (auto type = input_type(0)) {
         node->output()->setType(type->withDim(1));
@@ -2217,7 +2247,7 @@ class ShapePropagator : public PropertyPropBase {
         node->matches(
             "aten::gather(Tensor self, int dim, Tensor index, *, bool sparse_grad=False) -> Tensor")) {
       auto type = input_type(0);
-      auto index_type = input_type(1);
+      auto index_type = input_type(2);
       // Gather has this annoying edge case where index always needs to match
       // the number of dims of self, **except** when self is 1D and index is 0D
       // in which case we return a 0D output.

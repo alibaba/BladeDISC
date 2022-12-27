@@ -12,7 +12,7 @@
  * (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
  */
 
-#define CAFFE2_LOG_THRESHOLD c10::GLOG_INFO
+#define CAFFE2_LOG_THRESHOLD 0
 #include "pytorch_blade/compiler/jit/torch/shape_analysis.h"
 #include "pytorch_blade/common_utils/macros.h"
 
@@ -69,14 +69,14 @@ using namespace c10;
 bool PropagateTensorShapeOnNode(Node* node, bool insert_expands);
 
 ShapeSymbol getSymDimSize(TensorTypePtr type, int64_t dim) {
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
   if (auto rank = type->symbolic_sizes().rank()) {
     dim = at::maybe_wrap_dim(dim, *rank, false);
-    auto dimSize = type->symbolic_sizes()[dim];
-    if (dimSize.is_static())
-      return ShapeSymbol::fromStaticSize(dimSize.static_size());
+    if (auto sizes = type->symbolic_sizes().sizes()) {
+      auto dimSize = (*sizes)[dim];
+      if (dimSize.is_static())
+        return ShapeSymbol::fromStaticSize(dimSize.static_size());
+    }
   }
-#endif
   return ShapeSymbol::newSymbol();
 }
 
@@ -1619,6 +1619,15 @@ class ShapePropagator : public PropertyPropBase {
         [](Node* node) -> type_vec_t {
           auto dimOptional = node->get<int64_t>(attr::dim);
           if (dimOptional) {
+            if (auto type = node->input(0)->type()->cast<TensorType>()) {
+              auto sym_dim_size = getSymDimSize(type, dimOptional.value());
+              if (sym_dim_size.is_static() and
+                  sym_dim_size.static_size() != 1) {
+                return {type};
+              }
+            }
+            // TODO(tanyo): the analysis can't handle dynamic rank correctly,
+            // it presumed squeeze.dim always remove 1 dimension
             c10::List<int64_t> dims{dimOptional.value()};
             return reduce_op_handler(
                 node,

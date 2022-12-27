@@ -1,4 +1,4 @@
-name: pytorch1_12-aarch64
+name: pytorch1_13-aarch64
 on:
   push:
     branches: [ main ]

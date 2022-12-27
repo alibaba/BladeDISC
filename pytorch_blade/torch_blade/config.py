@@ -468,7 +468,7 @@ class Config(ConfigContext):
                 _onnx_stable_opsets
             )
             _onnx_master_opset = _onnx_main_opset
-        elif TORCH_VERSION < (1, 14):
+        elif TORCH_VERSION < (1, 13):
             from torch.onnx._constants import onnx_default_opset as _default_onnx_opset_version
             from torch.onnx._constants import onnx_main_opset as _onnx_master_opset
             from torch.onnx._constants import onnx_stable_opsets as _onnx_stable_opsets

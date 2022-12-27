@@ -4617,8 +4617,8 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
 
   // memset multidim output to 0
   {
-    llvm::SmallVector<Value, 2> lower(zero, output_rank), upper,
-        step(one, output_rank);
+    llvm::SmallVector<Value, 2> lower(output_rank, zero), upper,
+        step(output_rank, one);
     llvm::SmallVector<Value, 4> output_indices;
     for (int i = 0; i < output_rank; ++i) {
       upper.push_back(b.create<memref::DimOp>(loc, output, i));
@@ -4635,25 +4635,23 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
     b.setInsertionPointAfter(parallel_op);
   }
 
-  // data/output's dim 1~(rank-1) are the same
-  // for (i = 0; i < indices.shape(0), ++i) {
-  //   row_idx = indices[i]
-  //   segment_idx = segment_ids[i]
-  //   for (j = 0; j < data.shape(1); ++j) {
-  //     for (k = 0; j < data.shape(2); ++k) {
-  //       ...
-  //         for (m = 0; j < data.shape(rank-1); ++m) {
-  //           output[segment_idx][j]...[m] += data[row_idx][j]...[m]
-  //         }
-  //       ...
-  //     }
-  //   }
-  // }
-#if 1
-  {
-    llvm::SmallVector<Value, 2> lower(zero, output_rank), upper,
-        step(one, output_rank);
-    llvm::SmallVector<Value, 4> output_index, data_index;
+  if (isa<lmhlo_disc::SparseSegmentSumOp>(root_ops[0])) {
+    // data/output's dim 1~(rank-1) are the same
+    // for (i = 0; i < indices.shape(0), ++i) {
+    //   row_idx = indices[i]
+    //   segment_idx = segment_ids[i]
+    //   for (j = 0; j < data.shape(1); ++j) {
+    //     for (k = 0; j < data.shape(2); ++k) {
+    //       ...
+    //         for (m = 0; j < data.shape(rank-1); ++m) {
+    //           output[segment_idx][j]...[m] += data[row_idx][j]...[m]
+    //         }
+    //       ...
+    //     }
+    //   }
+    // }
+    llvm::SmallVector<Value, 2> lower(output_rank, zero), upper,
+        step(output_rank, one);
     upper.push_back(b.create<memref::DimOp>(loc, indices, 0));
     for (int i = 1; i < output_rank; i++) {
       upper.push_back(b.create<memref::DimOp>(loc, data, i));
@@ -4663,127 +4661,89 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
                                   /* upperBound */ upper, /* step */ step);
     b.setInsertionPointToStart(parallel_op.getBody());
     auto index_i = parallel_op.getInductionVars()[0];
-    data_index.push_back(
-        b.create<arith::IndexCastOp>(loc, b.getIndexType(), b.create<memref::LoadOp>(loc, indices, index_i));
-    output_index.push_back(
-        b.create<arith::IndexCastOp>(loc, b.getIndexType(), b.create<memref::LoadOp>(loc, segment_ids, index_i));
+    llvm::SmallVector<Value, 4> data_index, output_index;
+    data_index.push_back(b.create<arith::IndexCastOp>(
+        loc, b.getIndexType(),
+        b.create<memref::LoadOp>(loc, indices, index_i)));
+    output_index.push_back(b.create<arith::IndexCastOp>(
+        loc, b.getIndexType(),
+        b.create<memref::LoadOp>(loc, segment_ids, index_i)));
     for (int i = 1; i < output_rank; ++i) {
       auto index = b.create<arith::IndexCastOp>(
           loc, b.getIndexType(), parallel_op.getInductionVars()[i]);
       data_index.push_back(index);
-      output_indices.push_back(index);
+      output_index.push_back(index);
     }
-  }
-#else
-  {
-    llvm::SmallVector<scf::ForOp, 4> for_ops_output_sum;
-    llvm::SmallVector<Value, 4> multidim_index_output_sum;
-    llvm::SmallVector<Value, 4> multidim_index_input;
-    Value num_indices = b.create<memref::DimOp>(loc, indices, 0);
-    auto for_i =
-        b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                             /* upperBound */ num_indices, /* step */ one);
-    for_i.getBody()->clear();
-    b.setInsertionPointToStart(for_i.getBody());
-    for_ops_output_sum.push_back(for_i);
-    Value i = for_i.getInductionVar();
-    Value row_idx = b.create<arith::IndexCastOp>(
-        loc, b.getIndexType(), b.create<memref::LoadOp>(loc, indices, i));
-    multidim_index_input.push_back(row_idx);
-    Value segment_idx = b.create<arith::IndexCastOp>(
-        loc, b.getIndexType(), b.create<memref::LoadOp>(loc, segment_ids, i));
-    multidim_index_output_sum.push_back(segment_idx);
-
-    // input_rank equals output_rank
-    for (int i = 1; i < output_rank; i++) {
-      Value dim_i = b.create<memref::DimOp>(loc, data, i);
-      auto for_ops =
-          b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                               /* upperBound */ dim_i, /* step */ one);
-      for_ops.getBody()->clear();
-      b.setInsertionPointToStart(for_ops.getBody());
-      for_ops_output_sum.push_back(for_ops);
-      Value loop_index = for_ops.getInductionVar();
-      multidim_index_output_sum.push_back(loop_index);
-      multidim_index_input.push_back(loop_index);
-    }
-    Value input_data =
-        b.create<memref::LoadOp>(loc, data, multidim_index_input);
     b.create<memref::StoreOp>(
         loc,
         b.create<arith::AddFOp>(
-            loc,
-            b.create<memref::LoadOp>(loc, output, multidim_index_output_sum),
-            input_data),
-        output, multidim_index_output_sum);
-    for (int i = output_rank - 1; i > 0; i--) {
-      b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointToEnd(for_ops_output_sum[i - 1].getBody());
+            loc, b.create<memref::LoadOp>(loc, output, output_index),
+            b.create<memref::LoadOp>(loc, data, data_index)),
+        output, output_index);
+    b.setInsertionPointAfter(parallel_op);
+  } else {
+    // for (i = 0; i < indices.shape(0), ++i) {
+    //   row_idx = indices[i]
+    //   segment_idx = segment_ids[i]
+    //   if (segment_count[segment_idx] != 0) {
+    //     for (j = 0; j < data.shape(1); ++j) {
+    //       for (k = 0; j < data.shape(2); ++k) {
+    //         ...
+    //           for (m = 0; j < data.shape(rank-1); ++m) {
+    //             output[segment_idx][j]...[m] +=
+    //             data[row_idx][j]...[m]/segment_count[segment_idx]
+    //           }
+    //         ...
+    //       }
+    //     }
+    //   }
+    // }
+    llvm::SmallVector<Value, 2> lower(output_rank, zero), upper,
+        step(output_rank, one);
+    upper.push_back(b.create<memref::DimOp>(loc, indices, 0));
+    for (int i = 1; i < output_rank; i++) {
+      upper.push_back(b.create<memref::DimOp>(loc, data, i));
     }
-    b.create<scf::YieldOp>(loc, ValueRange({}));
-    b.setInsertionPointAfter(for_i);
-  }
-#endif
+    auto parallel_op =
+        b.create<scf::ParallelOp>(loc, /* lowerBound */ lower,
+                                  /* upperBound */ upper, /* step */ step);
+    b.setInsertionPointToStart(parallel_op.getBody());
 
-  // for (i = 0; i < output.shape(0), ++i) {
-  //   if (segment_count[i] != 0) {
-  //     for (j = 0; j < output.shape(1); ++j) {
-  //       for (k = 0; j < output.shape(2); ++k) {
-  //         ...
-  //           for (m = 0; j < output.shape(rank-1); ++m) {
-  //             output[i][j]...[m] /= segment_count[i]
-  //           }
-  //         ...
-  //       }
-  //     }
-  //   }
-  // }
-  if (isa<lmhlo_disc::SparseSegmentMeanOp>(root_ops[0])) {
-    llvm::SmallVector<scf::ForOp, 4> for_ops_output_mean;
-    llvm::SmallVector<Value, 4> multidim_index_output_mean;
-    auto for_i =
-        b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                             /* upperBound */ num_results, /* step */ one);
-    for_i.getBody()->clear();
-    b.setInsertionPointToStart(for_i.getBody());
-    Value i = for_i.getInductionVar();
-    multidim_index_output_mean.push_back(i);
-    Value segment_count =
-        b.create<memref::LoadOp>(loc, segment_count_memref, i);
+    llvm::SmallVector<Value, 4> data_index, output_index;
+    auto segment_idx = b.create<memref::LoadOp>(
+        loc, segment_ids, parallel_op.getInductionVars()[0]);
+    llvm::SmallVector<Value, 1> segment_count_index(
+        1, b.create<arith::IndexCastOp>(loc, b.getIndexType(), segment_idx));
+    Value segment_count = b.create<memref::LoadOp>(loc, segment_count_memref,
+                                                   segment_count_index);
     Value pred = b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::ONE,
                                          segment_count, zero_floating);
     auto if_op = b.create<scf::IfOp>(loc, pred, /*hasElseRegion*/ false);
     if_op.getThenRegion().front().clear();
     b.setInsertionPointToStart(&if_op.getThenRegion().front());
-    for (int i = 1; i < output_rank; i++) {
-      Value dim_i = b.create<memref::DimOp>(loc, output, i);
-      auto for_op =
-          b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                               /* upperBound */ dim_i, /* step */ one);
-      for_op.getBody()->clear();
-      b.setInsertionPointToStart(for_op.getBody());
-      for_ops_output_mean.push_back(for_op);
-      Value loop_index = for_op.getInductionVar();
-      multidim_index_output_mean.push_back(loop_index);
+
+    data_index.push_back(b.create<arith::IndexCastOp>(
+        loc, b.getIndexType(),
+        b.create<memref::LoadOp>(loc, indices,
+                                 parallel_op.getInductionVars()[0])));
+    output_index.push_back(
+        b.create<arith::IndexCastOp>(loc, b.getIndexType(), segment_idx));
+    for (int i = 1; i < output_rank; ++i) {
+      auto index = b.create<arith::IndexCastOp>(
+          loc, b.getIndexType(), parallel_op.getInductionVars()[i]);
+      data_index.push_back(index);
+      output_index.push_back(index);
     }
+    auto data_div = b.create<arith::DivFOp>(
+        loc, b.create<memref::LoadOp>(loc, data, data_index), segment_count);
     b.create<memref::StoreOp>(
         loc,
-        b.create<arith::DivFOp>(
-            loc,
-            b.create<memref::LoadOp>(loc, output, multidim_index_output_mean),
-            segment_count),
-        output, multidim_index_output_mean);
-    for (int i = output_rank - 2; i > 0; i--) {
-      b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointToEnd(for_ops_output_mean[i - 1].getBody());
-    }
-    if (output_rank > 1) {
-      b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointToEnd(&if_op.getThenRegion().front());
-    }
+        b.create<arith::AddFOp>(
+            loc, b.create<memref::LoadOp>(loc, output, output_index), data_div),
+        output, output_index);
+
     b.create<scf::YieldOp>(loc, ValueRange({}));
-    b.setInsertionPointToEnd(for_i.getBody());
-    b.create<scf::YieldOp>(loc, ValueRange({}));
+    b.setInsertionPointAfter(parallel_op);
   }
   b.setInsertionPoint(operation);
 

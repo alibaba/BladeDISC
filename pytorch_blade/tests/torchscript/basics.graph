@@ -88,3 +88,16 @@ graph(%p1 : Float(*, *, *, *, device=cuda:0),
   // CHECK: Float(*, *, *, *, device=cuda:0) = aten::convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6)
   %7 : Tensor = aten::convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6)
   return (%7)
+
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, device=cuda:0)):
+  %true: bool = prim::Constant[value=1]()
+  %false: bool = prim::Constant[value=0]()
+  %1: int = prim::Constant[value=1]()
+  %11: int = prim::Constant[value=11]()
+// CHECK: Float(*, *, *, device=cuda:0), %{{[a-z.0-9]+}} : Long(*, *, *, device=cuda:0) = aten::topk
+  %r1: Tensor, %idx1 : Tensor = aten::topk(%p1, %11, %1, %true, %true)
+// CHECK: Float(*, *, *, device=cuda:0), %{{[a-z.0-9]+}} : Long(*, *, *, device=cuda:0) = aten::topk
+  %r2: Tensor, %idx2 : Tensor = aten::topk(%p1, %11, %1, %true, %false)
+  return (%r1, %idx1, %r2, %idx2)

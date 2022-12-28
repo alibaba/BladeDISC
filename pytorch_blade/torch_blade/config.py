@@ -590,6 +590,9 @@ class Config(ConfigContext):
 
     @property
     def experimental_subgraph_conversion_parallelism(self):
+        """The number of threads used for subgraph conversion(aka compiling subgraphs to backends).
+        By default, conversion is performed in a single thread.
+        """
         assert isinstance(self._experimental_subgraph_conversion_parallelism, int)
         return self._experimental_subgraph_conversion_parallelism
 

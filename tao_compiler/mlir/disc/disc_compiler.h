@@ -69,6 +69,10 @@ struct CpuLoweringOptions {
 
   // If true, codegen for multi threading execution environment
   bool target_multi_threading = true;
+
+  std::string llvm_target_triple = "";
+  std::string llvm_target_cpu = "";
+  std::string llvm_target_cpu_features = "";
 };
 
 struct DISCLoweringOptions {

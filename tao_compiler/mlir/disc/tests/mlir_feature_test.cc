@@ -228,11 +228,6 @@ bool feature_test_read_input_from_file(const std::string& mlir_file_path,
                            input_vals, /*expected_output_vals*/ {}, profiling);
 }
 
-// key -> (value, pre-exist?)
-using EnvSetting =
-    std::unordered_map<std::string, std::pair<std::string, bool>>;
-using EnvSettings = std::vector<EnvSetting>;
-
 void addBoolFlags(EnvSettings& envSettings, const std::string& key) {
   char* value = getenv(key.c_str());
   if (value) {
@@ -257,29 +252,6 @@ EnvSettings getEnvironmentSettings() {
   addBoolFlags(envSettings, "DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL");
   return envSettings;
 }
-
-struct EnvSettingContext {
-  explicit EnvSettingContext(const EnvSetting& setting) : setting(setting) {
-    VLOG(0) << "Apply env setting:";
-    for (const auto& kv : setting) {
-      VLOG(0) << "\t" << kv.first << " = " << kv.second.first;
-      setenv(kv.first.c_str(), kv.second.first.c_str(), 1);
-    }
-  }
-
-  ~EnvSettingContext() {
-    VLOG(0) << "Unset env setting:";
-    for (const auto& kv : setting) {
-      // not a pre-exist flag, unset it.
-      if (!kv.second.second) {
-        VLOG(0) << "\t" << kv.first << " = " << kv.second.first;
-        unsetenv(kv.first.c_str());
-      }
-    }
-  }
-
-  EnvSetting setting;
-};
 
 bool feature_test_main(
     const std::string& mlir_file_path,

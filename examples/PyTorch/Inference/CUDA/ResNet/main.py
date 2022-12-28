@@ -13,6 +13,7 @@ import argparse
 import random
 import torch
 import torch_blade
+import torch_blade.utils as utils
 from torchvision import models
 
 import pandas as pd
@@ -68,7 +69,6 @@ def printStats(backend, timings, precision, batch_size=1):
 
 @torch.no_grad()
 def benchmark(backend, precision, model, inp, batch_size):
-    import torch_blade.utils as utils
 
     utils.disable_pytorch_jit()
     for i in range(100):
@@ -110,10 +110,12 @@ if __name__ == "__main__":
     ts_model = torch.jit.script(model)
     precision = 'amp' if args.amp else precision
     with torch.cuda.amp.autocast(args.amp), opt_cfg:
+        benchmark("eager", precision, model, (dummy, ), args.batch)
+        benchmark("script", precision, ts_model, (dummy, ), args.batch)
+        if utils.torch_version_number() >= utils.parse_version("1.14.0"):
+            benchmark("dynamo_disc", precision, torch.compile(model, backend='disc'), (dummy, ), args.batch)
         opt_model = torch_blade.optimize(model, allow_tracing=True,model_inputs=(dummy,))
-        out = benchmark("eager", precision, model, (dummy, ), args.batch)
-        out = benchmark("script", precision, ts_model, (dummy, ), args.batch)
-        pred = benchmark("disc", precision, opt_model, (dummy, ), args.batch)
+        benchmark("script_disc", precision, opt_model, (dummy, ), args.batch)
 
     # Generate report
     print("Model Summary:")

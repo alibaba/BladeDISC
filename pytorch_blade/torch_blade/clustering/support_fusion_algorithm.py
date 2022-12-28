@@ -12,7 +12,8 @@
 import torch
 from torch_blade.logging import logger
 from torch_blade.algorithm import UnionSet, NxGraph
-
+from torch_blade.config import Config
+from torch_blade.tools import read_bool_from_env
 
 class NoCycleFusedGraphBuilder(object):
 
@@ -23,6 +24,9 @@ class NoCycleFusedGraphBuilder(object):
 
     def get_groups(self):
         return self._union_set.get_groups()
+
+    def same_group(self, src: int, dst: int):
+        return self._union_set.same_group(src, dst)
 
     def find(self, group: int):
         return self._union_set.find(group)
@@ -40,7 +44,7 @@ class NoCycleFusedGraphBuilder(object):
         return self._graph_builder.out_edges(node)
 
     def has_path(self, src: int, dst: int):
-        return self._graph_builder.has_path(src, dst)
+        return self._graph_builder.has_path(self.find(src), self.find(dst))
 
     def has_cycle(self):
         return self._graph_builder.has_cycle()
@@ -79,6 +83,8 @@ class NoCycleFusedGraphBuilder(object):
                 continue
 
             assert(v == self.find(v))
+            v = self.find(v)
+            u = self.find(u)
             # can be optimized by return a path, and compress it
             if (not self.has_path(v, u)):
                 continue
@@ -188,15 +194,21 @@ def _cluster_by_union_find(graph_builder, support_info):
                 return False
         return True
 
-    graph_topolist = graph_builder.group_topolist()
-    max_iter_count = 10
+    group_topolist = graph_builder.group_topolist()
+    # some graph unions may not converge in 10 iterations, provide customize setting from config
+    # TODO: refine cluster policy
+    cfg = Config.get_current_context_or_new()
+    max_iter_count = cfg.disc_cluster_max_iter_count
     while max_iter_count > 0:
         max_iter_count -= 1
         # TODO: merge brother group nodes that not construct a cycle
-        last_graph_len = len(graph_topolist)
-        for v in reversed(graph_topolist):
+        last_graph_len = len(group_topolist)
+        for v in reversed(group_topolist):
             # sort make in_edges stable
-            for u, _ in sorted(graph_builder.in_edges(v)):
+            in_edges = list(graph_builder.in_edges(v))
+            for u, _ in sorted(in_edges):
+                if graph_builder.same_group(u, v): continue
+
                 # to avoid cycle
                 if (not can_merge(u, v)):
                     continue
@@ -204,8 +216,31 @@ def _cluster_by_union_find(graph_builder, support_info):
                 graph_builder.fuse(u, v)
                 break
             assert(not graph_builder.has_cycle())
-        graph_topolist = graph_builder.group_topolist()
-        cur_graph_len = len(graph_topolist)
+
+        found = True
+        merge_horizontal = read_bool_from_env("TORCH_BLADE_EXPERIMENTAL_MERGE_HORIZONTAL_GROUPS", False)
+        # merge non-connected groups
+        while found and merge_horizontal:
+            reverse_group_topolist = list(reversed(graph_builder.group_topolist()))
+            found = False
+            for idx, v in enumerate(reverse_group_topolist):
+                for u in reverse_group_topolist[idx+1:]:
+                    if graph_builder.same_group(u, v): continue
+                    if graph_builder.has_path(u, v): continue
+
+                    is_same_kind = support_info[u] == support_info[v]
+                    if not is_same_kind:
+                        continue
+
+                    graph_builder.fuse(u, v)
+                    found = True
+                    break
+                if found:
+                    break
+            assert(not graph_builder.has_cycle())
+
+        group_topolist = graph_builder.group_topolist()
+        cur_graph_len = len(group_topolist)
         assert(cur_graph_len <= last_graph_len)
         if (last_graph_len == cur_graph_len):
             break
@@ -281,7 +316,7 @@ def group_supported_clusters(block, trt_unsupported, support_number_inpts_outs=F
     group_support_info = _build_group_support_info(
         non_const_topolist, trt_unsupported, graph_builder)
 
-    logger.info("Try clustering with tensorrt support information")
+    logger.info("Try clustering with support information")
     # find cluster by union find, according to group_support_info
     supported_groups = _cluster_by_union_find(
         graph_builder, group_support_info)
@@ -297,7 +332,7 @@ def group_supported_clusters(block, trt_unsupported, support_number_inpts_outs=F
             node = non_const_topolist[node_idx]
             if (node in trt_unsupported):
                 raise RuntimeError(
-                    "The Node %s is unsupported, please report a bug" % (n.kind()))
+                    "The Node %s is unsupported, please report a bug" % (node.kind()))
             if (node.kind() == 'prim::Constant'):
                 raise RuntimeError(
                     "prim::Constant should be fused but cloned, please report a bug")

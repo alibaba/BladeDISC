@@ -23,6 +23,7 @@ limitations under the License.
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
 #include "mlir/IR/DialectRegistry.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Support/ToolUtilities.h"
@@ -32,6 +33,8 @@ limitations under the License.
 #include "mlir/Tools/PDLL/ODS/Context.h"
 #include "mlir/Tools/PDLL/Parser/Parser.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+
+#define DEBUG_TYPE "disc-pdl-utils"
 
 namespace mlir {
 
@@ -86,6 +89,10 @@ static const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite CreateCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
   Rewrite SetAttr(op : Op, key : Attr, value : Attr);
   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
+  Rewrite GetAttrOrDefault(op : Op, key : Attr, value : Attr) -> (Attr);
+
+  Constraint CheckConstantTensor(v : Value);
+  Rewrite IsConstantTensor(v : Value) -> Attr;
 )pdll";
 
 // Combines the `chunkBuffer` with some pre-defined helper function prototypes.
@@ -208,6 +215,25 @@ static void createCustomCall(PatternRewriter& rewriter, PDLResultList& results,
   results.push_back(ValueRange(vs));
 }
 
+static LogicalResult checkConstantTensor(PatternRewriter& rewriter,
+                                         ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+  auto v = values[0].cast<Value>();
+  DenseElementsAttr denseAttr;
+  return matchPattern(v, m_Constant(&denseAttr)) ? success() : failure();
+}
+
+static void isConstantTensor(PatternRewriter& rewriter, PDLResultList& results,
+                             ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+
+  auto v = values[0].cast<Value>();
+  DenseElementsAttr denseAttr;
+  results.push_back(matchPattern(v, m_Constant(&denseAttr))
+                        ? BoolAttr::get(v.getContext(), true)
+                        : BoolAttr::get(v.getContext(), false));
+}
+
 void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
                                        RegisterPDLFunctionsCallback callback) {
   pdlPatterns.registerRewriteFunction(
@@ -234,8 +260,15 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
         auto newCustomAttrs = DictionaryAttr::get(op->getContext(), newAttrs);
         op->setAttr("custom_attrs", newCustomAttrs);
       });
+  pdlPatterns.registerRewriteFunction(
+      "GetAttrOrDefault", [](PatternRewriter& rewriter, Operation* op,
+                             Attribute keyAttr, Attribute valueAttr) {
+        StringRef key = keyAttr.cast<StringAttr>().getValue();
+        return op->hasAttr(key) ? op->getAttr(key) : valueAttr;
+      });
   pdlPatterns.registerRewriteFunction("CreateCustomCall", createCustomCall);
   pdlPatterns.registerRewriteFunction("PackValue_0", packValues<0>);
+  pdlPatterns.registerRewriteFunction("IsConstantTensor", isConstantTensor);
 
 #define REGISTER_PACK_AND_UNPACK(N)                                    \
   pdlPatterns.registerRewriteFunction("PackValue_" #N, packValues<N>); \
@@ -260,13 +293,29 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
 
 #undef REGISTER_PACK_AND_UNPACK
 
+  pdlPatterns.registerConstraintFunction("CheckConstantTensor",
+                                         checkConstantTensor);
+
   if (callback) callback(pdlPatterns);
 }
 
 }  // namespace
 
+std::vector<std::string> ParseFileString(const std::string& str) {
+  std::vector<std::string> parsedStrs;
+  if (str.empty()) return parsedStrs;
+  SmallVector<StringRef> items;
+  StringRef(str.data(), str.size())
+      .split(items, ',', /*MaxSplit=*/-1,
+             /*KeepEmpty=*/false);
+  for (const auto& item : items) {
+    parsedStrs.push_back(item.str());
+  }
+  return parsedStrs;
+}
+
 // Adds related depedent dialects (e.g. PDL dialect).
-void getDependentDialects(DialectRegistry& registry) {
+void getPDLDependentDialects(DialectRegistry& registry) {
   registry.insert<mhlo_disc::MhloDiscDialect, pdl::PDLDialect>();
 }
 
@@ -276,6 +325,7 @@ LogicalResult populateDiscPdlPatternsFromString(
     const std::vector<std::string>& includeDirs,
     const std::string& customPredefinedFunctionPrototypes,
     RegisterPDLFunctionsCallback callback) {
+  if (pdllModule.empty()) return success();
   auto pdlModule = compilePDLL(*patterns->getContext(), pdllModule, includeDirs,
                                customPredefinedFunctionPrototypes);
   if (!pdlModule) {

@@ -41,6 +41,11 @@ class CustomCallOp;
 class MhloDiscDialect : public Dialect {
  public:
   explicit MhloDiscDialect(MLIRContext* context);
+  // Registered hook to materialize a constant operation from a given attribute
+  // value with the desired resultant type.
+  Operation* materializeConstant(OpBuilder& builder, Attribute value, Type type,
+                                 Location loc) override;
+
   static StringRef getDialectNamespace() { return "mhlo_disc"; }
   /*
   // Parses a type registered to this dialect.

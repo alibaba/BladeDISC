@@ -28,6 +28,8 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "stablehlo/dialect/ChloOps.h"
 
+#include <unordered_set>
+
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -82,6 +84,63 @@ class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
       ConversionPatternRewriter& rewriter) const override;
 };
 
+LogicalResult decomposeSplits(
+    ConversionPatternRewriter& rewriter,
+    OperatorOp op,
+    Value splitSize,
+    Value dim,
+    int64_t chunks,
+    bool keepDim = true) {
+  if (chunks < 0) {
+    return failure();
+  }
+  int64_t dimInt;
+  if (!matchPattern(dim, m_TorchConstantInt(&dimInt)))
+    return rewriter.notifyMatchFailure(op, "unknown dim");
+
+  auto self = op.getOperand(0);
+  auto selfTy = self.getType().dyn_cast<BaseTensorType>();
+  ArrayRef<int64_t> inputShape = selfTy.getSizes();
+
+  dimInt = toPositiveDim(dimInt, getTensorRank(self));
+
+  SmallVector<int64_t> sizes;
+  sizes.append(inputShape.begin(), inputShape.end());
+  sizes[dimInt] = kUnknownSize;
+
+  int64_t splitSizeInt = -1;
+  if (matchPattern(splitSize, m_TorchConstantInt(&splitSizeInt)) &&
+      splitSizeInt == 1) {
+    sizes[dimInt] = 1;
+  }
+  Type sliceTy =
+      selfTy.getWithSizesAndDtype(llvm::makeArrayRef(sizes), selfTy.getDtype());
+  sizes.erase(sizes.begin() + dimInt);
+  Type sequeezeTy =
+      selfTy.getWithSizesAndDtype(llvm::makeArrayRef(sizes), selfTy.getDtype());
+
+  auto intType = Torch::IntType::get(op.getContext());
+  Location loc = op.getLoc();
+  Value one =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(1));
+  Value end =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(0));
+  SmallVector<Value, 4> slices;
+  for (int64_t k = 0; k < chunks; ++k) {
+    Value start = end;
+    end = rewriter.create<AtenAddIntOp>(loc, intType, start, splitSize);
+    Value slice = rewriter.create<AtenSliceTensorOp>(
+        loc, sliceTy, self, dim, start, end, one);
+    if (splitSizeInt == 1 && not keepDim) {
+      slice = rewriter.create<AtenSqueezeDimOp>(loc, sequeezeTy, slice, dim);
+    }
+    slices.emplace_back(slice);
+  }
+  rewriter.replaceOpWithNewOp<PrimListConstructOp>(
+      op, op.getResult(0).getType(), slices);
+  return success();
+}
+
 template <>
 LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     OperatorOp op,
@@ -89,28 +148,147 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   auto name = op.name();
-  if (std::string("aten._autocast_to_reduced_precision") == name) {
+  if (name.equals("aten._autocast_to_reduced_precision") ||
+      name.equals("aten._autocast_to_full_precision")) {
+    // dtype has been infered in PropagateInputShapes pass
+    auto inTy = op.getOperand(0).getType();
     auto outTy = op.getResult(0).getType();
-    BaseTensorType tensorType = outTy.template dyn_cast<BaseTensorType>();
-    auto dtype = getDtypeIntValueForType(rewriter, loc, tensorType.getDtype());
-    bool cudaEnable = false;
-    if (matchPattern(op.getOperand(1), m_TorchConstantBool(&cudaEnable)))
-      dtype = op.getOperand(3); // if cuda_enable, dtype = op.cuda_dtype()
-    bool cpuEnable = false;
-    if (matchPattern(op.getOperand(2), m_TorchConstantBool(&cpuEnable)))
-      dtype = op.getOperand(4); // if cpu_enable , dtype = op.cpu_dtype()
-    Value constantNone = rewriter.create<ConstantNoneOp>(loc);
-    Value constantTrue = rewriter.create<ConstantBoolOp>(loc, true);
-    rewriter.replaceOpWithNewOp<AtenToDtypeOp>(
-        op,
-        outTy,
-        op.getOperand(0),
-        dtype,
-        /*non-blocking*/ constantTrue,
-        /*copy*/ constantTrue,
-        /*memomry format*/ constantNone);
+
+    if (inTy != outTy) {
+      auto outDtype = outTy.template dyn_cast<BaseTensorType>().getDtype();
+      auto dtype = getDtypeIntValueForType(rewriter, loc, outDtype);
+      Value constantNone = rewriter.create<ConstantNoneOp>(loc);
+      Value constantTrue = rewriter.create<ConstantBoolOp>(loc, true);
+      rewriter.replaceOpWithNewOp<AtenToDtypeOp>(
+          op,
+          outTy,
+          op.getOperand(0),
+          dtype,
+          /*non-blocking*/ constantTrue,
+          /*copy*/ constantTrue,
+          /*memomry format*/ constantNone);
+    } else {
+      rewriter.replaceOp(op, {op.getOperand(0)});
+    }
+    return success();
+  } else if ("aten.add_inplace.Tensor" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1), op.getOperand(2));
+    return success();
+  } else if ("aten.sub_inplace.Tensor" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1), op.getOperand(2));
+    return success();
+  } else if ("aten.mul_inplace.Tensor" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenMulTensorOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1));
+    return success();
+  } else if ("aten.div_inplace.Tensor" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenDivTensorOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1));
+    return success();
+  } else if ("aten.split.Tensor" == name) {
+    int64_t chunksInt = -1;
+    for (Operation* user : op.getResult(0).getUsers()) {
+      if (mlir::isa<PrimListUnpackOp>(user)) {
+        chunksInt = user->getNumResults();
+        break;
+      }
+    }
+    return decomposeSplits(
+        rewriter, op, op.getOperand(1), op.getOperand(2), chunksInt);
+  } else if ("aten.chunk" == name) {
+    int64_t chunksInt = -1;
+    auto chunks = op.getOperand(1);
+    if (!matchPattern(chunks, m_TorchConstantInt(&chunksInt))) {
+      for (Operation* user : op.getResult(0).getUsers()) {
+        if (mlir::isa<PrimListUnpackOp>(user)) {
+          chunksInt = user->getNumResults();
+          break;
+        }
+      }
+      if (chunksInt < 0) {
+        return rewriter.notifyMatchFailure(op, "unknown chunks");
+      }
+    }
+    auto self = op.getOperand(0);
+    auto dim = op.getOperand(2);
+
+    auto loc = op.getLoc();
+    Value one = rewriter.create<Torch::ConstantIntOp>(
+        loc, rewriter.getI64IntegerAttr(1));
+    auto intType = Torch::IntType::get(op.getContext());
+    Value dimSize = rewriter.create<AtenSizeIntOp>(loc, self, dim);
+    Value dimSizePlusChunk =
+        rewriter.create<AtenAddIntOp>(loc, intType, dimSize, chunks);
+    Value dimSizePlusChunkMinusOne =
+        rewriter.create<AtenSubIntOp>(loc, intType, dimSizePlusChunk, one);
+    Value splitSize = rewriter.create<AtenFloordivIntOp>(
+        loc, intType, dimSizePlusChunkMinusOne, chunks);
+    return decomposeSplits(rewriter, op, splitSize, dim, chunksInt);
+  } else if ("aten.unbind.int" == name) {
+    int64_t chunksInt = -1;
+    for (Operation* user : op.getResult(0).getUsers()) {
+      if (mlir::isa<PrimListUnpackOp>(user)) {
+        chunksInt = user->getNumResults();
+        break;
+      }
+    }
+    auto loc = op.getLoc();
+    Value one = rewriter.create<Torch::ConstantIntOp>(
+        loc, rewriter.getI64IntegerAttr(1));
+    return decomposeSplits(
+        rewriter, op, one, op.getOperand(1), chunksInt, /*keepDim*/ false);
+  } else if ("aten.max.other" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenMaximumOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1));
+    return success();
+  } else if ("aten.narrow.Tensor" == name) {
+    // start must be an 0-dim integral Tensor.
+    auto outTy = op.getResult(0).getType();
+    auto start = rewriter.create<AtenItemOp>(
+        loc, Torch::IntType::get(op.getContext()), op.getOperand(2));
+    rewriter.replaceOpWithNewOp<AtenNarrowOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1), start, op.getOperand(3));
+    return success();
+  } else if ("aten.selu" == name || "aten.selu_" == name) {
+    // selu(x) = scale * (max(0,x) + min(0, alpha * (exp(x) - 1)))
+    auto outTy = op.getResult(0).getType();
+    auto self = op.getOperand(0);
+
+    static const double SELU_ALPHA = 1.6732632423543772848170429916717;
+    static const double SELU_SCALE = 1.0507009873554804934193349852946;
+
+    Value noneVal = rewriter.create<ConstantNoneOp>(loc);
+    Value zeros = rewriter.create<AtenZerosLikeOp>(
+        loc, outTy, self, noneVal, noneVal, noneVal, noneVal, noneVal);
+    Value floatOne =
+        rewriter.create<ConstantFloatOp>(loc, rewriter.getF64FloatAttr(1));
+    Value floatAlpha = rewriter.create<ConstantFloatOp>(
+        loc, rewriter.getF64FloatAttr(SELU_ALPHA));
+    Value floatScale = rewriter.create<ConstantFloatOp>(
+        loc, rewriter.getF64FloatAttr(SELU_SCALE));
+
+    Value expVal = rewriter.create<AtenExpOp>(loc, outTy, self);
+    Value expValMinus1 = rewriter.create<AtenSubScalarOp>(
+        loc, outTy, expVal, floatOne, floatOne);
+    Value alphaVal =
+        rewriter.create<AtenMulScalarOp>(loc, outTy, expValMinus1, floatAlpha);
+
+    Value maxVal = rewriter.create<AtenMaximumOp>(loc, outTy, self, zeros);
+    Value minVal = rewriter.create<AtenMinimumOp>(loc, outTy, alphaVal, zeros);
+    Value addVal =
+        rewriter.create<AtenAddTensorOp>(loc, outTy, maxVal, minVal, floatOne);
+
+    rewriter.replaceOpWithNewOp<AtenMulScalarOp>(op, outTy, addVal, floatScale);
     return success();
   }
+
   return failure();
 }
 
@@ -327,7 +505,23 @@ class DiscDecomposeComplexOpsPass
 
     RewritePatternSet patterns(context);
     auto opIsDynamicallyLegal = [&](OperatorOp op) {
-      if (std::string("aten._autocast_to_reduced_precision") == op.name()) {
+      static std::unordered_set<std::string> illegalSet{
+          "aten._autocast_to_reduced_precision",
+          "aten._autocast_to_full_precision",
+          "aten.add_inplace.Tensor",
+          "aten.div_inplace.Tensor",
+          "aten.mul_inplace.Tensor",
+          "aten.sub_inplace.Tensor",
+          "aten.split.Tensor",
+          "aten.chunk",
+          "aten.unbind.int",
+          "aten.max.other",
+          "aten.narrow.Tensor",
+          "aten.selu",
+          "aten.selu_",
+      };
+
+      if (illegalSet.find(op.name().str()) != illegalSet.end()) {
         return false;
       }
       return true;

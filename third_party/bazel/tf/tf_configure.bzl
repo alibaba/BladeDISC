@@ -52,6 +52,7 @@ def _tf_configure_impl(repository_ctx):
         "%{TF_LIB_DIR}": tf_lib_dir,
         "%{IS_TF2}": "True" if tf_major == "2" else "False",
         "%{TF_VERSION}": "{}.{}".format(tf_major, tf_minor),
+        "%{TF_MAJOR_VERSION}": "{}".format(tf_major),
         "%{IS_PAI_TF}": str(tf_is_pai),
     })
 

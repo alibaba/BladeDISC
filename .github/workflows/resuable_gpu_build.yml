@@ -71,6 +71,7 @@ jobs:
           -f docker/dev/Dockerfile .
 
     - name: Build And Test
+      if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
       run: |
         set -e
         nvidia-docker run --rm -t --user $(id -u):$(id -g) \
@@ -82,7 +83,22 @@ jobs:
           ${{ inputs.extra_envs }} \
           -w /disc \
           disc-dev-${{ inputs.cuda_version }} ${{ inputs.exec_command }}
- 
+    
+    - name: Build, Test And Examples
+      if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+      run: |
+        set -e
+        nvidia-docker run --rm -t --user $(id -u):$(id -g) \
+          -v $HOME/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -e TORCH_BLADE_RUN_EXAMPLES=ON \
+          ${{ inputs.extra_envs }} \
+          -w /disc \
+          disc-dev-${{ inputs.cuda_version }} ${{ inputs.exec_command }}
+
     - name: Build And Test TF Blade
       if: ${{ inputs.tf_blade_command }}
       run: |

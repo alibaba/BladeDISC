@@ -116,6 +116,71 @@ def HLODISC_CustomCallV2Op: HLODISC_Op<"custom_call_v2", []> {
     DefaultValuedAttr<StrAttr, "">:$expected_output_layouts
   );
   let results = (outs Variadic<HLO_TensorOrIndexTensor>);
+  let extraClassDeclaration = [{
+    SmallVector<std::string> parseStringRef(StringRef layouts,
+                                        SmallVector<int64_t> ranks) {
+      // Only two things will be done:
+      // 1. parse the layout setting string.
+      // 2. replace * with default layouts according to the corresponding rank.
+      // Strings except * (such as **) will not be processed, and the string
+      // corresponding to the invalid operand will not be processed
+      const std::string defaultLayouts = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      SmallVector<std::string> parsedStrings;
+      SmallVector<StringRef> parsedStringRefs;
+      layouts.split(parsedStringRefs, ',', /*MaxSplit=*/-1, /*KeepEmpty=*/true);
+      int64_t num_operands = ranks.size();
+      for (int64_t i = 0; i < parsedStringRefs.size(); i++) {
+        std::string layoutString = parsedStringRefs[i].str();
+        if (layoutString == std::string("*") && i < num_operands) {
+          int64_t rank = ranks[i];
+          if (rank <= defaultLayouts.length()) {
+            layoutString = defaultLayouts.substr(0, rank);
+          }
+        }
+        parsedStrings.push_back(layoutString);
+      }
+      return parsedStrings;
+    }
+    SmallVector<std::string> parseInputLayouts() {
+      SmallVector<int64_t> ranks;
+      for (const auto& operands : this->getOperands()) {
+        ranks.push_back(operands.getType().dyn_cast<RankedTensorType>().getRank());
+      }
+      SmallVector<std::string> inputLayouts;
+      inputLayouts = parseStringRef(this->getInputLayouts(), ranks);
+      return inputLayouts;
+    }
+
+    SmallVector<std::string> parseExpectedInputLayouts() {
+      SmallVector<int64_t> ranks;
+      for (const auto& operands: this->getOperands()) {
+        ranks.push_back(operands.getType().dyn_cast<RankedTensorType>().getRank());
+      }
+      SmallVector<std::string> expectedInputLayouts;
+      expectedInputLayouts = parseStringRef(this->getExpectedInputLayouts(), ranks);
+      return expectedInputLayouts;
+    }
+
+    SmallVector<std::string> parseOutputLayouts() {
+      SmallVector<int64_t> ranks;
+      for (const auto& result: this->getResults()) {
+        ranks.push_back(result.getType().dyn_cast<RankedTensorType>().getRank());
+      }
+      SmallVector<std::string> outputLayouts;
+      outputLayouts = parseStringRef(this->getOutputLayouts(), ranks);
+      return outputLayouts;
+    }
+
+    SmallVector<std::string> parseExpectedOutputLayouts() {
+      SmallVector<int64_t> ranks;
+      for (const auto& result: this->getResults()) {
+        ranks.push_back(result.getType().dyn_cast<RankedTensorType>().getRank());
+      }
+      SmallVector<std::string> expectedOutputLayouts;
+      expectedOutputLayouts = parseStringRef(this->getExpectedOutputLayouts(), ranks);
+      return expectedOutputLayouts;
+    }
+  }];
 }
 
 def HLO_FakeQuantOp: HLODISC_Op<"fake_quant", [Pure]> {
@@ -156,6 +221,7 @@ def HLO_QuantizeOp: HLODISC_Op<"quantize", [Pure]> {
     DefaultValuedAttr<HLO_RoundModeEnum, "RoundModeEnum::RoundHalfAwayFromZero">:$round_mode
   );
   let results = (outs HLO_IntTensor:$result);
+  let hasFolder = 1;
 }
 
 def HLO_DequantizeOp: HLODISC_Op<"dequantize", [Pure]> {

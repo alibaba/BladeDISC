@@ -102,16 +102,16 @@ struct QuantDotTransposeConvert
       return failure();
     }
 
-    auto dim_numbers = op.getDotDimensionNumbers();
-    SmallVector<int64_t, 4> rhs_perm_check;
-    auto rhs_batching_dims_check = dim_numbers.getRhsBatchingDimensions();
-    bool tp_rhs_check = isNonBatchingTransposeTensorValue(
-        op.getWeight(), rhs_perm_check,
-        std::unordered_set<int64_t>(rhs_batching_dims_check.begin(),
-                                    rhs_batching_dims_check.end()));
-
     // Match fail if weight is nxk
-    if (tp_rhs_check) {
+    std::vector<int64_t> rhs_contracting_dims_check;
+    auto dim_numbers = op.getDotDimensionNumbers();
+    rhs_contracting_dims_check = dim_numbers.getRhsContractingDimensions();
+    // Only match matrix whose contracting_dims.size() is 1
+    if (rhs_contracting_dims_check.size() != 1) {
+      return failure();
+    }
+
+    if (rhs_contracting_dims_check[0] == 1) {
       return failure();
     }
 

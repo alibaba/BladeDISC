@@ -26,6 +26,7 @@ class SourceEmitterCUDA {
   using ValueNameBinding = llvm::DenseMap<Value, std::string>;
 
  public:
+  static bool isBroadcastOnScalarOrSplatConstant(Operation* op);
   static bool isSupportedOp(Operation* op);
 
   llvm::Optional<std::string> EmitOp(Operation* op, ValueNameBinding& binding);
@@ -44,6 +45,11 @@ class SourceEmitterCUDA {
 
   llvm::Optional<std::string> EmitBroadcastOfScalarOrSplatConstantOp(
       Operation* op, ValueNameBinding& binding);
+
+  llvm::Optional<std::string> EmitDynamicReshapeOp(Operation* op,
+                                                   ValueNameBinding& binding);
+  llvm::Optional<std::string> EmitTransposeOp(Operation* op,
+                                              ValueNameBinding& binding);
 
   void bindValueNames(const SmallVectorImpl<Value>& inputs,
                       const SmallVectorImpl<std::string>& names,

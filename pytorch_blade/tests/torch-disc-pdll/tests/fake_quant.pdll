@@ -1,0 +1,73 @@
+/// Pre-defined custom call prototypes
+///
+/// const std::string kDefaultHelperFunctionDeclarations = R"pdll(
+///   Rewrite PackValue_1(tag : Attr, v0 : Value) -> ValueRange;
+///   Rewrite PackValue_2(tag : Attr, v0 : Value, v1 : Value) -> ValueRange;
+///   Rewrite UnpackValue_1(v : ValueRange) -> (Value);
+///   Rewrite UnpackValue_2(v : ValueRange) -> (Value, Value);
+///   Rewrite CreateTorchCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
+///   Rewrite SetAttr(op : Op, key : Attr, value : Attr);
+///   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
+/// )pdll";
+
+// A new Pattern
+Pattern TorchFakeQuantOp {
+  /// match phase: define the pattern
+  let fake_quant_op = op<torch.operator>(
+    input: Value,
+    scale: Value,
+    zero_point: Value,
+    quant_min: Value,
+    quant_max: Value,
+    num_bits: Value,
+    axis: Value,
+    signed: Value,
+    symmetric: Value,
+    dynamic: Value,
+    per_channel: Value
+  ){ name = attr<"\"torch_blade.fake_quant\"">} -> (old_type: Type);
+  CheckTorchValueTensorLiteral(scale);
+  CheckTorchValueTensorLiteral(zero_point);
+  CheckTorchConstantInt(quant_min);
+  CheckTorchConstantInt(quant_max);
+  CheckTorchConstantInt(num_bits);
+  CheckTorchConstantIntList(axis);
+  CheckTorchConstantBool(signed);
+  CheckTorchConstantBool(symmetric);
+  CheckTorchConstantBool(dynamic);
+  CheckTorchConstantBool(per_channel);
+
+  /// rewrite phase
+  rewrite fake_quant_op with {
+    let new_type = GetTorchQuantizedTensorType(old_type, num_bits, signed);
+    let quantize_op = op<torch.operator>(
+      input,
+      scale,
+      zero_point,
+      quant_min,
+      quant_max,
+      num_bits,
+      axis,
+      signed,
+      symmetric,
+      dynamic,
+      per_channel
+    ){ name = attr<"\"torch_blade.quantize\"">} -> (new_type);
+
+    let dequantize_op = op<torch.operator>(
+      quantize_op.0,
+      scale,
+      zero_point,
+      quant_min,
+      quant_max,
+      num_bits,
+      axis,
+      signed,
+      symmetric,
+      dynamic,
+      per_channel
+    ){ name = attr<"\"torch_blade.dequantize\"">} -> (old_type);
+
+    replace fake_quant_op with dequantize_op.0;
+  };
+}

@@ -175,6 +175,10 @@ def ReviseGpuKernelOutliningPass : Pass<"disc-revise-gpu-kernel-outlining", "Mod
 def DiscLowerToLibraryCallPass : Pass<"disc-lower-to-library-call", "mlir::func::FuncOp"> {
   let summary = "Lower some specific ops to library calls (modeled by `disc_ral.launch` op).";
   let constructor = "createDiscLowerToLibraryCallPass()";
+  let options = [
+    Option<"gpu_enabled_", "gpu-enabled", "bool",
+           /*default=*/"true", "whether gpu is available.">,
+  ];
 }
 
 def DiscAssignMemorySpacePass : Pass<"disc-assign-memory-space", "ModuleOp"> {
@@ -257,6 +261,12 @@ def DiscMemRefLoadStoreSimplifierPass : Pass<"disc-memref-load-store-simplifier"
 def DiscLowerTfPass : Pass<"disc-lower-tf", "mlir::func::FuncOp"> {
   let summary = "Lowering some tensorflow ops";
   let constructor = "createDiscLowerTfPass()";
+  let options = [
+    Option<"pdll_files_", "pdll-files", "std::string",
+           /*default=*/"\"\"", "comma seperated pathes to user defined pdll files">,
+    Option<"pdll_include_dirs_", "pdll-include-dirs", "std::string",
+           /*default=*/"\"\"", "comma seperated pathes to pdll include dirs">,
+  ];
 }
 
 def RemoveDeadBufferPass : Pass<"disc-remove-dead-buffer", "mlir::func::FuncOp"> {
@@ -395,9 +405,9 @@ def DiscDotMergePass : Pass<"disc-dot-merge", "mlir::func::FuncOp"> {
   let constructor = "createDiscDotMergePass()";
 }
 
-def DiscAlgebraSimplifierPass : Pass<"disc-algebra-simplifier", "mlir::func::FuncOp"> {
-  let summary = "Apply some basic algebra simplification optimizations";
-  let constructor = "createDiscAlgebraSimplifierPass()";
+def DiscAlgebraicSimplifierPass : Pass<"disc-algebraic-simplifier", "mlir::func::FuncOp"> {
+  let summary = "Apply some basic algebraic simplification optimizations";
+  let constructor = "createDiscAlgebraicSimplifierPass()";
 }
 
 def DiscDynamicSliceConverterPass : Pass<"disc-dynamic-slice-converter", "mlir::func::FuncOp"> {
@@ -500,5 +510,69 @@ def DiscLowerQuantizeAndDequantizePass : Pass<"disc-lower-quantize-and-dequantiz
       "disc_shape::DISCShapeDialect",
       "shape::ShapeDialect",
       "mhlo::MhloDialect",
+  ];
+}
+
+def DiscLowerGpuQuantizeAndDequantizePass : Pass<"disc-lower-gpu-quantize-and-dequantize", "mlir::func::FuncOp"> {
+  let summary = "Lower quantize and dequantize op to a bound of basic elementwise ops on GPU.";
+  let constructor = "createDiscLowerGpuQuantizeAndDequantizePass()";
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+      "shape::ShapeDialect",
+      "mhlo::MhloDialect",
+  ];
+}
+
+def DiscBufferDeallocationPass : Pass<"disc-buffer-deallocation", "mlir::func::FuncOp"> {
+  let summary = "Insert dealloc op for some disc specific ops (e.g. custom_call_v2 op).";
+  let constructor = "createDiscBufferDeallocationPass()";
+}
+
+def DiscCustomCallRewriterPass : Pass<"disc-custom-call-rewriter", "mlir::func::FuncOp"> {
+  let summary = "Rewrite custom call ops according to its layout attribute.";
+  let constructor = "createDiscCustomCallRewriterPass()";
+  let dependentDialects = [
+      "mhlo::MhloDialect",
+  ];
+}
+
+def DiscCompIntensFusionToFuncPass : Pass<"disc-compute-intensive-fusion-to-func", "ModuleOp"> {
+  let summary = "Pass to convert compute-intensive fusion to func-op.";
+  let constructor = "createDiscCompIntensFusionToFuncPass()";
+}
+
+def DiscCompIntensFusionToCUDASourcePass : Pass<"disc-compute-intensive-fusion-to-cuda-source", "ModuleOp"> {
+  let summary = "Pass to convert functions representing compute-intensive "
+                "fusion into CUDA source code.";
+  let constructor = "createDiscCompIntensFusionToCUDASourcePass()";
+  let options = [
+    Option<"cc_major_", "gpu-sm-cc-major", "int",
+            /*default=*/"8", "gpu sm cc_major.">,
+    Option<"cc_minor_", "gpu-sm-cc-minor", "int",
+            /*default=*/"0", "gpu sm cc_minor.">,
+  ];
+}
+
+def DiscGPUSourceToLibPass : Pass<"disc-gpu-source-to-lib", "ModuleOp"> {
+  let summary = "Pass to convert CUDA code to library, possibly with host side logic.";
+  let constructor = "createDiscGPUSourceToLibPass()";
+  let options = [
+    Option<"cc_major_", "gpu-sm-cc-major", "int",
+            /*default=*/"8", "gpu sm cc_major.">,
+    Option<"cc_minor_", "gpu-sm-cc-minor", "int",
+            /*default=*/"0", "gpu sm cc_minor.">,
+  ];
+}
+
+def DiscTransformLegalizeToLoopPass : Pass<"disc-transform-legalize-to-loop", "mlir::func::FuncOp"> {
+  let summary = "Legalize transfrom fusion pattern to loop.";
+  let constructor = "createDiscTransformLegalizeToLoopPass()";
+  let options = [
+    Option<"gpuEnabled_", "gpu-enabled", "bool",
+            /*default=*/"false", "whether gpu is available.">,
+    Option<"transformFileName_", "transform-file-name", "std::string",
+           /*default=*/"\"\"", "Filename of the transform schedule.">,
+    Option<"enableExpensiveChecks_", "enable-expensive-checks", "bool",
+           /*default=*/"false", "perform expensive checks to better report errors in the transform IR.">,
   ];
 }

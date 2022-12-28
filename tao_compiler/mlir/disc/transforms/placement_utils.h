@@ -15,6 +15,7 @@
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/MLIRContext.h"            // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
@@ -59,12 +60,13 @@ LogicalResult parseEntryFunctionOutputPlacements(
     func::FuncOp main, bool default_on_gpu,
     SmallVectorImpl<PlacementType>& out);
 
-// If Op is placed on GPU
-bool OnGpu(Operation* op);
-
 // Return true if the Operation is placed on GPU
 // The typical usage is for mhlo ops on tensor layer
 bool isGpuMhlo(Operation* op);
+
+// Return true if the Operation is placed on GPU
+// The typical usage is for lmhlo ops.
+bool isGpuLmhlo(Operation* op);
 
 // Return true if the MemRef is placed on GPU
 bool isGpuMemRef(Value memref);
@@ -97,6 +99,9 @@ inline bool isMarkShapeCalcTargetOp(Operation* op) {
   return isTensorDialect(op) || isMhloDialect(op) || isStdOnTensor(op);
 }
 
+// Returns a new memref type with provided memory space
+MemRefType copyWithMemorySpace(MLIRContext* ctx, MemRefType type,
+                               StringRef memory_space);
 }  // namespace placement_utils
 }  // namespace mlir
 

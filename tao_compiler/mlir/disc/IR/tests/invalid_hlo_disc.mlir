@@ -360,3 +360,136 @@ func.func @where_invalid_output(%input: tensor<?x?xf32>) -> (tensor<?xi64>, tens
   %index, %num_output_elements = "mhlo_disc.where"(%input) {} : (tensor<?x?xf32>) -> (tensor<?xi64>, tensor<1xi64>)
   return %index, %num_output_elements: tensor<?xi64>, tensor<1xi64>
 }
+
+// -----
+
+func.func @custom_call_v2(%input: tensor<?x?xf32>, %weight : tensor<?x?xf32>) -> tensor<?x?xf32> {
+  // expected-error@+1 {{mismatch number of layouts for input_layouts and expected_input_layouts}}
+  %output = "mhlo_disc.custom_call_v2"(%input, %weight) {
+      call_target_name = "test",
+      custom_attrs = {},
+      has_side_effect = false,
+      device = "d",
+      input_placements = "d,h",
+      output_placements = "h",
+      input_layouts = "AB,AB",
+      expected_input_layouts = "",
+      output_layouts = "AB",
+      expected_output_layouts = "AB"
+  } : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %output : tensor<?x?xf32>
+}
+
+// -----
+
+func.func @custom_call_v2(%input: tensor<?x?xf32>, %weight : tensor<?x?xf32>) -> tensor<?x?xf32> {
+  // expected-error@+1 {{mismatch number of layouts for input_layouts and expected_input_layouts}}
+  %output = "mhlo_disc.custom_call_v2"(%input, %weight) {
+      call_target_name = "test",
+      custom_attrs = {},
+      has_side_effect = false,
+      device = "d",
+      input_placements = "d,h",
+      output_placements = "h",
+      input_layouts = "AB,AB,AB",
+      expected_input_layouts = "AB,AB",
+      output_layouts = "AB",
+      expected_output_layouts = "AB"
+  } : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %output : tensor<?x?xf32>
+}
+
+// -----
+
+func.func @custom_call_v2(%input: tensor<?x?xf32>, %weight : tensor<?x?xf32>) -> tensor<?x?xf32> {
+  // expected-error@+1 {{mismatch number of input layouts and number of inputs}}
+  %output = "mhlo_disc.custom_call_v2"(%input, %weight) {
+      call_target_name = "test",
+      custom_attrs = {},
+      has_side_effect = false,
+      device = "d",
+      input_placements = "d,h",
+      output_placements = "h",
+      input_layouts = "AB,AB,AB",
+      expected_input_layouts = "AB,AB,AB",
+      output_layouts = "AB",
+      expected_output_layouts = "AB"
+  } : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %output : tensor<?x?xf32>
+}
+
+// -----
+
+func.func @custom_call_v2(%input: tensor<?x?xf32>, %weight : tensor<?x?xf32>) -> tensor<?x?xf32> {
+  // expected-error@+1 {{mismatch number of layouts for output_layouts and expected_output_layouts}}
+  %output = "mhlo_disc.custom_call_v2"(%input, %weight) {
+      call_target_name = "test",
+      custom_attrs = {},
+      has_side_effect = false,
+      device = "d",
+      input_placements = "d,h",
+      output_placements = "h",
+      input_layouts = "AB,AB",
+      expected_input_layouts = "AB,AB",
+      output_layouts = ",",
+      expected_output_layouts = "AB"
+  } : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %output : tensor<?x?xf32>
+}
+
+// -----
+
+func.func @custom_call_v2(%input: tensor<?x?xf32>, %weight : tensor<?x?xf32>) -> tensor<?x?xf32> {
+  // expected-error@+1 {{mismatch number of output layouts and number of outputs}}
+  %output = "mhlo_disc.custom_call_v2"(%input, %weight) {
+      call_target_name = "test",
+      custom_attrs = {},
+      has_side_effect = false,
+      device = "d",
+      input_placements = "d,h",
+      output_placements = "h",
+      input_layouts = "AB,AB",
+      expected_input_layouts = "AB,AB",
+      output_layouts = "AB,AB",
+      expected_output_layouts = "AB,AB"
+  } : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %output : tensor<?x?xf32>
+}
+
+// -----
+
+func.func @custom_call_v2(%input: tensor<?x?xf32>, %weight : tensor<?x?xf32>) -> tensor<?x?xf32> {
+  // expected-error@+1 {{mismatch input layout or expected input layout setting}}
+  %output = "mhlo_disc.custom_call_v2"(%input, %weight) {
+      call_target_name = "test",
+      custom_attrs = {},
+      has_side_effect = false,
+      device = "d",
+      input_placements = "d,h",
+      output_placements = "h",
+      input_layouts = "ABC,AB",
+      expected_input_layouts = "AB,AB",
+      output_layouts = "AB",
+      expected_output_layouts = "AB"
+  } : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %output : tensor<?x?xf32>
+}
+
+// -----
+
+func.func @custom_call_v2(%input: tensor<?x?xf32>, %weight : tensor<?x?xf32>) -> tensor<?x?xf32> {
+  // expected-error@+1 {{mismatch output layout or expected output layout setting}}
+  %output = "mhlo_disc.custom_call_v2"(%input, %weight) {
+      call_target_name = "test",
+      custom_attrs = {},
+      has_side_effect = false,
+      device = "d",
+      input_placements = "d,h",
+      output_placements = "h",
+      input_layouts = "AB,AB",
+      expected_input_layouts = "AB,AB",
+      output_layouts = "AB",
+      expected_output_layouts = "A"
+  } : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %output : tensor<?x?xf32>
+}

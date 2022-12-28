@@ -77,12 +77,24 @@ TempFile::~TempFile() {
 }
 
 bool TempFile::WriteBytesToFile(const std::string& bytes) {
-  auto sz = ::write(fd_, bytes.data(), bytes.length());
-  if (sz != bytes.length()) {
-    LOG(ERROR) << "Failed to write content to temp file: " << GetFilename()
-               << ", error: " << strerror(errno);
-    return false;
+  ssize_t left_len = bytes.length();
+  const char* data = bytes.data();
+  errno = 0;
+  while (left_len > 0) {
+    auto sz = ::write(fd_, data, left_len);
+    if (sz <= 0) {
+      if (errno != EINTR && errno != EAGAIN) {
+        LOG(ERROR) << "Failed to write content to temp file: " << GetFilename()
+                   << ", error: " << strerror(errno);
+        return false;
+      }
+      errno = 0;
+      continue;
+    }
+    left_len -= sz;
+    data += sz;
   }
+
   return true;
 }
 

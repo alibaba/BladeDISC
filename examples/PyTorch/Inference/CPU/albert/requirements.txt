@@ -1,0 +1,4 @@
+transformers
+tabulate
+pandas
+onnxruntime

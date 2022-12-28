@@ -1,0 +1,32 @@
+// RUN: shape_analysis_tool --since 1.14.0 -f %s | FileCheck %s
+
+// CHECK-LABEL: graph
+graph(%self: Float(*, *)):
+  %cst0  : int = prim::Constant[value=0]()
+  %cst1  : int = prim::Constant[value=1]()
+  %cst32 : int = prim::Constant[value=32]()
+  %cst512: int = prim::Constant[value=512]()
+  %sizes : int[] = prim::ListConstruct(%cst32, %cst512, %cst1)
+  %dims  : int[] = prim::ListConstruct(%cst0, %cst1)
+// CHECK: Float(*, *, *) = prims::broadcast_in_dim
+  %1 : Tensor = prims::broadcast_in_dim(%self, %sizes, %dims)
+  return (%1)
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, *)):
+  %true: bool = prim::Constant[value=1]()
+  %cst_1: int = prim::Constant[value=-1]()
+  %dims : int[] = prim::ListConstruct(%cst_1)
+// CHECK: Float(*, *, *, *) = aten::amax
+  %1 : Tensor = aten::amax(%p1, %dims, %true)
+  return (%1)
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *)):
+  %cst0 : int = prim::Constant[value=0]()
+  %cst2 : int = prim::Constant[value=2]()
+  %false: bool = prim::Constant[value=0]()
+  %dims: int[] = prim::ListConstruct(%cst2)
+// CHECK: Float(*, *) = aten::var
+  %1 : Tensor = aten::var(%p1, %dims, %cst0, %false)
+  return (%1)

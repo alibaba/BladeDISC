@@ -1,0 +1,40 @@
+// RUN: shape_analysis_tool -f %s | FileCheck %s
+
+// CHECK-LABEL: graph
+graph(%p1 : Half(16384, 768)):
+  %cst768: int = prim::Constant[value=768]()
+  %cst16k: int = prim::Constant[value=16384]()
+  %size : int[] = prim::ListConstruct(%cst768, %cst16k) 
+// CHECK: Half(*, *) = aten::view
+  %1 : Tensor = aten::view(%p1, %size)
+  return (%1)
+
+// CHECK-LABEL: graph
+graph(%p1 : Half(16384, 768)):
+  %cst768: int = prim::Constant[value=768]()
+  %cst16k: int = prim::Constant[value=16384]()
+  %size : int[] = prim::ListConstruct(%cst768, %cst16k) 
+// CHECK: Half(*, *) = aten::reshape
+  %1 : Tensor = aten::reshape(%p1, %size)
+  return (%1)
+
+// CHECK-LABEL: graph
+graph(%p1 : Half(*, *)):
+  %cst4: int = prim::Constant[value=4]()
+  %cst8: int = prim::Constant[value=8]()
+  %rep : int[] = prim::ListConstruct(%cst8, %cst4) 
+// CHECK: Half(*, *) = aten::repeat
+  %1 : Tensor = aten::repeat(%p1, %rep)
+  return (%1)
+
+// CHECK-LABEL: graph
+graph(%p1 : Half(*, *)):
+  %false : bool = prim::Constant[value=0]()
+  %cst32 : int = prim::Constant[value=32]()
+  %cst512: int = prim::Constant[value=512]()
+  %cst12 : int = prim::Constant[value=12]()
+  %cst64 : int = prim::Constant[value=64]()
+  %size : int[] = prim::ListConstruct(%cst32, %cst12, %cst512, %cst64)
+// CHECK: Half(*, *, *, *) = aten::expand
+  %1 : Half(*, *, *, *) = aten::expand(%p1, %size, %false)
+  return (%1)

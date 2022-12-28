@@ -29,8 +29,6 @@ limitations under the License.
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/LogicalResult.h"
 
-#define DEBUG_TYPE "disc-pdl-utils"
-
 // This file implements some helper functions and classes used to support disc
 // custom call.
 
@@ -47,7 +45,9 @@ namespace disc_ral {
 llvm::SmallVector<Value>& getThreadLocalValueRangeStorage(llvm::StringRef tag);
 
 // Adds related depedent dialects (e.g. PDL dialect).
-void getDependentDialects(DialectRegistry& registry);
+void getPDLDependentDialects(DialectRegistry& registry);
+
+std::vector<std::string> ParseFileString(const std::string& str);
 
 using RegisterPDLFunctionsCallback = std::function<void(PDLPatternModule&)>;
 

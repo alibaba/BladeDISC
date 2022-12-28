@@ -218,10 +218,51 @@ bool useHorizontalFusion() {
   return enabled;
 }
 
+// Returns true if `DISC_ENABLE_TRANSFORM_SCHEDULE` is true
+bool useTransformSchedule() {
+  static bool enabled = []() {
+    bool enabled = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_TRANSFORM_SCHEDULE", enabled,
+                                   &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool lowerFakeQuantToQuantAndDequant() {
+  static bool enabled = []() {
+    bool enabled = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_FAKE_QUANT_TO_QUANT_AND_DEQUANT",
+                                   enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
 bool isMemIntensiveOptExperimentalEnabled() {
   static bool enabled = []() {
     bool enabled = false;
     tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL",
+                                   enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool isStitchEnabled() {
+  static bool enabled = []() {
+    // Enable stitch by default.
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_STITCH", enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool isCompIntensFusionEnabled() {
+  static bool enabled = []() {
+    bool enabled = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE",
                                    enabled, &enabled);
     return enabled;
   }();

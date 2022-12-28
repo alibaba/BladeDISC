@@ -1,6 +1,7 @@
 // RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=0 DISC_ENABLE_HORIZONTAL_FUSION=0 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=base})' -split-input-file %s -o - | FileCheck %s --check-prefix=BASE
 // RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=0 DISC_ENABLE_HORIZONTAL_FUSION=0 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=STITCH
 // RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=HORIZONTAL
+// RUN: DISC_ENABLE_COMPUTE_INTENSIVE_FUSE=1 DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=DOTFUSE
 
 // BASE-LABEL: @simple_kloop_fusion
 // BASE-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?x?xf32, "gpu">, %[[ARG3:.*]]: memref<?x?xf32, "gpu">) -> memref<?x?xf32, "gpu">
@@ -385,9 +386,12 @@ func.func @kstitch_fusion_mean(%arg0: memref<?x?x?xf32, "gpu">) -> memref<?x?xf3
   %34 = memref.alloc(%3, %5) : memref<?x?xf32, "gpu">
   "lmhlo.divide"(%26, %33, %34) {disc.device = "gpu"} : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // Make sure there is one and only one kStitch fusion.
-  // STITCH:      disc.fusion.name
+  // STITCH: "lmhlo.fusion"() ({
+  // STITCH: lmhlo.divide
+  // STITCH-NEXT: lmhlo.terminator
+  // STITCH-NEXT: })
   // STITCH-SAME: disc.fusion_type = "kStitch"
-  // STITCH-NOT:  disc.fusion.name
+  // STITCH-NOT: "lmhlo.fusion"() ({
   return %34 : memref<?x?xf32, "gpu">
 }
 
@@ -440,4 +444,57 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
   func.func @shape_constraint_graph() {
     return
   }
+}
+
+// -----
+
+// DOTFUSE-LABEL: @dot_fuse_simple
+// DOTFUSE: "lmhlo.fusion"() ({
+// DOTFUSE-NEXT: lmhlo.constant
+// DOTFUSE-NEXT: lmhlo.dot_general
+// DOTFUSE-NEXT: lmhlo.dynamic_broadcast_in_dim
+// DOTFUSE-NEXT: lmhlo.multiply
+// DOTFUSE-NEXT: lmhlo.terminator
+// DOTFUSE-NEXT: })
+// DOTFUSE-SAME: disc.fusion.name = "dot_fuse_simple
+// DOTFUSE-SAME: disc.fusion_type = "kDot"
+// DOTFUSE-NOT: lmhlo.fusion
+
+// STITCH-LABEL: @dot_fuse_simple
+// STITCH: lmhlo.dot_general
+// STITCH: "lmhlo.fusion"() ({
+
+// HORIZONTAL-LABEL: @dot_fuse_simple
+// HORIZONTAL: lmhlo.dot_general
+// HORIZONTAL: "lmhlo.fusion"() ({
+func.func @dot_fuse_simple(%arg0: memref<?x?x?x?xf32, "gpu">, %arg1: memref<?x?x?x?xf32, "gpu">) -> memref<?x?x?x?xf32, "gpu"> attributes {tf.entry_function = {input_placements = "gpu,gpu", inputs = "input0,input1", output_placements = "gpu", outputs = "output0"}} {
+  %c3 = arith.constant 3 : index
+  %c2 = arith.constant 2 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
+  %0 = memref.alloc() : memref<f32, "gpu">
+  "lmhlo.constant"(%0) {disc.device = "gpu", value = dense<0.707106829> : tensor<f32>} : (memref<f32, "gpu">) -> ()
+  %1 = memref.dim %arg0, %c0 : memref<?x?x?x?xf32, "gpu">
+  %2 = memref.dim %arg0, %c1 : memref<?x?x?x?xf32, "gpu">
+  %3 = memref.dim %arg0, %c2 : memref<?x?x?x?xf32, "gpu">
+  %4 = memref.dim %arg0, %c3 : memref<?x?x?x?xf32, "gpu">
+  %5 = arith.muli %4, %3 : index
+  %6 = arith.muli %5, %2 : index
+  %7 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%1, %2, %3, %4], strides: [%6, %5, %4, 1] : memref<?x?x?x?xf32, "gpu"> to memref<?x?x?x?xf32, "gpu">
+  %8 = memref.dim %arg1, %c3 : memref<?x?x?x?xf32, "gpu">
+  %9 = arith.muli %8, %4 : index
+  %10 = arith.muli %9, %2 : index
+  %11 = memref.reinterpret_cast %arg1 to offset: [0], sizes: [%1, %2, %4, %8], strides: [%10, %9, %8, 1] : memref<?x?x?x?xf32, "gpu"> to memref<?x?x?x?xf32, "gpu">
+  %12 = memref.alloc(%1, %2, %3, %8) : memref<?x?x?x?xf32, "gpu">
+  "lmhlo.dot_general"(%7, %11, %12) {disc.device = "gpu", dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0, 1], rhs_batching_dimensions = [0, 1], lhs_contracting_dimensions = [3], rhs_contracting_dimensions = [2]>} : (memref<?x?x?x?xf32, "gpu">, memref<?x?x?x?xf32, "gpu">, memref<?x?x?x?xf32, "gpu">) -> ()
+  %13 = memref.alloca() : memref<4xindex, "cpu">
+  memref.store %1, %13[%c0] : memref<4xindex, "cpu">
+  memref.store %2, %13[%c1] : memref<4xindex, "cpu">
+  memref.store %3, %13[%c2] : memref<4xindex, "cpu">
+  memref.store %8, %13[%c3] : memref<4xindex, "cpu">
+  %14 = memref.alloc(%1, %2, %3, %8) : memref<?x?x?x?xf32, "gpu">
+  "lmhlo.dynamic_broadcast_in_dim"(%0, %13, %14) {broadcast_dimensions = dense<> : tensor<0xi64>, disc.device = "gpu"} : (memref<f32, "gpu">, memref<4xindex, "cpu">, memref<?x?x?x?xf32, "gpu">) -> ()
+  %15 = memref.alloc(%1, %2, %3, %8) : memref<?x?x?x?xf32, "gpu">
+  "lmhlo.multiply"(%12, %14, %15) {disc.device = "gpu"} : (memref<?x?x?x?xf32, "gpu">, memref<?x?x?x?xf32, "gpu">, memref<?x?x?x?xf32, "gpu">) -> ()
+  return %15 : memref<?x?x?x?xf32, "gpu">
 }

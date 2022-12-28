@@ -20,6 +20,11 @@
   - [Roadmap with mlir-hlo Project](#roadmap-with-mlir-hlo-project)
 - [Contact Us](#contact-us)
 
+## What's New
+
++ [🔥 2022.12.08] BladeDISC v0.3.0:
+ [Announce PyTorch 2.0 Compilation Support](https://github.com/alibaba/BladeDISC/releases/tag/v0.3.0)
+
 ## Overview
 
 BladeDISC is an end-to-end **DynamIc Shape Compiler** project for machine
@@ -50,7 +55,7 @@ documents for developers.
 [1] TensorFlow 1.12, 1.15, 2.4 & 2.5 are supported and fully verified. For other
 versions some slight works on adaptation might be needed.
 
-[2] 1.6.0 <= PyTorch version < 1.12.0 has been fully verified.
+[2] PyTorch version >= 1.6.0 has been fully verified.
 
 [3] Although supported, there's much room for improvement on Op coverage for
 training workloads.

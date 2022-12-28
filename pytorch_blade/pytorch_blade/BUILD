@@ -8,7 +8,8 @@ load(
     "if_platform_alibaba",
     "if_tensorrt_enabled",
     "if_ltc_disc_backend",
-    "if_quantization_enabled"
+    "if_quantization_enabled",
+    "if_neural_engine_enabled"
 )
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension", "pybind_library")
 
@@ -24,6 +25,7 @@ cc_library(
     deps = [
         "//pytorch_blade/common_utils:torch_blade_common",
         "//pytorch_blade/compiler/backends:torch_blade_backends",
+        "//pytorch_blade/compiler/jit:aten_custom_ops",
         "//pytorch_blade/compiler/jit:torch_blade_jit",
         "//pytorch_blade/compiler/mlir:torch_blade_mlir",
         "@local_org_torch//:libtorch",
@@ -35,6 +37,8 @@ cc_library(
         "//pytorch_blade/platform_alibaba:torch_blade",
     ]) + if_quantization_enabled([
         "//pytorch_blade/quantization:quantization_op",
+    ]) + if_neural_engine_enabled([
+        "//pytorch_blade/compiler/neural_engine:torch_blade_neural_engine",
     ]),
 )
 
@@ -104,6 +108,8 @@ pybind_library(
         ["-DTORCH_BLADE_PLATFORM_ALIBABA=false"],
     ) + if_ltc_disc_backend([
         "-DTORCH_BLADE_ENABLE_LTC"
+    ]) + if_neural_engine_enabled([
+        "-DTORCH_BLADE_BUILD_NEURAL_ENGINE"
     ]),
     includes = ["."],
     linkstatic = 0,
@@ -112,6 +118,7 @@ pybind_library(
     ],
     deps = [
         ":torch_blade_shared",
+        "//pytorch_blade/compiler/jit:onnx_funcs",
         "@local_org_torch//:torch_python",
     ] + if_tensorrt_enabled([
         "@tensorrt//:nvinfer_headers",

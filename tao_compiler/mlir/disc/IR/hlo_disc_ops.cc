@@ -14,6 +14,9 @@ limitations under the License.
 
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 
+#include <cfenv>
+#include <cmath>
+#include <iostream>
 #include <mutex>
 #include <unordered_map>
 
@@ -31,6 +34,23 @@ using llvm::StringRef;
 template <typename T>
 static LogicalResult Verify(T op) {
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// MHLO Dialect Hooks
+//===----------------------------------------------------------------------===//
+
+Operation* MhloDiscDialect::materializeConstant(OpBuilder& builder,
+                                                Attribute value, Type type,
+                                                Location loc) {
+  auto elementsAttr = value.dyn_cast<ElementsAttr>();
+  // HLO dialect constants only support ElementsAttr unlike standard dialect
+  // constant which supports all attributes.
+  if (!elementsAttr) return nullptr;
+  // HLO dialect constants require the type of value and result to match.
+  if (type != elementsAttr.getType()) return nullptr;
+  Operation* op = builder.create<mhlo::ConstantOp>(loc, type, elementsAttr);
+  return op;
 }
 
 //===----------------------------------------------------------------------===//
@@ -125,6 +145,196 @@ LogicalResult FakeQuantOp::verify() { return QuantVerify(this); }
 //===----------------------------------------------------------------------===//
 
 LogicalResult QuantizeOp::verify() { return QuantVerify(this); }
+
+OpFoldResult QuantizeOp::fold(ArrayRef<Attribute> operands) {
+  auto val = operands[0].dyn_cast_or_null<DenseElementsAttr>();
+  if (!val) {
+    return {};
+  }
+  auto valType = val.getType();
+  auto valElementType = getElementTypeOrSelf(valType);
+  if (!valElementType.isF32()) {
+    return {};
+  }
+
+  auto opType = getType();
+  auto opElementType = getElementTypeOrSelf(opType);
+  if (!opElementType.isa<IntegerType>()) {
+    return {};
+  }
+
+  auto valShapedType = valType.cast<ShapedType>();
+  if (!valShapedType.hasStaticShape()) {
+    return {};
+  }
+
+  DenseElementsAttr scale = operands[1].dyn_cast<DenseElementsAttr>();
+  DenseElementsAttr zeroPoint = operands[2].dyn_cast<DenseElementsAttr>();
+  ArrayRef<int64_t> scaleShape = scale.getType().getShape();
+  ArrayRef<int64_t> zeroPointShape = zeroPoint.getType().getShape();
+  // scale & zero_point must have the same shape
+  if (scaleShape != zeroPointShape) {
+    return {};
+  }
+
+  DenseIntElementsAttr axis = getAxisAttr();
+  int64_t axisNum = axis.getNumElements();
+  // only per-tensor/per-channel quantization is supported
+  if (!(axisNum <= 1)) {
+    return {};
+  }
+
+  int64_t scaleRank = scale.getType().getRank();
+  int64_t zeroPointRank = zeroPoint.getType().getRank();
+  if (!(axisNum == scaleRank && axisNum == zeroPointRank)) {
+    // per-tensor quantization: axisNum==scaleRank==zeroPointRank==0
+    // per-channel quantization: axisNum==scaleRank==zeroPointRank==1
+    return {};
+  }
+  // For per-tensor quantization, its axis is empty. For convenience,
+  // we use -1 to represent the axis dimension it point to.
+  int64_t symbolAxis = -1;
+  int64_t axisValue =
+      axisNum == 0 ? symbolAxis : *axis.getValues<int64_t>().begin();
+  int64_t valRank = valType.getRank();
+  if (axisValue >= valRank) {
+    // axisValue must point to a valid dimension of the input.
+    return {};
+  }
+
+  int64_t scaleNum = scale.getNumElements();
+  int64_t zeroPointNum = zeroPoint.getNumElements();
+  ArrayRef<int64_t> valShape = valType.getShape();
+  int64_t targetQuantInfoNum =
+      axisValue == symbolAxis ? 1 : valShape[axisValue];
+  if (!(targetQuantInfoNum == scaleNum && targetQuantInfoNum == zeroPointNum)) {
+    // For per-tensor quantization, scale and zero_point only have one value.
+    // For per-channel quantization, The length of scale and zero_point must be
+    // equal to the length of the input dimension pointed to by axis
+    return {};
+  }
+
+  int64_t numPerScale = 1;
+  for (int64_t i = 0; i < valShape.size(); i++) {
+    if (i > axisValue) {
+      numPerScale *= valShape[i];
+    }
+  }
+
+  auto roundToEven = [&](double val) -> double {
+    auto curRoundMode = std::fegetround();
+    std::fesetround(FE_TONEAREST);
+    float roundVal = std::nearbyint(val);
+    std::fesetround(curRoundMode);
+    return roundVal;
+  };
+
+  int64_t valNum = val.getNumElements();
+  auto valStart = val.getValues<APFloat>().begin();
+  auto scaleStart = scale.getValues<APFloat>().begin();
+  auto zeroPointStart = zeroPoint.getValues<APInt>().begin();
+  int64_t quantMax = getQuantMax();
+  int64_t quantMin = getQuantMin();
+  bool useSigned = getUseSymmetric();
+  RoundModeEnum roundMode = getRoundMode();
+  double curValNum;
+  double curScale;
+  int64_t curZeroPoint;
+  int64_t quantInfoIdx;
+  int bitWidth = opElementType.getIntOrFloatBitWidth();
+
+  int64_t bytesPerElem;
+  if (bitWidth == 32) {
+    bytesPerElem = sizeof(int32_t);
+  } else if (bitWidth == 16) {
+    bytesPerElem = sizeof(int16_t);
+  } else if (bitWidth == 8) {
+    bytesPerElem = sizeof(int8_t);
+  } else {
+    // only supports 32/16/8 bit quantization for now
+    return {};
+  }
+  int64_t bytes = valNum * bytesPerElem;
+  std::vector<uint8_t> buffer(bytes);
+
+  // use double to store the quantized value first and static_cast
+  // it to the target format later.
+  std::vector<double> quantizedVal;
+  quantizedVal.reserve(valNum);
+
+  for (int64_t i = 0; i < valNum; i++) {
+    curValNum = (*(valStart + i)).convertToDouble();
+    quantInfoIdx = i / numPerScale % targetQuantInfoNum;
+    curScale = (*(scaleStart + quantInfoIdx)).convertToDouble();
+    int64_t curZeroPoint = (*(zeroPointStart + quantInfoIdx)).getSExtValue();
+    double curValNumDiv = (curValNum / curScale) + curZeroPoint;
+    double curValNumDivRound;
+    if (roundMode == RoundModeEnum::RoundHalfToEven) {
+      curValNumDivRound = roundToEven(curValNumDiv);
+    } else if (roundMode == RoundModeEnum::RoundHalfAwayFromZero) {
+      // round away from zero
+      curValNumDivRound = std::round(curValNumDiv);
+    } else {
+      return {};
+    }
+    curValNum =
+        std::clamp(curValNumDivRound, (double)quantMin, double(quantMax));
+    quantizedVal.push_back(curValNum);
+  }
+  auto newOutput = DenseElementsAttr();
+  auto outType = getType().cast<ShapedType>();
+  if (bitWidth == 32) {
+    if (useSigned) {
+      auto data = (int32_t*)buffer.data();
+      for (int64_t i = 0; i < valNum; i++) {
+        data[i] = static_cast<int32_t>(quantizedVal[i]);
+      }
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
+    } else {
+      auto data = (uint32_t*)buffer.data();
+      for (int64_t i = 0; i < valNum; i++) {
+        data[i] = static_cast<uint32_t>(quantizedVal[i]);
+      }
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
+    }
+  } else if (bitWidth == 16) {
+    if (useSigned) {
+      auto data = (int16_t*)buffer.data();
+      for (int64_t i = 0; i < valNum; i++) {
+        data[i] = static_cast<int16_t>(quantizedVal[i]);
+      }
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
+    } else {
+      auto data = (uint16_t*)buffer.data();
+      for (int64_t i = 0; i < valNum; i++) {
+        data[i] = static_cast<uint16_t>(quantizedVal[i]);
+      }
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
+    }
+  } else if (bitWidth == 8) {
+    if (useSigned) {
+      auto data = (int8_t*)buffer.data();
+      for (int64_t i = 0; i < valNum; i++) {
+        data[i] = static_cast<int8_t>(quantizedVal[i]);
+      }
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
+    } else {
+      auto data = (uint8_t*)buffer.data();
+      for (int64_t i = 0; i < valNum; i++) {
+        data[i] = static_cast<uint8_t>(quantizedVal[i]);
+      }
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
+    }
+  }
+
+  return newOutput;
+}
 
 //===----------------------------------------------------------------------===//
 // DequantizeOp
@@ -706,7 +916,49 @@ LogicalResult SparseSegmentMeanOp::verify() {
 // CustomCallV2Op
 //===----------------------------------------------------------------------===//
 
-LogicalResult CustomCallV2Op::verify() { return Verify(*this); }
+LogicalResult CustomCallV2Op::verify() {
+  SmallVector<std::string> inputLayouts = parseInputLayouts();
+  SmallVector<std::string> expectedInputLayouts = parseExpectedInputLayouts();
+  if (inputLayouts.size() != expectedInputLayouts.size())
+    return this->emitOpError() << "mismatch number of layouts for "
+                                  "input_layouts and expected_input_layouts\n";
+
+  if (inputLayouts.size() != 0 && inputLayouts.size() != this->getNumOperands())
+    return this->emitOpError()
+           << "mismatch number of input layouts and number of inputs\n";
+
+  SmallVector<std::string> outputLayouts = parseOutputLayouts();
+  SmallVector<std::string> expectedOutputLayouts = parseExpectedOutputLayouts();
+  if (outputLayouts.size() != expectedOutputLayouts.size())
+    return this->emitOpError()
+           << "mismatch number of layouts for output_layouts and "
+              "expected_output_layouts\n";
+  if (outputLayouts.size() != 0 &&
+      outputLayouts.size() != this->getNumResults())
+    return this->emitOpError()
+           << "mismatch number of output layouts and number of outputs\n";
+
+  auto checkLayouts = [&](SmallVector<std::string>& lhs,
+                          SmallVector<std::string>& rhs, TypeRange typeRange) {
+    for (const auto& z : llvm::zip(lhs, rhs, typeRange)) {
+      if (std::get<0>(z).size() != std::get<1>(z).size()) return failure();
+
+      auto ty = std::get<2>(z).dyn_cast<RankedTensorType>();
+      if (ty && ty.getRank() != std::get<0>(z).size()) return failure();
+    }
+    return success();
+  };
+  if (failed(checkLayouts(inputLayouts, expectedInputLayouts,
+                          this->getOperandTypes())))
+    return this->emitOpError()
+           << "mismatch input layout or expected input layout setting";
+  if (failed(checkLayouts(outputLayouts, expectedOutputLayouts,
+                          this->getResultTypes())))
+    return this->emitOpError()
+           << "mismatch output layout or expected output layout setting";
+
+  return success();
+}
 
 // WhereOp
 //===----------------------------------------------------------------------===//

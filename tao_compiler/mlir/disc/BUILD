@@ -2510,7 +2510,7 @@ tf_cc_binary(
         "@local_config_cuda//cuda:cuda_driver",
     ]) + if_rocm_is_configured([
 	"//tensorflow/stream_executor/rocm:rocm_driver",
-    ])
+    ]),
 )
 
 tf_cc_shared_object(

@@ -569,8 +569,7 @@ disc_cc_library(
     hdrs = [
         "context/base/cuda/cuda_context_impl.h",
     ],
-    copts = ["-DTAO_RAL_USE_STREAM_EXECUTOR"
-            ] + if_rocm_is_configured(["-DTORCH_BLADE_USE_ROCM -DTORCH_BLADE_BUILD_WITH_CUDA"]),
+    copts = ["-DTAO_RAL_USE_STREAM_EXECUTOR"],
     deps = [
         ":ral_base_cpu_context_impl",
         ":context_util",

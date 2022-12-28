@@ -321,6 +321,414 @@ std::string getTorchPredefinedPDLPatterns() {
         replace silu with rs;
       };
     }
+
+    Pattern TorchAttentionFP32Graph {
+      /// match phase: define the pattern
+      let transpose_op = op<torch.aten.transpose.int>(
+          k: Value,
+          int1: Value,
+          int2: Value
+      );
+      let matmul_qk_op = op<torch.aten.baddbmm>(
+          empty: Value,
+          q: Value,
+          transpose_op.0,
+          zero_int: Value,
+          alpha: Value
+      );
+      let softmax_op = op<torch.aten.softmax.int>(
+          matmul_qk_op.0,
+          s_dim: Value,
+          s_dtype: Value
+      );
+      // reshape of v from four dim to three dim
+      let reshape_v_op = op<torch.aten.reshape>(
+          v: Value,
+          reshape_v_list: Value
+      );
+      let matmul_qkv_op = op<torch.aten.bmm>(
+          softmax_op.0,
+          reshape_v_op.0
+      );
+      CheckTorchTensorElemType(q, attr<"\"f32\"">);
+      CheckTorchTensorElemType(k, attr<"\"f32\"">);
+      CheckTorchTensorElemType(v, attr<"\"f32\"">);
+      /// rewrite phase
+      rewrite matmul_qkv_op with {
+          let q_fp16 = ConvertToF16(q);
+          let k_fp16 = ConvertToF16(k);
+          let v_fp16 = ConvertToF16(v);
+          let o_fp16 = ConvertToF16(matmul_qkv_op.0);
+          /// 1. create custom call op
+          let inputs = PackValue_3(attr<"\"in\"">, q_fp16, k_fp16, v_fp16);
+          let outputs = PackValue_1(attr<"\"out\"">, o_fp16);
+          let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+          /// 2. set attrs that are used by bladedisc.
+          SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mem_eff_attention\"">);
+          SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+          SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+          SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+          SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+          SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+          SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+          SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+          let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+          SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+          let rs = UnpackValue_1(infos.new_outputs);
+          let rs_fp32 = ConvertToF32(rs);
+          replace matmul_qkv_op with rs_fp32;
+      };
+    }
+    Pattern TorchAttentionFP16Graph {
+      /// match phase: define the pattern
+      let transpose_op = op<torch.aten.transpose.int>(
+          k: Value,
+          int1: Value,
+          int2: Value
+      );
+      let matmul_qk_op = op<torch.aten.baddbmm>(
+          empty: Value,
+          q: Value,
+          transpose_op.0,
+          zero_int: Value,
+          alpha: Value
+      );
+      let softmax_op = op<torch.aten.softmax.int>(
+          matmul_qk_op.0,
+          s_dim: Value,
+          s_dtype: Value
+      );
+      // reshape of v from four dim to three dim
+      let reshape_v_op = op<torch.aten.reshape>(
+          v: Value,
+          reshape_v_list: Value
+      );
+      let matmul_qkv_op = op<torch.aten.bmm>(
+          softmax_op.0,
+          reshape_v_op.0
+      );
+      CheckTorchTensorElemType(q, attr<"\"f16\"">);
+      CheckTorchTensorElemType(k, attr<"\"f16\"">);
+      CheckTorchTensorElemType(v, attr<"\"f16\"">);
+      /// rewrite phase
+      rewrite matmul_qkv_op with {
+          /// 1. create custom call op
+          let inputs = PackValue_3(attr<"\"in\"">, q, k, v);
+          let outputs = PackValue_1(attr<"\"out\"">, matmul_qkv_op.0);
+          let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+          /// 2. set attrs that are used by bladedisc.
+          SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mem_eff_attention\"">);
+          SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+          SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+          SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+          SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+          SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+          SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+          SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+          let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+          SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+          let rs = UnpackValue_1(infos.new_outputs);
+          replace matmul_qkv_op with rs;
+      };
+    }
+    Pattern TorchAttentionFP16CastGraph {
+      /// match phase: define the pattern
+      let transpose_op = op<torch.aten.transpose.int>(
+          k: Value,
+          int1: Value,
+          int2: Value
+      );
+      let matmul_qk_op = op<torch.aten.baddbmm>(
+          empty: Value,
+          q: Value,
+          transpose_op.0,
+          zero_int: Value,
+          alpha: Value
+      );
+      let softmax_op = op<torch.aten.softmax.int>(
+          matmul_qk_op.0,
+          s_dim: Value,
+          s_dtype: Value
+      );
+      // add type convert to convert type from fp32 to fp16
+      let cast_op = op<torch.aten.to.dtype>(
+          softmax_op.0,
+          c_dtype: Value,
+          c_arg1: Value,
+          c_arg2: Value,
+          c_arg3: Value
+      );
+      // reshape of v from four dim to three dim
+      let reshape_v_op = op<torch.aten.reshape>(
+          v: Value,
+          reshape_v_list: Value
+      );
+      let matmul_qkv_op = op<torch.aten.bmm>(
+          cast_op.0,
+          reshape_v_op.0
+      );
+      CheckTorchTensorElemType(q, attr<"\"f16\"">);
+      CheckTorchTensorElemType(k, attr<"\"f16\"">);
+      CheckTorchTensorElemType(v, attr<"\"f16\"">);
+      /// rewrite phase
+      rewrite matmul_qkv_op with {
+          /// 1. create custom call op
+          let inputs = PackValue_3(attr<"\"in\"">, q, k, v);
+          let outputs = PackValue_1(attr<"\"out\"">, matmul_qkv_op.0);
+          let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+          /// 2. set attrs that are used by bladedisc.
+          SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mem_eff_attention\"">);
+          SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+          SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+          SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+          SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+          SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+          SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+          SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+          let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+          SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+          let rs = UnpackValue_1(infos.new_outputs);
+          replace matmul_qkv_op with rs;
+      };
+    }
+    Pattern TorchDiffusers07AttentionFP16CastGraph {
+      /// match phase: define the pattern
+      let transpose_op = op<torch.aten.transpose.int>(
+          k: Value,
+          int1: Value,
+          int2: Value
+      );
+      let matmul_qk_op = op<torch.aten.matmul>(
+          q: Value,
+          transpose_op.0
+      );
+      let mul_qk_op = op<torch.aten.mul.Tensor>(
+          matmul_qk_op.0,
+          alpha: Value
+      );
+      let softmax_op = op<torch.aten.softmax.int>(
+          mul_qk_op.0,
+          s_dim: Value,
+          s_dtype: Value
+      );
+      // add type convert to convert type from fp32 to fp16
+      let cast_op = op<torch.aten.to.dtype>(
+          softmax_op.0,
+          c_dtype: Value,
+          c_arg1: Value,
+          c_arg2: Value,
+          c_arg3: Value
+      );
+      // reshape of v from four dim to three dim
+      let reshape_v_op = op<torch.aten.reshape>(
+          v: Value,
+          reshape_v_list: Value
+      );
+      let matmul_qkv_op = op<torch.aten.matmul>(
+          cast_op.0,
+          reshape_v_op.0
+      );
+      CheckTorchTensorElemType(q, attr<"\"f16\"">);
+      CheckTorchTensorElemType(k, attr<"\"f16\"">);
+      CheckTorchTensorElemType(v, attr<"\"f16\"">);
+      /// rewrite phase
+      rewrite matmul_qkv_op with {
+        /// 1. create custom call op
+        let inputs = PackValue_3(attr<"\"in\"">, q, k, v);
+        let outputs = PackValue_1(attr<"\"out\"">, matmul_qkv_op.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mem_eff_attention\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+        let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+        SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace matmul_qkv_op with rs;
+      };
+    }
+    Pattern TorchDiffusers07AttentionFP16Graph {
+      /// match phase: define the pattern
+      let transpose_op = op<torch.aten.transpose.int>(
+          k: Value,
+          int1: Value,
+          int2: Value
+      );
+      let matmul_qk_op = op<torch.aten.matmul>(
+          q: Value,
+          transpose_op.0
+      );
+      let mul_qk_op = op<torch.aten.mul.Tensor>(
+          matmul_qk_op.0,
+          alpha: Value
+      );
+      let softmax_op = op<torch.aten.softmax.int>(
+          mul_qk_op.0,
+          s_dim: Value,
+          s_dtype: Value
+      );
+      // reshape of v from four dim to three dim
+      let reshape_v_op = op<torch.aten.reshape>(
+          v: Value,
+          reshape_v_list: Value
+      );
+      let matmul_qkv_op = op<torch.aten.matmul>(
+          softmax_op.0,
+          reshape_v_op.0
+      );
+      CheckTorchTensorElemType(q, attr<"\"f16\"">);
+      CheckTorchTensorElemType(k, attr<"\"f16\"">);
+      CheckTorchTensorElemType(v, attr<"\"f16\"">);
+      /// rewrite phase
+      rewrite matmul_qkv_op with {
+        /// 1. create custom call op
+        let inputs = PackValue_3(attr<"\"in\"">, q, k, v);
+        let outputs = PackValue_1(attr<"\"out\"">, matmul_qkv_op.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mem_eff_attention\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+        let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+        SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace matmul_qkv_op with rs;
+      };
+    }
+    Pattern TorchDiffusers07AttentionFP32CastGraph {
+      /// match phase: define the pattern
+      let transpose_op = op<torch.aten.transpose.int>(
+          k: Value,
+          int1: Value,
+          int2: Value
+      );
+      let matmul_qk_op = op<torch.aten.matmul>(
+          q: Value,
+          transpose_op.0
+      );
+      let mul_qk_op = op<torch.aten.mul.Tensor>(
+          matmul_qk_op.0,
+          alpha: Value
+      );
+      let softmax_op = op<torch.aten.softmax.int>(
+          mul_qk_op.0,
+          s_dim: Value,
+          s_dtype: Value
+      );
+      // add type convert to convert type from fp32 to fp16
+      let cast_op = op<torch.aten.to.dtype>(
+          softmax_op.0,
+          c_dtype: Value,
+          c_arg1: Value,
+          c_arg2: Value,
+          c_arg3: Value
+      );
+      // reshape of v from four dim to three dim
+      let reshape_v_op = op<torch.aten.reshape>(
+          v: Value,
+          reshape_v_list: Value
+      );
+      let matmul_qkv_op = op<torch.aten.matmul>(
+          cast_op.0,
+          reshape_v_op.0
+      );
+      CheckTorchTensorElemType(q, attr<"\"f32\"">);
+      CheckTorchTensorElemType(k, attr<"\"f32\"">);
+      CheckTorchTensorElemType(v, attr<"\"f32\"">);
+      /// rewrite phase
+      rewrite matmul_qkv_op with {
+        let q_fp16 = ConvertToF16(q);
+        let k_fp16 = ConvertToF16(k);
+        let v_fp16 = ConvertToF16(v);
+        let o_fp16 = ConvertToF16(matmul_qkv_op.0);
+        /// 1. create custom call op
+        let inputs = PackValue_3(attr<"\"in\"">, q_fp16, k_fp16, v_fp16);
+        let outputs = PackValue_1(attr<"\"out\"">, o_fp16);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mem_eff_attention\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+        let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+        SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+        let rs = UnpackValue_1(infos.new_outputs);
+        let rs_fp32 = ConvertToF32(rs);
+        replace matmul_qkv_op with rs_fp32;
+      };
+    }
+    Pattern TorchDiffusers07AttentionFP32Graph {
+      /// match phase: define the pattern
+      let transpose_op = op<torch.aten.transpose.int>(
+          k: Value,
+          int1: Value,
+          int2: Value
+      );
+      let matmul_qk_op = op<torch.aten.matmul>(
+          q: Value,
+          transpose_op.0
+      );
+      let mul_qk_op = op<torch.aten.mul.Tensor>(
+          matmul_qk_op.0,
+          alpha: Value
+      );
+      let softmax_op = op<torch.aten.softmax.int>(
+          mul_qk_op.0,
+          s_dim: Value,
+          s_dtype: Value
+      );
+      // reshape of v from four dim to three dim
+      let reshape_v_op = op<torch.aten.reshape>(
+          v: Value,
+          reshape_v_list: Value
+      );
+      let matmul_qkv_op = op<torch.aten.matmul>(
+          softmax_op.0,
+          reshape_v_op.0
+      );
+      CheckTorchTensorElemType(q, attr<"\"f32\"">);
+      CheckTorchTensorElemType(k, attr<"\"f32\"">);
+      CheckTorchTensorElemType(v, attr<"\"f32\"">);
+      /// rewrite phase
+      rewrite matmul_qkv_op with {
+        let q_fp16 = ConvertToF16(q);
+        let k_fp16 = ConvertToF16(k);
+        let v_fp16 = ConvertToF16(v);
+        let o_fp16 = ConvertToF16(matmul_qkv_op.0);
+        /// 1. create custom call op
+        let inputs = PackValue_3(attr<"\"in\"">, q_fp16, k_fp16, v_fp16);
+        let outputs = PackValue_1(attr<"\"out\"">, o_fp16);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mem_eff_attention\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+        let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+        SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+        let rs = UnpackValue_1(infos.new_outputs);
+        let rs_fp32 = ConvertToF32(rs);
+        replace matmul_qkv_op with rs_fp32;
+      };
+    }
     
   )pdll";
 #endif

@@ -42,6 +42,7 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite ConvertTorchTensorElemType(old_type: Type, type_str: Attr) -> Type;
   Rewrite GetTorchTensorType(v: Value) -> Type;
   Rewrite GetTorchQuantizedTensorType(old_type: Type, num_bits: Value, is_signed: Value) -> Type;
+  Rewrite ConvertTorchConstantFloatToFloatAttr(cst: Value) -> Attr;
 )pdll";
 
 static LogicalResult checkTorchNone(
@@ -221,6 +222,20 @@ static void createTorchCustomCall(
   results.push_back(ValueRange(vs));
 }
 
+static void convertTorchConstantFloatToFloatAttr(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+
+  double elem;
+  auto status =
+      matchPattern(values[0].cast<Value>(), Torch::m_TorchConstantFloat(&elem));
+  assert(status);
+
+  results.push_back(rewriter.getF64FloatAttr(elem));
+}
+
 static void convertTorchConstantIntListToI64DenseElemsAttr(
     PatternRewriter& rewriter,
     PDLResultList& results,
@@ -320,6 +335,8 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
   pdlPatterns.registerRewriteFunction("GetTorchTensorType", getTorchTensorType);
   pdlPatterns.registerRewriteFunction(
       "GetTorchQuantizedTensorType", getTorchQuantizedTensorType);
+  pdlPatterns.registerRewriteFunction(
+      "ConvertTorchConstantFloatToFloatAttr", convertTorchConstantFloatToFloatAttr); 
 
   pdlPatterns.registerConstraintFunction("CheckTorchNone", checkTorchNone);
   pdlPatterns.registerConstraintFunction(

@@ -22,6 +22,7 @@ limitations under the License.
 #include "llvm/Support/ToolOutputFile.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
+#include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Parser/Parser.h"
@@ -316,7 +317,7 @@ std::vector<std::string> ParseFileString(const std::string& str) {
 
 // Adds related depedent dialects (e.g. PDL dialect).
 void getPDLDependentDialects(DialectRegistry& registry) {
-  registry.insert<mhlo_disc::MhloDiscDialect, pdl::PDLDialect>();
+  registry.insert<mhlo_disc::MhloDiscDialect, pdl::PDLDialect, pdl_interp::PDLInterpDialect>();
 }
 
 // Parses pdll patterns from string, compile them and then add to `patterns`.

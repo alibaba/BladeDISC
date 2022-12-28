@@ -44,7 +44,7 @@ class NoCycleFusedGraphBuilder(object):
         return self._graph_builder.out_edges(node)
 
     def has_path(self, src: int, dst: int):
-        return self._graph_builder.has_path(self.find(src), self.find(dst))
+        return self._graph_builder.has_path(src, dst)
 
     def has_cycle(self):
         return self._graph_builder.has_cycle()
@@ -83,8 +83,7 @@ class NoCycleFusedGraphBuilder(object):
                 continue
 
             assert(v == self.find(v))
-            v = self.find(v)
-            u = self.find(u)
+
             # can be optimized by return a path, and compress it
             if (not self.has_path(v, u)):
                 continue
@@ -207,7 +206,6 @@ def _cluster_by_union_find(graph_builder, support_info):
             # sort make in_edges stable
             in_edges = list(graph_builder.in_edges(v))
             for u, _ in sorted(in_edges):
-                if graph_builder.same_group(u, v): continue
 
                 # to avoid cycle
                 if (not can_merge(u, v)):
@@ -217,27 +215,6 @@ def _cluster_by_union_find(graph_builder, support_info):
                 break
             assert(not graph_builder.has_cycle())
 
-        found = True
-        merge_horizontal = read_bool_from_env("TORCH_BLADE_EXPERIMENTAL_MERGE_HORIZONTAL_GROUPS", False)
-        # merge non-connected groups
-        while found and merge_horizontal:
-            reverse_group_topolist = list(reversed(graph_builder.group_topolist()))
-            found = False
-            for idx, v in enumerate(reverse_group_topolist):
-                for u in reverse_group_topolist[idx+1:]:
-                    if graph_builder.same_group(u, v): continue
-                    if graph_builder.has_path(u, v): continue
-
-                    is_same_kind = support_info[u] == support_info[v]
-                    if not is_same_kind:
-                        continue
-
-                    graph_builder.fuse(u, v)
-                    found = True
-                    break
-                if found:
-                    break
-            assert(not graph_builder.has_cycle())
 
         group_topolist = graph_builder.group_topolist()
         cur_graph_len = len(group_topolist)

@@ -190,6 +190,20 @@ struct DiscDuplicateComputationForFusionPass
       return;
     }
 
+    if (useTransformSchedule()) {
+      auto strategy =
+          makeNewPlacementAwareFusionStrategy(gpu_enabled_, "transform_based");
+      // const weight can be pre-packed. In some cases, multiple dot ops may
+      // share the same const op while use different packed layouts for the
+      // weight. we duplicate the weight to make sure that each dot general has
+      // its own copy, maximizing the opportunities to do weight pre-packing at
+      // compile time.
+      if (failed(duplicateConstWeightForDotOp(func, *strategy))) {
+        signalPassFailure();
+        return;
+      }
+    }
+
     if (isMemIntensiveOptExperimentalEnabled()) {
       // Populate patterns.
       MLIRContext* ctx = func.getContext();
@@ -201,6 +215,8 @@ struct DiscDuplicateComputationForFusionPass
 
   LogicalResult duplicateBroadcastInDimOp(FuncOp func,
                                           FusionStrategy& strategy);
+  LogicalResult duplicateConstWeightForDotOp(FuncOp func,
+                                             FusionStrategy& strategy);
 };
 
 // Returns true if the value produced by a cheap computation.
@@ -291,6 +307,45 @@ LogicalResult DiscDuplicateComputationForFusionPass::duplicateBroadcastInDimOp(
       clonedBcastOp->replaceUsesOfWith(out, clonedAllocOp->getResult(0));
       fusibleUsers[i]->replaceUsesOfWith(out, clonedAllocOp->getResult(0));
     }
+  }
+  return success();
+}
+
+LogicalResult
+DiscDuplicateComputationForFusionPass::duplicateConstWeightForDotOp(
+    FuncOp func, FusionStrategy& strategy) {
+  SmallVector<lmhlo::DotGeneralOp> dotOps;
+  func->walk([&](lmhlo::DotGeneralOp op) {
+    if (strategy.isFusible(op.getOperation())) dotOps.emplace_back(op);
+  });
+  for (lmhlo::DotGeneralOp dotOp : dotOps) {
+    Value weight = dotOp.getRhs();
+    Value rootWeightMemref = getRootMemRef(weight);
+    bool hasOtherUsers = false;
+    Operation* constOp = nullptr;
+    for (Operation* user : getValueUsers(rootWeightMemref)) {
+      if (user == dotOp.getOperation()) continue;
+      if (isa<lmhlo::ConstantOp>(user)) {
+        if (constOp)
+          return dotOp->emitError()
+                 << "weight buffer consumsed by mulitple const ops\n";
+        constOp = user;
+        continue;
+      }
+      hasOtherUsers = true;
+    }
+    if (!constOp || !hasOtherUsers) continue;
+    auto weightTy = weight.getType().cast<MemRefType>();
+    auto constTy = constOp->getOperand(0).getType().cast<MemRefType>();
+    // TODO(wyzero): support the case where there are cast ops between const op
+    // and dot op.
+    if (weightTy != constTy) continue;
+    OpBuilder b(dotOp);
+    Location loc = dotOp->getLoc();
+    Value newWeight = b.create<memref::AllocOp>(loc, weightTy);
+    Operation* clonedConstOp = b.clone(*constOp);
+    clonedConstOp->replaceUsesOfWith(constOp->getOperand(0), newWeight);
+    dotOp->replaceUsesOfWith(weight, newWeight);
   }
   return success();
 }

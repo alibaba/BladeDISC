@@ -10,7 +10,7 @@ on:
 
 jobs:
   NGC-TorchTRT-D2:
-    if: github.event.schedule != '30 15 * * *'
+    if: github.event.schedule == '30 15 * * *'
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-trt-and-d2-benchmark

@@ -112,7 +112,7 @@ function test_cuda_infer_examples() {
 
 # Build
 ci_build
-if [ "TORCH_BLADE_RUN_EXAMPLES" == "ON" ]; then
+if [ "$TORCH_BLADE_RUN_EXAMPLES" == "ON" ]; then
   if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" == "ON" ]; then
     test_cuda_infer_examples
     test_training_examples

@@ -12,6 +12,7 @@
 #include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
+#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
 
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Verifier.h"
@@ -62,9 +63,53 @@ LogicalResult UpgradeAtenOp<AtenGeluOp>::matchAndRewrite(
 }
 } // namespace
 
+namespace { // AtenLayerNormOp
+template <>
+bool isLegalAtenOp<AtenLayerNormOp>(AtenLayerNormOp op) {
+  // https://github.com/pytorch/pytorch/issues/66707
+  // layer_norm needs to be done in fp32 for fp16 inputs
+  auto inpDtype =
+      op.input().getType().template dyn_cast<BaseTensorType>().getDtype();
+  if (inpDtype.isa<mlir::FloatType>() &&
+      inpDtype.cast<mlir::FloatType>().getWidth() < 32) {
+    return false;
+  }
+  return true;
+}
+
+template <>
+LogicalResult UpgradeAtenOp<AtenLayerNormOp>::matchAndRewrite(
+    AtenLayerNormOp op,
+    PatternRewriter& rewriter) const {
+  auto inpDtype =
+      op.input().getType().template dyn_cast<BaseTensorType>().getDtype();
+  if (inpDtype.isa<mlir::FloatType>() &&
+      inpDtype.cast<mlir::FloatType>().getWidth() < 32) {
+    Type floatDtype = rewriter.getF32Type();
+    auto loc = op.getLoc();
+    Value input =
+        Torch::convertTensorToDtype(rewriter, loc, op.input(), floatDtype);
+    Value output = rewriter.create<AtenLayerNormOp>(
+        op.getLoc(),
+        input.getType(),
+        input,
+        op.normalized_shape(),
+        op.weight(),
+        op.bias(),
+        op.eps(),
+        op.cudnn_enable());
+    auto outDtype = op.getType().template dyn_cast<BaseTensorType>().getDtype();
+    output = Torch::convertTensorToDtype(rewriter, loc, output, outDtype);
+    rewriter.replaceOp(op, output);
+    return success();
+  }
+  return failure();
+}
+} // namespace
+
 namespace {
-class DiscUpgradeLegacyOpsPass
-    : public DiscUpgradeLegacyOpsBase<DiscUpgradeLegacyOpsPass> {
+class DiscUpgradeAndAdaptOpsPass
+    : public DiscUpgradeAndAdaptOpsBase<DiscUpgradeAndAdaptOpsPass> {
   void runOnOperation() override {
     MLIRContext* context = &getContext();
 
@@ -77,6 +122,7 @@ class DiscUpgradeLegacyOpsPass
   target.addDynamicallyLegalOp<AtenOp>(&isLegalAtenOp<AtenOp>); \
   patterns.add<UpgradeAtenOp<AtenOp>>(context)
     UPGRADE_ATENOP_PATTERN(AtenGeluOp);
+    UPGRADE_ATENOP_PATTERN(AtenLayerNormOp);
 #undef UPGRADE_ATENOP_PATTERN
 
     if (failed(applyPartialConversion(
@@ -89,8 +135,8 @@ class DiscUpgradeLegacyOpsPass
 } //  namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>> mlir::torch::TorchConversion::
-    createDiscUpgradeLegacyOpsPass() {
-  return std::make_unique<DiscUpgradeLegacyOpsPass>();
+    createDiscUpgradeAndAdaptOpsPass() {
+  return std::make_unique<DiscUpgradeAndAdaptOpsPass>();
 }
 
 #undef TORCH_VERSION_LT

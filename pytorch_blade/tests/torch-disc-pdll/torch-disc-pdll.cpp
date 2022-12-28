@@ -33,7 +33,7 @@ static void loadDependentDialects(mlir::MLIRContext& context) {
   mlir::torch::registerAllDialects(registry);
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
-  mlir::disc_ral::getDependentDialects(registry);
+  mlir::disc_ral::getPDLDependentDialects(registry);
 
   context.appendDialectRegistry(registry);
   for (llvm::StringRef name : registry.getDialectNames())

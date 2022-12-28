@@ -39,7 +39,7 @@ def cu_prof_stop():
 
 def trace_model(model, inputs, amp: bool):
     with torch.cuda.amp.autocast(amp), torch.no_grad():
-        traced_model = torch.jit.trace(model, inputs, strict=False)
+        traced_model = torch.jit.trace(model, inputs, strict=False, check_trace=False)
     torch._C._jit_pass_inline(traced_model.graph)
     return traced_model
 

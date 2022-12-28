@@ -23,9 +23,10 @@ class GrapplerBasicOpt:
         super().__init__()
 
     def optimize_graph_def(
-        self, graph_def: tf.GraphDef, protected_nodes: List[str],
+        self, graph_def: tf.GraphDef, protected_nodes: List[str]
     ) -> tf.GraphDef:
-        tf.reset_default_graph()
+        if not tf.get_default_session():
+            tf.reset_default_graph()
         # run with default setting is enough
         config = config_pb2.ConfigProto()
         config.graph_options.rewrite_options.CopyFrom(
@@ -40,7 +41,7 @@ class GrapplerBasicOpt:
                 # prune useless control flow ops
                 dependency_optimization=rewriter_config_pb2.RewriterConfig.ON,
                 loop_optimization=rewriter_config_pb2.RewriterConfig.OFF,
-                function_optimization=rewriter_config_pb2.RewriterConfig.OFF,
+                function_optimization=rewriter_config_pb2.RewriterConfig.ON,
                 debug_stripper=rewriter_config_pb2.RewriterConfig.OFF,
             )
         )

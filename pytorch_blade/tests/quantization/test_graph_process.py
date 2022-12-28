@@ -29,7 +29,7 @@ from torch_blade.quantization import (
 )
 
 
-class TestGraphProcess(QuantizationTestCase):
+class TestInsertRemoveFakeQuant(QuantizationTestCase):
     def test_insert_and_remove_fake_quant(self):
         model = ModelWithFakeQuant().to(self.device)
         inp = torch.randn(1, 4, 5, 5, device=self.device)
@@ -73,6 +73,9 @@ class TestGraphProcess(QuantizationTestCase):
                 """
         graph = c_module.forward.graph
         FileCheck().run(graph_without_placeholder_str, graph)
+
+
+class TestReplaceAtenFakeQuant(QuantizationTestCase):
 
     def _test_fake_quant_params(self, fake_quant_node, target_val):
         # The order of the constant nodes should not be fixed. So it is not easy to
@@ -127,96 +130,110 @@ class TestGraphProcess(QuantizationTestCase):
         now_output = c_module._forward(inp)
         self.assertTrue(torch.equal(origin_output, now_output))
 
-    def test_replace_aten_fake_quant(self):
+    def test_per_tensor_symmetry(self):
         inp = torch.randn(1, 3).to(self.device)
+        test_bit_list = [8, 32]
+        for bit in test_bit_list:
+            # per-tensor + symmetry quantization
+            model = PerTensorFakeQuant(
+                scale=0.1,
+                zero_point=0,
+                quant_min=-2**(bit-1),
+                quant_max=2**(bit-1)-1
+            ).eval().to(self.device)
 
-        # per-tensor + symmetry quantization
-        model = PerTensorFakeQuant(
-            scale=0.1,
-            zero_point=0,
-            quant_min=-128,
-            quant_max=127
-        ).eval().to(self.device)
+            target_val = {
+                "scale": torch.tensor(model.scale, device=self.device),
+                "zero_point": torch.tensor(model.zero_point, dtype=torch.int, device=self.device),
+                "quant_min": model.quant_min,
+                "quant_max": model.quant_max,
+                "num_bits": bit,
+                "use_signed": True,
+                "use_symmetric": True,
+                "use_dynamic": False,
+                "use_per_channel": False
+            }
+            self._test_replace_aten_fake_quant(model, inp, [target_val, ])
 
-        target_val = {
-            "scale": torch.tensor(model.scale, device=self.device),
-            "zero_point": torch.tensor(model.zero_point, dtype=torch.int, device=self.device),
-            "quant_min": model.quant_min,
-            "quant_max": model.quant_max,
-            "num_bits": 8,
-            "use_signed": True,
-            "use_symmetric": True,
-            "use_dynamic": False,
-            "use_per_channel": False
-        }
-        self._test_replace_aten_fake_quant(model, inp, [target_val, ])
+    def test_per_tensor_asymmetry(self):
+        inp = torch.randn(1, 3).to(self.device)
+        test_bit_list = [8, 32]
+        for bit in test_bit_list:
+            # per-tensor + asymmetry quantization
+            model = PerTensorFakeQuant(
+                scale=0.1,
+                zero_point=33,
+                quant_min=0,
+                quant_max=2**bit - 1
+            ).eval().to(self.device)
+            target_val = {
+                "scale": torch.tensor(model.scale, device=self.device),
+                "zero_point": torch.tensor(model.zero_point, dtype=torch.int, device=self.device),
+                "quant_min": model.quant_min,
+                "quant_max": model.quant_max,
+                "num_bits": bit,
+                "use_signed": False,
+                "use_symmetric": False,
+                "use_dynamic": False,
+                "use_per_channel": False
+            }
+            self._test_replace_aten_fake_quant(model, inp, [target_val, ])
 
-        # per-tensor + asymmetry quantization
-        model = PerTensorFakeQuant(
-            scale=0.1,
-            zero_point=33,
-            quant_min=0,
-            quant_max=255
-        ).eval().to(self.device)
-        target_val = {
-            "scale": torch.tensor(model.scale, device=self.device),
-            "zero_point": torch.tensor(model.zero_point, dtype=torch.int, device=self.device),
-            "quant_min": model.quant_min,
-            "quant_max": model.quant_max,
-            "num_bits": 8,
-            "use_signed": False,
-            "use_symmetric": False,
-            "use_dynamic": False,
-            "use_per_channel": False
-        }
-        self._test_replace_aten_fake_quant(model, inp, [target_val, ])
-
+    def test_per_channel_symmetry(self):
+        inp = torch.randn(1, 3).to(self.device)
         # per-channel + symmetry quantization
         scale = torch.tensor([0.1, 0.2, 0.3]).to(self.device)
         zero_point = torch.tensor([0, 0, 0], dtype=zero_point_dtype).to(self.device)
-        model = PerChannelFakeQuant(
-            scale=scale,
-            zero_point=zero_point,
-            quant_min=-128,
-            quant_max=127,
-            axis=1
-        ).eval().to(self.device)
-        target_val = {
-            "scale": model.scale,
-            "zero_point": model.zero_point,
-            "quant_min": model.quant_min,
-            "quant_max": model.quant_max,
-            "num_bits": 8,
-            "use_signed": True,
-            "use_symmetric": True,
-            "use_dynamic": False,
-            "use_per_channel": True
-        }
-        self._test_replace_aten_fake_quant(model, inp, [target_val, ])
+        test_bit_list = [8, 32]
+        for bit in test_bit_list:
+            model = PerChannelFakeQuant(
+                scale=scale,
+                zero_point=zero_point,
+                quant_min=-2 ** (bit - 1),
+                quant_max=2 ** (bit - 1) - 1,
+                axis=1
+            ).eval().to(self.device)
+            target_val = {
+                "scale": model.scale,
+                "zero_point": model.zero_point,
+                "quant_min": model.quant_min,
+                "quant_max": model.quant_max,
+                "num_bits": bit,
+                "use_signed": True,
+                "use_symmetric": True,
+                "use_dynamic": False,
+                "use_per_channel": True
+            }
+            self._test_replace_aten_fake_quant(model, inp, [target_val, ])
 
+    def test_per_channel_asymmetry(self):
+        inp = torch.randn(1, 3).to(self.device)
         # per-channel + asymmetry quantization
         scale = torch.tensor([0.1, 0.2, 0.3]).to(self.device)
         zero_point = torch.tensor([11, 22, 33], dtype=zero_point_dtype).to(self.device)
-        model = PerChannelFakeQuant(
-            scale=scale,
-            zero_point=zero_point,
-            quant_min=0,
-            quant_max=255,
-            axis=1
-        ).eval().to(self.device)
-        target_val = {
-            "scale": model.scale,
-            "zero_point": model.zero_point,
-            "quant_min": model.quant_min,
-            "quant_max": model.quant_max,
-            "num_bits": 8,
-            "use_signed": False,
-            "use_symmetric": False,
-            "use_dynamic": False,
-            "use_per_channel": True
-        }
-        self._test_replace_aten_fake_quant(model, inp, [target_val, ])
+        test_bit_list = [8, 32]
+        for bit in test_bit_list:
+            model = PerChannelFakeQuant(
+                scale=scale,
+                zero_point=zero_point,
+                quant_min=0,
+                quant_max=2**bit-1,
+                axis=1
+            ).eval().to(self.device)
+            target_val = {
+                "scale": model.scale,
+                "zero_point": model.zero_point,
+                "quant_min": model.quant_min,
+                "quant_max": model.quant_max,
+                "num_bits": bit,
+                "use_signed": False,
+                "use_symmetric": False,
+                "use_dynamic": False,
+                "use_per_channel": True
+            }
+            self._test_replace_aten_fake_quant(model, inp, [target_val, ])
 
+    def test_dummy_model(self):
         # test dummy model
         inp = torch.randn(1, 4, 5, 5, device=self.device)
         model = ModelWithFakeQuant().eval().to(self.device)

@@ -1,0 +1,15 @@
+// RUN: shape_analysis_tool -f %s | FileCheck %s
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *)):
+  %cst0 : int = prim::Constant[value=0]()
+  %cst6 : int = prim::Constant[value=6]()
+  %cst32 : int = prim::Constant[value=32]()
+  %cst512 : int = prim::Constant[value=512]()
+  %cst768 : int = prim::Constant[value=768]()
+  %sizes: int[] = prim::ListConstruct(%cst32, %cst512, %cst768)
+  %cuda : Device = prim::Constant[value="cuda"]()
+  %false: bool = prim::Constant[value=0]()
+// CHECK:  Float(*, *, *, device=cuda) = aten::new_zeros
+  %new_zeros : Tensor = aten::new_zeros(%p1, %sizes, %cst6, %cst0, %cuda, %false)
+  return (%new_zeros)

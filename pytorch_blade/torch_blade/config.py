@@ -151,6 +151,10 @@ class Config(ConfigContext):
         #   Level 3: Level 2 + NoNaNs + NoSignedZeros
         #   Level 4: Level 3 + fully llvm fast math
         self._disc_cpu_fast_math_level = 4
+        # Note that default cluster max_iter_count number has risk of early stopping before 
+        # cluster final convergence. If this phenomenon happens and it drastically influence 
+        # the latency, user can try to enlarge this number.
+        self._disc_cluster_max_iter_count = 10
         # min/max/opt settings for tuning trt engines with dynamic input shapes
         # looks like:
         # {
@@ -320,6 +324,20 @@ class Config(ConfigContext):
     def disc_cpu_fast_math_level(self, val):
         assert isinstance(val, int), "disc_cpu_fast_math_level should be int, got {}".format(type(val))
         self._disc_cpu_fast_math_level = val
+
+    @property
+    def disc_cluster_max_iter_count(self):
+        """The flag to set number of max_iter_count.
+
+        :type: int
+        :default: 10
+        """
+        return self._disc_cluster_max_iter_count
+
+    @disc_cluster_max_iter_count.setter
+    def disc_cluster_max_iter_count(self, val):
+        assert isinstance(val, int), "disc_cluster_max_iter_count should be int, got {}".format(type(val))
+        self._disc_cluster_max_iter_count = val
 
     @property
     def dynamic_tuning_shapes(self):

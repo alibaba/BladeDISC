@@ -21,3 +21,6 @@ def if_tf2(x):
 
 def tf_version():
     return "%{TF_VERSION}"
+
+def tf_major_version():
+    return "%{TF_MAJOR_VERSION}"

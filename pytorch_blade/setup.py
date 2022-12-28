@@ -130,6 +130,11 @@ if custom_install_requires is not None:
     # package1,package2,package3, ....
     custom_install_requires = custom_install_requires.split(',')
     install_requires.extend(custom_install_requires)
+
+is_enable_neural_engine = os.getenv("TORCH_BLADE_ENABLE_NEURAL_ENGINE", None)
+if is_enable_neural_engine is not None:
+    install_requires.extend(["intel-extension-for-transformers",])
+
 if build.dcu_rocm_available:
     wheel_suffix = "-dcu"
 elif build.cuda_available:

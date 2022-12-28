@@ -186,7 +186,7 @@ void Context::signalErrorLocked(status_t errcode, const std::string& err_msg) {
   Impl::Status st;
   st.errcode = errcode;
   st.err_msg = err_msg;
-  TAO_VLOG(0) << "[[ERROR]] Context catch an exception: " << err_msg;
+  TAO_LOG(FATAL) << "[[ERROR]] Context catch an exception: " << err_msg;
   impl_->global_status.merge(st);
 }
 
@@ -216,7 +216,7 @@ std::shared_ptr<Context::Resource> Context::getOrCreateResource(
   if (it == impl_->resources.end()) {
     Resource* r = creator();
     if (!r) {
-      signalErrorLocked(FAILURE, "resource creation failed");
+      signalErrorLocked(FAILURE, "resource creation failed: " + key);
       return nullptr;
     }
     it = impl_->resources

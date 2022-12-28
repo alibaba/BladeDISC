@@ -14,7 +14,6 @@
 from __future__ import print_function
 import os
 from test.tao_ut_common import TaoTestCase
-import unittest
 try:
     import tensorflow.compat.v1 as tf
     tf.disable_v2_behavior()

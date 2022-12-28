@@ -42,9 +42,31 @@ def ApplyValueSemantics : Pass<"torch-apply-value-semantics", "func::FuncOp"> {
   let constructor = "mlir::torch::TorchConversion::createApplyValueSemanticsPass()";
 }
 
+def ApplyDiscPdlPatterns : Pass<"torch-apply-disc-pdl-patterns", "func::FuncOp"> {
+  let summary = "Pattern match based on pdl patterns.";
+  let constructor = "mlir::torch::TorchConversion::createApplyDiscPdlPatternsPass()";
+  let options = [
+    Option<"pdll_files_", "pdll-files", "std::string",
+           /*default=*/"\"\"", "comma seperated pathes to user defined pdll files">,
+    Option<"pdll_include_dirs_", "pdll-include-dirs", "std::string",
+           /*default=*/"\"\"", "comma seperated pathes to pdll include dirs">,
+  ];
+}
+
 def VerifyMhloBackendContract : Pass<"torch-verify-mhlo-backend-contract", "ModuleOp"> {
   let summary = "Verifies conformity to the mhlo backend contract";
   let constructor = "mlir::torch::TorchConversion::createVerifyMhloBackendContractPass()";
+}
+
+def DiscUpgradeLegacyOps : Pass<"torch-disc-upgrade-legacy-ops", "func::FuncOp"> {
+  let summary = "Upgrade Torch legacy operators";
+  let description = [{
+    Upgrade outdated torch operations to latest compatiable versions.
+
+    An example of the transformations done in this pass is:
+    - convert aten.gelu(x) to aten.gelu(x, None)
+  }];
+  let constructor = "mlir::torch::TorchConversion::createDiscUpgradeLegacyOpsPass()";
 }
 
 def DiscDecomposeComplexOps : Pass<"torch-disc-decompose-complex-ops", "func::FuncOp"> {

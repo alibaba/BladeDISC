@@ -1,0 +1,30 @@
+Pattern TFFusedAddMul {
+  /// match phase: define the pattern
+  let add = op<tf.AddV2>(v0 : Value, v1 : Value);
+  let mul = op<tf.Mul>(add.0, add.0);
+
+  /// rewrite phase
+  rewrite mul with {
+    /// 1. create custom call op
+    let inputs = PackValue_2(attr<"\"in\"">, v0, v1);
+    let outputs = PackValue_2(attr<"\"out\"">, add.0, mul.0);
+    let infos = CreateCustomCall(attr<"\"op\"">, inputs, outputs);
+
+    /// 2. set attrs that are used by bladedisc.
+    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"disc.custom_call.test.tf_fused_add_mul_multi_results\"">);
+    SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
+    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h\"">);
+    SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h,h\"">);
+    SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*\"">);
+    SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*,*\"">);
+    SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*\"">);
+    SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*,*\"">);
+
+    /// 3. set attrs that are directly passed to the custom call kernel.
+    SetCustomAttr(infos.op, attr<"\"name\"">, attr<"\"disc.custom_call.test.tf_fused_add_mul_multi_results\"">);
+
+    let rs = UnpackValue_2(infos.new_outputs);
+    replace add with rs.0;
+    replace mul with rs.1;
+  };
+}

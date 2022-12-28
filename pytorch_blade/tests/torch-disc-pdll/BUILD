@@ -2,11 +2,6 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
-filegroup(
-    name = "litfiles",
-    srcs = glob(["runlit*py"]),
-)
-
 cc_library(
     name = "utils",
     srcs = [

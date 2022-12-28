@@ -9,6 +9,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+#include <unordered_map>
+
 #include "tests/torch-disc-pdll/utils.h"
 
 #include "mlir/Dialect/PDL/IR/PDL.h"
@@ -27,11 +30,18 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Constraint CheckTorchConstantFloat(v : Value);
   Constraint CheckTorchConstantStr(v : Value);
   Constraint CheckTorchConstantBool(v : Value);
+  Constraint CheckTorchConstantBoolTrue(v : Value);
+  Constraint CheckTorchConstantBoolFalse(v : Value);
   Constraint CheckTorchConstantIntList(v : Value);
+  Constraint CheckTorchValueTensorLiteral(v : Value);
+  Constraint CheckTorchTensorElemType(v: Value, type_str: Attr);
 
   Rewrite CreateTorchCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
   Rewrite ConvertTorchConstantIntListToI64DenseElemsAttr(cst: Value) -> Attr;
   Rewrite ConvertTorchConstantIntToI64Attr(cst: Value) -> Attr;
+  Rewrite ConvertTorchTensorElemType(old_type: Type, type_str: Attr) -> Type;
+  Rewrite GetTorchTensorType(v: Value) -> Type;
+  Rewrite GetTorchQuantizedTensorType(old_type: Type, num_bits: Value, is_signed: Value) -> Type;
 )pdll";
 
 static LogicalResult checkTorchNone(
@@ -93,6 +103,30 @@ static LogicalResult checkTorchConstantBool(
   return success();
 }
 
+static LogicalResult checkTorchConstantBoolTrue(
+    PatternRewriter& rewriter,
+    ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+  bool elem;
+  if (!matchPattern(values[0].cast<Value>(), Torch::m_TorchConstantBool(&elem)))
+    return failure();
+  if (!elem)
+    return failure();
+  return success();
+}
+
+static LogicalResult checkTorchConstantBoolFalse(
+    PatternRewriter& rewriter,
+    ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+  bool elem;
+  if (!matchPattern(values[0].cast<Value>(), Torch::m_TorchConstantBool(&elem)))
+    return failure();
+  if (elem)
+    return failure();
+  return success();
+}
+
 static LogicalResult checkTorchConstantIntList(
     PatternRewriter& rewriter,
     ArrayRef<PDLValue> values) {
@@ -102,6 +136,61 @@ static LogicalResult checkTorchConstantIntList(
           values[0].cast<Value>(), Torch::m_TorchConstantIntList(elems)))
     return failure();
   return success();
+}
+
+static LogicalResult checkTorchValueTensorLiteral(
+    PatternRewriter& rewriter,
+    ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+  auto op = values[0]
+                .cast<Value>()
+                .template getDefiningOp<Torch::ValueTensorLiteralOp>();
+  if (!op) {
+    return failure();
+  }
+  return success();
+}
+
+static LogicalResult checkTorchTensorElemType(
+    PatternRewriter& rewriter,
+    ArrayRef<PDLValue> values) {
+  assert(values.size() == 2);
+
+  auto v = values[0].cast<Value>();
+  auto tensorTy = v.getType().dyn_cast<Torch::ValueTensorType>();
+  if (!tensorTy)
+    return failure();
+
+  auto type_str =
+      values[1].cast<Attribute>().cast<StringAttr>().getValue().str();
+
+  std::unordered_map<std::string, Type> typeconvert_dict = {
+      {"i1", rewriter.getI1Type()},
+      {"ui8",
+       IntegerType::get(rewriter.getContext(), 8, IntegerType::Unsigned)},
+      {"i8", IntegerType::get(rewriter.getContext(), 8, IntegerType::Signed)},
+      {"i32", IntegerType::get(rewriter.getContext(), 32, IntegerType::Signed)},
+      {"ui32",
+       IntegerType::get(rewriter.getContext(), 32, IntegerType::Unsigned)},
+      {"i64", IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed)},
+      {"ui64",
+       IntegerType::get(rewriter.getContext(), 64, IntegerType::Unsigned)},
+      {"f16", rewriter.getF16Type()},
+      {"bf16", rewriter.getBF16Type()},
+      {"f32", rewriter.getF32Type()}};
+
+  assert(typeconvert_dict.find(type_str) != typeconvert_dict.end());
+
+  return (tensorTy.getDtype() == typeconvert_dict[type_str]) ? success()
+                                                             : failure();
+}
+
+static void getTorchTensorType(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values) {
+  auto type = values[0].cast<Value>().getType().cast<Torch::ValueTensorType>();
+  results.push_back(Type(type));
 }
 
 static void createTorchCustomCall(
@@ -160,6 +249,63 @@ static void convertTorchConstantIntToI64Attr(
   results.push_back(rewriter.getIntegerAttr(rewriter.getIntegerType(64), elem));
 }
 
+Type mapStrToType(PatternRewriter& rewriter, std::string type_str) {
+  std::unordered_map<std::string, Type> typeconvert_dict = {
+      {"i1", rewriter.getI1Type()},
+      {"ui8",
+       IntegerType::get(rewriter.getContext(), 8, IntegerType::Unsigned)},
+      {"i8", IntegerType::get(rewriter.getContext(), 8, IntegerType::Signed)},
+      {"i32", IntegerType::get(rewriter.getContext(), 32, IntegerType::Signed)},
+      {"ui32",
+       IntegerType::get(rewriter.getContext(), 32, IntegerType::Unsigned)},
+      {"i64", IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed)},
+      {"ui64",
+       IntegerType::get(rewriter.getContext(), 64, IntegerType::Unsigned)},
+      {"f16", rewriter.getF16Type()},
+      {"bf16", rewriter.getBF16Type()},
+      {"f32", rewriter.getF32Type()}};
+
+  assert(typeconvert_dict.find(type_str) != typeconvert_dict.end());
+  return typeconvert_dict[type_str];
+}
+
+static void convertTorchTensorElemType(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values) {
+  auto old_type = values[0].cast<Type>().cast<Torch::ValueTensorType>();
+  auto type_str =
+      values[1].cast<Attribute>().cast<StringAttr>().getValue().str();
+  auto elemType = mapStrToType(rewriter, type_str);
+
+  auto new_type = Torch::ValueTensorType::get(
+      old_type.getContext(), old_type.getOptionalSizes(), elemType);
+
+  results.push_back(Type(new_type));
+}
+
+static void getTorchQuantizedTensorType(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values) {
+  auto old_type = values[0].cast<Type>().cast<Torch::ValueTensorType>();
+  int64_t num_bits;
+  auto status = matchPattern(
+      values[1].cast<Value>(), Torch::m_TorchConstantInt(&num_bits));
+  assert(status);
+  bool is_signed;
+  status = matchPattern(
+      values[2].cast<Value>(), Torch::m_TorchConstantBool(&is_signed));
+  assert(status);
+  std::string is_signed_str = is_signed ? "i" : "ui";
+  std::string num_bits_str = std::to_string(num_bits);
+  std::string type_str = is_signed_str + num_bits_str;
+  auto elem_type = mapStrToType(rewriter, type_str);
+  auto quantized_type = Torch::ValueTensorType::get(
+      old_type.getContext(), old_type.getOptionalSizes(), elem_type);
+  results.push_back(Type(quantized_type));
+}
+
 // Register some pre-defined helper functions for torch pdl patterns.
 void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
   pdlPatterns.registerRewriteFunction(
@@ -168,7 +314,12 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
       "ConvertTorchConstantIntListToI64DenseElemsAttr",
       convertTorchConstantIntListToI64DenseElemsAttr);
   pdlPatterns.registerRewriteFunction(
+      "ConvertTorchTensorElemType", convertTorchTensorElemType);
+  pdlPatterns.registerRewriteFunction(
       "ConvertTorchConstantIntToI64Attr", convertTorchConstantIntToI64Attr);
+  pdlPatterns.registerRewriteFunction("GetTorchTensorType", getTorchTensorType);
+  pdlPatterns.registerRewriteFunction(
+      "GetTorchQuantizedTensorType", getTorchQuantizedTensorType);
 
   pdlPatterns.registerConstraintFunction("CheckTorchNone", checkTorchNone);
   pdlPatterns.registerConstraintFunction(
@@ -182,7 +333,15 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
   pdlPatterns.registerConstraintFunction(
       "CheckTorchConstantBool", checkTorchConstantBool);
   pdlPatterns.registerConstraintFunction(
+      "CheckTorchConstantBoolTrue", checkTorchConstantBoolTrue);
+  pdlPatterns.registerConstraintFunction(
+      "CheckTorchConstantBoolFalse", checkTorchConstantBoolFalse);
+  pdlPatterns.registerConstraintFunction(
       "CheckTorchConstantIntList", checkTorchConstantIntList);
+  pdlPatterns.registerConstraintFunction(
+      "CheckTorchValueTensorLiteral", checkTorchValueTensorLiteral);
+  pdlPatterns.registerConstraintFunction(
+      "CheckTorchTensorElemType", checkTorchTensorElemType);
 }
 
 } // namespace torch

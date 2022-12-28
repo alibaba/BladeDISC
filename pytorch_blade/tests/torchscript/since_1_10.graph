@@ -1,0 +1,44 @@
+// RUN: shape_analysis_tool --since 1.10.0 -f %s | FileCheck %s
+
+// CHECK-LABEL: graph
+graph(%self: Half(*, *, *, *)):
+  %cst0 : int = prim::Constant[value=0]()
+  %cst6 : int = prim::Constant[value=6]()
+  %cuda : Device = prim::Constant[value="cuda"]()
+  %none : NoneType = prim::Constant()
+  %false : bool = prim::Constant[value=0]()
+// CHECK: Float(*, *, *, *, device=cuda) = aten::_to_copy
+  %to_copy : Tensor = aten::_to_copy(%self, %cst6, %cst0, %cuda, %none, %false, %none)
+  return (%to_copy)
+
+// CHECK-LABEL: graph
+graph(%p1 : Half(*, *)):
+  %none : NoneType = prim::Constant()
+  %cst1: int = prim::Constant[value=1]()
+  %cst4: int = prim::Constant[value=4]()
+  %cst8: int = prim::Constant[value=8]()
+  %size: int[] = prim::ListConstruct(%cst8, %cst4) 
+  %strides: int[] = prim::ListConstruct(%cst1, %cst1) 
+// CHECK: Half(*, *) = aten::as_strided
+  %1 : Tensor = aten::as_strided(%p1, %size, %strides, %none)
+  return (%1)
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, device=cpu)):
+  %1 : Device = prim::Constant[value="cuda:0"]()
+  %2 : int = prim::Constant[value=5]()
+  %3 : bool = prim::Constant[value=0]()
+  %4 : NoneType = prim::Constant()
+  // CHECK: Float(*, *, *, device=cuda:0) = aten::to(%p1, %1, %2, %3, %3, %4)
+  %3 : Tensor = aten::to(%p1, %1, %2, %3, %3, %4)
+  return (%3)
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(20, 30, 40, device=cpu)):
+  %1 : Device = prim::Constant[value="cuda:0"]()
+  %2 : int = prim::Constant[value=5]()
+  %3 : bool = prim::Constant[value=0]()
+  %4 : NoneType = prim::Constant()
+  // CHECK: Float(20, 30, 40, device=cuda:0) = aten::to(%p1, %1, %2, %3, %3, %4)
+  %3 : Tensor = aten::to(%p1, %1, %2, %3, %3, %4)
+  return (%3)

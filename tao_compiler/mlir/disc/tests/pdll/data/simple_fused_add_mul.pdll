@@ -1,0 +1,56 @@
+Pattern TFFusedAddMul {
+  /// match phase: define the pattern
+  let add = op<tf.AddV2>(v0 : Value, v1 : Value);
+  let mul = op<tf.Mul>(add.0, add.0);
+
+  /// rewrite phase
+  rewrite mul with {
+    /// 1. create custom call op
+    let inputs = PackValue_2(attr<"\"in\"">, v0, v1);
+    let outputs = PackValue_1(attr<"\"out\"">, mul.0);
+    let infos = CreateCustomCall(attr<"\"op\"">, inputs, outputs);
+
+    /// 2. set attrs that are used by bladedisc.
+    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"disc.custom_call.test.tf_fused_add_mul\"">);
+    SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
+    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h\"">);
+    SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h\"">);
+    SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*\"">);
+    SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+    SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*\"">);
+    SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+    /// 3. set attrs that are directly passed to the custom call kernel.
+    SetCustomAttr(infos.op, attr<"\"name\"">, attr<"\"disc.custom_call.test.tf_fused_add_mul\"">);
+    SetCustomAttr(infos.op, attr<"\"trueBoolAttr\"">, attr<"true">);
+    SetCustomAttr(infos.op, attr<"\"falseBoolAttr\"">, attr<"false">);
+    SetCustomAttr(infos.op, attr<"\"int127\"">, attr<"127">);
+    SetCustomAttr(infos.op, attr<"\"intNegative123456\"">, attr<"-123456">);
+    SetCustomAttr(infos.op, attr<"\"float0_001\"">, attr<"0.001">);
+    SetCustomAttr(infos.op, attr<"\"intArray3int128intNegative32int0\"">, attr<"[128,-32,0]">);
+    SetCustomAttr(infos.op, attr<"\"array2strtest0strtest1\"">, attr<"[\"test0\",\"test1\"]">);
+    SetCustomAttr(infos.op, attr<"\"array3float0_001float23_0floatNegative0_5\"">, attr<"[0.001,23.0,-0.5]">);
+    SetCustomAttr(infos.op, attr<"\"array5intNegative5floatNegative0_5strtestint30float0_5\"">, attr<"[-5,-0.5,\"test\",30,0.5]">);
+    SetCustomAttr(infos.op, attr<"\"rank0I64DenseAttr\"">, attr<"dense<1> : tensor<i64>">);
+    SetCustomAttr(infos.op, attr<"\"rank1UI8DenseAttr\"">, attr<"dense<[1]> : tensor<1xui8>">);
+    SetCustomAttr(infos.op, attr<"\"rank2Shape2x3SplatBoolDenseAttr\"">, attr<"dense<1> : tensor<2x3xi1>">);
+    SetCustomAttr(infos.op, attr<"\"rank2Shape2x3SplatFloatDenseAttr\"">, attr<"dense<-0.01> : tensor<2x3xf32>">);
+
+    SetCustomAttr(infos.op, attr<"\"data_format_nhwc\"">, attr<"\"NHWC\"">);
+    SetCustomAttr(infos.op, attr<"\"data_format_nchw\"">, attr<"\"NCHW\"">);
+    SetCustomAttr(infos.op, attr<"\"padding_same\"">, attr<"\"SAME\"">);
+    SetCustomAttr(infos.op, attr<"\"padding_valid\"">, attr<"\"VALID\"">);
+
+    SetCustomAttr(infos.op, attr<"\"strides1\"">, attr<"[1]">);
+    SetCustomAttr(infos.op, attr<"\"strides22\"">, attr<"[2, 2]">);
+    SetCustomAttr(infos.op, attr<"\"strides1231\"">, attr<"[1,2,3,1]">);
+    SetCustomAttr(infos.op, attr<"\"dilations1\"">, attr<"[1]">);
+    SetCustomAttr(infos.op, attr<"\"dilations22\"">, attr<"[2, 2]">);
+    SetCustomAttr(infos.op, attr<"\"dilations1231\"">, attr<"[1,2,3,1]">);
+    let explicit_paddings = GetAttrOrDefault(infos.op, attr<"\"explicit_paddings\"">, attr<"[0,0,1,2,3,4,0,0]">);
+    SetCustomAttr(infos.op, attr<"\"explicit_paddings\"">, explicit_paddings);
+
+    let rs = UnpackValue_1(infos.new_outputs);
+    replace mul with rs;
+  };
+}

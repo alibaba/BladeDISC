@@ -12,6 +12,7 @@
 #include "tensorflow/compiler/mlir/xla/ral/context/custom_library/gpu_helper.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/custom_library/tf_transpose.cu.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/custom_library/transpose.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
 
 namespace tao {
 namespace ral {
@@ -37,11 +38,13 @@ void LaunchTransposeKernel(cudaStream_t stream, T* input,
   static constexpr int64_t tile_size = 32;
   static constexpr int64_t num_threads = 256;
   Dimension<3> input_dims_in_tiles = {
-      input_dims[0],
-      CeilOfRatio(input_dims[1], tile_size),
-      CeilOfRatio(input_dims[2], tile_size),
+      static_cast<int>(input_dims[0]),
+      static_cast<int>(CeilOfRatio(input_dims[1], tile_size)),
+      static_cast<int>(CeilOfRatio(input_dims[2], tile_size)),
   };
-  Dimension<3> dims = {input_dims[0], input_dims[1], input_dims[2]};
+  Dimension<3> dims = {static_cast<int>(input_dims[0]),
+                       static_cast<int>(input_dims[1]),
+                       static_cast<int>(input_dims[2])};
 
   int total_tiles_count =
       input_dims_in_tiles[0] * input_dims_in_tiles[1] * input_dims_in_tiles[2];
@@ -54,6 +57,10 @@ void LaunchTransposeKernel(cudaStream_t stream, T* input,
 template void LaunchTransposeKernel<float>(cudaStream_t stream, float* input,
                                            std::vector<int64_t> input_dims,
                                            float* output);
+
+template void LaunchTransposeKernel<Eigen::half>(
+    cudaStream_t stream, Eigen::half* input, std::vector<int64_t> input_dims,
+    Eigen::half* output);
 #endif
 
 }  //  namespace ral

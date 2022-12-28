@@ -77,10 +77,10 @@ class InputInlineFusionPattern : public RewritePattern {
 
   LogicalResult matchAndRewrite(Operation* op,
                                 PatternRewriter& rewriter) const override {
-    if (isStitchFusion(op) && !isOnGpu(op)) return failure();
+    if (isFusionType<FusionType::kStitch>(op) && !isOnGpu(op)) return failure();
     // When we pass lower_config, we only process kStitch fusion on GPU.
     if (lower_config_ != nullptr) {
-      if (!isOnGpu(op) || !isStitchFusion(op)) {
+      if (!isOnGpu(op) || !isFusionType<FusionType::kStitch>(op)) {
         return failure();
       }
     }

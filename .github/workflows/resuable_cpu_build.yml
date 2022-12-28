@@ -25,10 +25,10 @@ on:
       runtime_base_image:
         required: false
         type: string
-      host_tf_version:
+      runner_tag:
         required: false
         type: string
-        default: tensorflow==1.15.5
+        default: cpu
     secrets:
       ALIYUN_DOCKER_USERNAME:
         required: false
@@ -43,7 +43,7 @@ jobs:
   CPU:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
-    runs-on: [self-hosted, cpu]
+    runs-on: ${{ inputs.runner_tag }}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Runs a single command using the runners shell
@@ -56,12 +56,12 @@ jobs:
         git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-cpu \
           --build-arg BASEIMAGE=${{ inputs.develop_base_image }} \
-          --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5" \
           --build-arg DEVICE=cpu \
-          --build-arg DISC_HOST_TF_VERSION="${{ inputs.host_tf_version }}" \
           ${{ inputs.extra_build_args }} \
           -f docker/dev/Dockerfile .
+
     - name: Build And Test
+      if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
       run: |
         set -e
         docker run --rm -t --user $(id -u):$(id -g) \
@@ -73,6 +73,21 @@ jobs:
           ${{ inputs.extra_envs }} \
           -w /disc \
           disc-dev-cpu ${{ inputs.exec_command }}
+
+    - name: Build, Test And Examples
+      if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+      run: |
+        set -e
+        docker run --rm -t --user $(id -u):$(id -g) \
+          -v $HOME/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          ${{ inputs.extra_envs }} \
+          -w /disc \
+          disc-dev-cpu ${{ inputs.exec_command }}
+          
     - name: Deploy Docker Image
       if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
       env:

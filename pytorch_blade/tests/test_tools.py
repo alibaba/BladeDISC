@@ -17,13 +17,25 @@ from torch_blade import tools
 from torch_blade import utils
 from torch_blade.testing.common_utils import Feedforward, TestCase
 from tests.disc.testing_base import skipTorchGE
-
+from torch_blade.tools import read_bool_from_env
+from torch_blade.tools import read_double_from_env
 
 class TestTools(TestCase):
 
     def setUp(self):
         ff_net = Feedforward(64, 10)
         self.ff_net = torch.jit.script(ff_net)
+
+    def test_env(self):
+        import os
+        os.environ["TORCH_BLADE_TEST_BOOL"] = "false"
+        self.assertFalse(read_bool_from_env("TORCH_BLADE_TEST_BOOL", True))
+        os.environ["TORCH_BLADE_TEST_BOOL"] = "True"
+        self.assertTrue(read_bool_from_env("TORCH_BLADE_TEST_BOOL", False))
+        os.environ["TORCH_BLADE_TEST_DOUBLE"] = "1.0"
+        self.assertGreater(read_double_from_env("TORCH_BLADE_TEST_DOUBLE", 0.0), 0.0)
+        os.environ["TORCH_BLADE_TEST_DOUBLE"] = "x1.0"
+        self.assertEqual(read_double_from_env("TORCH_BLADE_TEST_DOUBLE", 0.0), 0.0)
 
     def test_add_method(self):
         self.ff_net._c.create_method_from_graph('inference', self.ff_net.graph)
@@ -74,7 +86,7 @@ class TestTools(TestCase):
 
         FileCheck().run(expect_gstr, shape.graph)
         schemas = [tools.node_schema_str(n) for n in shape.graph.nodes()]
-        self.assertEqual(schemas[0], "")
+        self.assertEqual(schemas[0], "prim::Constant")
 
         if utils.torch_version_number() < utils.parse_version("1.14.0"):
             self.assertEqual(schemas[1], "aten::size(Tensor self) -> (int[])")
@@ -82,6 +94,56 @@ class TestTools(TestCase):
         else:
             self.assertEqual(schemas[1], "aten::size(Tensor self) -> int[]")
             self.assertEqual(schemas[2], "aten::__getitem__.t(t[](a) list, int idx) -> t(*)")
+
+    def test_node_overload_name(self):
+        @torch.jit.script
+        def shape(x):
+            return x.size()[1]
+
+        expect_gstr = '''
+        graph(%x.1 : Tensor):
+          # CHECK: prim::Constant
+          %3 : int = prim::Constant[value=1]() # tests/test_tools.py:49:28
+          # CHECK: aten::size
+          %2 : int[] = aten::size(%x.1) # tests/test_tools.py:49:19
+          # CHECK: aten::__getitem__
+          %4 : int = aten::__getitem__(%2, %3) # tests/test_tools.py:49:19
+          return (%4)'''
+
+        FileCheck().run(expect_gstr, shape.graph)
+        names = [tools.node_overload_name(n) for n in shape.graph.nodes()]
+        self.assertEqual(names[0], "prim::Constant")
+        self.assertEqual(names[1], "aten::size")
+        self.assertEqual(names[2], "aten::__getitem__.t")
+
+        @torch.jit.script
+        def arith_func(x: torch.Tensor, y: torch.Tensor):
+            z = x + y
+            w = z.mul_(x)
+            return w.add_(y, alpha=2.0)
+
+        expect_gstr = '''
+        graph(%x.1 : Tensor,
+              %y.1 : Tensor):
+          # CHECK: prim::Constant
+          %4 : int = prim::Constant[value=1]()
+          # CHECK: prim::Constant
+          %11 : float = prim::Constant[value=2.]() # test.py:7:27
+          # CHECK: aten::add
+          %z.1 : Tensor = aten::add(%x.1, %y.1, %4) # test.py:5:8
+          # CHECK: aten::mul
+          %w.1 : Tensor = aten::mul_(%z.1, %x.1) # test.py:6:8
+          # CHECK: aten::add
+          %12 : Tensor = aten::add_(%w.1, %y.1, %11) # test.py:7:11
+          return (%12)'''
+        FileCheck().run(expect_gstr, arith_func.graph)
+        overload_name = [tools.node_overload_name(n) for n in arith_func.graph.nodes()]
+        names = [tools.node_overload_name(n) for n in arith_func.graph.nodes()]
+        self.assertEqual(names[0], "prim::Constant")
+        self.assertEqual(names[1], "prim::Constant")
+        self.assertEqual(names[2], "aten::add.Tensor")
+        self.assertEqual(names[3], "aten::mul_.Tensor")
+        self.assertEqual(names[4], "aten::add_.Tensor")
 
     def test_from_number_type(self):
 

@@ -1,0 +1,9 @@
+// RUN: shape_analysis_tool --since 1.13.0 -f %s | FileCheck %s
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *), %p2 : Float(*, *, *)):
+  %cst0: int = prim::Constant[value=0]()
+  %cst1: int = prim::Constant[value=1]()
+// CHECK: Float(*, *, *) = aten::select_scatter
+  %select_scatter : Tensor = aten::select_scatter(%p1, %p2, %cst1, %cst0)
+  return (%select_scatter)

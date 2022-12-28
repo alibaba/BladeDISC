@@ -14,6 +14,7 @@ jobs:
     with:
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15-cpu
       runtime_base_image: tensorflow/tensorflow:1.15.5
+      extra_build_args: --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5"
       exec_command: bash -c \
         "bash ./scripts/ci/build_and_test.sh --cpu-only && bash ./scripts/ci/test_tensorflow_blade.sh cpu 1.15"
       deploy_command: bash ./scripts/ci/deploy_tensorflow_blade.sh

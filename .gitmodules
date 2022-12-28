@@ -13,3 +13,6 @@
 [submodule "pytorch_blade/third_party/torch-mlir"]
     path = pytorch_blade/third_party/torch-mlir
     url = https://github.com/pai-disc/torch-mlir.git
+[submodule "tao_compiler/mlir/disc/cutlass"]
+	path = tao_compiler/mlir/disc/cutlass
+	url = https://github.com/NVIDIA/cutlass.git

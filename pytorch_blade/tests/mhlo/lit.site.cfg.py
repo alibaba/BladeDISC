@@ -37,6 +37,7 @@ else:
 config.llvm_tools_dir = os.path.join(external_srcdir, 'llvm-project', 'llvm')
 config.mlir_obj_root = os.path.join(real_test_srcdir)
 config.mlir_tools_dir = os.path.join(external_srcdir, 'llvm-project', 'mlir')
+config.tool_names = ['torch-mlir-opt']
 # TODO(jpienaar): Replace with suffices in build rule.
 config.suffixes = ['.td', '.mlir', '.pbtxt']
 
@@ -63,5 +64,5 @@ lit_config.load_config(
     config,
     os.path.join(
         os.path.join(real_test_srcdir, os.environ['TEST_WORKSPACE'],
-                     'tests/mhlo/lit.cfg.py')))
+                     'bazel/tests/lit.cfg.py')))
 # pylint: enable=undefined-variable

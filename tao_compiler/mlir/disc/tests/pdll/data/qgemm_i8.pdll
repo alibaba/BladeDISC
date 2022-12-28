@@ -1,0 +1,47 @@
+Pattern TFFusedAddMul {
+  /// match phase: define the pattern
+  let inputDequant = op<mhlo_disc.dequantize>(input : Value, inputScale : Value, inputZeroPoint : Value);
+
+  let weightDequant = op<mhlo_disc.dequantize>(weight : Value, weightScale : Value, weightZeroPoint : Value);
+
+  let transpose_a_attr : Attr;
+  let transpose_b_attr : Attr;
+  let matmul = op<tf.MatMul>(inputDequant.0, weightDequant.0) {
+      transpose_a = transpose_a_attr,
+      transpose_b = transpose_b_attr
+  };
+
+  let resultQuant = op<mhlo_disc.quantize>(matmul.0, resultScale : Value, resultZeroPoint : Value);
+
+  /// rewrite phase
+  rewrite resultQuant with {
+    /// 1. create custom call op
+    let inputs = PackValue_8(
+        attr<"\"in\"">,
+        input, weight,
+        inputScale, inputZeroPoint,
+        weightScale, weightZeroPoint,
+        resultScale, resultZeroPoint
+    );
+    let outputs = PackValue_1(attr<"\"out\"">, resultQuant.0);
+    let infos = CreateCustomCall(attr<"\"op\"">, inputs, outputs);
+
+    /// 2. set attrs that are used by bladedisc.
+    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_qgemm\"">);
+    SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
+    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h,s,s,s,s,s,s\"">);
+    SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h\"">);
+    SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*,*,*,*,*,*\"">);
+    SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+    SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*,*,*,*,*,*\"">);
+    SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+    /// 3. set attrs that are directly passed to the custom call kernel.
+    SetCustomAttr(infos.op, attr<"\"transpose_a\"">, transpose_a_attr);
+    SetCustomAttr(infos.op, attr<"\"transpose_b\"">, transpose_b_attr);
+    SetCustomAttr(infos.op, attr<"\"weight_is_const\"">, IsConstantTensor(weight));
+
+    let rs = UnpackValue_1(infos.new_outputs);
+    replace resultQuant with rs;
+  };
+}

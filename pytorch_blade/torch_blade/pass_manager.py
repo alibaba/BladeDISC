@@ -16,6 +16,7 @@ from torch.onnx.symbolic_helper import _set_opset_version
 from torch_blade import tools, utils
 from torch_blade.config import Config
 from torch_blade.logging import logger
+from torch_blade.mlir import _DISC_NAME
 from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
 from torch_blade.quantization import (
     _jit_pass_quantization_postprocess,
@@ -308,6 +309,42 @@ def _jit_pass_clean_script(graph):
     torch._C._jit_pass_dce(graph)
 
 
+def _erase_input_concrete_types(graph):
+    for idx, input in enumerate(graph.inputs()):
+        # skip the 1th self input value
+        is_tensor = input.type().isSubtypeOf(torch._C.TensorType.get())
+        if not is_tensor: continue
+        inp_typ = input.type()
+        dim = inp_typ.dim()
+        if isinstance(dim, int):
+            tools.set_tensor_shape(input, [-1] * dim)
+
+
+def _set_annotate_args(c_module, annotations):
+    graph = c_module.forward.graph
+    for idx, input in enumerate(graph.inputs()):
+        # skip the 1th self input value
+        if idx == 0:
+            continue
+        input_dims, _ = annotations[idx-1]
+        tools.set_tensor_shape(input, input_dims)
+
+
+def _fixup_for_dynamic_shape(cfg, c_module):
+    if cfg.enable_static_shape:
+        return
+
+    from torch_blade.mlir import _DISC_NAME
+    # shape annotations for DISC
+    if cfg.optimization_pipeline != _DISC_NAME:
+        return
+    if cfg.annotate_args:
+        _set_annotate_args(c_module, cfg.annotate_args)
+    else:
+        _erase_input_concrete_types(c_module.forward.graph)
+    torch_blade.jit_pass_propagate_input_shapes(c_module.forward.graph)
+
+
 def _optimize_common(c_module):
     cfg = Config.get_current_context_or_new()
     static_shape = cfg.enable_static_shape
@@ -323,6 +360,7 @@ def _optimize_common(c_module):
         presv_attrs = cfg.preserved_attributes
         c_module = tools.freeze_module(c_module, presv_attrs, disableShapePeephole=not static_shape)
         torch._C._jit_pass_remove_dropout(c_module)
+        _fixup_for_dynamic_shape(cfg, c_module)
         graph = c_module.forward.graph
         _jit_pass_remove_nograd(graph)
         _jit_pass_freeze_requires_grad(graph)
@@ -330,6 +368,18 @@ def _optimize_common(c_module):
             torch._C._jit_pass_fold_frozen_conv_bn(graph)
 
     graph = c_module.forward.graph
+    if cfg.optimization_pipeline == _DISC_NAME:
+        # The inplace op's output type has no promotion.
+        #
+        # Without this pass, the _jit_pass_remove_mutation
+        # pass will remove inplace ops. 
+        # The following pass will rename inplace op, such as:
+        #    aten::add_.Tensor -> aten::add_inplace_.Tensor
+        # With the overload name we have more information to
+        # recover the original op. Otherwise,
+        # we can't do the type promotion correctly.
+        _jit_pass_replace_inplace_name(graph)
+
     torch._C._jit_pass_remove_mutation(graph)
 
     # TODO: if dynamic rank exists, this pass maybe leads to error
@@ -347,6 +397,31 @@ def _optimize_common(c_module):
     if cfg.enable_int8:
         _jit_pass_quantization_postprocess(c_module)
     return c_module
+
+def _jit_pass_replace_inplace_name(graph):
+    black_list_inplace_ops = ['add_.Tensor', 'sub_.Tensor', 'mul_.Tensor', 'div_.Tensor']
+    black_list_inplace_ops = set("aten::" + op for op in black_list_inplace_ops)
+    def _collect_all_inplace_nodes(block):
+        all_nodes = [node for node in block.nodes() if tools.node_overload_name(node) in black_list_inplace_ops]
+        for node in block.nodes():
+            for inner_blk in node.blocks():
+                all_nodes += _collect_all_inplace_nodes(inner_blk)
+        return all_nodes
+
+    def _replace_inplace_name(graph):
+        all_nodes = _collect_all_inplace_nodes(graph)
+        for idx, node in enumerate(all_nodes):
+            new_op = graph.create(node.kind() + "inplace_")
+            value = node.output()
+            for inp in node.inputs():
+                new_op.addInput(inp)
+            graph.appendNode(new_op)
+            new_op.moveBefore(node)
+            new_op.output().setType(value.type())
+            value.replaceAllUsesWith(new_op.output())
+            node.destroy()
+
+    _replace_inplace_name(graph)
 
 def _jit_pass_patine_conv2d(graph):
     torch._C._jit_pass_custom_pattern_based_rewrite_graph("""

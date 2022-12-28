@@ -103,12 +103,12 @@ fi
 # performance anaysis
 python3 results_anaysis.py -t ${results} -i ${oss_dir} -p ${RELATED_DIFF_PERCENT} -f "${FIELDS[@]}"
 
-if [ -f "ISSUE.md" ]; then
-    wget ${oss_link}/download/github/$GH -O gh && chmod +x ./gh && \
-    ./gh issue create -F ISSUE.md \
-    -t "[TorchBench] Performance Signal Detected" \
-    -l Benchmark
-fi
+#if [ -f "ISSUE.md" ]; then
+#    wget ${oss_link}/download/github/$GH -O gh && chmod +x ./gh && \
+#    ./gh issue create -F ISSUE.md \
+#    -t "[TorchBench] Performance Signal Detected" \
+#    -l Benchmark
+#fi
 
 popd # $benchmark_repo_dir
 popd # BladeDISC/

@@ -62,7 +62,7 @@ jobs:
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu
-      device: cpu
+      device: bare_metal_x86
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu tiny 

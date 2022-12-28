@@ -32,7 +32,8 @@ using tao::ral::gpu::stream_t;
 namespace tao {
 namespace ral {
 
-#if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM) && !defined(TENSORFLOW_USE_DCU)
+#if defined(GOOGLE_CUDA) || \
+    defined(TENSORFLOW_USE_ROCM) && !defined(TENSORFLOW_USE_DCU)
 
 template <typename T, int N>
 void ral_transpose(ExecutionContext* ctx, void* stream_handle,

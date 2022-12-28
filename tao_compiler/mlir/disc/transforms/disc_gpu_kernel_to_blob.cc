@@ -279,9 +279,7 @@ class GpuKernelToBlobPass
     // Parse ROCm architecture.
     absl::string_view consumable_arch(arch_str);
     if (!absl::ConsumePrefix(&consumable_arch, "gfx")) {
-
-
-       return tsl::errors::Internal(
+      return tsl::errors::Internal(
           "Could not parse ROCm architecture prefix (expected gfx)");
     }
     std::string libdevice_dir = tensorflow::RocdlRoot();
@@ -313,7 +311,6 @@ class GpuKernelToBlobPass
       llvmModule->print(*ll_fs, nullptr);
       ll_fs->flush();
 
-
       const auto& blob = hsaco_or.value();
       std::string llvmpath = kname + "_debugllvm.hsaco";
       auto myfile = std::fstream(llvmpath, std::ios::out | std::ios::binary);
@@ -321,7 +318,6 @@ class GpuKernelToBlobPass
       myfile.close();
       LOG(INFO) << "llvm hsaco to " << llvmpath;
       hipModule_t hipmodule;
-
 
       hipError_t res = stream_executor::wrap::hipModuleLoadData(
           &hipmodule, reinterpret_cast<const void*>(blob.data()));

@@ -369,8 +369,9 @@ void ral_base_cuda_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
       if (blob_it == state->blobs.end()) {
         GpuModuleHandle module;
 #if TENSORFLOW_USE_ROCM
-        reportErrorIfAny(stream_executor::wrap::hipModuleLoadData(&module, blob),
-                         ctx, "ModuleLoad");
+        reportErrorIfAny(
+            stream_executor::wrap::hipModuleLoadData(&module, blob), ctx,
+            "ModuleLoad");
 #else
         reportErrorIfAny(cuModuleLoadFatBinary(&module, blob), ctx,
                          "ModuleLoad");
@@ -380,8 +381,8 @@ void ral_base_cuda_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
       auto module = blob_it->second;
       GpuFunctionHandle function;
 #if TENSORFLOW_USE_ROCM
-      reportErrorIfAny(stream_executor::wrap::hipModuleGetFunction(&function, module,
-                                                              kernel_name),
+      reportErrorIfAny(stream_executor::wrap::hipModuleGetFunction(
+                           &function, module, kernel_name),
                        ctx, "GetFunction");
 #else
       reportErrorIfAny(cuModuleGetFunction(&function, module, kernel_name), ctx,
@@ -470,8 +471,8 @@ void ral_base_cuda_sync_on_stream(ExecutionContext* ctx, stream_t sidx) {
   auto* state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 #if TENSORFLOW_USE_ROCM
-  reportErrorIfAny(stream_executor::wrap::hipStreamSynchronize(state->stream), ctx,
-                   "StreamSync");
+  reportErrorIfAny(stream_executor::wrap::hipStreamSynchronize(state->stream),
+                   ctx, "StreamSync");
 #else
   reportErrorIfAny(cuStreamSynchronize(state->stream), ctx, "StreamSync");
 #endif

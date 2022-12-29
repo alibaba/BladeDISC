@@ -801,18 +801,16 @@ MemRefType<int8_t, NDims> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
   int64_t m = 1;
   int64_t k;
   if (tp_a) {
-    for (int i=NDims-1; i>0; i--) {
+    for (int i = NDims - 1; i > 0; i--) {
       m = m * input.sizes[i];
     }
     k = input.sizes[0];
   } else {
-    for (int i=0; i<NDims-1; i++) {
+    for (int i = 0; i < NDims - 1; i++) {
       m = m * input.sizes[i];
     }
-    k = input.sizes[NDims-1];
+    k = input.sizes[NDims - 1];
   }
-  // int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
-  // int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE, "mismatch contraction dim for gemm");
   }
@@ -822,7 +820,7 @@ MemRefType<int8_t, NDims> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
   auto data = static_cast<int8_t*>(driver->alloc(ctx, m * n * sizeof(int8_t)));
   auto data_s32 =
       static_cast<int32_t*>(driver->alloc(ctx, m * n * sizeof(int32_t)));
-  
+
   int64_t gemmResultSizes[2];
   gemmResultSizes[0] = m;
   gemmResultSizes[1] = n;
@@ -906,12 +904,12 @@ MemRefType<int8_t, NDims> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
     std::string unique_name = "disc.ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor";
     auto state = ctx->getOrCreateResource<AclQGemmState>(
         unique_name, []() { return new AclQGemmState; });
-    auto key = makeGEMMWithBiasParamsKey(gemmInput, weight, bias, gemmResult, tp_a,
-                                         tp_b, weight_is_const, bias_is_const,
-                                         kDiscCpuDefaultThreadId);
+    auto key = makeGEMMWithBiasParamsKey(
+        gemmInput, weight, bias, gemmResult, tp_a, tp_b, weight_is_const,
+        bias_is_const, kDiscCpuDefaultThreadId);
     auto dynamicKey = makeDynamicShapeGEMMWithBiasParamsKey(
-        gemmInput, weight, bias, gemmResult, tp_a, tp_b, weight_is_const, bias_is_const,
-        kDiscCpuDefaultThreadId);
+        gemmInput, weight, bias, gemmResult, tp_a, tp_b, weight_is_const,
+        bias_is_const, kDiscCpuDefaultThreadId);
     thread_safe_info = state->getOrCreate(dynamicKey);
     info = thread_safe_info->getOrCreate(key, AclQGemmCreator);
   } else {
@@ -928,15 +926,15 @@ MemRefType<int8_t, NDims> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
   info->gemmlowp_output_stage.run();
   driver->dealloc(ctx, data_s32);
   if (tp_a) {
-    for (int i=NDims-1; i>0; i--) {
+    for (int i = NDims - 1; i > 0; i--) {
       resultSizes[i] = input.sizes[i];
     }
     resultSizes[0] = n;
   } else {
-    for (int i=0; i<NDims-1; i++) {
+    for (int i = 0; i < NDims - 1; i++) {
       resultSizes[i] = input.sizes[i];
     }
-    resultSizes[NDims-1] = n;
+    resultSizes[NDims - 1] = n;
   }
   auto result = assignMemRef<int8_t, NDims>(gemmResult.data, resultSizes);
 
@@ -1023,19 +1021,17 @@ MemRefType<int8_t, NDims> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
   int64_t m = 1;
   int64_t k;
   if (tp_a) {
-    for (int i=NDims-1; i>0; i--) {
+    for (int i = NDims - 1; i > 0; i--) {
       m = m * input.sizes[i];
     }
     k = input.sizes[0];
   } else {
-    for (int i=0; i<NDims-1; i++) {
+    for (int i = 0; i < NDims - 1; i++) {
       m = m * input.sizes[i];
     }
-    k = input.sizes[NDims-1];
+    k = input.sizes[NDims - 1];
   }
 
-  // int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
-  // int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE, "mismatch contraction dim for gemm");
   }
@@ -1045,7 +1041,7 @@ MemRefType<int8_t, NDims> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
   auto data = static_cast<int8_t*>(driver->alloc(ctx, m * n * sizeof(int8_t)));
   auto data_s32 =
       static_cast<int32_t*>(driver->alloc(ctx, m * n * sizeof(int32_t)));
-  
+
   int64_t gemmResultSizes[2];
   gemmResultSizes[0] = m;
   gemmResultSizes[1] = n;
@@ -1146,15 +1142,15 @@ MemRefType<int8_t, NDims> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
   info->gemmlowp_output_stage.run();
   driver->dealloc(ctx, data_s32);
   if (tp_a) {
-    for (int i=NDims-1; i>0; i--) {
+    for (int i = NDims - 1; i > 0; i--) {
       resultSizes[i] = input.sizes[i];
     }
     resultSizes[0] = n;
   } else {
-    for (int i=0; i<NDims-1; i++) {
+    for (int i = 0; i < NDims - 1; i++) {
       resultSizes[i] = input.sizes[i];
     }
-    resultSizes[NDims-1] = n;
+    resultSizes[NDims - 1] = n;
   }
   auto result = assignMemRef<int8_t, NDims>(gemmResult.data, resultSizes);
 

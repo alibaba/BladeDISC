@@ -11,6 +11,7 @@
 
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SourceMgr.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -21,6 +22,28 @@
 
 namespace mlir {
 namespace disc_ral {
+
+const char* kDISCLinalgTransformName = "disc.transform.name";
+
+TransformNameAssigner::TransformNameAssigner(ArrayRef<Operation*> ops) {
+  for (auto op : ops) nameNewOperation(op);
+}
+
+std::string TransformNameAssigner::nameNewOperation(Operation* op) {
+  SmallString<128> fullName;
+  auto opName = op->getName().stripDialect().str();
+  fullName.append(opName);
+  if (auto cnt = nameCounterMap_[opName]++) {
+    fullName.append(("_" + Twine(cnt)).str());
+  }
+
+  return nameMap_[op] = fullName.str();
+}
+
+const std::unordered_map<Operation*, std::string>&
+TransformNameAssigner::getNameMap() {
+  return nameMap_;
+}
 
 /// Create a linalg::GenericOp version of an n-D copy that can further tile,
 /// lower to loops or vectorize, unlike the current implementation of

@@ -22,6 +22,7 @@
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
 #define DEBUG_TYPE "disc-legalize-lmhlo-fusion-to-linalg"
 
@@ -82,7 +83,8 @@ LogicalResult emitReturnOp(func::ReturnOp op, OpBuilder& b,
 }
 
 LogicalResult emitDotGeneralOp(lmhlo::DotGeneralOp op, OpBuilder& b,
-                               BlockAndValueMapping& mapping) {
+                               BlockAndValueMapping& mapping,
+                               const std::string& name) {
   Value A = op->getOperand(0);
   Value B = op->getOperand(1);
   Value C = op->getOperand(2);
@@ -96,33 +98,37 @@ LogicalResult emitDotGeneralOp(lmhlo::DotGeneralOp op, OpBuilder& b,
   auto zeroAttr = b.getZeroAttr(ty.getElementType());
   Location loc = op->getLoc();
   Value zero = b.create<arith::ConstantOp>(loc, zeroAttr);
-  Value t0 = b.create<linalg::FillOp>(loc, zero, newC).result();
-  Value t1 =
-      b.create<linalg::MatmulOp>(loc, ValueRange{newA, newB}, ValueRange{t0})
-          .getResult(0);
+  auto fillOp = b.create<linalg::FillOp>(loc, zero, newC);
+  fillOp->setAttr(kDISCLinalgTransformName, b.getStringAttr(name));
+  auto matmulOp = b.create<linalg::MatmulOp>(loc, ValueRange{newA, newB},
+                                             ValueRange{fillOp.getResult(0)});
+  matmulOp->setAttr(kDISCLinalgTransformName, b.getStringAttr(name));
   mapping.erase(C);
-  mapping.map(C, t1);
+  mapping.map(C, matmulOp.getResult(0));
 
   return success();
 }
 
 LogicalResult emitConstOp(lmhlo::ConstantOp op, OpBuilder& b,
-                          BlockAndValueMapping& mapping) {
+                          BlockAndValueMapping& mapping,
+                          const std::string& name) {
   auto resultTy = convertMemRefToTensorType(op->getOperand(0).getType());
   Location loc = op->getLoc();
   auto newOp = b.create<disc_linalg_ext::ConstantWrapperOp>(loc, resultTy,
                                                             op.getValue());
   mapping.erase(op->getOperand(0));
   mapping.map(op->getOperand(0), newOp.getResult());
+  newOp->setAttr(kDISCLinalgTransformName, b.getStringAttr(name));
   return success();
 }
 
 LogicalResult emitLmhloOp(Operation* op, OpBuilder& b,
-                          BlockAndValueMapping& mapping) {
+                          BlockAndValueMapping& mapping,
+                          const std::string& name) {
   if (auto dotGeneralOp = dyn_cast<lmhlo::DotGeneralOp>(op)) {
-    return emitDotGeneralOp(dotGeneralOp, b, mapping);
+    return emitDotGeneralOp(dotGeneralOp, b, mapping, name);
   } else if (auto constOp = dyn_cast<lmhlo::ConstantOp>(op)) {
-    return emitConstOp(constOp, b, mapping);
+    return emitConstOp(constOp, b, mapping, name);
   }
   // TODO(wyzero): support other lmhlo ops.
   return failure();
@@ -130,9 +136,11 @@ LogicalResult emitLmhloOp(Operation* op, OpBuilder& b,
 
 LogicalResult emitLmhloFusionOp(lmhlo::FusionOp op, OpBuilder& b,
                                 BlockAndValueMapping& mapping) {
+  TransformNameAssigner assigner;
   for (Operation& op : op.getRegion().getBlocks().front()) {
     if (isa<lmhlo::TerminatorOp>(&op)) continue;
-    if (failed(emitLmhloOp(&op, b, mapping))) return failure();
+    if (failed(emitLmhloOp(&op, b, mapping, assigner.nameNewOperation(&op))))
+      return failure();
   }
   return success();
 }

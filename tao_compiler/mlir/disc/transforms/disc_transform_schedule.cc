@@ -87,16 +87,26 @@ bool PatternKindAndStringMapRegistrar = []() {
 using transform::FuseIntoContainingOp;
 using transform::FuseOp;
 using transform::MatchOp;
+using transform::SplitHandlesOp;
 using transform::TileOp;
 using transform::TileToForeachThreadOp;
 using transform::VectorizeOp;
 
 MatchOp buildMatchOp(OpBuilder& b, Location& loc, Value target,
-                     ArrayRef<StringRef> ops) {
+                     ArrayRef<StringRef> ops, StringRef name = {}) {
+  ArrayAttr opNames;
+  if (!ops.empty()) {
+    opNames = b.getStrArrayAttr(ops);
+  }
+  DictionaryAttr attrs;
+  if (!name.empty()) {
+    attrs = b.getDictionaryAttr(
+        b.getNamedAttr(kDISCLinalgTransformName, b.getStringAttr(name)));
+  }
+
   return b.create<MatchOp>(loc, pdl::OperationType::get(b.getContext()), target,
-                           b.getStrArrayAttr(ops),
-                           transform::MatchInterfaceEnumAttr{},
-                           DictionaryAttr{}, TypeAttr{});
+                           opNames, transform::MatchInterfaceEnumAttr{}, attrs,
+                           TypeAttr{});
 }
 
 TileToForeachThreadOp buildTileToForEachThreadOp(OpBuilder& b, Location& loc,
@@ -219,6 +229,13 @@ void buildLowerVectors(OpBuilder& b, Location& loc, ArrayRef<int64_t> stages,
       transposeLowering, transposeAvx2Lowering);
 }
 
+SplitHandlesOp buildSplitHandlesOp(OpBuilder& b, Location& loc, Value target,
+                                   uint64_t num_result_handles) {
+  SmallVector<Type> pdlTypes(num_result_handles,
+                             pdl::OperationType::get(b.getContext()));
+  return b.create<SplitHandlesOp>(loc, pdlTypes, target, num_result_handles);
+}
+
 LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
                                                 ModuleOp m) {
   OpBuilder b(m);
@@ -235,6 +252,7 @@ LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
   Value variant = bodyBlock.getArgument(0);
 
   auto& fusionPattern = pd.getFusionPattern();
+  auto nameMap = TransformNameAssigner(fusionPattern.getOpList()).getNameMap();
   auto dotOp =
       dyn_cast_or_null<lmhlo::DotGeneralOp>(fusionPattern.getDominantOp());
   if (!dotOp) {
@@ -266,10 +284,11 @@ LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
   int64_t N = rhsTranspose ? rhsTy.getShape()[rhsTy.getRank() - 2]
                            : rhsTy.getShape()[rhsTy.getRank() - 1];
 
-  // %fill = transform.structured.match ops{["linalg.fill"]} in %variant
-  Value fill = buildMatchOp(b, loc, variant, {"linalg.fill"});
-  // %matmul = transform.structured.match ops{["linalg.matmul"]} in %arg1
-  Value matmul = buildMatchOp(b, loc, variant, {"linalg.matmul"});
+  // build handle to target dot op.
+  Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
+  auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
+  Value fill = matmulSplitOp->getResult(0);
+  Value matmul = matmulSplitOp->getResult(1);
 
   // transform.structured.tile_to_foreach_thread_op %matmul num_threads [1, 1]
   auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, matmul, {1, 1});

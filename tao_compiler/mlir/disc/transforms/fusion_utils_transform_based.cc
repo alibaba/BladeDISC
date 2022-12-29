@@ -76,10 +76,13 @@ bool TransformBasedCpuFusionStrategy::initFusionPattern(
   // Only support one gemm a.t.m.
   if (supportedDotOps.size() != 1) return true;
 
-  // Only support fuse const ops that are used as weights for some dot ops.
+  // Only support fuse const ops that are used as weights for some dot ops and
+  // not consumed by ops outside the fusion pattern.
   for (Operation* op : fusionPattern.getOpList()) {
     if (!isa<lmhlo::ConstantOp>(op)) continue;
-    if (llvm::find(dotWeights, op->getOperand(0)) == dotWeights.end())
+    if (llvm::find(dotWeights, op->getOperand(0)) == dotWeights.end() ||
+        llvm::find(fusionPattern.getRootOps(), op) !=
+            fusionPattern.getRootOps().end())
       return true;
   }
 

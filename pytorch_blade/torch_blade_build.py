@@ -75,7 +75,7 @@ class TorchBladeBuild:
             "TORCH_BLADE_BUILD_SKIP_COMPUTE_INTENSIVE_FUSION", "OFF"
         )
         self.build_neural_engine = check_env_flag(
-            "TORCH_BLADE_ENABLE_NEURAL_ENGINE", "ON"
+            "TORCH_BLADE_ENABLE_NEURAL_ENGINE", "OFF"
         )
 
 

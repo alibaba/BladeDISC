@@ -95,6 +95,57 @@ TEST(DynamicShapeMatmul, F32_24x768x3072_Using_Default_Schedule) {
       /*profiling*/ true));
 }
 
+TEST(DynamicShapeMatmul_nt, F32_304x1024x512_Using_Default_Schedule) {
+  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSettingContext ctx(setting);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "default_schedule_matmul_nt_d_f32.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"24x512xf32_X", "1024x512xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {},
+      /*expected_output_vals*/ {},
+      /*profiling*/ true));
+}
+
+TEST(DynamicShapeMatmul_tn, F32_304x1024x512_Using_Default_Schedule) {
+  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSettingContext ctx(setting);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "default_schedule_matmul_tn_d_f32.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"512x24xf32_X", "512x1024xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {},
+      /*expected_output_vals*/ {},
+      /*profiling*/ true));
+}
+
+TEST(DynamicShapeMatmul_tt, F32_304x1024x512_Using_Default_Schedule) {
+  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSettingContext ctx(setting);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "default_schedule_matmul_tt_d_f32.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"512x24xf32_X", "1024x512xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {},
+      /*expected_output_vals*/ {},
+      /*profiling*/ true));
+}
+
 TEST(StaticShapeMatmul, F32_24x24x64_Using_Default_Schedule) {
   EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
                         {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},

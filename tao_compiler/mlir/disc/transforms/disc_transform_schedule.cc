@@ -274,9 +274,6 @@ LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
   }
   bool lhsTranspose = (lhsCntractingDims[0] == lhsTy.getRank() - 2);
   bool rhsTranspose = (rhsCntractingDims[0] == rhsTy.getRank() - 1);
-  if (lhsTranspose || rhsTranspose) {
-    return m->emitError() << "not support transposed gemm a.t.m.\n";
-  }
   int64_t M = lhsTranspose ? lhsTy.getShape()[lhsTy.getRank() - 1]
                            : lhsTy.getShape()[lhsTy.getRank() - 2];
   int64_t K = lhsTranspose ? lhsTy.getShape()[lhsTy.getRank() - 2]
@@ -374,8 +371,17 @@ LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
     }
     auto loopN0 = buildGetParentForOp(b, loc, padForInput, loopLevel);
     bool inputIsPadded = mIsPadded || kIsPadded;
-    buildCacheRead(b, loc, padForInput, loopN0, {1, 1}, {6, 1}, inputIsPadded,
-                   {0, 2, 3, 1});
+    SmallVector<int64_t> tileSizes;
+    SmallVector<int64_t> permutation;
+    if (lhsTranspose) {
+      tileSizes = {K0, M1};
+      permutation = {2, 0, 1, 3};
+    } else {
+      tileSizes = {M1, K0};
+      permutation = {0, 2, 3, 1};
+    }
+    buildCacheRead(b, loc, padForInput, loopN0, {1, 1}, tileSizes,
+                   inputIsPadded, permutation);
   }
 
   // Check if we need to pack the weight, one of the following conditions:
@@ -386,8 +392,17 @@ LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
   if (packWeight) {
     bool weightIsPadded = nIsPadded || kIsPadded;
     forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
-    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, {1, 16},
-                   weightIsPadded, {2, 0, 1, 3});
+    SmallVector<int64_t> tileSizes;
+    SmallVector<int64_t> permutation;
+    if (rhsTranspose) {
+      tileSizes = {N1, K0};
+      permutation = {0, 2, 3, 1};
+    } else {
+      tileSizes = {K0, N1};
+      permutation = {2, 0, 1, 3};
+    }
+    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+                   weightIsPadded, permutation);
   }
 
   variant = buildRunCanonicalizer(b, loc, variant);

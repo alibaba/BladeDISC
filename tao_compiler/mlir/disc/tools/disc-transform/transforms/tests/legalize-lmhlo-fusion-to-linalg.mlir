@@ -31,3 +31,75 @@ func.func @packed_matmul_nn(%arg1: memref<?x512xf32, "cpu">, %arg2: memref<512x1
   }) {disc.device = "cpu", disc.fusion.name = "matmul_nn_kTransform_dot_general__1_1_0", disc.fusion_type = "kTransform"} : () -> ()
   return %arg3 : memref<?x1024xf32, "cpu">
 }
+
+// -----
+
+// CHECK: #map = affine_map<(d0, d1, d2) -> (d2, d0)>
+// CHECK: #map1 = affine_map<(d0, d1, d2) -> (d2, d1)>
+// CHECK: #map2 = affine_map<(d0, d1, d2) -> (d0, d1)>
+
+// CHECK-LABEL: @matmul_tn
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<?x?xf32>, %[[ARG2:.*]]: tensor<?x?xf32>)
+func.func @matmul_tn(%arg1: memref<?x?xf32, "cpu">, %arg2: memref<?x?xf32, "cpu">, %arg3: memref<?x?xf32, "cpu">) -> memref<?x?xf32, "cpu"> {
+  // CHECK: %[[T0:.*]] = arith.constant 0.000000e+00 : f32
+  // CHECK: %[[T1:.*]] = linalg.fill {disc.transform.name = "dot_general"} ins(%[[T0]] : f32) outs(%[[ARG2]] : tensor<?x?xf32>) -> tensor<?x?xf32>
+  // CHECK: %[[T2:.*]] = linalg.generic
+  // CHECK-SAME: indexing_maps = [#map, #map1, #map2]
+  // CHECK-SAME: iterator_types = ["parallel", "parallel", "reduction"]
+  // CHECK-SAME: ins(%[[ARG0]], %[[ARG1]] : tensor<?x?xf32>, tensor<?x?xf32>) outs(%[[T1]]
+  // CHECK-SAME: {disc.transform.name = "dot_general"}
+  // CHECK: return %[[T2]]
+  "lmhlo.fusion"() ({
+    "lmhlo.dot_general"(%arg1, %arg2, %arg3) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [0]>} : (memref<?x?xf32, "cpu">, memref<?x?xf32, "cpu">, memref<?x?xf32, "cpu">) -> ()
+    "lmhlo.terminator"() : () -> ()
+  }) {disc.device = "cpu", disc.fusion.name = "matmul_nn_kTransform_dot_general__1_1_0", disc.fusion_type = "kTransform"} : () -> ()
+  return %arg3 : memref<?x?xf32, "cpu">
+}
+
+// -----
+
+// CHECK: #map = affine_map<(d0, d1, d2) -> (d0, d2)>
+// CHECK: #map1 = affine_map<(d0, d1, d2) -> (d1, d2)>
+// CHECK: #map2 = affine_map<(d0, d1, d2) -> (d0, d1)>
+
+// CHECK-LABEL: @matmul_nt
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<?x?xf32>, %[[ARG2:.*]]: tensor<?x?xf32>)
+func.func @matmul_nt(%arg1: memref<?x?xf32, "cpu">, %arg2: memref<?x?xf32, "cpu">, %arg3: memref<?x?xf32, "cpu">) -> memref<?x?xf32, "cpu"> {
+  // CHECK: %[[T0:.*]] = arith.constant 0.000000e+00 : f32
+  // CHECK: %[[T1:.*]] = linalg.fill {disc.transform.name = "dot_general"} ins(%[[T0]] : f32) outs(%[[ARG2]] : tensor<?x?xf32>) -> tensor<?x?xf32>
+  // CHECK: %[[T2:.*]] = linalg.generic
+  // CHECK-SAME: indexing_maps = [#map, #map1, #map2]
+  // CHECK-SAME: iterator_types = ["parallel", "parallel", "reduction"]
+  // CHECK-SAME: ins(%[[ARG0]], %[[ARG1]] : tensor<?x?xf32>, tensor<?x?xf32>) outs(%[[T1]]
+  // CHECK-SAME: {disc.transform.name = "dot_general"}
+  // CHECK: return %[[T2]]
+  "lmhlo.fusion"() ({
+    "lmhlo.dot_general"(%arg1, %arg2, %arg3) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [1]>} : (memref<?x?xf32, "cpu">, memref<?x?xf32, "cpu">, memref<?x?xf32, "cpu">) -> ()
+    "lmhlo.terminator"() : () -> ()
+  }) {disc.device = "cpu", disc.fusion.name = "matmul_nn_kTransform_dot_general__1_1_0", disc.fusion_type = "kTransform"} : () -> ()
+  return %arg3 : memref<?x?xf32, "cpu">
+}
+
+// -----
+
+// CHECK: #map = affine_map<(d0, d1, d2) -> (d2, d0)>
+// CHECK: #map1 = affine_map<(d0, d1, d2) -> (d1, d2)>
+// CHECK: #map2 = affine_map<(d0, d1, d2) -> (d0, d1)>
+
+// CHECK-LABEL: @matmul_tt
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<?x?xf32>, %[[ARG2:.*]]: tensor<?x?xf32>)
+func.func @matmul_tt(%arg1: memref<?x?xf32, "cpu">, %arg2: memref<?x?xf32, "cpu">, %arg3: memref<?x?xf32, "cpu">) -> memref<?x?xf32, "cpu"> {
+  // CHECK: %[[T0:.*]] = arith.constant 0.000000e+00 : f32
+  // CHECK: %[[T1:.*]] = linalg.fill {disc.transform.name = "dot_general"} ins(%[[T0]] : f32) outs(%[[ARG2]] : tensor<?x?xf32>) -> tensor<?x?xf32>
+  // CHECK: %[[T2:.*]] = linalg.generic
+  // CHECK-SAME: indexing_maps = [#map, #map1, #map2]
+  // CHECK-SAME: iterator_types = ["parallel", "parallel", "reduction"]
+  // CHECK-SAME: ins(%[[ARG0]], %[[ARG1]] : tensor<?x?xf32>, tensor<?x?xf32>) outs(%[[T1]]
+  // CHECK-SAME: {disc.transform.name = "dot_general"}
+  // CHECK: return %[[T2]]
+  "lmhlo.fusion"() ({
+    "lmhlo.dot_general"(%arg1, %arg2, %arg3) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [1]>} : (memref<?x?xf32, "cpu">, memref<?x?xf32, "cpu">, memref<?x?xf32, "cpu">) -> ()
+    "lmhlo.terminator"() : () -> ()
+  }) {disc.device = "cpu", disc.fusion.name = "matmul_nn_kTransform_dot_general__1_1_0", disc.fusion_type = "kTransform"} : () -> ()
+  return %arg3 : memref<?x?xf32, "cpu">
+}

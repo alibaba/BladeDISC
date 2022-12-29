@@ -1908,6 +1908,7 @@ cc_library(
     hdrs = ["transforms/disc_pdl_utils.h"],
     deps = [
         ":mhlo_disc",
+        "//tensorflow/tsl/platform:logging",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:PDLLAST",

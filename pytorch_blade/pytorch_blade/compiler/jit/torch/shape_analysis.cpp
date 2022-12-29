@@ -960,6 +960,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::tanh_backward(Tensor grad_output, Tensor output) -> Tensor",
 #ifdef TORCH_BLADE_BUILD_QUANTIZATION
             "torch_blade::fake_quant(Tensor _0, Tensor _1, Tensor _2, int _3, int _4, int _5, int[] _6, bool _7, bool _8, bool _9, bool _10) -> Tensor",
+            "torch_blade::placeholder(Tensor _0) -> (Tensor _0)",
 #endif
         },
         [](Node* node) -> type_vec_t {

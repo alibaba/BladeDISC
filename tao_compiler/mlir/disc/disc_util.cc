@@ -355,6 +355,19 @@ int getNumResultOperands(Operation* op) {
                         [&](Value v) { return IsOpWriteValue(op, v); });
 }
 
+int getShmemSizeBytesNotAffectOccupancy(int cc_major, int cc_minor) {
+  return 8192;
+}
+
+Type getLhloOpsElementType(Operation* op) {
+  unsigned int num_operands = op->getNumOperands();
+  Type result_type = op->getOperand(num_operands - 1)
+                         .getType()
+                         .cast<MemRefType>()
+                         .getElementType();
+  return result_type;
+}
+
 // Returns 1D 64-bit dense elements attribute with the given values.
 }  // namespace disc_ral
 }  // namespace mlir

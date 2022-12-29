@@ -146,6 +146,14 @@ DenseIntElementsAttr GetI64ElementsAttrForSeq(int start, int end,
 // Thus these operands are supposed to be updated.
 int getNumResultOperands(Operation* op);
 
+// Return size in bytes of shared memory per thread-block that does not hurt
+// occupancy. It varies in different architectures. Currently, return 8192 for
+// simplification.
+int getShmemSizeBytesNotAffectOccupancy(int cc_major, int cc_minor);
+
+// Return the element type of the result of given lmhlo op.
+Type getLhloOpsElementType(Operation* op);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

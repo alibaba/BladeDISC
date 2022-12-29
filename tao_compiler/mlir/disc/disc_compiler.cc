@@ -516,7 +516,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // TODO: move to aicompiler repo and add more schedules/op coverage
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscLhloLegalizeRootsToParallelLoopsPass(
-          options.gpu_info.sm_count));
+          options.gpu_info.sm_count, options.gpu_info.cc_major,
+          options.gpu_info.cc_minor));
   // Converts `atomic_rmw` to `generic_atomic_rmw` when necessary to use CAS.
   pm.addNestedPass<FuncOp>(memref::createExpandOpsPass());
   // Converts `atomic_rmw` to `generic_atomic_rmw` that is unhandled in

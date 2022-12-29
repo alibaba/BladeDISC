@@ -130,6 +130,10 @@ class BazelBuild(TorchBladeBuild):
         ]
         if self.cuda_available:
             self.configs.append("--config=torch_cuda")
+
+        elif self.dcu_rocm_available:
+            self.configs.append("--config=torch_dcu_rocm")
+
         else:
             if is_aarch64():
                 self.configs += ["--config=torch_aarch64"]

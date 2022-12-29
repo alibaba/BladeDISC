@@ -53,6 +53,9 @@ class TorchBladeBuild:
         self.cuda_available = check_env_flag(
             "TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT", "ON"
         )
+        self.dcu_rocm_available = check_env_flag( 
+            "TORCH_BLADE_BUILD_WITH_DCU_ROCM_SUPPORT", "OFF"    
+        )
         self.build_tensorrt = check_env_flag(
             "TORCH_BLADE_BUILD_TENSORRT", "OFF"
         )

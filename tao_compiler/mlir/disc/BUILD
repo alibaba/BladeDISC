@@ -2508,6 +2508,8 @@ tf_cc_binary(
     ] + if_cuda_is_configured([
         "@local_config_cuda//cuda:cuda_headers",
         "@local_config_cuda//cuda:cuda_driver",
+    ]) + if_rocm_is_configured([
+	"//tensorflow/stream_executor/rocm:rocm_driver",
     ]),
 )
 

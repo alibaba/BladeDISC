@@ -188,6 +188,7 @@ class Config(ConfigContext):
         self._opt_pipeline = 'DISC'
         # TODO(tanyo): merge dynamic_tuning_shapes and annotate_args
         self._annotate_args: List[Optional[ArgAnnotation]] = []
+        self._experimental_subgraph_conversion_parallelism = 1
 
     @property
     def optimization_pipeline(self):
@@ -586,3 +587,17 @@ class Config(ConfigContext):
         for i, v in enumerate(val):
             assert isinstance(v, tuple), "annotate_args[{}] should be list, got{}".format(i, type(v))
         self._annotate_args = val
+
+    @property
+    def experimental_subgraph_conversion_parallelism(self):
+        """The number of threads used for subgraph conversion(aka compiling subgraphs to backends).
+        By default, conversion is performed in a single thread.
+        """
+        assert isinstance(self._experimental_subgraph_conversion_parallelism, int)
+        return self._experimental_subgraph_conversion_parallelism
+
+    @experimental_subgraph_conversion_parallelism.setter
+    def experimental_subgraph_conversion_parallelism(self, val):
+        assert isinstance(val, int), \
+            "experimental_subgraph_conversion_parallelism should be int, got {}".format(type(val))
+        self._experimental_subgraph_conversion_parallelism = val

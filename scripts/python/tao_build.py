@@ -240,8 +240,6 @@ def configure_bridge(root, args):
             _write("--test_tag_filters=-cpu", cmd="test")
         elif args.cpu_only:
             _write("--test_tag_filters=-gpu", cmd="test")
-            if args.enable_mkldnn:
-                _action_env("BUILD_WITH_MKLDNN", "1")
             if args.aarch64:
                 _action_env("BUILD_WITH_AARCH64", "1")
                 _action_env("DISC_TARGET_CPU_ARCH", args.target_cpu_arch or "arm64-v8a")

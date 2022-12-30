@@ -1996,17 +1996,19 @@ cc_library(
 
 genrule(
   name = "cutlass_header_preprocess",
-  srcs = ["cutlass", "utils/cutlass_required_headers.cu"],
+  srcs = [
+      "cutlass",
+      "utils/cutlass_required_headers.cu",
+      "utils/preprocess_hdrs_to_rstr.sh"],
   outs = [
-      "utils/cutlass_header_preprocess.cpp1.ii.h",
+      "utils/cutlass_header_preprocess.700.cpp1.ii.h",
+      "utils/cutlass_header_preprocess.750.cpp1.ii.h",
+      "utils/cutlass_header_preprocess.800.cpp1.ii.h",
+      "utils/cutlass_header_preprocess.860.cpp1.ii.h",
       "utils/cutlass_header_preprocess.cpp4.ii.h"],
   cmd = """
         UTILS_DIR=$$(dirname $(location utils/cutlass_required_headers.cu));
-        bash $${UTILS_DIR}/preprocess_cutlass_headers.sh $(SRCS) $(OUTS);
-        sed -i '1s/^/R\"bladedisc_rstr(\\n/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
-        sed -i '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
-        sed -i '1s/^/R\"bladedisc_rstr(\\n/' $(location utils/cutlass_header_preprocess.cpp4.ii.h);
-        sed -i '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp4.ii.h)
+        bash $${UTILS_DIR}/preprocess_hdrs_to_rstr.sh $(SRCS) $(OUTS)
         """
 )
 

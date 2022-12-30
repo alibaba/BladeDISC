@@ -430,8 +430,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addPass(disc_ral::createDiscAssignMemorySpacePass("main", gpu_enabled));
 
+  bool enable_comp_intens_fusion =
+      isCompIntensFusionEnabled() &&
+      ((gpu_options.cc_major == 7 && gpu_options.cc_minor == 0) ||
+       (gpu_options.cc_major == 7 && gpu_options.cc_minor == 5) ||
+       (gpu_options.cc_major == 8 && gpu_options.cc_minor == 0) ||
+       (gpu_options.cc_major == 8 && gpu_options.cc_minor == 6));
   bool enable_stitch =
-      isStitchEnabled() || (gpu_enabled && isCompIntensFusionEnabled());
+      isStitchEnabled() || (gpu_enabled && enable_comp_intens_fusion);
   if (enable_shape_constraint_ir) {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscDuplicateComputationForFusionPass(
@@ -457,14 +463,12 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   std::string fusion_strategy = enable_stitch ? "stitch" : "base";
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscFusionPass(gpu_enabled, fusion_strategy));
-  if (isCompIntensFusionEnabled() && gpu_enabled) {
-    // TODO: move out constant result of kDot fusion.
+  if (enable_comp_intens_fusion && gpu_enabled) {
     pm.addPass(disc_ral::createDiscCompIntensFusionToFuncPass());
   }
   if (gpu_enabled) {
     // TODO: Support cpu stitch with splat const
     pm.addNestedPass<FuncOp>(disc_ral::createDiscFuseSplatConstPass());
-    auto& gpu_options = options.gpu_info;
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscSpecializeFusionWithSpeculationPass(
             gpu_options.sm_count, gpu_options.max_threads_per_sm));

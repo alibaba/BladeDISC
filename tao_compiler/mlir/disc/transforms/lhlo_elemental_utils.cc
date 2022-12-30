@@ -32,6 +32,7 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
+#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
@@ -957,6 +958,16 @@ Value elementalLower<lmhlo::CopyOp>(OpBuilder* b, Location loc,
   }
   mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
   return result;
+}
+
+template <>
+Value elementalLower<lmhlo_disc::H2DOp>(OpBuilder* b, Location loc,
+                                        lmhlo_disc::H2DOp op,
+                                        ValueRange output_index,
+                                        bool check_cache,
+                                        LowerConfig* lower_config) {
+  Value zero = b->create<arith::ConstantIndexOp>(loc, 0);
+  return b->create<memref::LoadOp>(loc, op->getOperand(0), zero);
 }
 
 Value elementalLowerIota(OpBuilder* b, const Location& loc, Operation* op,

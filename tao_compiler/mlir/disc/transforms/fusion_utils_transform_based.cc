@@ -35,11 +35,9 @@ bool isSupportedDot(Operation* op) {
       dimNumbers.getRhsBatchingDimensions().size() != 0)
     return false;
 
-  // TODO(wyzero): support dot_general with fused transpose
   auto lhsCntractingDims = dimNumbers.getLhsContractingDimensions();
   auto rhsCntractingDims = dimNumbers.getRhsContractingDimensions();
-  return (lhsCntractingDims.size() == 1 && lhsCntractingDims[0] == 1 &&
-          rhsCntractingDims.size() == 1 && rhsCntractingDims[0] == 0);
+  return (lhsCntractingDims.size() == 1 && rhsCntractingDims.size() == 1);
 }
 
 bool TransformBasedCpuFusionStrategy::isFusible(Operation* op) {

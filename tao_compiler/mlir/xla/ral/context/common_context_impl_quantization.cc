@@ -744,19 +744,21 @@ void ral_qgemm_acl_s8_s8_s8_per_channel(
   }
 }
 
-MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
+template <int NDims>
+MemRefType<int8_t, NDims> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
     ExecutionContext* ctx, opaque_t /*stream_handle*/,
-    MemRefType<int8_t, 2> input, MemRefType<int8_t, 2> weight,
+    MemRefType<int8_t, NDims> input, MemRefType<int8_t, 2> weight,
     MemRefType<int32_t, 1> bias, MemRefType<float, 0> inputScales,
     MemRefType<int32_t, 0> inputZeroPoints, MemRefType<float, 0> weightScales,
     MemRefType<int32_t, 0> weightZeroPoints, MemRefType<float, 0> resultScales,
     MemRefType<int32_t, 0> resultZeroPoints, void* customAttrs) {
   CpuTimer timer("ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor");
-  int64_t resultSizes[2] = {0, 0};
+  int64_t resultSizes[NDims];
+  std::fill(resultSizes, resultSizes + NDims, 0);
   if (isEmptyMemref(input) || isEmptyMemref(weight) || isEmptyMemref(bias)) {
     TAO_VLOG(1) << "ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor: early return "
                    "for empty tensor";
-    return assignMemRef<int8_t, 2>(nullptr, resultSizes);
+    return assignMemRef<int8_t, NDims>(nullptr, resultSizes);
   }
 
   if (TAO_VLOG_IS_ON(1)) {
@@ -796,9 +798,19 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
 
   // Make sure thread pool configuration is set.
   applyACLThreadPoolConfigIfNotSet();
-
-  int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
-  int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
+  int64_t m = 1;
+  int64_t k;
+  if (tp_a) {
+    for (int i = NDims - 1; i > 0; i--) {
+      m = m * input.sizes[i];
+    }
+    k = input.sizes[0];
+  } else {
+    for (int i = 0; i < NDims - 1; i++) {
+      m = m * input.sizes[i];
+    }
+    k = input.sizes[NDims - 1];
+  }
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE, "mismatch contraction dim for gemm");
   }
@@ -808,10 +820,14 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
   auto data = static_cast<int8_t*>(driver->alloc(ctx, m * n * sizeof(int8_t)));
   auto data_s32 =
       static_cast<int32_t*>(driver->alloc(ctx, m * n * sizeof(int32_t)));
-  resultSizes[0] = m;
-  resultSizes[1] = n;
-  auto result = assignMemRef<int8_t, 2>(data, resultSizes);
-  auto result_s32 = assignMemRef<int32_t, 2>(data_s32, resultSizes);
+
+  int64_t gemmResultSizes[2];
+  gemmResultSizes[0] = m;
+  gemmResultSizes[1] = n;
+  int64_t gemmInputSizes[2] = {m, k};
+  auto gemmInput = assignMemRef<int8_t, 2>(input.data, gemmInputSizes);
+  auto gemmResult = assignMemRef<int8_t, 2>(data, gemmResultSizes);
+  auto gemmResult_s32 = assignMemRef<int32_t, 2>(data_s32, gemmResultSizes);
   auto AclQGemmCreator = [&](const arm_compute::ITensorPack* pack) {
     std::shared_ptr<AclQGemmInfo> info(new AclQGemmInfo);
     auto src_shape = TensorShape(k, m);
@@ -888,12 +904,12 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
     std::string unique_name = "disc.ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor";
     auto state = ctx->getOrCreateResource<AclQGemmState>(
         unique_name, []() { return new AclQGemmState; });
-    auto key = makeGEMMWithBiasParamsKey(input, weight, bias, result, tp_a,
-                                         tp_b, weight_is_const, bias_is_const,
-                                         kDiscCpuDefaultThreadId);
+    auto key = makeGEMMWithBiasParamsKey(
+        gemmInput, weight, bias, gemmResult, tp_a, tp_b, weight_is_const,
+        bias_is_const, kDiscCpuDefaultThreadId);
     auto dynamicKey = makeDynamicShapeGEMMWithBiasParamsKey(
-        input, weight, bias, result, tp_a, tp_b, weight_is_const, bias_is_const,
-        kDiscCpuDefaultThreadId);
+        gemmInput, weight, bias, gemmResult, tp_a, tp_b, weight_is_const,
+        bias_is_const, kDiscCpuDefaultThreadId);
     thread_safe_info = state->getOrCreate(dynamicKey);
     info = thread_safe_info->getOrCreate(key, AclQGemmCreator);
   } else {
@@ -903,12 +919,25 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
   // TOOD(disc): re-import quantization info when online-quantization is
   // supported.
   info->src.allocator()->import_memory(input.data);
-  info->dst_s32.allocator()->import_memory(result_s32.data);
-  info->dst.allocator()->import_memory(result.data);
+  info->dst_s32.allocator()->import_memory(gemmResult_s32.data);
+  info->dst.allocator()->import_memory(gemmResult.data);
   info->op.run(&info->src, &info->weights, nullptr, &info->dst_s32);
 
   info->gemmlowp_output_stage.run();
   driver->dealloc(ctx, data_s32);
+  if (tp_a) {
+    for (int i = NDims - 1; i > 0; i--) {
+      resultSizes[i] = input.sizes[i];
+    }
+    resultSizes[0] = n;
+  } else {
+    for (int i = 0; i < NDims - 1; i++) {
+      resultSizes[i] = input.sizes[i];
+    }
+    resultSizes[NDims - 1] = n;
+  }
+  auto result = assignMemRef<int8_t, NDims>(gemmResult.data, resultSizes);
+
   timer.Stop();
 
   if (isProfilingEnabled()) {
@@ -943,18 +972,20 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
   return result;
 }
 
-MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
+template <int NDims>
+MemRefType<int8_t, NDims> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
     ExecutionContext* ctx, opaque_t /*stream_handle*/,
-    MemRefType<int8_t, 2> input, MemRefType<int8_t, 2> weight,
+    MemRefType<int8_t, NDims> input, MemRefType<int8_t, 2> weight,
     MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
     MemRefType<float, 0> weightScales, MemRefType<int32_t, 0> weightZeroPoints,
     MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
     void* customAttrs) {
   CpuTimer timer("ral_cpu_qgemm");
-  int64_t resultSizes[2] = {0, 0};
+  int64_t resultSizes[NDims];
+  std::fill(resultSizes, resultSizes + NDims, 0);
   if (isEmptyMemref(input) || isEmptyMemref(weight)) {
     TAO_VLOG(1) << "ral_cpu_qgemm: early return for empty tensor";
-    return assignMemRef<int8_t, 2>(nullptr, resultSizes);
+    return assignMemRef<int8_t, NDims>(nullptr, resultSizes);
   }
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(input); ++i) {
@@ -987,9 +1018,20 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
 
   // Make sure thread pool configuration is set.
   applyACLThreadPoolConfigIfNotSet();
+  int64_t m = 1;
+  int64_t k;
+  if (tp_a) {
+    for (int i = NDims - 1; i > 0; i--) {
+      m = m * input.sizes[i];
+    }
+    k = input.sizes[0];
+  } else {
+    for (int i = 0; i < NDims - 1; i++) {
+      m = m * input.sizes[i];
+    }
+    k = input.sizes[NDims - 1];
+  }
 
-  int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
-  int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE, "mismatch contraction dim for gemm");
   }
@@ -999,10 +1041,15 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
   auto data = static_cast<int8_t*>(driver->alloc(ctx, m * n * sizeof(int8_t)));
   auto data_s32 =
       static_cast<int32_t*>(driver->alloc(ctx, m * n * sizeof(int32_t)));
-  resultSizes[0] = m;
-  resultSizes[1] = n;
-  auto result = assignMemRef<int8_t, 2>(data, resultSizes);
-  auto result_s32 = assignMemRef<int32_t, 2>(data_s32, resultSizes);
+
+  int64_t gemmResultSizes[2];
+  gemmResultSizes[0] = m;
+  gemmResultSizes[1] = n;
+  int64_t gemmInputSizes[2] = {m, k};
+  auto gemmInput = assignMemRef<int8_t, 2>(input.data, gemmInputSizes);
+  auto gemmResult = assignMemRef<int8_t, 2>(data, gemmResultSizes);
+  auto gemmResult_s32 = assignMemRef<int32_t, 2>(data_s32, gemmResultSizes);
+
   auto AclQGemmCreator = [&](const arm_compute::ITensorPack* pack) {
     std::shared_ptr<AclQGemmInfo> info(new AclQGemmInfo);
     auto src_shape = TensorShape(k, m);
@@ -1075,10 +1122,10 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
     std::string unique_name = "disc.ral_qgemm_acl_s8_s8_s8_per_tensor";
     auto state = ctx->getOrCreateResource<AclQGemmState>(
         unique_name, []() { return new AclQGemmState; });
-    auto key = makeGEMMParamsKey(input, weight, result, tp_a, tp_b,
+    auto key = makeGEMMParamsKey(gemmInput, weight, gemmResult, tp_a, tp_b,
                                  weight_is_const, kDiscCpuDefaultThreadId);
     auto dynamicKey =
-        makeDynamicShapeGEMMParamsKey(input, weight, result, tp_a, tp_b,
+        makeDynamicShapeGEMMParamsKey(gemmInput, weight, gemmResult, tp_a, tp_b,
                                       weight_is_const, kDiscCpuDefaultThreadId);
     thread_safe_info = state->getOrCreate(dynamicKey);
     info = thread_safe_info->getOrCreate(key, AclQGemmCreator);
@@ -1089,11 +1136,23 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
   // TOOD(disc): re-import quantization info when online-quantization is
   // supported.
   info->src.allocator()->import_memory(input.data);
-  info->dst_s32.allocator()->import_memory(result_s32.data);
-  info->dst.allocator()->import_memory(result.data);
+  info->dst_s32.allocator()->import_memory(gemmResult_s32.data);
+  info->dst.allocator()->import_memory(gemmResult.data);
   info->op.run(&info->src, &info->weights, nullptr, &info->dst_s32);
   info->gemmlowp_output_stage.run();
   driver->dealloc(ctx, data_s32);
+  if (tp_a) {
+    for (int i = NDims - 1; i > 0; i--) {
+      resultSizes[i] = input.sizes[i];
+    }
+    resultSizes[0] = n;
+  } else {
+    for (int i = 0; i < NDims - 1; i++) {
+      resultSizes[i] = input.sizes[i];
+    }
+    resultSizes[NDims - 1] = n;
+  }
+  auto result = assignMemRef<int8_t, NDims>(gemmResult.data, resultSizes);
 
   timer.Stop();
 
@@ -1403,9 +1462,13 @@ TAO_RAL_API("ral_pdll_qconv2d", "cpu",
 
 TAO_RAL_API("ral_qgemm", "cpu", ral_qgemm_acl_s8_s8_s8_per_channel);
 
-TAO_RAL_API("ral_pdll_qgemm", "cpu", ral_pdll_qgemm_acl_s8_s8_s8_per_tensor);
+TAO_RAL_API("ral_pdll_qgemm", "cpu", ral_pdll_qgemm_acl_s8_s8_s8_per_tensor<2>);
+TAO_RAL_API("ral_pdll_qgemm", "cpu", ral_pdll_qgemm_acl_s8_s8_s8_per_tensor<3>);
+TAO_RAL_API("ral_pdll_qgemm", "cpu", ral_pdll_qgemm_acl_s8_s8_s8_per_tensor<4>);
 TAO_RAL_API("ral_pdll_qgemm", "cpu",
-            ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor);
+            ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor<2>);
+TAO_RAL_API("ral_pdll_qgemm", "cpu",
+            ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor<3>);
 #endif  // TAO_AARCH64
 
 #if defined(TAO_X86)

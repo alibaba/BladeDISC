@@ -1,10 +1,8 @@
--f https://download.pytorch.org/whl/torch_stable.html
+--pre --extra-index-url https://download.pytorch.org/whl/nightly/cpu
 pandas
 librosa
-torchvision==0.13.0+cpu
-torchaudio==0.12.0+cpu
-torchtext==0.13.0
+torchaudio==0.14.0.dev20221202+cpu
+torchtext==0.15.0.dev20221202
 onnx
 onnxruntime
-intel_extension_for_pytorch==1.12.0
-torchdynamo==1.12.0
+pyyaml

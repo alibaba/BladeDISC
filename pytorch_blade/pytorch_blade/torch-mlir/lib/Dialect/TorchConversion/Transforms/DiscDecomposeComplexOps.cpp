@@ -324,8 +324,7 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     if (!matchPattern(dim, m_TorchConstantInt(&dimInt)))
       return rewriter.notifyMatchFailure(
           op, "unimplemented: dim must be a constant");
-    if (dimInt < 0)
-      dimInt += inputRank;
+    dimInt = toPositiveDim(dimInt, inputRank);
     Value size =
         rewriter.create<AtenSizeIntOp>(op.getLoc(), op.getOperand(0), dim);
     Value constTwo = rewriter.create<Torch::ConstantIntOp>(

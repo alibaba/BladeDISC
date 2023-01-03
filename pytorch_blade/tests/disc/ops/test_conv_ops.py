@@ -26,13 +26,38 @@ class TestMlirConvolution(DiscTestCase):
             test_data = (test_data.to(self.device),)
         self._test_cvt_to_disc(conv_func, test_data)
 
-    def test_conv1d(self):
+    def test_conv1d_aten_convolution(self):
+        # traced to aten::_convolution
         conv = torch.nn.Conv1d(16, 33, 3, stride=2, padding=2)
         self._test_conv(conv, torch.randn([20, 16, 60], device=self.device))
 
-    def test_conv2d(self):
+    def test_conv1d(self):
+
+        # with aten::conv1d
+        @torch.jit.script
+        def conv_func(x):
+            weights = torch.ones([16, 16, 1], device=x.device)
+            bias = torch.ones(16, device=x.device)
+            out_y = torch.nn.functional.conv1d(x, weights, bias)
+            return out_y
+            
+        self._test_conv(conv_func, torch.randn([20, 16, 100], device=self.device))
+
+    def test_conv2d_aten_convolution(self):
         conv = torch.nn.Conv2d(16, 33, (3, 4), stride=2, padding=[2, 1], dilation=2)
         self._test_conv(conv)
+
+    def test_conv2d(self):
+
+        # with aten::conv2d
+        @torch.jit.script
+        def conv_func(x):
+            weights = torch.ones([33, 16, 1, 1], device=x.device)
+            bias = torch.ones(33, device=x.device)
+            out_y = torch.nn.functional.conv2d(x, weights, bias)
+            return out_y
+        
+        self._test_conv(conv_func)
 
     @unittest.skipIf(torch_blade.version.cuda_available, "disc-gpu not support 3d conv yet.")
     def test_conv3d(self):

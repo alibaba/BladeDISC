@@ -915,7 +915,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::feature_dropout(Tensor input, float p, bool train) -> Tensor",
             "aten::hardshrink(Tensor self, Scalar lambd) -> Tensor",
             "aten::hardtanh(Tensor self, Scalar min_val, Scalar max_val) -> Tensor",
-            "aten::glu(Tensor self, int dim) -> Tensor",
             "aten::inverse(Tensor self) -> Tensor",
             "aten::group_norm(Tensor input, int num_groups, Tensor? weight, Tensor? bias, float eps, bool cudnn_enabled) -> Tensor",
             "aten::leaky_relu(Tensor self, Scalar negative_slope) -> Tensor",
@@ -2319,6 +2318,28 @@ class ShapePropagator : public PropertyPropBase {
         node->output()->setType(type->withDim(0));
         return true;
       }
+    } else if (node->matches("aten::glu(Tensor self, int dim) -> Tensor")) {
+      if (auto type = node->input(0)->type()->cast<TensorType>()) {
+        auto sizesOptional = type->symbolic_sizes().sizes();
+        auto dimOptional = node->get<int64_t>(attr::dim);
+        if (!(sizesOptional && dimOptional))
+          return false;
+
+        std::vector<c10::ShapeSymbol> new_sizes = sizesOptional.value();
+        int64_t input_rank = new_sizes.size();
+        int64_t dim =
+            at::maybe_wrap_dim(dimOptional.value(), input_rank, false);
+
+        if (new_sizes[dim].is_static()) {
+          new_sizes[dim] =
+              ShapeSymbol::fromStaticSize(new_sizes[dim].static_size() / 2);
+        } else {
+          // set default to dynamic
+          new_sizes[dim] = ShapeSymbol::newSymbol();
+        }
+        node->outputs()[0]->setType(type->withSymbolicShapes(new_sizes));
+      }
+      return true;
     } else if (
         node->matches(
 #if PYTORCH_VERSION_GE(1, 8)

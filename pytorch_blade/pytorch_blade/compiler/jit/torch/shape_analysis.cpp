@@ -448,8 +448,9 @@ class ShapePropagator : public PropertyPropBase {
     // is to uncover any mistakes we could make when editing this code,
     // and eventually it shouldn't matter, because this phase should be
     // preceded by schema checking.
-#if PYTORCH_MAJOR_VERSION == 1 && \
-    (PYTORCH_MINOR_VERSION >= 10 || PYTORCH_MINOR_VERSION == 6)
+#if PYTORCH_VERSION_GE(2, 0) ||    \
+    (PYTORCH_MAJOR_VERSION == 1 && \
+     (PYTORCH_MINOR_VERSION >= 10 || PYTORCH_MINOR_VERSION == 6))
     op(stack);
 #else
     op(&stack);

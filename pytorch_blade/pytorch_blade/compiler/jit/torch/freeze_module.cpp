@@ -23,6 +23,7 @@
 
 #include <functional>
 #include <stack>
+#include "pytorch_blade/common_utils/macros.h"
 #include "pytorch_blade/compiler/jit/torch/alias_analysis.h"
 
 namespace torch {
@@ -115,7 +116,7 @@ class AttributePropagator {
   }
 
   std::shared_ptr<Graph> getGraphFromFunction(Function* function) {
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 11
+#if PYTORCH_VERSION_GE(1, 11)
     return toGraphFunction(*function).graph();
 #else
     return function->graph();
@@ -394,7 +395,7 @@ class AttributePropagator {
             function.name(),
             "' to ",
             *user_node);
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 11
+#if PYTORCH_VERSION_GE(1, 11)
         if (auto graphFunction = tryToGraphFunction(function)) {
           GRAPH_UPDATE("Function body: ", graphFunction->optimized_graph());
           inlineCallTo(user_node, graphFunction);

@@ -13,6 +13,7 @@
 
 #include <torch/script.h>
 #include "pytorch_blade/common_utils/logging.h"
+#include "pytorch_blade/common_utils/macros.h"
 #include "pytorch_blade/common_utils/utils.h"
 #include "sys/stat.h"
 
@@ -94,7 +95,7 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
         torch::QualifiedName(*module.type()->name(), "forward");
     auto func =
         GetFallback()._ivalue()->compilation_unit()->find_function(method_name);
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 11
+#if PYTORCH_VERSION_GE(1, 11)
     auto graph = torch::jit::tryToGraphFunction(*func)->graph();
 #else
     auto graph = func->graph();

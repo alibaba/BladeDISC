@@ -475,8 +475,7 @@ bool isFusible(Operation* op) {
     lmhlo::ReverseOp,
     lmhlo::SelectOp,
     lmhlo::SliceOp,
-    lmhlo::TransposeOp,
-    lmhlo_disc::H2DOp
+    lmhlo::TransposeOp
   >(op);
   // clang-format on
 }
@@ -1341,14 +1340,7 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 bool isSingleElementH2DOp(Operation* op) {
   auto h2d_op = dyn_cast<lmhlo_disc::H2DOp>(op);
   if (!h2d_op) return false;
-
-  int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
-  if (rank != 1) return false;
-
-  auto shape = op->getOperand(0).getType().cast<MemRefType>().getShape();
-  if (shape[0] != 1) return false;
-
-  return false;
+  return op->getOperand(0).getType().cast<MemRefType>().getNumElements() == 1;
 }
 
 bool BaseGpuFusionStrategy::isFusible(Operation* op) {

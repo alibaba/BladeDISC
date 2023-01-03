@@ -2321,7 +2321,7 @@ class ShapePropagator : public PropertyPropBase {
       }
     } else if (
         node->matches(
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
+#if PYTORCH_VERSION_GE(1, 8)
             "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor"
 #else
             "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor"

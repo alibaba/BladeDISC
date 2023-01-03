@@ -113,8 +113,6 @@ void PropertyPropBase::propagateBlock(Block* block, bool insert_expands) {
   for (Node* node : block->nodes()) {
     try {
       propagateNode(node, insert_expands);
-    } catch (propagation_error& e) {
-      setUnshapedType(node);
     } catch (std::exception& e) {
       ErrorReport errMsg(node->sourceRange());
       errMsg << ExceptionMessage(e)
@@ -170,10 +168,6 @@ void PropertyPropBase::setUnshapedType(Node* node) {
 namespace prim {
 using namespace ::c10::prim;
 }
-
-#define SHAPE_ASSERT(cond) \
-  if (!(cond))             \
-  throw propagation_error()
 
 namespace {
 
@@ -772,11 +766,7 @@ class ShapePropagator : public PropertyPropBase {
       return;
     }
 
-    if (PropagateShapeOnNodeByRunningIt(node)) {
-      return;
-    }
-
-    return setUnshapedType(node);
+    throw propagation_error();
   }
 
   static c10::optional<size_t> determineListSize(Value* list) {
@@ -1315,6 +1305,7 @@ class ShapePropagator : public PropertyPropBase {
     //   - First input should be the only tensor input
     static const register_formula_for aten_to_dtype{
         {"aten::to.dtype(Tensor self, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor",
+         "aten::to.prim_dtype(Tensor(a) self, int? dtype=None, bool non_blocking=False, bool copy=False) -> Tensor(a|b)",
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
          "aten::to.dtype_layout(Tensor self, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor"
 #endif
@@ -1339,7 +1330,8 @@ class ShapePropagator : public PropertyPropBase {
     // Additionally:
     //   - First input should be the only tensor input
     static const register_formula_for aten_to_device{
-        {"aten::to.device(Tensor self, Device device, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor"},
+        {"aten::to.device(Tensor self, Device device, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor",
+         "aten::to.prim_Device(Tensor(a) self, Device? device, int? dtype=None, bool non_blocking=False, bool copy=False) -> Tensor(a|b)"},
         [](Node* node) -> type_vec_t {
           at::optional<IValue> maybe_device_option = node->get(attr::device);
           if (auto type = node->input(0)->type()->cast<TensorType>()) {

@@ -2701,8 +2701,8 @@ LogicalResult emitRowReduceThreadBlock(
 LogicalResult initSkeletonGrpsAndCloneOps(
     lmhlo::FusionOp& fusion_op, FusionPattern& fusion_pattern,
     SmallVector<FusionPattern::SkeletonGroup>& skeleton_groups,
-    ShapeAnalysis* shape_analysis, LowerConfig& lower_config, bool merge_group,
-    int shmem_limit_bytes = 8192) {
+    DenseSet<Operation*>& shmem_cached_ops, ShapeAnalysis* shape_analysis,
+    LowerConfig& lower_config, bool merge_group, int shmem_limit_bytes) {
   if (!getOrderedSkeletonGroups(fusion_pattern, skeleton_groups)) {
     return failure();
   }
@@ -2721,7 +2721,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
   // Find ops in the group and reorder according to `op_list`.
   // { skeleton, group-ops-inorder }
   DenseMap<Operation*, SmallVector<Operation*>> skeleton_group_ops;
-  DenseSet<Operation*> shmem_cached_ops;
+  shmem_cached_ops.clear();
   int shmem_usage_bits = 0;
   for (auto& skeleton_group : skeleton_groups) {
     auto skeletons = skeleton_group.skeletons;
@@ -2731,7 +2731,9 @@ LogicalResult initSkeletonGrpsAndCloneOps(
       shmem_usage_bits += bit_width;
     }
   }
-  int shmem_limit_bits = shmem_limit_bytes * 8;
+  int shmem_limit_bits = (shmem_limit_bytes == -1) ? -1 : shmem_limit_bytes * 8;
+  // TODO: if mem-intensive-opt-experimental is off, shmem-limit-bits should be
+  // negative.
   for (auto& skeleton_group : skeleton_groups) {
     auto skeletons = skeleton_group.skeletons;
     // Find ops in the group and reorder according to `op_list`.
@@ -2747,7 +2749,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
       }
     }
   }
-#if 1
+#if 0
   llvm::errs() << "[ZZ] shmem cached ops:\n";
   for (auto op : shmem_cached_ops) {
     llvm::errs() << "\t[ZZ] " << *op << "\n";
@@ -2799,7 +2801,8 @@ LogicalResult initSkeletonGrpsAndCloneOps(
       // Alloc for, if necessary, and update output operands.
       if (regular_xroots.contains(op) ||
           (irregular_xroots.contains(op) &&
-           !visited_irregular_xroots.contains(op))) {
+           !visited_irregular_xroots.contains(op)) ||
+          shmem_cached_ops.contains(op)) {
         // Update input operands.
         // Replace input with new allocated ones in previous iterations.
         for (int64_t j = 0; j < num_input_operand; j++) {
@@ -2843,6 +2846,9 @@ LogicalResult initSkeletonGrpsAndCloneOps(
   for (auto op : to_erase) {
     op->erase();
   }
+#if 1
+  llvm::errs() << "[ZZ] final fusion: " << fusion_op << "\n";
+#endif
 
   return success();
 }
@@ -2883,9 +2889,10 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   }
 
   SmallVector<FusionPattern::SkeletonGroup> skeleton_groups;
-  if (failed(initSkeletonGrpsAndCloneOps(fusion_op, fusion_pattern,
-                                         skeleton_groups, shape_analysis,
-                                         lower_config, false))) {
+  DenseSet<Operation*> shmem_cached_ops;
+  if (failed(initSkeletonGrpsAndCloneOps(
+          fusion_op, fusion_pattern, skeleton_groups, shmem_cached_ops,
+          shape_analysis, lower_config, false, 0))) {
     LLVM_DEBUG(llvm::dbgs() << "Fail to init skeleton groups or clone.\n");
     return failure();
   }
@@ -3558,9 +3565,10 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
   }
 
   SmallVector<FusionPattern::SkeletonGroup> skeleton_groups;
+  DenseSet<Operation*> shmem_cached_ops;
   if (failed(initSkeletonGrpsAndCloneOps(
-          fusion_op, fusion_pattern, skeleton_groups, shape_analysis,
-          lower_config, true, shmem_limit_bytes))) {
+          fusion_op, fusion_pattern, skeleton_groups, shmem_cached_ops,
+          shape_analysis, lower_config, true, shmem_limit_bytes))) {
     LLVM_DEBUG(llvm::dbgs() << "Fail to init skeleton groups or clone.\n");
     return failure();
   }
@@ -3951,7 +3959,9 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
           getRowReductionScheduleHint(dominant_op);
       if (isMemIntensiveOptExperimentalEnabled()) {
         const int shmem_limit_bytes =
-            getShmemSizeBytesNotAffectOccupancy(cc_major, cc_minor);
+            isMemIntensiveOptExperimentalEnabled()
+                ? getShmemSizeBytesNotAffectOccupancy(cc_major, cc_minor)
+                : -1;
         if (failed(lowerWithScheduleStitchV2(
                 fusion_op, fusion_pattern, shape_analysis, tile_size,
                 lower_config, row_reduction_schedule, shmem_limit_bytes))) {

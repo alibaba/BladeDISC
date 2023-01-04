@@ -36,7 +36,6 @@ class TestDiscShapes(DiscTestCase):
         annotations = [([-1,-1,-1,-1], dtype), ([-1,-1,-1], dtype)]
         self._test_disc(reshape_as, annotations, test_data)
 
-    @skipIfEnableTorchMlir()
     def test_view_as(self):
         @torch.jit.script
         def view_as(x, y):

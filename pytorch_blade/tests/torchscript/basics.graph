@@ -101,3 +101,29 @@ graph(%p1 : Float(*, *, *, device=cuda:0)):
 // CHECK: Float(*, *, *, device=cuda:0), %{{[a-z.0-9]+}} : Long(*, *, *, device=cuda:0) = aten::topk
   %r2: Tensor, %idx2 : Tensor = aten::topk(%p1, %11, %1, %true, %false)
   return (%r1, %idx1, %r2, %idx2)
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(2, 4, 16, 16, device=cuda:0)):
+  %1 : int = prim::Constant[value=-1]()
+// CHECK: Float(2, 4, 16, 8, device=cuda:0) = aten::glu(%p1, %1)
+  %2 : Tensor = aten::glu(%p1, %1)
+  return (%2)
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, device=cuda:0)):
+  %1 : int = prim::Constant[value=-1]()
+// CHECK: Float(*, *, *, device=cuda:0) = aten::glu(%p1, %1)
+  %2 : Tensor = aten::glu(%p1, %1)
+  return (%2)
+
+// analysis fail, erase shape information
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, device=cuda:0),
+      %p2 : Float(*, *, *, device=cuda:0),
+      %p3 : Float(*, *, *, device=cuda:0),
+      %p4 : Float(*, *, *, device=cuda:0),
+      %p5 : Float(*, *, *, device=cuda:0),
+      %p6 : Float(*, *, *, device=cuda:0)):
+// CHECK: Float(*, *, *, device=cuda:0) = aten::gru_cell(%p1, %p2, %p3, %p4, %p5, %p6)
+  %1 :  Float(32, 32, 10, device=cuda:0) = aten::gru_cell(%p1, %p2, %p3, %p4, %p5, %p6)
+  return (%1)

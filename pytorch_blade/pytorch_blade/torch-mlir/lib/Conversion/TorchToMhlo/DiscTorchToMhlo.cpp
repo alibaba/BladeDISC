@@ -296,33 +296,158 @@ class ConvertAtenExtractOp : public OpConversionPattern<AtenOpT> {
     if (!inpTy)
       return op.emitError("only RankedTensorType is supported");
 
-    auto outTy = OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+    Type outTy = OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
         op.getType());
-    auto elemTy = inpTy.getElementType();
+    Type elemTy = inpTy.getElementType();
+    Value extractOutput =
+        rewriter.create<tensor::ExtractOp>(op.getLoc(), elemTy, input);
 
-    if (outTy != elemTy) {
-      auto output =
-          rewriter.create<tensor::ExtractOp>(op.getLoc(), elemTy, input);
-
-      bool toWider =
-          outTy.getIntOrFloatBitWidth() > elemTy.getIntOrFloatBitWidth();
-      if (elemTy.isIntOrIndex()) {
-        if (toWider) {
-          rewriter.replaceOpWithNewOp<arith::ExtSIOp>(op, outTy, output);
-        } else {
-          rewriter.replaceOpWithNewOp<arith::TruncIOp>(op, outTy, output);
-        }
-      } else {
-        if (toWider) {
-          rewriter.replaceOpWithNewOp<arith::ExtFOp>(op, outTy, output);
-        } else {
-          rewriter.replaceOpWithNewOp<arith::TruncFOp>(op, outTy, output);
-        }
-      }
-    } else {
-      rewriter.replaceOpWithNewOp<tensor::ExtractOp>(op, outTy, input);
+    if (elemTy == outTy) {
+      rewriter.replaceOp(op, {extractOutput});
+      return success();
     }
-    return success();
+
+    // outTy and elemTy may be diffrent datatypes like int to float
+    // refer to
+    // https://github.com/llvm/llvm-project/blob/main/mlir/lib/Conversion/TosaToLinalg/TosaToLinalg.cpp
+    bool bitExtend =
+        outTy.getIntOrFloatBitWidth() > elemTy.getIntOrFloatBitWidth();
+    auto loc = op.getLoc();
+    using mlir::FloatType, mlir::IntegerType;
+    // float to float
+    if (elemTy.isa<FloatType>() && outTy.isa<FloatType>()) {
+      if (bitExtend) {
+        rewriter.replaceOpWithNewOp<arith::ExtFOp>(op, outTy, extractOutput);
+        return success();
+      } else {
+        rewriter.replaceOpWithNewOp<arith::TruncFOp>(op, outTy, extractOutput);
+        return success();
+      }
+    }
+
+    // integer to float
+    // 1-bit integers need to be treated as signless.
+    if (elemTy.isInteger(1)) {
+      if (outTy.isa<IntegerType>() && bitExtend) {
+        rewriter.replaceOpWithNewOp<arith::ExtUIOp>(op, outTy, extractOutput);
+        return success();
+      } else if (arith::UIToFPOp::areCastCompatible(elemTy, outTy)) {
+        rewriter.replaceOpWithNewOp<arith::UIToFPOp>(op, outTy, extractOutput);
+        return success();
+      }
+    }
+
+    if (elemTy.isUnsignedInteger() && outTy.isa<FloatType>()) {
+      // Unsigned integers need an unrealized cast so that they can be passed
+      // to UIToFP.
+      ValueRange valueRange{extractOutput};
+      Value unrealizedCast =
+          rewriter
+              .create<UnrealizedConversionCastOp>(
+                  loc,
+                  rewriter.getIntegerType(elemTy.getIntOrFloatBitWidth()),
+                  valueRange)
+              .getResult(0);
+      rewriter.replaceOpWithNewOp<arith::UIToFPOp>(op, outTy, unrealizedCast);
+      return success();
+    }
+
+    if (arith::SIToFPOp::areCastCompatible(elemTy, outTy))
+    // All other si-to-fp conversions should be handled by SIToFP.
+    {
+      rewriter.replaceOpWithNewOp<arith::SIToFPOp>(op, outTy, extractOutput);
+      return success();
+    }
+
+    // integer to integer
+    if (elemTy.isa<IntegerType>() && outTy.isInteger(1)) {
+      // Casting to boolean, integers need to only be checked as not-equal to
+      // zero.
+      Value zero = rewriter.create<arith::ConstantIntOp>(
+          loc, 0, elemTy.getIntOrFloatBitWidth());
+      rewriter.replaceOpWithNewOp<arith::CmpIOp>(
+          op, arith::CmpIPredicate::ne, extractOutput, zero);
+      return success();
+    }
+
+    if (elemTy.isa<IntegerType>() && outTy.isa<IntegerType>() && bitExtend) {
+      rewriter.replaceOpWithNewOp<arith::ExtSIOp>(op, outTy, extractOutput);
+      return success();
+    }
+
+    if (elemTy.isa<IntegerType>() && outTy.isa<IntegerType>() && !bitExtend) {
+      auto intMin = rewriter.create<arith::ConstantIntOp>(
+          loc,
+          APInt::getSignedMinValue(outTy.getIntOrFloatBitWidth())
+              .getSExtValue(),
+          elemTy.getIntOrFloatBitWidth());
+
+      auto intMax = rewriter.create<arith::ConstantIntOp>(
+          loc,
+          APInt::getSignedMaxValue(outTy.getIntOrFloatBitWidth())
+              .getSExtValue(),
+          elemTy.getIntOrFloatBitWidth());
+
+      auto smallerThanMin = rewriter.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::slt, extractOutput, intMin);
+      auto minOrArg = rewriter.create<arith::SelectOp>(
+          loc, smallerThanMin, intMin, extractOutput);
+      auto largerThanMax = rewriter.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::slt, intMax, extractOutput);
+
+      Value clamped = rewriter.create<arith::SelectOp>(
+          loc, largerThanMax, intMax, minOrArg);
+      rewriter.replaceOpWithNewOp<arith::TruncIOp>(op, outTy, clamped);
+      return success();
+    }
+
+    // float to integer
+
+    if (elemTy.isa<FloatType>() && outTy.isInteger(1)) {
+      // Casting to boolean, floats need to only be checked as not-equal to
+      // zero.
+      Value zero = rewriter.create<arith::ConstantOp>(
+          loc, rewriter.getFloatAttr(elemTy, 0.0));
+      rewriter.replaceOpWithNewOp<arith::CmpFOp>(
+          op, arith::CmpFPredicate::UNE, extractOutput, zero);
+      return success();
+    }
+
+    if (arith::FPToSIOp::areCastCompatible(elemTy, outTy)) {
+      auto zero = rewriter.create<arith::ConstantOp>(
+          loc, rewriter.getFloatAttr(elemTy, 0.0f));
+      auto half = rewriter.create<arith::ConstantOp>(
+          loc, rewriter.getFloatAttr(elemTy, 0.5f));
+
+      auto intMin = rewriter.create<arith::ConstantOp>(
+          loc,
+          rewriter.getFloatAttr(
+              elemTy,
+              APInt::getSignedMinValue(outTy.getIntOrFloatBitWidth())
+                  .getSExtValue()));
+
+      auto intMax = rewriter.create<arith::ConstantOp>(
+          loc,
+          rewriter.getFloatAttr(
+              elemTy,
+              APInt::getSignedMaxValue(outTy.getIntOrFloatBitWidth())
+                  .getSExtValue()));
+
+      auto added = rewriter.create<arith::AddFOp>(loc, extractOutput, half);
+      auto subbed = rewriter.create<arith::SubFOp>(loc, extractOutput, half);
+      auto negative = rewriter.create<arith::CmpFOp>(
+          loc, arith::CmpFPredicate::OLT, extractOutput, zero);
+      auto rounded =
+          rewriter.create<arith::SelectOp>(loc, negative, subbed, added);
+
+      Value minValue = rewriter.create<arith::MinFOp>(loc, rounded, intMax);
+      Value clamped = rewriter.create<arith::MaxFOp>(loc, minValue, intMin);
+
+      rewriter.replaceOpWithNewOp<arith::FPToSIOp>(op, outTy, clamped);
+      return success();
+    }
+
+    return op.emitError("unsupport AtenExtractOp dtype conversion");
   }
 };
 } // namespace

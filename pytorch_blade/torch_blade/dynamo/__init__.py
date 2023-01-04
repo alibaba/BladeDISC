@@ -11,7 +11,8 @@
 
 from torch._dynamo.optimizations.training import aot_autograd
 from torch._dynamo.optimizations.backends import BACKENDS, create_backend
-from functorch._src import compilers
+from torch._dynamo.optimizations.subgraph import SubGraph
+from torch._functorch import compilers
 from functorch.compile import min_cut_rematerialization_partition
 
 import torch

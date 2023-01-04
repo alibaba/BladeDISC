@@ -42,3 +42,22 @@ graph(%p1 : Float(20, 30, 40, device=cpu)):
   // CHECK: Float(20, 30, 40, device=cuda:0) = aten::to(%p1, %1, %2, %3, %3, %4)
   %3 : Tensor = aten::to(%p1, %1, %2, %3, %3, %4)
   return (%3)
+
+// aten::to.prim_Device
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, device=cuda:0)):
+  %1 : Device = prim::Constant[value="cuda:1"]()
+  %2 : NoneType = prim::Constant()
+  %3 : bool = prim::Constant[value=0]()
+  // CHECK: Float(*, *, *, device=cuda:1) = aten::to(%p1, %1, %2, %3, %3)
+  %5 : Tensor = aten::to(%p1, %1, %2, %3, %3)
+  return (%2)
+
+// aten::to.prim_dtype
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, device=cuda:0)):
+  %1 : int = prim::Constant[value=5]()
+  %2 : bool = prim::Constant[value=0]()
+  // CHECK: Half(*, *, *, device=cuda:0) = aten::to(%p1, %1, %2, %2)
+  %3 : Tensor = aten::to(%p1, %1, %2, %2)
+  return (%3)

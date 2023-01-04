@@ -174,5 +174,20 @@ class TestDiscShapes(DiscTestCase):
 
         self._test_reshape(size_func)
 
+    def test_extract_op(self):
+
+        class sample(torch.nn.Module):
+            def __init__(self, dim):
+                super().__init__()
+                self.dim = dim
+            def forward(self, x):
+                a, b ,c, d = x.shape
+                dim = self.dim
+                # convert to torch.aten.Int.Tensor %6 : !torch.tensor<[],f32> -> !torch.int in torch-mlir
+                x = x.reshape(a, b, c, dim, d//dim)
+                return x
+        s = sample(dim=2)
+        self._test_reshape(s)
+
 if __name__ == "__main__":
     unittest.main()

@@ -24,6 +24,7 @@ const std::string c_ft_path =
 
 static bool init_threads = []() {
   setenv("OMP_NUM_THREADS", "1", 1);
+  setenv("DISC_CPU_ENABLE_WEIGHT_PRE_PACKING", "1", 1);
   return true;
 }();
 

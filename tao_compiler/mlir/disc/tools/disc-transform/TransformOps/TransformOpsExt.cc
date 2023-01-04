@@ -1002,11 +1002,12 @@ DiagnosedSilenceableFailure LowerMultiLevelPackToLoopOp::applyToOne(
   Value loopInitValue = dst;
   SmallVector<scf::ForOp> forOps;
   SmallVector<Value> srcDimUppers = srcSizes;
+  auto staticSrcDimUppers = llvm::to_vector<>(srcTy.getShape());
   for (int dstIdx = 0; dstIdx < dstRank; ++dstIdx) {
     int logicalIdx = permutationVec[dstIdx];
     if (innerMostDimsInfo.isInnerMostDim(logicalIdx)) continue;
-    Value step =
-        b.create<arith::ConstantIndexOp>(loc, logicalDim2TileSize[logicalIdx]);
+    int64_t staticStep = logicalDim2TileSize[logicalIdx];
+    Value step = b.create<arith::ConstantIndexOp>(loc, staticStep);
     int srcIdx = logicalDim2SrcDim[logicalIdx];
     Value upper = srcDimUppers[srcIdx];
     auto forOp =
@@ -1014,8 +1015,16 @@ DiagnosedSilenceableFailure LowerMultiLevelPackToLoopOp::applyToOne(
     b.setInsertionPoint(forOp.getBody(), forOp.getBody()->begin());
     Value iv = forOp.getInductionVar();
     srcOffsets[srcIdx] = b.create<arith::AddIOp>(loc, srcOffsets[srcIdx], iv);
-    Value remaining = b.create<arith::SubIOp>(loc, upper, iv);
-    srcDimUppers[srcIdx] = buildMin(b, loc, remaining, step);
+    if (staticStep == 1 ||
+        staticSrcDimUppers[srcIdx] != ShapedType::kDynamicSize &&
+            staticSrcDimUppers[srcIdx] % staticStep == 0) {
+      srcDimUppers[srcIdx] = step;
+      staticSrcDimUppers[srcIdx] = staticStep;
+    } else {
+      Value remaining = b.create<arith::SubIOp>(loc, upper, iv);
+      srcDimUppers[srcIdx] = buildMin(b, loc, remaining, step);
+      staticSrcDimUppers[srcIdx] = ShapedType::kDynamicSize;
+    }
     dstOffsets[dstIdx] = b.create<arith::DivSIOp>(loc, iv, step);
     dstSizes[dstIdx] = one;
     forOps.push_back(forOp);
@@ -1044,8 +1053,12 @@ DiagnosedSilenceableFailure LowerMultiLevelPackToLoopOp::applyToOne(
   auto sortedPermutation = innerMostDimsInfo.permutation;
   llvm::sort(sortedPermutation);
   if (sortedPermutation != innerMostDimsInfo.permutation) {
-    Value transposeDst = b.create<tensor::EmptyOp>(
-        loc, innerMostDimsInfo.transposedDimSizes, dstTy.getElementType());
+    auto transposeDstTy = RankedTensorType::get(
+        innerMostDimsInfo.transposedDimSizes, dstTy.getElementType());
+    Value transposeDst =
+        b.create<tensor::ExtractSliceOp>(loc, transposeDstTy, loopInitValue,
+                                         dstOffsets, dstSizes, dstStrides)
+            ->getResult(0);
     srcSlice = makeTransposeOp(b, loc, srcSlice, transposeDst,
                                innerMostDimsInfo.permutation)
                    ->getResult(0);

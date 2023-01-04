@@ -31,33 +31,56 @@ class TestMlirConvolution(DiscTestCase):
         conv = torch.nn.Conv1d(16, 33, 3, stride=2, padding=2)
         self._test_conv(conv, torch.randn([20, 16, 60], device=self.device))
 
-    def test_conv1d(self):
-
-        # with aten::conv1d
-        @torch.jit.script
-        def conv_func(x):
-            weights = torch.ones([16, 16, 1], device=x.device)
-            bias = torch.ones(16, device=x.device)
-            out_y = torch.nn.functional.conv1d(x, weights, bias)
-            return out_y
-            
-        self._test_conv(conv_func, torch.randn([20, 16, 100], device=self.device))
 
     def test_conv2d_aten_convolution(self):
+        # traced to aten::_convolution
         conv = torch.nn.Conv2d(16, 33, (3, 4), stride=2, padding=[2, 1], dilation=2)
         self._test_conv(conv)
 
+    def test_conv1d(self):
+
+        # traced to aten::conv1d
+        @torch.jit.script
+        def cuda_conv_func(x):
+            weights = torch.ones([16, 16, 1], device="cuda:0")
+            bias = torch.ones(16, device="cuda:0")
+            out_y = torch.nn.functional.conv1d(x, weights, bias)
+            return out_y
+
+        @torch.jit.script
+        def cpu_conv_func(x):
+            weights = torch.ones([16, 16, 1], device="cpu")
+            bias = torch.ones(16, device="cpu")
+            out_y = torch.nn.functional.conv1d(x, weights, bias)
+            return out_y
+        # some errors for unfixed device in aten::ones
+        inputs = torch.randn([20, 16, 100], device=self.device)
+        if self.device == torch.device('cuda'):
+            self._test_conv(cuda_conv_func, inputs)
+        else:
+            self._test_conv(cpu_conv_func, inputs)
+
     def test_conv2d(self):
 
-        # with aten::conv2d
+        # traced to aten::conv2d
         @torch.jit.script
-        def conv_func(x):
-            weights = torch.ones([33, 16, 1, 1], device=x.device)
-            bias = torch.ones(33, device=x.device)
+        def cuda_conv_func(x):
+            weights = torch.ones([33, 16, 1, 1], device="cuda:0")
+            bias = torch.ones(33, device="cuda:0")
             out_y = torch.nn.functional.conv2d(x, weights, bias)
             return out_y
         
-        self._test_conv(conv_func)
+        @torch.jit.script
+        def cpu_conv_func(x):
+            weights = torch.ones([33, 16, 1, 1], device="cpu")
+            bias = torch.ones(33, device="cpu")
+            out_y = torch.nn.functional.conv2d(x, weights, bias)
+            return out_y
+
+        if self.device == torch.device('cuda'):
+            self._test_conv(cuda_conv_func)
+        else:
+            self._test_conv(cpu_conv_func)
 
     @unittest.skipIf(torch_blade.version.cuda_available, "disc-gpu not support 3d conv yet.")
     def test_conv3d(self):

@@ -585,7 +585,7 @@ class Config(ConfigContext):
     def annotate_args(self, val):
         assert isinstance(val, list), "annotate_args should be list, got {}".format(type(val))
         for i, v in enumerate(val):
-            assert isinstance(v, tuple), "annotate_args[{}] should be list, got{}".format(i, type(v))
+            assert isinstance(v, tuple), "annotate_args[{}] should be tuple, got{}".format(i, type(v))
         self._annotate_args = val
 
     @property

@@ -156,7 +156,14 @@ void PropertyPropBase::processLoop(Node* node) {
 }
 
 void PropertyPropBase::setUnshapedType(Value* o) {
-  o->setType(unshapedType(o->type()));
+  auto type = o->type();
+  TypePtr withDimOrUnshapedType;
+  if (TensorTypePtr tt = type->cast<TensorType>()) {
+    withDimOrUnshapedType = tt->withDim(tt->sizes().size());
+  } else {
+    withDimOrUnshapedType = unshapedType(type);
+  }
+  o->setType(withDimOrUnshapedType);
 }
 
 void PropertyPropBase::setUnshapedType(Node* node) {
@@ -597,7 +604,8 @@ class ShapePropagator : public PropertyPropBase {
       case aten::FloatImplicit:
       case aten::IntImplicit:
       case aten::size:
-        return; // correct num type is already set
+      case prim::device:
+        return; // correct type is already set
       case aten::item:
       case aten::ScalarImplicit: {
         if (auto dtype = getDType(*node->input()->type())) {
@@ -762,11 +770,8 @@ class ShapePropagator : public PropertyPropBase {
                    << node->schema();
     }
 
-    if (DoesntRefineOutputs(node)) {
-      return;
-    }
-
-    throw propagation_error();
+    // shape anaysis failed, erase traced shape only
+    return setUnshapedType(node);
   }
 
   static c10::optional<size_t> determineListSize(Value* list) {
@@ -1743,22 +1748,14 @@ class ShapePropagator : public PropertyPropBase {
 
     static const auto factory_with_ndim = [](Node* node,
                                              int dim) -> type_vec_t {
-      at::optional<IValue> maybe_layout_option = node->get(attr::layout);
-      if (!maybe_layout_option)
-        return {};
-
       at::optional<IValue> maybe_device_option = node->get(attr::device);
-      if (!maybe_device_option)
-        return {};
       auto device =
           (maybe_device_option->isNone() ? at::kCPU
                                          : maybe_device_option->toDevice());
 
       at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
-      if (!maybe_dtype_option)
-        return {};
       auto dtype =
-          (maybe_dtype_option->isNone() ? at::kDouble
+          (maybe_dtype_option->isNone() ? at::kFloat
                                         : maybe_dtype_option->toScalarType());
 
       return {TensorType::create(

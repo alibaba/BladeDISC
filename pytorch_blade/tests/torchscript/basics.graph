@@ -116,3 +116,14 @@ graph(%p1 : Float(*, *, *, device=cuda:0)):
   %2 : Tensor = aten::glu(%p1, %1)
   return (%2)
 
+// analysis fail, erase shape information
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, device=cuda:0),
+      %p2 : Float(*, *, *, device=cuda:0),
+      %p3 : Float(*, *, *, device=cuda:0),
+      %p4 : Float(*, *, *, device=cuda:0),
+      %p5 : Float(*, *, *, device=cuda:0),
+      %p6 : Float(*, *, *, device=cuda:0)):
+// CHECK: Float(*, *, *, device=cuda:0) = aten::gru_cell(%p1, %p2, %p3, %p4, %p5, %p6)
+  %1 :  Float(32, 32, 10, device=cuda:0) = aten::gru_cell(%p1, %p2, %p3, %p4, %p5, %p6)
+  return (%1)

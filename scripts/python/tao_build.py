@@ -55,6 +55,7 @@ from common_setup import (
     build_tao_compiler_add_flags_platform_alibaba,
     test_tao_compiler_add_flags_platform_alibaba,
     add_arguments_common,
+    num_make_jobs
 )
 
 from tao_common import (
@@ -164,6 +165,7 @@ def configure_compiler(root, args):
                 _action_env("ROCM_PATH", get_rocm_path(args))
             if args.cpu_only and args.aarch64:
                 _action_env("DISC_TARGET_CPU_ARCH", args.target_cpu_arch or "arm64-v8a")
+            _action_env("DISC_FOREIGN_MAKE_JOBS", num_make_jobs())
 
     configure_compiler_platform_alibaba(root, args)
     logger.info("Stage [configure compiler] success.")
@@ -190,6 +192,7 @@ def configure_bridge(root, args):
         _action_env("GCC_HOST_COMPILER_PATH", os.path.realpath(which("gcc")))
         _action_env("CC", os.path.realpath(which("gcc")))
         _action_env("CXX", os.path.realpath(which("g++")))
+        _action_env("DISC_FOREIGN_MAKE_JOBS", num_make_jobs())
         if args.dcu or args.rocm:
             _action_env("ROCM_PATH", get_rocm_path(args))
         (

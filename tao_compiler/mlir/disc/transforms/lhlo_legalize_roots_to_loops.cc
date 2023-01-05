@@ -2701,8 +2701,10 @@ LogicalResult emitRowReduceThreadBlock(
 LogicalResult initSkeletonGrpsAndCloneOps(
     lmhlo::FusionOp& fusion_op, FusionPattern& fusion_pattern,
     SmallVector<FusionPattern::SkeletonGroup>& skeleton_groups,
-    DenseSet<Operation*>& shmem_cached_ops, ShapeAnalysis* shape_analysis,
-    LowerConfig& lower_config, bool merge_group, int shmem_limit_bytes) {
+    DenseMap<Operation*, Value>& shm_cached_ops_and_view,
+    DenseMap<Operation*, SmallVector<Operation*>>& skeleton_group_ops,
+    ShapeAnalysis* shape_analysis, LowerConfig& lower_config, bool merge_group,
+    int row_per_block, int shmem_limit_bytes) {
   if (!getOrderedSkeletonGroups(fusion_pattern, skeleton_groups)) {
     return failure();
   }
@@ -2719,9 +2721,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
   DenseSet<Operation*> irregular_xroots = fusion_pattern.getIrregularXroots();
 
   // Find ops in the group and reorder according to `op_list`.
-  // { skeleton, group-ops-inorder }
-  DenseMap<Operation*, SmallVector<Operation*>> skeleton_group_ops;
-  shmem_cached_ops.clear();
+  shm_cached_ops_and_view.clear();
   int shmem_usage_bits = 0;
   for (auto& skeleton_group : skeleton_groups) {
     auto skeletons = skeleton_group.skeletons;
@@ -2734,33 +2734,35 @@ LogicalResult initSkeletonGrpsAndCloneOps(
   int shmem_limit_bits = (shmem_limit_bytes == -1) ? -1 : shmem_limit_bytes * 8;
   // TODO: if mem-intensive-opt-experimental is off, shmem-limit-bits should be
   // negative.
+  DenseSet<Operation*> shm_cached_ops;
+  // { skeleton, group-ops-inorder }
+  DenseMap<Operation*, SmallVector<Operation*>> skeleton_group_ops_old;
   for (auto& skeleton_group : skeleton_groups) {
     auto skeletons = skeleton_group.skeletons;
     // Find ops in the group and reorder according to `op_list`.
     DenseSet<Operation*> group_ops;
-    fusion_pattern.findOpsOfSkeletonGroup(skeleton_group, group_ops,
-                                          shmem_cached_ops, skeleton_group_ops,
-                                          shmem_usage_bits, shmem_limit_bits);
+    fusion_pattern.findOpsOfSkeletonGroup(
+        skeleton_group, group_ops, shm_cached_ops, skeleton_group_ops_old,
+        row_per_block, shmem_usage_bits, shmem_limit_bits);
     SmallVector<Operation*>& group_ops_inorder =
-        skeleton_group_ops[skeletons[0]];
+        skeleton_group_ops_old[skeletons[0]];
     for (auto op : op_list) {
       if (group_ops.contains(op)) {
         group_ops_inorder.push_back(op);
       }
     }
   }
-#if 0
-  llvm::errs() << "[ZZ] shmem cached ops:\n";
-  for (auto op : shmem_cached_ops) {
-    llvm::errs() << "\t[ZZ] " << *op << "\n";
+  auto createViewOfMemref = [&](Value memref) {
+    auto op = memref.getDefiningOp();
+    OpBuilder b(op);
+    b.setInsertionPointAfter(op);
+    return createViewLike(b, memref.getLoc(), memref, memref);
+  };
+  for (auto op : shm_cached_ops) {
+    auto result = op->getOperand(op->getNumOperands() - 1);
+    Value view = createViewOfMemref(result);
+    shm_cached_ops_and_view[op] = view;
   }
-  for (auto& skeleton_group_op : skeleton_group_ops) {
-    llvm::errs() << "[ZZ] skeleton: " << *(skeleton_group_op.first) << "\n";
-    for (auto op : skeleton_group_op.second) {
-      llvm::errs() << "\t[ZZ] op: " << *op << "\n";
-    }
-  }
-#endif
 
   // Clone ops in each group and build written flags in `lower_config`.
   // Note that for irregular-xroot occurs in several skeleton-groups, it
@@ -2769,6 +2771,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
   // will write the value of this irregular-xroot back, and others are not
   // responsible for the duty of writing output.
   DenseSet<Operation*> visited_irregular_xroots;
+  DenseMap<Value, TileInfo>& tile_plan = fusion_pattern.getTilePlan();
   auto allocClonedValue = [&](Value val) {
     OpBuilder b(fusion_op);
     Location loc = val.getLoc();
@@ -2781,6 +2784,10 @@ LogicalResult initSkeletonGrpsAndCloneOps(
       }
     }
     auto new_val = b.create<memref::AllocOp>(loc, ty, dims);
+    auto tile = tile_plan.find(val);
+    if (tile != tile_plan.end()) {
+      tile_plan[new_val] = tile->second;
+    }
     return new_val;
   };
   DenseSet<Operation*> to_erase;
@@ -2788,21 +2795,32 @@ LogicalResult initSkeletonGrpsAndCloneOps(
   auto& terminator = *fused_block.rbegin();
   OpBuilder builder(&terminator);
   Operation* last_op = nullptr;
+  skeleton_group_ops.clear();
   for (auto& skeleton_group : skeleton_groups) {
     auto skeletons = skeleton_group.skeletons;
+    SmallVector<Operation*>& group_ops_inorder_old =
+        skeleton_group_ops_old[skeletons[0]];
+    BlockAndValueMapping cloning_map;
+    for (auto shm_cached_op : shm_cached_ops_and_view) {
+      auto op = shm_cached_op.first;
+      auto view = shm_cached_op.second;
+      // the shm cached op is not in the current group.
+      if (llvm::find(group_ops_inorder_old, op) ==
+          group_ops_inorder_old.end()) {
+        cloning_map.map(op->getOperand(op->getNumOperands() - 1), view);
+      }
+    }
+
     SmallVector<Operation*>& group_ops_inorder =
         skeleton_group_ops[skeletons[0]];
-    BlockAndValueMapping cloning_map;
-
-    for (int64_t i = 0; i < group_ops_inorder.size(); i++) {
-      auto op = group_ops_inorder[i];
+    for (int64_t i = 0; i < group_ops_inorder_old.size(); i++) {
+      auto op = group_ops_inorder_old[i];
       int num_input_operand = op->getNumOperands() - getNumResultOperands(op);
       auto updated = op;
       // Alloc for, if necessary, and update output operands.
       if (regular_xroots.contains(op) ||
           (irregular_xroots.contains(op) &&
-           !visited_irregular_xroots.contains(op)) ||
-          shmem_cached_ops.contains(op)) {
+           !visited_irregular_xroots.contains(op))) {
         // Update input operands.
         // Replace input with new allocated ones in previous iterations.
         for (int64_t j = 0; j < num_input_operand; j++) {
@@ -2812,8 +2830,17 @@ LogicalResult initSkeletonGrpsAndCloneOps(
           }
         }
         // For non-skeleton xroot op, it should be write back during lowering.
-        if (skeleton_group_ops.find(op) == skeleton_group_ops.end()) {
+        if (skeleton_group_ops_old.find(op) == skeleton_group_ops_old.end()) {
           lower_config.setWrittenBack(op);
+        }
+      } else if (shm_cached_ops.contains(op)) {
+        // Update input operands.
+        // Replace input with new allocated ones in previous iterations.
+        for (int64_t j = 0; j < num_input_operand; j++) {
+          auto operand = updated->getOperand(j);
+          if (auto new_operand = cloning_map.lookup(operand)) {
+            updated->replaceUsesOfWith(operand, new_operand);
+          }
         }
       } else {
         // For to-be-cloned ops, alloc for output and then clone the op with new
@@ -2832,6 +2859,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
           to_erase.insert(op);
         }
       }
+      group_ops_inorder.push_back(updated);
       // Make sure the ops are in order.
       if (last_op != nullptr) {
         updated->moveAfter(last_op);
@@ -2846,9 +2874,6 @@ LogicalResult initSkeletonGrpsAndCloneOps(
   for (auto op : to_erase) {
     op->erase();
   }
-#if 1
-  llvm::errs() << "[ZZ] final fusion: " << fusion_op << "\n";
-#endif
 
   return success();
 }
@@ -2888,20 +2913,24 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
     }
   }
 
+  const int thread_per_block = getThreadPerBlock(dominant_op);
+  int reduce_threads = (row_reduction_schedule == DISC_BLOCK_WISE_ROW_REDUCE)
+                           ? thread_per_block
+                           : kWarpSize;
+  int64_t row_per_block = thread_per_block / reduce_threads * row_tile;
+
   SmallVector<FusionPattern::SkeletonGroup> skeleton_groups;
-  DenseSet<Operation*> shmem_cached_ops;
+  DenseMap<Operation*, Value> shm_cached_ops;
+  DenseMap<Operation*, SmallVector<Operation*>> skeleton_group_ops;
   if (failed(initSkeletonGrpsAndCloneOps(
-          fusion_op, fusion_pattern, skeleton_groups, shmem_cached_ops,
-          shape_analysis, lower_config, false, 0))) {
+          fusion_op, fusion_pattern, skeleton_groups, shm_cached_ops,
+          skeleton_group_ops, shape_analysis, lower_config, false,
+          row_per_block, 0))) {
     LLVM_DEBUG(llvm::dbgs() << "Fail to init skeleton groups or clone.\n");
     return failure();
   }
 
   Location loc = dominant_op->getLoc();
-  const int thread_per_block = getThreadPerBlock(dominant_op);
-  int reduce_threads = (row_reduction_schedule == DISC_BLOCK_WISE_ROW_REDUCE)
-                           ? thread_per_block
-                           : kWarpSize;
 
   // Note that we only support row-reduction to be dominant op currently.
   assert(isRank2RowReduction(dominant_op));
@@ -2921,7 +2950,6 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
 
   // loop over (block-number, threads-per-block)
   // Note that we know `shape_h` can be divided by `row_tile` exactly.
-  int64_t row_per_block = thread_per_block / reduce_threads * row_tile;
   Value row_per_block_val = b.create<arith::ConstantIndexOp>(
       loc, thread_per_block / reduce_threads * row_tile);
   Value num_blocks =
@@ -3484,7 +3512,10 @@ LogicalResult emitRowReduceThreadBlockV2(
           reduce_r2s.push_back(if_lane_id_inbound.getResult(i));
         }
         int num_warps = block_size / kWarpSize;
-        emitWarpReduce(b, loc, ops, accumFactories, reduce_r2s, num_warps);
+        if (failed(emitWarpReduce(b, loc, ops, accumFactories, reduce_r2s,
+                                  num_warps))) {
+          return failure();
+        }
 
         // Finally, write the output to either stitch shm buffer or global
         // memory.
@@ -3564,11 +3595,20 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
     }
   }
 
+  const int thread_per_block = getThreadPerBlock(dominant_op);
+  int reduce_threads = (row_reduction_schedule == DISC_BLOCK_WISE_ROW_REDUCE)
+                           ? thread_per_block
+                           : kWarpSize;
+  int64_t row_per_block = thread_per_block / reduce_threads * ilp_factor;
+
   SmallVector<FusionPattern::SkeletonGroup> skeleton_groups;
-  DenseSet<Operation*> shmem_cached_ops;
+  DenseMap<Operation*, Value> shm_cached_ops_and_view;
+  DenseMap<Operation*, SmallVector<Operation*>> skeleton_group_ops;
+  // TODO: effect of row_per_block.
   if (failed(initSkeletonGrpsAndCloneOps(
-          fusion_op, fusion_pattern, skeleton_groups, shmem_cached_ops,
-          shape_analysis, lower_config, true, shmem_limit_bytes))) {
+          fusion_op, fusion_pattern, skeleton_groups, shm_cached_ops_and_view,
+          skeleton_group_ops, shape_analysis, lower_config, true, row_per_block,
+          shmem_limit_bytes))) {
     LLVM_DEBUG(llvm::dbgs() << "Fail to init skeleton groups or clone.\n");
     return failure();
   }
@@ -3587,13 +3627,8 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
   Value one = b.create<arith::ConstantIndexOp>(loc, 1);
   Value shape_h = b.create<memref::DimOp>(loc, lhs, zero);
 
-  const int thread_per_block = getThreadPerBlock(dominant_op);
-  int reduce_threads = (row_reduction_schedule == DISC_BLOCK_WISE_ROW_REDUCE)
-                           ? thread_per_block
-                           : kWarpSize;
   Value block_size = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
   Value threads_per_row = b.create<arith::ConstantIndexOp>(loc, reduce_threads);
-  int64_t row_per_block = thread_per_block / reduce_threads * ilp_factor;
   Value row_per_block_val =
       b.create<arith::ConstantIndexOp>(loc, row_per_block);
   Value block_number =
@@ -3638,8 +3673,58 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
     tid_in_row = lane_id;
   }
 
-  // Shared memory buffer allocation for sub-roots' result. memref.
+  // Shared memory buffer allocation for sub-roots' and some intermediate
+  // element-wise result. memref.
   DenseMap<Value, Value> shm_mapping;
+  DenseSet<Operation*> shm_cached_ops;
+  for (auto op : shm_cached_ops_and_view) {
+    shm_cached_ops.insert(op.first);
+  }
+  for (auto& skeleton_group : skeleton_groups) {
+    if (isRank2RowReduction(skeleton_group.skeletons[0])) {
+      for (auto skeleton : skeleton_group.skeletons) {
+        shm_cached_ops.insert(skeleton);
+      }
+    }
+  }
+  for (auto op : shm_cached_ops) {
+    auto output = op->getOperand(op->getNumOperands() - 1);
+    if (tile_plan.find(output) == tile_plan.end()) {
+      LLVM_DEBUG(llvm::dbgs() << "Tile info error for: " << *skeleton << "\n");
+      return failure();
+    }
+
+    int collapsed_tile_dim = fusion_pattern.getCollapsedTileDim(output);
+    int element_per_block = row_per_block * collapsed_tile_dim;
+    Value result_shmem = createSharedMemoryForOp(b, loc, op, element_per_block);
+    if (result_shmem == nullptr) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Create shared memory failed for: " << *op << "\n");
+      return failure();
+    }
+    shm_mapping[output] = result_shmem;
+
+    if (shm_cached_ops_and_view.find(op) != shm_cached_ops_and_view.end()) {
+      auto view = shm_cached_ops_and_view[op];
+      LowerConfig::SpecificLoader loader(result_shmem, element_per_block);
+      lower_config.setSpecificLoader(
+          std::make_pair(fusion_op.getOperation(), view), loader);
+
+      LowerConfig::SpecificStore store(result_shmem, element_per_block);
+      lower_config.setSpecificStore(
+          std::make_pair(fusion_op.getOperation(), output), store);
+      // TODO: add barrier between groups if necessary.
+
+      // The assume-alignment on shm memref is to prevent error-delete due to
+      // canonicalizer.
+      b.create<memref::AssumeAlignmentOp>(result_shmem.getLoc(), result_shmem,
+                                          32);
+    } else {
+      LowerConfig::SpecificLoader loader(result_shmem, element_per_block);
+      lower_config.setSpecificLoader(
+          std::make_pair(fusion_op.getOperation(), output), loader);
+    }
+  }
 
   for (auto& skeleton_group : skeleton_groups) {
     auto skeletons = skeleton_group.skeletons;
@@ -3652,25 +3737,26 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
     if (isRank2RowReduction(skeletons[0])) {
       for (auto skeleton : skeletons) {
         Value out_value = cast<lmhlo::LmhloOp>(skeleton).getResultBuffer();
-        Value result_shmem;
-        result_shmem = createSharedMemoryForOp(b, loc, skeleton, kWarpSize);
-        if (result_shmem == nullptr) {
-          LLVM_DEBUG(llvm::dbgs() << "Create shared memory failed for: "
-                                  << *skeleton << "\n");
-          return failure();
-        }
-        shm_mapping[out_value] = result_shmem;
+        Value result_shmem = shm_mapping[out_value];
+        // Value result_shmem;
+        // result_shmem = createSharedMemoryForOp(b, loc, skeleton, kWarpSize);
+        // if (result_shmem == nullptr) {
+        //   LLVM_DEBUG(llvm::dbgs() << "Create shared memory failed for: "
+        //                           << *skeleton << "\n");
+        //   return failure();
+        // }
+        // shm_mapping[out_value] = result_shmem;
 
-        auto tile_info = tile_plan.find(out_value);
-        if (tile_info == tile_plan.end() ||
-            tile_info->second.tileSizes.size() != 0) {
-          LLVM_DEBUG(llvm::dbgs()
-                     << "Tile info error for: " << *skeleton << "\n");
-          return failure();
-        }
-        LowerConfig::SpecificLoader loader(result_shmem, row_per_block);
-        lower_config.setSpecificLoader(
-            std::make_pair(fusion_op.getOperation(), out_value), loader);
+        // auto tile_info = tile_plan.find(out_value);
+        // if (tile_info == tile_plan.end() ||
+        //     tile_info->second.tileSizes.size() != 0) {
+        //   LLVM_DEBUG(llvm::dbgs()
+        //              << "Tile info error for: " << *skeleton << "\n");
+        //   return failure();
+        // }
+        // LowerConfig::SpecificLoader loader(result_shmem, row_per_block);
+        // lower_config.setSpecificLoader(
+        //     std::make_pair(fusion_op.getOperation(), out_value), loader);
 
         result_shmems.push_back(result_shmem);
         is_output.push_back(roots.contains(skeleton));
@@ -3695,6 +3781,13 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
       require_barrier |= llvm::any_of(
           skeleton_group.root_member_list,
           [&](Operation* op) { return !external_only_roots.contains(op); });
+#if 1
+      require_barrier |=
+          llvm::any_of(skeleton_group_ops[skeletons[0]], [&](Operation* op) {
+            return shm_cached_ops_and_view.find(op) !=
+                   shm_cached_ops_and_view.end();
+          });
+#endif
 
       if (require_barrier) {
         b.create<gpu::BarrierOp>(loc);
@@ -5312,7 +5405,7 @@ struct DiscLhloLegalizeRootsToParallelLoops
     {
       auto* context = &this->getContext();
       RewritePatternSet patterns(context);
-      patterns.insert<InputInlineFusionPattern>(context, &lower_config);
+      patterns.insert<InputInlineFusionPattern>(context, &lower_config, true);
 
       // Just apply the patterns greedily.
       // There should always be one scf.ParallelOp in the fusion.
@@ -5353,6 +5446,13 @@ struct DiscLhloLegalizeRootsToParallelLoops
           }
           op.emitError("unexpected remaining operation in a FusionOp");
           signalPassFailure();
+        });
+        fusion.getRegion().walk([&](memref::AssumeAlignmentOp op) {
+          auto memref_type = op.getMemref().getType().cast<MemRefType>();
+          if (memref_type.getMemorySpaceAsInt() ==
+              gpu::GPUDialect::getWorkgroupAddressSpace()) {
+            to_be_removed.push_back(op);
+          }
         });
       });
 

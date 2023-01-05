@@ -154,6 +154,13 @@ int getShmemSizeBytesNotAffectOccupancy(int cc_major, int cc_minor);
 // Return the element type of the result of given lmhlo op.
 Type getLhloOpsElementType(Operation* op);
 
+Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
+                   ValueRange toShape);
+
+Value createViewLike(OpBuilder& b, Location loc, Value from, Value to);
+
+SmallVector<Value> getShapeValues(OpBuilder* b, Value memref);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

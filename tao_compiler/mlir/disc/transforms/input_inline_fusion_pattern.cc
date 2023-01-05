@@ -182,6 +182,57 @@ LogicalResult InputInlineFusionPattern::processParallelOp(
   return failure();
 }
 
+LogicalResult InputInlineFusionPattern::processParallelOpGreedyly(
+    scf::ParallelOp parallel_op, Block* parent_block, PatternRewriter& rewriter,
+    const DominanceInfo& dominance_info) const {
+  bool has_change = false;
+  bool changed = false;
+  do {
+    changed = false;
+    SmallVector<memref::LoadOp, 4> load_ops;
+    parallel_op->walk(
+        [&](memref::LoadOp load_op) { load_ops.push_back(load_op); });
+    for (auto load_op : load_ops) {
+      auto lhlo_op = getFusibleOperation(load_op);
+      if (!lhlo_op) continue;
+      // 1, in case of:
+      //      A = ...
+      //      B = op(A)
+      //      C = op(A, B)
+      //    C should fuse B first before fusing A.
+      //    This is the same logic as in instruction_fusion pass of XLA
+      //
+      // 2, When multiple loads consume the same result of lhlo_op and
+      //    the load indices are also identical, the ir should be
+      //    emitted only once. Other LoadOps should use cached Value.
+
+      // 'load_ops' that can consume the same cached value
+      SmallVector<memref::LoadOp> same_load_ops;
+      bool can_remove_producer;
+      if (!checkIfFusible(parallel_op, lhlo_op, load_op, can_remove_producer,
+                          same_load_ops, dominance_info))
+        continue;
+      // 'load_op' is always the one that locates in the most
+      // external code block among all the 'same_load_ops', because the walker
+      // is in the post order sequence.
+      if (failed(inlineFuseLhloOp(rewriter, parallel_op, lhlo_op, load_op,
+                                  same_load_ops, lower_config_)))
+        return failure();
+      changed = true;
+      if (can_remove_producer) rewriter.eraseOp(lhlo_op);
+      for (memref::LoadOp to_be_removed : same_load_ops)
+        rewriter.eraseOp(to_be_removed);
+
+      // Clean all the ops that do not have LoadOps inside the nested
+      // ParallelOps and is not the ancestor of any ops that have LoadOps
+      // inside the nested ParallelOps.
+      cleanUnusedLhloOps(parent_block, &rewriter);
+    }
+  } while (changed);
+
+  return has_change ? success() : failure();
+}
+
 Operation* InputInlineFusionPattern::getFusibleOperation(
     memref::LoadOp load_op) const {
   Operation* lhlo_op = nullptr;

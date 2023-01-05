@@ -56,18 +56,13 @@ class LowerConfig {
   struct SpecificLoader {
     SpecificLoader() {}
 
-    SpecificLoader(Value shm, int64_t row_per_block)
-        : shm_buffer_(shm), row_per_block_(row_per_block) {}
+    SpecificLoader(Value shm, int64_t element_per_block)
+        : shm_buffer_(shm), element_per_block_(element_per_block) {}
 
     Value operator()(OpBuilder& b, Value memref, ValueRange indices) {
       return loadShmem(b, memref, indices);
     }
 
-   private:
-    Value shm_buffer_;
-    int64_t row_per_block_;
-
-   private:
     Value loadShmem(OpBuilder& b, Value value, ValueRange indices) {
       auto loc = shm_buffer_.getLoc();
       assert(shm_buffer_ != nullptr);
@@ -75,17 +70,54 @@ class LowerConfig {
       auto shape = getShapeValues(&b, value);
       assert(shape.size() == indices.size());
       Value linear_index = calcLinearIndex(&b, loc, indices, shape);
-      Value row_per_block_val =
-          b.create<arith::ConstantIndexOp>(loc, row_per_block_);
+      Value element_per_block_val =
+          b.create<arith::ConstantIndexOp>(loc, element_per_block_);
       Value shmem_index =
-          b.create<arith::RemUIOp>(loc, linear_index, row_per_block_val);
+          b.create<arith::RemUIOp>(loc, linear_index, element_per_block_val);
       Value res =
           b.create<memref::LoadOp>(loc, shm_buffer_, ValueRange({shmem_index}));
       return res;
     }
+
+    Value shm_buffer_;
+    int64_t element_per_block_;
+  };
+
+  // SpecificStore is for stitch codegen, which helps to hook the original store
+  // with specific shm memref.
+  struct SpecificStore {
+    SpecificStore() {}
+
+    SpecificStore(Value shm, int64_t element_per_block)
+        : shm_buffer_(shm), element_per_block_(element_per_block) {}
+
+    void operator()(OpBuilder& b, Value value, Value memref,
+                    ValueRange indices) {
+      storeShmem(b, value, memref, indices);
+    }
+
+    void storeShmem(OpBuilder& b, Value value, Value memref,
+                    ValueRange indices) {
+      auto loc = shm_buffer_.getLoc();
+      assert(shm_buffer_ != nullptr);
+      // It requires the elements store in shm_buffer are in index order.
+      auto shape = getShapeValues(&b, memref);
+      assert(shape.size() == indices.size());
+      Value linear_index = calcLinearIndex(&b, loc, indices, shape);
+      Value element_per_block_val =
+          b.create<arith::ConstantIndexOp>(loc, element_per_block_);
+      Value shmem_index =
+          b.create<arith::RemUIOp>(loc, linear_index, element_per_block_val);
+      b.create<memref::StoreOp>(loc, value, shm_buffer_,
+                                ValueRange({shmem_index}));
+    }
+
+    Value shm_buffer_;
+    int64_t element_per_block_;
   };
 
   SpecificLoader* getSpecificLoader(Operation* op, Value operand);
+  SpecificStore* getSpecificStore(Operation* op, Value operand);
 
   bool isWrittenBack(Operation* op) { return is_written_back_.contains(op); }
 
@@ -96,8 +128,15 @@ class LowerConfig {
     specific_loaders_[loader_for] = loader;
   }
 
- private:
+  void setSpecificStore(std::pair<Operation*, Value> store_for,
+                        SpecificStore store) {
+    specific_stores_[store_for] = store;
+  }
+
+  //  private:
+ public:
   DenseMap<std::pair<Operation*, Value>, SpecificLoader> specific_loaders_;
+  DenseMap<std::pair<Operation*, Value>, SpecificStore> specific_stores_;
   DenseSet<Operation*> is_written_back_;
 };
 

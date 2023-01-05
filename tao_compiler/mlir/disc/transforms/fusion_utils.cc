@@ -736,7 +736,7 @@ void FusionPattern::findOpsOfSkeletonGroup(
     SkeletonGroup group, DenseSet<Operation*>& ops,
     DenseSet<Operation*>& shmem_cached_ops,
     const DenseMap<Operation*, SmallVector<Operation*>>& existing_group_ops,
-    int& shmem_usage_bits, const int shmem_limit_bits) {
+    int row_per_block, int& shmem_usage_bits, const int shmem_limit_bits) {
   ops.clear();
   // All operators dominanted by `group` can be traced back from skeleton op.
   SmallVector<Operation*> skeletons = group.skeletons;
@@ -770,21 +770,22 @@ void FusionPattern::findOpsOfSkeletonGroup(
           !shmem_cached_ops.contains(input_op) &&
           !all_skeletons.contains(input_op)) {
         auto output = input_op->getOperand(input_op->getNumOperands() - 1);
+        int collapsed_tile_dim = getCollapsedTileDim(output);
         auto output_type = output.getType().cast<MemRefType>();
-        auto output_shape = output_type.getShape();
-        auto tile_info = tile_plan_[output];
-        int tiled_dim_size = 1;
-        for (auto tile : tile_info.tileSizes) {
-          int dim = tile.first;
-          if (output_shape[dim] == ShapedType::kDynamicSize) {
-            tiled_dim_size = ShapedType::kDynamicSize;
-            break;
-          } else {
-            tiled_dim_size *= output_shape[dim];
-          }
-        }
-        if (tiled_dim_size != ShapedType::kDynamicSize) {
-          auto bit_width = tiled_dim_size *
+        // auto output_shape = output_type.getShape();
+        // auto tile_info = tile_plan_[output];
+        // int tiled_dim_size = 1;
+        // for (auto tile : tile_info.tileSizes) {
+        //   int dim = tile.first;
+        //   if (output_shape[dim] == ShapedType::kDynamicSize) {
+        //     tiled_dim_size = ShapedType::kDynamicSize;
+        //     break;
+        //   } else {
+        //     tiled_dim_size *= output_shape[dim];
+        //   }
+        // }
+        if (collapsed_tile_dim != ShapedType::kDynamicSize) {
+          auto bit_width = row_per_block * collapsed_tile_dim *
                            output_type.getElementType().getIntOrFloatBitWidth();
           if (shmem_usage_bits + bit_width < shmem_limit_bits) {
             shmem_usage_bits += bit_width;
@@ -806,6 +807,22 @@ void FusionPattern::findOpsOfSkeletonGroup(
     ops.insert(skeleton);
     findGroupOps(skeleton, ops);
   }
+}
+
+int64_t FusionPattern::getCollapsedTileDim(Value value) {
+  auto value_type = value.getType().cast<MemRefType>();
+  auto value_shape = value_type.getShape();
+  int collapsed_tile_dim = 1;
+  for (auto tile : tile_plan_[value].tileSizes) {
+    int dim = tile.first;
+    if (value_shape[dim] == ShapedType::kDynamicSize) {
+      collapsed_tile_dim = ShapedType::kDynamicSize;
+      break;
+    } else {
+      collapsed_tile_dim *= value_shape[dim];
+    }
+  }
+  return collapsed_tile_dim;
 }
 
 bool getOrderedSkeletonGroups(

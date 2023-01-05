@@ -368,6 +368,76 @@ Type getLhloOpsElementType(Operation* op) {
   return result_type;
 }
 
+Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
+                   ValueRange toShape) {
+  int64_t rank = toShape.size();
+  auto memrefTy = toType.cast<MemRefType>();
+  auto getIntAttr = [&](int64_t val) {
+    return b.getIntegerAttr(b.getIndexType(), val);
+  };
+
+  SmallVector<OpFoldResult> foldSizes;
+  for (int i = 0; i < rank; ++i) {
+    if (memrefTy.getDimSize(i) == ShapedType::kDynamicSize) {
+      foldSizes.push_back(toShape[i]);
+    } else {
+      foldSizes.push_back(getIntAttr(memrefTy.getDimSize(i)));
+    }
+  }
+
+  Value dynamicStride;
+  int64_t staticStride = 1;
+  SmallVector<OpFoldResult> foldStrides;
+  for (int i = rank - 1; i >= 0; --i) {
+    if (staticStride != ShapedType::kDynamicSize) {
+      foldStrides.push_back(getIntAttr(staticStride));
+      if (memrefTy.getDimSize(i) == ShapedType::kDynamicSize) {
+        dynamicStride = b.create<arith::ConstantIndexOp>(loc, staticStride);
+        staticStride = ShapedType::kDynamicSize;
+      } else {
+        staticStride *= memrefTy.getDimSize(i);
+      }
+    } else {
+      foldStrides.push_back(dynamicStride);
+    }
+    if (dynamicStride) {
+      dynamicStride = b.create<arith::MulIOp>(loc, dynamicStride, toShape[i]);
+    }
+  }
+
+  OpFoldResult zero{getIntAttr(0)};
+  auto reversedStrides = llvm::to_vector<4>(llvm::reverse(foldStrides));
+  auto castOp = b.create<memref::ReinterpretCastOp>(loc, memrefTy, from, zero,
+                                                    foldSizes, reversedStrides);
+  return castOp;
+}
+
+Value createViewLike(OpBuilder& b, Location loc, Value from, Value to) {
+  SmallVector<Value> toShape = getShapeValues(&b, to);
+  auto toType = to.getType().cast<MemRefType>();
+  auto fromType = from.getType().cast<MemRefType>();
+  auto targetType =
+      MemRefType::get(toType.getShape(), fromType.getElementType(),
+                      toType.getLayout(), toType.getMemorySpace());
+  return CastMemRefTo(b, loc, from, targetType, toShape);
+}
+
+SmallVector<Value> getShapeValues(OpBuilder* b, Value memref) {
+  auto shape = memref.getType().dyn_cast<ShapedType>().getShape();
+  int64_t rank = shape.size();
+  auto loc = memref.getLoc();
+
+  SmallVector<Value> result;
+  for (int i = 0; i < rank; ++i) {
+    if (shape[i] == ShapedType::kDynamicSize) {
+      result.push_back(b->create<memref::DimOp>(loc, memref, i));
+    } else {
+      result.push_back(b->create<arith::ConstantIndexOp>(loc, shape[i]));
+    }
+  }
+  return result;
+}
+
 // Returns 1D 64-bit dense elements attribute with the given values.
 }  // namespace disc_ral
 }  // namespace mlir

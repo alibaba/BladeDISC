@@ -62,7 +62,7 @@ jobs:
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
-      device: cpu
+      device: bare_metal_x86
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu tiny 
@@ -76,7 +76,7 @@ jobs:
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
-      device: cpu
+      device: bare_metal_x86
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu partial 
@@ -90,7 +90,7 @@ jobs:
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
-      device: cpu
+      device: bare_metal_x86
       timeout_minutes: 4320 # 72h
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
@@ -105,7 +105,7 @@ jobs:
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.13.1-cpu-aarch64
-      device: aarch64
+      device: aarch64-bench
       dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
       extra_envs: -e RELATED_DIFF_PERCENT=5
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh aarch64 tiny
@@ -119,7 +119,7 @@ jobs:
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.13.1-cpu-aarch64
-      device: aarch64
+      device: aarch64-bench
       dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
       extra_envs: -e RELATED_DIFF_PERCENT=5
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh aarch64 partial
@@ -133,7 +133,7 @@ jobs:
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.13.1-cpu-aarch64
-      device: aarch64
+      device: aarch64-bench
       timeout_minutes: 4320 # 72h
       dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
       extra_envs: -e RELATED_DIFF_PERCENT=5

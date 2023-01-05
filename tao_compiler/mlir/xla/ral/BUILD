@@ -299,6 +299,7 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
+        "context/stream_executor_expand_impl.cc",
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
         "context/quantized_gpu_kernel_impl.cc",
@@ -474,7 +475,7 @@ tf_gpu_kernel_library(
     ]) + if_cuda_or_rocm([
         "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]),
-    deps = if_cuda_is_configured([
+    deps = [":common_context"] + if_cuda_is_configured([
         "@cub_archive//:cub",
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
@@ -568,6 +569,8 @@ cc_library(
         "//third_party/eigen3",
     ] + if_cuda_or_rocm([
         "//tensorflow/core:stream_executor_headers_lib",
+    ]) + if_blade_gemm([
+        ":disc_blade_gemm_deps"
     ]),
     alwayslink = 1,
     visibility = ["//visibility:public"],
@@ -672,6 +675,7 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
+        "context/stream_executor_expand_impl.cc",
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
         "context/quantized_gpu_kernel_impl.cc",
@@ -731,7 +735,7 @@ cc_library(
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
     ]) + if_blade_gemm([
-        "@blade_gemm//:blade_gemm",
+        ":disc_blade_gemm_deps",
     ]) + if_mkldnn([
         ":disc_mkl_bazel",
         ":ral_md5",
@@ -900,6 +904,8 @@ cuda_library(
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
+    ]) + if_blade_gemm([
+        ":disc_blade_gemm_deps",
     ]),
 )
 

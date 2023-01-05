@@ -9,6 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -20,6 +21,7 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/DiscPdlPredefinedPatterns.h"
 
 #include "tests/torch-disc-pdll/utils.h"
 
@@ -99,12 +101,6 @@ bool isOpTriviallyDeadDisc(Operation* op) {
   return op->use_empty() && wouldOpBeTriviallyDeadDisc(op);
 }
 
-// add pre-defined pdll patterns here.
-std::string getTorchPredefinedPDLPatterns() {
-  std::string preDefinedPatterns;
-  return preDefinedPatterns;
-}
-
 struct ApplyDiscPdlPatternsPass
     : public mlir::torch::TorchConversion::ApplyDiscPdlPatternsBase<
           ApplyDiscPdlPatternsPass> {
@@ -121,6 +117,7 @@ struct ApplyDiscPdlPatternsPass
     registry.insert<mhlo::MhloDialect>();
     registry.insert<mhlo_disc::MhloDiscDialect>();
     registry.insert<tensor::TensorDialect>();
+    registry.insert<pdl_interp::PDLInterpDialect>();
     mlir::disc_ral::getPDLDependentDialects(registry);
   }
   void runOnOperation() override;

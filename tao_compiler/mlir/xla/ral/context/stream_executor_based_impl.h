@@ -30,12 +30,36 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/platform/stream_executor_no_cuda.h"
 
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+#include "bladnn/bladnn.h"
+#endif
 namespace tao {
 namespace ral {
 
 DEFINE_TAO_TYPE_NAME_HELPER(Eigen::half, "f16");
 
-namespace gpu {}  // namespace gpu
+namespace gpu {
+
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+template <typename T>
+bladnn::Dtype toBlaDNNDtype() {
+  if (std::is_same<T, int8_t>::value) {
+    return bladnn::Dtype::kS8;
+  }
+  if (std::is_same<T, Eigen::half>::value) {
+    return bladnn::Dtype::kF16;
+  }
+  if (std::is_same<T, float>::value) {
+    return bladnn::Dtype::kF32;
+  }
+  if (std::is_same<T, double>::value) {
+    return bladnn::Dtype::kF64;
+  }
+  return bladnn::Dtype::kUnknown;
+}
+#endif
+
+}  // namespace gpu
 }  // namespace ral
 }  // namespace tao
 

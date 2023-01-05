@@ -69,17 +69,12 @@ class InputInlineFusionPattern : public RewritePattern {
                                     LowerConfig* lower_config = nullptr,
                                     bool one_pass = false)
       : RewritePattern(lmhlo::FusionOp::getOperationName(), 1, context),
-        lower_config_(lower_config),
-        one_pass_(one_pass) {}
+        lower_config_(lower_config) {}
 
   LogicalResult processParallelOp(scf::ParallelOp parallel_op,
                                   Block* parent_block,
                                   PatternRewriter& rewriter,
                                   const DominanceInfo& dominance_info) const;
-
-  LogicalResult processParallelOpGreedyly(
-      scf::ParallelOp parallel_op, Block* parent_block,
-      PatternRewriter& rewriter, const DominanceInfo& dominance_info) const;
 
   LogicalResult matchAndRewrite(Operation* op,
                                 PatternRewriter& rewriter) const override {
@@ -100,12 +95,8 @@ class InputInlineFusionPattern : public RewritePattern {
 
     // Returns success if any of parallelOp is processed.
     for (scf::ParallelOp parallelOp : innermostPloops) {
-      auto status = one_pass_
-                        ? processParallelOpGreedyly(parallelOp, &parent_block,
-                                                    rewriter, dominance_info)
-                        : processParallelOp(parallelOp, &parent_block, rewriter,
-                                            dominance_info);
-      if (!failed(status)) {
+      if (!failed(processParallelOp(parallelOp, &parent_block, rewriter,
+                                    dominance_info))) {
         return success();
       }
     }
@@ -124,7 +115,6 @@ class InputInlineFusionPattern : public RewritePattern {
                       const DominanceInfo& dominance_info) const;
 
   LowerConfig* lower_config_;
-  bool one_pass_;
 };
 
 }  // namespace disc_ral

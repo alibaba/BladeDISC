@@ -5379,7 +5379,7 @@ struct DiscLhloLegalizeRootsToParallelLoops
     {
       auto* context = &this->getContext();
       RewritePatternSet patterns(context);
-      patterns.insert<InputInlineFusionPattern>(context, &lower_config, true);
+      patterns.insert<InputInlineFusionPattern>(context, &lower_config);
 
       // Just apply the patterns greedily.
       // There should always be one scf.ParallelOp in the fusion.

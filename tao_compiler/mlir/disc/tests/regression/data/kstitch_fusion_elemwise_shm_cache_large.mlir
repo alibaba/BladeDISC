@@ -1,10 +1,8 @@
 module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, producer = 0 : i32}} {
   func.func @main(%arg0: tensor<96x512x512xf16>, %arg1: tensor<8x12x512x512xf16>, %arg2: tensor<8x12x512x512xf32>)
-        // -> (tensor<96x512x512xf16>)
         -> (tensor<8x12x512x512xf16>, tensor<8x12x512x1xf32>, tensor<8x12x512x1xf32>, tensor<96x512x512xf16>)
         attributes {tf.entry_function = {inputs = "{{INPUTS}}", outputs = "{{OUTPUTS}}", input_placements="{{INPUT_PLACEMENTS}}", output_placements="{{OUTPUT_PLACEMENTS}}"}} {
     %graph:4 = tf_executor.graph {
-    // %graph = tf_executor.graph {
       %2:2 = tf_executor.island wraps "tf.Const"() {value = dense<[96, 512, 512]> : tensor<3xi32>} : () -> tensor<3xi32>
       %3:2 = tf_executor.island wraps "tf.Const"() {value = dense<[8, 12, 512, 512]> : tensor<4xi32>} : () -> tensor<4xi32>
       %4:2 = tf_executor.island wraps "tf.Reshape"(%arg0, %3) : (tensor<96x512x512xf16>, tensor<4xi32>) -> tensor<8x12x512x512xf16>
@@ -25,10 +23,8 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
       %19:2 = tf_executor.island wraps "tf.Div"(%15, %18) : (tensor<8x12x512x512xf32>, tensor<8x12x512x512xf32>) -> tensor<8x12x512x512xf32>
       %20:2 = tf_executor.island wraps "tf.Cast"(%19) : (tensor<8x12x512x512xf32>) -> (tensor<8x12x512x512xf16>)
       %21:2 = tf_executor.island wraps "tf.Reshape"(%20, %2) : (tensor<8x12x512x512xf16>, tensor<3xi32>) -> tensor<96x512x512xf16>
-      // tf_executor.fetch %21 : tensor<96x512x512xf16>
       tf_executor.fetch %4, %12, %17, %21 : tensor<8x12x512x512xf16>, tensor<8x12x512x1xf32>, tensor<8x12x512x1xf32>, tensor<96x512x512xf16>
     }
     return %graph#0, %graph#1, %graph#2, %graph#3 : tensor<8x12x512x512xf16>, tensor<8x12x512x1xf32>, tensor<8x12x512x1xf32>, tensor<96x512x512xf16>
-    // return %graph : tensor<96x512x512xf16>
   }
 }

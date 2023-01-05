@@ -185,11 +185,9 @@ TEST(KStitchFusionGPUTest, KStitchElemwiseShmCacheLarge) {
       /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 3,
       /*num_outputs*/ 4,
-      // /*num_outputs*/ 1,
       /*input_descriptors*/
       {"96x512x512xf16_X", "8x12x512x512xf16_X", "8x12x512x512xf32_X"},
       /*output_descriptors*/ {"f16_X", "f32_X", "f32_X", "f16_X"}));
-  // /*output_descriptors*/ {"f16_X"}));
   unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
   unsetenv("DISC_ENABLE_STITCH");
   unsetenv("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL");
@@ -208,11 +206,9 @@ TEST(KStitchFusionGPUTest, KStitchElemwiseShmCacheSmall) {
       /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 3,
       /*num_outputs*/ 4,
-      // /*num_outputs*/ 1,
       /*input_descriptors*/
       {"96x512x64xf16_X", "8x12x512x64xf16_X", "8x12x512x64xf32_X"},
       /*output_descriptors*/ {"f16_X", "f32_X", "f32_X", "f16_X"}));
-  // /*output_descriptors*/ {"f16_X"}));
   unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
   unsetenv("DISC_ENABLE_STITCH");
   unsetenv("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL");

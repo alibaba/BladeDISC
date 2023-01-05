@@ -202,7 +202,7 @@ static bool DoGemmWithAlgorithm(
             /*leading dim of LHS=*/lhs_matrix.num_cols,
             /*beta=*/static_cast<OutT>(beta), &output_data,
             /*leading dim of output=*/n, computation_type, *algorithm,
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM && (!TENSORFLOW_USE_DCU)
             output_profile_result, se::blas::CallContext::kNone)
 #elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION >= 11)
             se::blas::kDefaultComputePrecision, output_profile_result)
@@ -225,7 +225,7 @@ static bool DoGemmWithAlgorithm(
             /*leading dim of LHS=*/lhs_matrix.num_cols, lhs_stride,
             /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
             /*leading dim of output=*/n, output_stride,
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM && (!TENSORFLOW_USE_DCU)
             batch_size, se::blas::CallContext::kNone)
 #elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION >= 11)
             batch_size, se::blas::kDefaultComputePrecision)
@@ -242,7 +242,7 @@ static bool DoGemmWithAlgorithm(
                      /*leading dim of RHS=*/rhs_matrix.num_cols, lhs_data,
                      /*leading dim of LHS=*/lhs_matrix.num_cols,
                      /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM && (!TENSORFLOW_USE_DCU)
                      /*leading dim of output=*/n, se::blas::CallContext::kNone)
 #else
                      /*leading dim of output=*/n)
@@ -738,7 +738,7 @@ std::vector<ProfileResult> GetMIOpenAlgorithms(
           params.input_descriptor, operand_buffers[0], params.filter_descriptor,
           operand_buffers[1], params.output_descriptor, result_buffer,
           params.convolution_descriptor, scratch_allocator,
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM && (!TENSORFLOW_USE_DCU)
           se::dnn::CallContext::kNone, &algorithms)) {
 #else
           &algorithms)) {
@@ -1340,13 +1340,13 @@ Status RunCudnnConvolution(CudnnConvParams& params,
   }
 
   Status status = Status::OK();
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM && (!TENSORFLOW_USE_DCU)
   se::dnn::CallContext call_context = se::dnn::CallContext::kNone;
 #endif
 
   switch (kind) {
     case ConvolutionKind::FORWARD:
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM && (!TENSORFLOW_USE_DCU)
       // TF2.9 and ROCM
       call_context = se::dnn::CallContext::kForward;
       status = stream->ConvolveWithAlgorithm(

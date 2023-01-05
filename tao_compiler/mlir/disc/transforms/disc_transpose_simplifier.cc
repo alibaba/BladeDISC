@@ -801,6 +801,14 @@ LogicalResult tryMoveUpTransposeGreedilyAndApplyIfBeneficialImpl(
   while (!queue.empty()) {
     Operation* curOp = queue.top().second;
     queue.pop();
+
+    // firstly remove the transpose backward request for `curOp` before the
+    // `backwardPermutation` check. We'll add the request back once the check is
+    // passed. Those left requests after we visit all items in the queue are
+    // supposed to be applied successfully.
+    auto perm = permMap[curOp];
+    permMap.erase(curOp);
+
     LLVM_DEBUG(llvm::dbgs() << "\tcurOp: " << *curOp << "\n");
     LLVM_DEBUG(llvm::dbgs() << "\tinit numTransposeEliminated for curOp: "
                             << numTransposeEliminated << "\n");
@@ -808,9 +816,9 @@ LogicalResult tryMoveUpTransposeGreedilyAndApplyIfBeneficialImpl(
     if (curOp->getNumResults() > 1) continue;
     // check if we can move up transpose op through this op.
     DenseMap<int, SmallVector<int64_t>> operandPermMap;
-    if (failed(backwardPermutation(curOp, permMap[curOp], operandPermMap)))
-      continue;
+    if (failed(backwardPermutation(curOp, perm, operandPermMap))) continue;
     LLVM_DEBUG(llvm::dbgs() << "\tpass backwardPermutation for curOp\n");
+    permMap[curOp] = perm;
 
     bool needReverse = false;
     auto& transposedUsers = userMap[curOp];
@@ -835,8 +843,8 @@ LogicalResult tryMoveUpTransposeGreedilyAndApplyIfBeneficialImpl(
       if (isa<mhlo::TransposeOp>(curOp)) {
         SmallVector<int64_t> operandPerm;
         SmallVector<int64_t> newPermutation;
-        if (failed(backwardTransposePermutation(curOp, permMap[curOp],
-                                                operandPerm, newPermutation)))
+        if (failed(backwardTransposePermutation(curOp, perm, operandPerm,
+                                                newPermutation)))
           return failure();
         if (isIdentityPermutation(newPermutation)) {
           ++numTransposeEliminated;

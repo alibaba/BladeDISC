@@ -333,3 +333,32 @@ func.func @move_up_transpsoe_greedily(%arg0: tensor<?x?x?x320xf32>, %arg1: tenso
   %9 = "mhlo.transpose"(%8) {permutation = dense<[0, 2, 3, 1]> : tensor<4xi64>} : (tensor<?x320x?x?xf32>) -> tensor<?x?x?x320xf32>
   return %8, %9 : tensor<?x320x?x?xf32>, tensor<?x?x?x320xf32>
 }
+
+// -----
+
+// CHECK-LABEL: @move_up_transpsoe_greedily_with_not_supported_ops
+func.func @move_up_transpsoe_greedily_with_not_supported_ops(
+    %arg0: tensor<?xf32>, %arg1: tensor<4xindex>,
+    %arg2: tensor<?x?x?x?xf32>, %arg3: tensor<4xindex>,
+    %arg4: tensor<?x?x?x?xf32>, %arg5: tensor<4xindex>) -> (tensor<?x?x?x?xf32>) {
+  // only one transpose op should be left.
+  // CHECK: mhlo.transpose
+  // CHECK-NOT: mhlo.transpose
+  %cst0 = mhlo.constant dense<1.0> : tensor<f32>
+  %0 = "mhlo.dynamic_reshape"(%arg0, %arg1) : (tensor<?xf32>, tensor<4xindex>) -> tensor<?x?x?x?xf32>
+  %1 = "mhlo.abs"(%0) : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
+
+  %2 = "mhlo.transpose"(%arg2) {permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
+  %3 = "mhlo.dynamic_broadcast_in_dim"(%cst0, %arg3) {broadcast_dimensions = dense<[]> : tensor<0xi64>} : (tensor<f32>, tensor<4xindex>) -> tensor<?x?x?x?xf32>
+  %4 = mhlo.add %2, %3 : tensor<?x?x?x?xf32>
+
+  %5 = "mhlo.transpose"(%arg4) {permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
+  %6 = "mhlo.dynamic_broadcast_in_dim"(%cst0, %arg5) {broadcast_dimensions = dense<[]> : tensor<0xi64>} : (tensor<f32>, tensor<4xindex>) -> tensor<?x?x?x?xf32>
+  %7 = mhlo.add %5, %6 : tensor<?x?x?x?xf32>
+
+  %8 = mhlo.add %4, %7 : tensor<?x?x?x?xf32>
+  %9 = mhlo.add %1, %8 : tensor<?x?x?x?xf32>
+
+  %10 = "mhlo.transpose"(%9) {permutation = dense<[0, 2, 3, 1]> : tensor<4xi64>} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
+  return %10 : tensor<?x?x?x?xf32>
+}

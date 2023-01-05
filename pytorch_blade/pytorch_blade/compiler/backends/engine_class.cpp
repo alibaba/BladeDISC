@@ -13,6 +13,7 @@
 
 #include <torch/script.h>
 #include "pytorch_blade/common_utils/logging.h"
+#include "pytorch_blade/common_utils/macros.h"
 #include "pytorch_blade/common_utils/utils.h"
 #include "sys/stat.h"
 
@@ -94,7 +95,7 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
         torch::QualifiedName(*module.type()->name(), "forward");
     auto func =
         GetFallback()._ivalue()->compilation_unit()->find_function(method_name);
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 11
+#if PYTORCH_VERSION_GE(1, 11)
     auto graph = torch::jit::tryToGraphFunction(*func)->graph();
 #else
     auto graph = func->graph();
@@ -131,8 +132,6 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
         auto ref_outputs = Fallback(inputs);
         if (!should_error_fallback_) {
           // try to detect the result differences
-          outputs = ref_outputs;
-
           CHECK(outputs.size() == ref_outputs.size());
           const double& accuracy_rtol = env::ReadDoubleFromEnvVar(
               "TORCH_BLADE_DEBUG_ACCURACY_CHECK_RTOL", 1e-3);
@@ -147,7 +146,7 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
                     outputs[k], ref_outputs[k], accuracy_rtol, accuracy_atol);
             if (not all_close) {
               // if results is different then should do error fallback
-              LOG(WARNING) << "The " << k
+              LOG(WARNING) << "cluster " << attr_debug_name_ << ": the " << k
                            << "-th output tensor failed accuracy check";
               should_error_fallback_ = true;
               break;

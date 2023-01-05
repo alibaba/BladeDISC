@@ -84,6 +84,63 @@ class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
       ConversionPatternRewriter& rewriter) const override;
 };
 
+LogicalResult decomposeSplits(
+    ConversionPatternRewriter& rewriter,
+    OperatorOp op,
+    Value splitSize,
+    Value dim,
+    int64_t chunks,
+    bool keepDim = true) {
+  if (chunks < 0) {
+    return failure();
+  }
+  int64_t dimInt;
+  if (!matchPattern(dim, m_TorchConstantInt(&dimInt)))
+    return rewriter.notifyMatchFailure(op, "unknown dim");
+
+  auto self = op.getOperand(0);
+  auto selfTy = self.getType().dyn_cast<BaseTensorType>();
+  ArrayRef<int64_t> inputShape = selfTy.getSizes();
+
+  dimInt = toPositiveDim(dimInt, getTensorRank(self));
+
+  SmallVector<int64_t> sizes;
+  sizes.append(inputShape.begin(), inputShape.end());
+  sizes[dimInt] = kUnknownSize;
+
+  int64_t splitSizeInt = -1;
+  if (matchPattern(splitSize, m_TorchConstantInt(&splitSizeInt)) &&
+      splitSizeInt == 1) {
+    sizes[dimInt] = 1;
+  }
+  Type sliceTy =
+      selfTy.getWithSizesAndDtype(llvm::makeArrayRef(sizes), selfTy.getDtype());
+  sizes.erase(sizes.begin() + dimInt);
+  Type sequeezeTy =
+      selfTy.getWithSizesAndDtype(llvm::makeArrayRef(sizes), selfTy.getDtype());
+
+  auto intType = Torch::IntType::get(op.getContext());
+  Location loc = op.getLoc();
+  Value one =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(1));
+  Value end =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(0));
+  SmallVector<Value, 4> slices;
+  for (int64_t k = 0; k < chunks; ++k) {
+    Value start = end;
+    end = rewriter.create<AtenAddIntOp>(loc, intType, start, splitSize);
+    Value slice = rewriter.create<AtenSliceTensorOp>(
+        loc, sliceTy, self, dim, start, end, one);
+    if (splitSizeInt == 1 && not keepDim) {
+      slice = rewriter.create<AtenSqueezeDimOp>(loc, sequeezeTy, slice, dim);
+    }
+    slices.emplace_back(slice);
+  }
+  rewriter.replaceOpWithNewOp<PrimListConstructOp>(
+      op, op.getResult(0).getType(), slices);
+  return success();
+}
+
 template <>
 LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     OperatorOp op,
@@ -134,8 +191,179 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     rewriter.replaceOpWithNewOp<AtenDivTensorOp>(
         op, outTy, op.getOperand(0), op.getOperand(1));
     return success();
-  }
+  } else if ("aten.split.Tensor" == name) {
+    int64_t chunksInt = -1;
+    for (Operation* user : op.getResult(0).getUsers()) {
+      if (mlir::isa<PrimListUnpackOp>(user)) {
+        chunksInt = user->getNumResults();
+        break;
+      }
+    }
+    return decomposeSplits(
+        rewriter, op, op.getOperand(1), op.getOperand(2), chunksInt);
+  } else if ("aten.chunk" == name) {
+    int64_t chunksInt = -1;
+    auto chunks = op.getOperand(1);
+    if (!matchPattern(chunks, m_TorchConstantInt(&chunksInt))) {
+      for (Operation* user : op.getResult(0).getUsers()) {
+        if (mlir::isa<PrimListUnpackOp>(user)) {
+          chunksInt = user->getNumResults();
+          break;
+        }
+      }
+      if (chunksInt < 0) {
+        return rewriter.notifyMatchFailure(op, "unknown chunks");
+      }
+    }
+    auto self = op.getOperand(0);
+    auto dim = op.getOperand(2);
 
+    auto loc = op.getLoc();
+    Value one = rewriter.create<Torch::ConstantIntOp>(
+        loc, rewriter.getI64IntegerAttr(1));
+    auto intType = Torch::IntType::get(op.getContext());
+    Value dimSize = rewriter.create<AtenSizeIntOp>(loc, self, dim);
+    Value dimSizePlusChunk =
+        rewriter.create<AtenAddIntOp>(loc, intType, dimSize, chunks);
+    Value dimSizePlusChunkMinusOne =
+        rewriter.create<AtenSubIntOp>(loc, intType, dimSizePlusChunk, one);
+    Value splitSize = rewriter.create<AtenFloordivIntOp>(
+        loc, intType, dimSizePlusChunkMinusOne, chunks);
+    return decomposeSplits(rewriter, op, splitSize, dim, chunksInt);
+  } else if ("aten.unbind.int" == name) {
+    int64_t chunksInt = -1;
+    for (Operation* user : op.getResult(0).getUsers()) {
+      if (mlir::isa<PrimListUnpackOp>(user)) {
+        chunksInt = user->getNumResults();
+        break;
+      }
+    }
+    auto loc = op.getLoc();
+    Value one = rewriter.create<Torch::ConstantIntOp>(
+        loc, rewriter.getI64IntegerAttr(1));
+    return decomposeSplits(
+        rewriter, op, one, op.getOperand(1), chunksInt, /*keepDim*/ false);
+  } else if ("aten.max.other" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenMaximumOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1));
+    return success();
+  } else if ("aten.narrow.Tensor" == name) {
+    // start must be an 0-dim integral Tensor.
+    auto outTy = op.getResult(0).getType();
+    auto start = rewriter.create<AtenItemOp>(
+        loc, Torch::IntType::get(op.getContext()), op.getOperand(2));
+    rewriter.replaceOpWithNewOp<AtenNarrowOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1), start, op.getOperand(3));
+    return success();
+  } else if ("aten.selu" == name || "aten.selu_" == name) {
+    // selu(x) = scale * (max(0,x) + min(0, alpha * (exp(x) - 1)))
+    auto outTy = op.getResult(0).getType();
+    auto self = op.getOperand(0);
+
+    static const double SELU_ALPHA = 1.6732632423543772848170429916717;
+    static const double SELU_SCALE = 1.0507009873554804934193349852946;
+
+    Value noneVal = rewriter.create<ConstantNoneOp>(loc);
+    Value zeros = rewriter.create<AtenZerosLikeOp>(
+        loc, outTy, self, noneVal, noneVal, noneVal, noneVal, noneVal);
+    Value floatOne =
+        rewriter.create<ConstantFloatOp>(loc, rewriter.getF64FloatAttr(1));
+    Value floatAlpha = rewriter.create<ConstantFloatOp>(
+        loc, rewriter.getF64FloatAttr(SELU_ALPHA));
+    Value floatScale = rewriter.create<ConstantFloatOp>(
+        loc, rewriter.getF64FloatAttr(SELU_SCALE));
+
+    Value expVal = rewriter.create<AtenExpOp>(loc, outTy, self);
+    Value expValMinus1 = rewriter.create<AtenSubScalarOp>(
+        loc, outTy, expVal, floatOne, floatOne);
+    Value alphaVal =
+        rewriter.create<AtenMulScalarOp>(loc, outTy, expValMinus1, floatAlpha);
+
+    Value maxVal = rewriter.create<AtenMaximumOp>(loc, outTy, self, zeros);
+    Value minVal = rewriter.create<AtenMinimumOp>(loc, outTy, alphaVal, zeros);
+    Value addVal =
+        rewriter.create<AtenAddTensorOp>(loc, outTy, maxVal, minVal, floatOne);
+
+    rewriter.replaceOpWithNewOp<AtenMulScalarOp>(op, outTy, addVal, floatScale);
+    return success();
+  } else if ("aten.conv1d" == name) {
+    // "aten::conv1d(Tensor input, Tensor weight, Tensor? bias, int[] stride,
+    // int[] padding, int[] dilation, int groups) -> Tensor"
+    Value emptyList = rewriter.create<PrimListConstructOp>(
+        op.getLoc(),
+        Torch::ListType::get(Torch::IntType::get(op.getContext())),
+        SmallVector<Value>());
+    Value cstFalse = rewriter.create<Torch::ConstantBoolOp>(op.getLoc(), false);
+    rewriter.replaceOpWithNewOp<AtenConvolutionOp>(
+        op,
+        op->getResultTypes(),
+        op.getOperand(0),
+        op.getOperand(1),
+        op.getOperand(2),
+        op.getOperand(3),
+        op.getOperand(4),
+        op.getOperand(5),
+        cstFalse,
+        emptyList,
+        op.getOperand(6));
+    return success();
+  } else if ("aten.view_as" == name) {
+    auto sizeListType =
+        Torch::ListType::get(Torch::IntType::get(op.getContext()));
+    Value sizeList = rewriter.create<AtenSizeOp>(
+        op.getLoc(), sizeListType, op.getOperand(1));
+    rewriter.replaceOpWithNewOp<AtenViewOp>(
+        op, op->getResultTypes(), op.getOperand(0), sizeList);
+    return success();
+  } else if ("aten.glu" == name) {
+    auto inputTy = op.getOperand(0).getType().cast<BaseTensorType>();
+    int64_t inputRank = inputTy.getSizes().size();
+    Value dim = op.getOperand(1);
+    int64_t dimInt;
+    if (!matchPattern(dim, m_TorchConstantInt(&dimInt)))
+      return rewriter.notifyMatchFailure(
+          op, "unimplemented: dim must be a constant");
+    dimInt = toPositiveDim(dimInt, inputRank);
+    Value size =
+        rewriter.create<AtenSizeIntOp>(op.getLoc(), op.getOperand(0), dim);
+    Value constTwo = rewriter.create<Torch::ConstantIntOp>(
+        op.getLoc(), rewriter.getI64IntegerAttr(2));
+    Value constNone = rewriter.create<ConstantNoneOp>(loc);
+    Value constZero = rewriter.create<Torch::ConstantIntOp>(
+        loc, rewriter.getI64IntegerAttr(0));
+    Value constOne = rewriter.create<Torch::ConstantIntOp>(
+        loc, rewriter.getI64IntegerAttr(1));
+    ArrayRef<int64_t> inputShape = inputTy.getSizes();
+    SmallVector<int64_t> sliceShape{inputShape.begin(), inputShape.end()};
+    sliceShape[dimInt] = ShapedType::kDynamicSize;
+
+    Type sliceTy = inputTy.getWithSizesAndDtype(
+        llvm::makeArrayRef(sliceShape), inputTy.getDtype());
+    SmallVector<int64_t> empty;
+    Value halfSize =
+        rewriter.create<AtenFloordivIntOp>(op.getLoc(), size, constTwo);
+    Value a = rewriter.create<AtenSliceTensorOp>(
+        op.getLoc(),
+        sliceTy,
+        op.getOperand(0),
+        dim,
+        constZero,
+        halfSize,
+        constOne);
+    Value b = rewriter.create<AtenSliceTensorOp>(
+        op.getLoc(),
+        sliceTy,
+        op.getOperand(0),
+        dim,
+        halfSize,
+        constNone,
+        constOne);
+    Value sigmoidB = rewriter.create<AtenSigmoidOp>(op.getLoc(), sliceTy, b);
+    rewriter.replaceOpWithNewOp<AtenMulTensorOp>(
+        op, op->getResultTypes(), a, sigmoidB);
+    return success();
+  }
   return failure();
 }
 
@@ -359,7 +587,16 @@ class DiscDecomposeComplexOpsPass
           "aten.div_inplace.Tensor",
           "aten.mul_inplace.Tensor",
           "aten.sub_inplace.Tensor",
-      };
+          "aten.split.Tensor",
+          "aten.chunk",
+          "aten.unbind.int",
+          "aten.max.other",
+          "aten.narrow.Tensor",
+          "aten.selu",
+          "aten.selu_",
+          "aten.conv1d",
+          "aten.view_as",
+          "aten.glu"};
 
       if (illegalSet.find(op.name().str()) != illegalSet.end()) {
         return false;

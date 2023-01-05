@@ -15,6 +15,10 @@
 #include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 
+#if defined(TAO_CPU_ONLY)
+#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_quantization.h"
+#endif
+
 //===----------------------------------------------------------------------===//
 // Test related kernel
 //===----------------------------------------------------------------------===//
@@ -54,6 +58,45 @@ MemRefType<T, N> simple_test_fused_add_mul_kernel(ExecutionContext* ctx,
       dictAttr.get("float0_001").template as<FloatPDLAttr>().getValue();
   // Note that `0.001` is safe to check exact match even for float type.
   TAO_CHECK(float0_001 == 0.001);
+
+  auto& int64ArrayAttr = dictAttr.get("intArray3int128intNegative32int0")
+                             .template as<IntArrayPDLAttr>();
+  TAO_CHECK(int64ArrayAttr.size() == 3);
+  TAO_CHECK(int64ArrayAttr.get(0) == 128);
+  TAO_CHECK(int64ArrayAttr.get(1) == -32);
+  TAO_CHECK(int64ArrayAttr.get(2) == 0);
+
+  auto& strArrayAttr =
+      dictAttr.get("array2strtest0strtest1").template as<ArrayPDLAttr>();
+  TAO_CHECK(strArrayAttr.size() == 2);
+  TAO_CHECK(strArrayAttr.get(0).template as<StrPDLAttr>().getValue() ==
+            "test0");
+  TAO_CHECK(strArrayAttr.get(1).template as<StrPDLAttr>().getValue() ==
+            "test1");
+
+  auto& floatArrayAttr =
+      dictAttr.get("array3float0_001float23_0floatNegative0_5")
+          .template as<ArrayPDLAttr>();
+  TAO_CHECK(floatArrayAttr.size() == 3);
+  TAO_CHECK(floatArrayAttr.get(0).template as<FloatPDLAttr>().getValue() ==
+            0.001);
+  TAO_CHECK(floatArrayAttr.get(1).template as<FloatPDLAttr>().getValue() ==
+            23.0);
+  TAO_CHECK(floatArrayAttr.get(2).template as<FloatPDLAttr>().getValue() ==
+            -0.5);
+
+  auto& mixedArrayAttr =
+      dictAttr.get("array5intNegative5floatNegative0_5strtestint30float0_5")
+          .template as<ArrayPDLAttr>();
+  TAO_CHECK(mixedArrayAttr.size() == 5);
+  TAO_CHECK(mixedArrayAttr.get(0).template as<IntPDLAttr>().getValue() == -5);
+  TAO_CHECK(mixedArrayAttr.get(1).template as<FloatPDLAttr>().getValue() ==
+            -0.5);
+  TAO_CHECK(mixedArrayAttr.get(2).template as<StrPDLAttr>().getValue() ==
+            "test");
+  TAO_CHECK(mixedArrayAttr.get(3).template as<IntPDLAttr>().getValue() == 30);
+  TAO_CHECK(mixedArrayAttr.get(4).template as<FloatPDLAttr>().getValue() ==
+            0.5);
 
   auto& rank0I64DenseAttr =
       dictAttr.get("rank0I64DenseAttr").template as<DenseElementsPDLAttr>();
@@ -97,6 +140,169 @@ MemRefType<T, N> simple_test_fused_add_mul_kernel(ExecutionContext* ctx,
   for (int i = 0; i < rank2Shape2x3SplatFloatDenseAttr.getNumElements(); ++i) {
     TAO_CHECK(rank2Shape2x3SplatFloatDenseAttr.getValue<float>()[i] == -0.01f);
   }
+
+#if defined(TAO_CPU_ONLY)
+  std::string data_format_nhwc =
+      dictAttr.get("data_format_nhwc").template as<StrPDLAttr>().getValue();
+  TAO_CHECK(data_format_nhwc == "NHWC");
+  std::string data_format_nchw =
+      dictAttr.get("data_format_nchw").template as<StrPDLAttr>().getValue();
+  TAO_CHECK(data_format_nchw == "NCHW");
+
+  std::vector<int32_t> reorderDims(4, 0);
+  (void)generateReorderDims<4>(data_format_nchw, reorderDims);
+  TAO_CHECK(reorderDims[0] == 2);
+  TAO_CHECK(reorderDims[1] == 3);
+  TAO_CHECK(reorderDims[2] == 0);
+  TAO_CHECK(reorderDims[3] == 1);
+  (void)generateReorderDims<4>(data_format_nhwc, reorderDims);
+  TAO_CHECK(reorderDims[0] == 1);
+  TAO_CHECK(reorderDims[1] == 2);
+  TAO_CHECK(reorderDims[2] == 0);
+  TAO_CHECK(reorderDims[3] == 3);
+
+  std::string padding_same =
+      dictAttr.get("padding_same").template as<StrPDLAttr>().getValue();
+  TAO_CHECK(padding_same == "SAME");
+  std::string padding_valid =
+      dictAttr.get("padding_valid").template as<StrPDLAttr>().getValue();
+  TAO_CHECK(padding_valid == "VALID");
+
+  auto& strides1 =
+      dictAttr.get("strides1").template as<IntArrayPDLAttr>().getValue();
+  auto& strides2 =
+      dictAttr.get("strides22").template as<IntArrayPDLAttr>().getValue();
+  auto& strides3 =
+      dictAttr.get("strides1231").template as<IntArrayPDLAttr>().getValue();
+  std::vector<int32_t> strides(2, 0);
+  std::vector<std::vector<int64_t>> stridesArrs = {strides1, strides2,
+                                                   strides3};
+  std::vector<std::vector<int32_t>> stridesResults = {{1, 1}, {2, 2}, {2, 3}};
+  for (int i = 0; i < 3; ++i) {
+    (void)generateStrides<4>(reorderDims, stridesArrs[i], strides);
+    TAO_CHECK(strides[0] == stridesResults[i][0]);
+    TAO_CHECK(strides[1] == stridesResults[i][1]);
+  }
+
+  auto& dilations1 =
+      dictAttr.get("dilations1").template as<IntArrayPDLAttr>().getValue();
+  auto& dilations2 =
+      dictAttr.get("dilations22").template as<IntArrayPDLAttr>().getValue();
+  auto& dilations3 =
+      dictAttr.get("dilations1231").template as<IntArrayPDLAttr>().getValue();
+  std::vector<int32_t> dilations(2, 0);
+  std::vector<std::vector<int64_t>> dilationsArrs = {dilations1, dilations2,
+                                                     dilations3};
+  std::vector<std::vector<int32_t>> dilationsResults = {{1, 1}, {2, 2}, {2, 3}};
+  for (int i = 0; i < 3; ++i) {
+    (void)generateDilations<4>(reorderDims, dilationsArrs[i], dilations);
+    TAO_CHECK(dilations[0] == dilationsResults[i][0]);
+    TAO_CHECK(dilations[1] == dilationsResults[i][1]);
+  }
+
+  // generate input with shape: [4, 16, 16, 25] in "NHWC" format
+  // and weight with shape: [3, 3, 25, 8]
+  MemRefType<int8_t, 4> input;
+  auto inputSizes = std::initializer_list<int64_t>({4, 16, 16, 25});
+  std::copy(inputSizes.begin(), inputSizes.end(), input.sizes);
+  MemRefType<int8_t, 4> weight;
+  auto weightSizes = std::initializer_list<int64_t>({3, 3, 25, 8});
+  std::copy(weightSizes.begin(), weightSizes.end(), weight.sizes);
+
+  MemRefType<int32_t, 1> metadata;
+  metadata.sizes[0] = 17;  // 4 * 3 + (4 - 2) * 2 + 1
+  int32_t metadataData[metadata.sizes[0]] = {0};
+  metadata.data = metadataData;
+  int32_t metadataResultsData[9][17] = {
+      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 1, 1, 1, 1, 1},
+      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 1, 1, 2, 2, 1},
+      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 1, 1, 2, 3, 1},
+      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 2, 1, 1, 1},
+      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 2, 2, 2, 1},
+      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 2, 2, 3, 1},
+      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 3, 1, 1, 1},
+      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 3, 2, 2, 1},
+      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 3, 2, 3, 1}};
+  std::vector<MemRefType<int32_t, 1>> metadataResults(9);
+  for (int i = 0; i < 9; ++i)
+    metadataResults[i].data = &metadataResultsData[i][0];
+  int index = 0;
+  for (auto strides : stridesResults) {
+    for (auto dilations : dilationsResults) {
+      (void)generateMetadata<4>(strides, dilations, reorderDims, true,
+                                metadata);
+      for (int i = 0; i < metadata.sizes[0]; ++i)
+        TAO_CHECK(metadata.data[i] == metadataResults[index].data[i]);
+      index++;
+    }
+  }
+
+  // check output shape with following variable:
+  // input: 4x16x16x25
+  // kernel: 3x3x25x8
+  // padding: "same" and "valid"
+  // strides: [1, 1], [2, 2], [2, 3]
+  // dilations: [1, 1], [2, 2], [2, 3]
+  MemRefType<int32_t, 1> padding;
+  padding.sizes[0] = 4;  // 2 * 2
+  int32_t paddingData[padding.sizes[0]] = {0};
+  padding.data = paddingData;
+  int32_t paddingResultsData[18][4] = {
+      {1, 1, 1, 1}, {0, 1, 0, 1}, {0, 1, 1, 1}, {2, 2, 2, 2}, {1, 2, 1, 2},
+      {1, 2, 2, 2}, {2, 2, 3, 3}, {1, 2, 2, 3}, {1, 2, 3, 3}, {0, 0, 0, 0},
+      {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0},
+      {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
+  int64_t resultCheckSizes[18][4] = {
+      {4, 16, 16, 8}, {4, 8, 8, 8},   {4, 8, 6, 8},   {4, 16, 16, 8},
+      {4, 8, 8, 8},   {4, 8, 6, 8},   {4, 16, 16, 8}, {4, 8, 8, 8},
+      {4, 8, 6, 8},   {4, 14, 14, 8}, {4, 7, 7, 8},   {4, 7, 5, 8},
+      {4, 12, 12, 8}, {4, 6, 6, 8},   {4, 6, 4, 8},   {4, 12, 10, 8},
+      {4, 6, 5, 8},   {4, 6, 4, 8}};
+  std::vector<int64_t> resultSizes(4, 0);
+  index = 0;
+  for (auto padding_str : {"SAME", "VALID"}) {
+    for (auto dilations : dilationsResults) {
+      for (auto strides : stridesResults) {
+        (void)generatePadding<4>(input, weight, padding_str, reorderDims,
+                                 strides, dilations, padding);
+        for (int i = 0; i < 2; ++i) {
+          TAO_CHECK(padding.data[2 * i] == paddingResultsData[index][2 * i]);
+          TAO_CHECK(padding.data[2 * i + 1] ==
+                    paddingResultsData[index][2 * i + 1]);
+        }
+        generateResultShape<4>(input, weight, reorderDims, padding, strides,
+                               dilations, resultSizes);
+        for (int i = 0; i < 4; ++i)
+          TAO_CHECK(resultSizes[i] = resultCheckSizes[index][i]);
+        index++;
+      }
+    }
+  }
+
+  // check output shape with following variable:
+  // input: 4x16x16x25
+  // kernel: 3x3x25x8
+  // explicit_padding : [0, 0, 1, 2, 3, 4, 0, 0]
+  // strides: [1, 1], [2, 2], [2, 3]
+  // dilations: [1, 1], [2, 2], [2, 3]
+  int resultCheckSizes_1[9][4] = {{4, 17, 21, 8}, {4, 9, 11, 8}, {4, 9, 7, 8},
+                                  {4, 15, 19, 8}, {4, 8, 10, 8}, {4, 8, 7, 8},
+                                  {4, 15, 17, 8}, {4, 8, 9, 8},  {4, 8, 6, 8}};
+  auto& explicit_paddings = dictAttr.get("explicit_paddings")
+                                .template as<IntArrayPDLAttr>()
+                                .getValue();
+  (void)generateExplicitPaddings<4>(reorderDims, explicit_paddings, padding);
+  index = 0;
+  for (auto dilations : dilationsResults) {
+    for (auto strides : stridesResults) {
+      generateResultShape<4>(input, weight, reorderDims, padding, strides,
+                             dilations, resultSizes);
+      for (int i = 0; i < 4; ++i)
+        TAO_CHECK(resultSizes[i] == resultCheckSizes_1[index][i]);
+      index++;
+    }
+  }
+#endif
 
   TAO_VLOG(0) << "custom_attr {\n"
               << "\tname = " << name << "\n"

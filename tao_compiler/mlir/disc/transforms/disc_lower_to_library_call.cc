@@ -104,6 +104,12 @@ void InsertSyncOnStream(Operation* op, Value ctx, Value stream_handle,
                               "sync_on_stream", false, "gpu");
 }
 
+// return true if op in fusion block
+bool isInFusionBlock(Operation* op) {
+  if (op->getParentOfType<FusionOp>() != nullptr) return true;
+  return false;
+}
+
 // Converting:
 //   %output = disc_ral.recv_input(ctx, input_idx)
 //     to
@@ -159,6 +165,8 @@ struct GpuCopyOpConvertor : public OpRewritePattern<OpTy> {
 
   LogicalResult matchAndRewrite(OpTy op,
                                 PatternRewriter& rewriter) const override {
+    if (isInFusionBlock(op)) return failure();
+
     Value ctx = GetContextValueFromFunctionArguments(op);
     if (!ctx) {
       return op->emitOpError(
@@ -420,7 +428,7 @@ struct DynamicConvLikeConverter : public OpRewritePattern<OpTy> {
 // the copied result value.
 Value getCopyRemovableResult(Operation* op) {
   // Not removable if inside a fusion.
-  if (op->getParentOfType<FusionOp>() != nullptr) return {};
+  if (isInFusionBlock(op)) return {};
 
   // TODO(disc): add cpu copy removal support.
   if (isa<ReshapeOp, DynamicReshapeOp, CopyOp>(op)) {
@@ -781,6 +789,38 @@ LogicalResult emitDenseElementsAttr(DenseElementsAttr val, StrT& out) {
   return emitString(rawData, out);
 }
 
+LogicalResult emitArrayAttr(ArrayAttr arr, StrT& out) {
+  if (llvm::all_of(arr, [](Attribute val) {
+        if (!isa<IntegerAttr>(val)) return false;
+        auto ty = cast<IntegerAttr>(val).getType();
+        return isa<IntegerType>(ty) && ty.getIntOrFloatBitWidth() == 64;
+      })) {
+    // 1, firstly emit the type string
+    if (failed(emitString("intArray", out))) return failure();
+
+    // 2, emit the size of array
+    if (failed(emitPOD<int64_t>(arr.size(), out))) return failure();
+
+    // 3, emit the value of array
+    for (const auto& val : arr) {
+      if (failed(emitPOD(cast<IntegerAttr>(val).getInt(), out)))
+        return failure();
+    }
+    return success();
+  }
+  // 1, firstly emit the type string
+  if (failed(emitString("array", out))) return failure();
+
+  // 2, emit the size of array
+  if (failed(emitPOD<int64_t>(arr.size(), out))) return failure();
+
+  // 3, emit the value of array
+  for (const auto& val : arr) {
+    if (failed(emitAttr(val, out))) return failure();
+  }
+  return success();
+}
+
 LogicalResult emitAttr(Attribute attr, StrT& out) {
   if (auto dictAttr = dyn_cast<DictionaryAttr>(attr)) {
     return emitDictAttr(dictAttr, out);
@@ -794,6 +834,8 @@ LogicalResult emitAttr(Attribute attr, StrT& out) {
     return emitFloatAttr(floatAttr, out);
   } else if (auto denseAttr = dyn_cast<DenseElementsAttr>(attr)) {
     return emitDenseElementsAttr(denseAttr, out);
+  } else if (auto arrayAttr = dyn_cast<ArrayAttr>(attr)) {
+    return emitArrayAttr(arrayAttr, out);
   }
   return failure();
 }

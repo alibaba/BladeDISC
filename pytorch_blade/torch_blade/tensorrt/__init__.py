@@ -9,7 +9,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import contextlib
 
 import torch
 
@@ -27,7 +26,7 @@ try:
     OptPipelines.register_pipeline(backend_name(), optimize_trt)
     _TRT_NAME = backend_name()
     _is_available = True
-except ImportError as e:
+except ImportError:
     _is_available = False
     _TRT_NAME = "TensorRT"
 

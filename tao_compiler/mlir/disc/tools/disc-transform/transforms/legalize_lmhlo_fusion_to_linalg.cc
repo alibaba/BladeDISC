@@ -11,15 +11,20 @@
 
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "mlir-hlo/Dialect/mhlo/transforms/legalize_to_linalg_utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
 #define DEBUG_TYPE "disc-legalize-lmhlo-fusion-to-linalg"
 
@@ -80,7 +85,8 @@ LogicalResult emitReturnOp(func::ReturnOp op, OpBuilder& b,
 }
 
 LogicalResult emitDotGeneralOp(lmhlo::DotGeneralOp op, OpBuilder& b,
-                               BlockAndValueMapping& mapping) {
+                               BlockAndValueMapping& mapping,
+                               const std::string& name) {
   Value A = op->getOperand(0);
   Value B = op->getOperand(1);
   Value C = op->getOperand(2);
@@ -89,25 +95,121 @@ LogicalResult emitDotGeneralOp(lmhlo::DotGeneralOp op, OpBuilder& b,
   Value newB = mapping.lookup(B);
   Value newC = mapping.lookup(C);
 
-  // firstly fill the output buffer using zero.
+  auto lhsTy = A.getType().cast<MemRefType>();
+  auto rhsTy = B.getType().cast<MemRefType>();
+  if (lhsTy.getRank() != 2 || rhsTy.getRank() != 2) {
+    return op->emitError() << "only support rank 2 GEMM a.t.m.\n";
+  }
+
+  auto dimNumbers = op.getDotDimensionNumbers();
+  auto lhsBatchingDims = dimNumbers.getLhsBatchingDimensions();
+  auto rhsBatchingDims = dimNumbers.getRhsBatchingDimensions();
+  auto lhsContractingDims = dimNumbers.getLhsContractingDimensions();
+  auto rhsContractingDims = dimNumbers.getRhsContractingDimensions();
+  if (lhsContractingDims.size() != 1 || rhsContractingDims.size() != 1) {
+    return op->emitError() << "only support exactly 1 contract dim\n";
+  }
+
+  auto numContracting = lhsContractingDims.size();
+  auto outputType = newC.getType().cast<ShapedType>();
+  auto targetRank = outputType.getRank();
+  auto totalLoopCount = numContracting + targetRank;
+  auto lhsRank = lhsTy.getRank();
+  auto lhsExtraDims =
+      lhsRank - lhsBatchingDims.size() - lhsContractingDims.size();
+  auto rhsRank = rhsTy.getRank();
+
+  // 1, fill the output buffer using zero.
   auto ty = newC.getType().cast<ShapedType>();
   auto zeroAttr = b.getZeroAttr(ty.getElementType());
   Location loc = op->getLoc();
   Value zero = b.create<arith::ConstantOp>(loc, zeroAttr);
-  Value t0 = b.create<linalg::FillOp>(loc, zero, newC).result();
-  Value t1 =
-      b.create<linalg::MatmulOp>(loc, ValueRange{newA, newB}, ValueRange{t0})
-          .getResult(0);
+  auto fillOp = b.create<linalg::FillOp>(loc, zero, newC);
+  fillOp->setAttr(kDISCLinalgTransformName, b.getStringAttr(name));
+
+  // 2, build the matmul op.
+  Operation* matmulOp;
+  if (lhsContractingDims[0] == 1 && rhsContractingDims[0] == 0) {
+    // nn format gemm
+    matmulOp = b.create<linalg::MatmulOp>(loc, ValueRange{newA, newB},
+                                          ValueRange{fillOp.getResult(0)});
+  } else {
+    // nt, tn, tt format gemm
+    SmallVector<AffineMap, 3> indexingMaps;
+
+    auto getMap = [&](int64_t rank, ArrayRef<int64_t> batchingDims,
+                      ArrayRef<int64_t> contractingDims, size_t extraDims) {
+      llvm::SmallVector<AffineExpr> indices(rank);
+      for (const auto& i : llvm::enumerate(batchingDims)) {
+        indices[i.value()] = b.getAffineDimExpr(i.index());
+      }
+      for (const auto& i : llvm::enumerate(contractingDims)) {
+        indices[i.value()] = b.getAffineDimExpr(i.index() + targetRank);
+      }
+      for (int i = 0; i < rank; ++i) {
+        if (!indices[i]) {
+          indices[i] = b.getAffineDimExpr(extraDims++);
+        }
+      }
+      indexingMaps.push_back(AffineMap::get(/*dimCount=*/totalLoopCount,
+                                            /*symbolCount=*/0, indices,
+                                            op->getContext()));
+    };
+    getMap(lhsRank, lhsBatchingDims, lhsContractingDims,
+           lhsBatchingDims.size());
+    getMap(rhsRank, rhsBatchingDims, rhsContractingDims,
+           rhsBatchingDims.size() + lhsExtraDims);
+
+    {
+      SmallVector<AffineExpr, 4> dimExprs;
+      dimExprs.reserve(targetRank);
+      for (unsigned i = 0; i < targetRank; ++i)
+        dimExprs.push_back(b.getAffineDimExpr(i));
+      indexingMaps.push_back(AffineMap::get(/*dimCount=*/totalLoopCount,
+                                            /*symbolCount=*/0, dimExprs,
+                                            op.getContext()));
+    }
+
+    matmulOp = b.create<linalg::GenericOp>(
+        loc, /*resultTensorTypes=*/TypeRange{outputType},
+        /*inputs=*/ValueRange{newA, newB},
+        /*outputBuffers=*/ValueRange{fillOp.getResult(0)}, indexingMaps,
+        mhlo::getParallelAndReductionIterators(
+            /*nLoops=*/totalLoopCount,
+            /*nReduction=*/numContracting),
+        [](OpBuilder& b, Location loc, ValueRange) {
+          ImplicitLocOpBuilder builder(loc, b);
+          linalg::MatmulOp::regionBuilder(builder, *b.getInsertionBlock(), {});
+        },
+        linalg::getPrunedAttributeList(op));
+  }
+  matmulOp->setAttr(kDISCLinalgTransformName, b.getStringAttr(name));
   mapping.erase(C);
-  mapping.map(C, t1);
+  mapping.map(C, matmulOp->getResult(0));
 
   return success();
 }
 
+LogicalResult emitConstOp(lmhlo::ConstantOp op, OpBuilder& b,
+                          BlockAndValueMapping& mapping,
+                          const std::string& name) {
+  auto resultTy = convertMemRefToTensorType(op->getOperand(0).getType());
+  Location loc = op->getLoc();
+  auto newOp = b.create<disc_linalg_ext::ConstantWrapperOp>(loc, resultTy,
+                                                            op.getValue());
+  mapping.erase(op->getOperand(0));
+  mapping.map(op->getOperand(0), newOp.getResult());
+  newOp->setAttr(kDISCLinalgTransformName, b.getStringAttr(name));
+  return success();
+}
+
 LogicalResult emitLmhloOp(Operation* op, OpBuilder& b,
-                          BlockAndValueMapping& mapping) {
+                          BlockAndValueMapping& mapping,
+                          const std::string& name) {
   if (auto dotGeneralOp = dyn_cast<lmhlo::DotGeneralOp>(op)) {
-    return emitDotGeneralOp(dotGeneralOp, b, mapping);
+    return emitDotGeneralOp(dotGeneralOp, b, mapping, name);
+  } else if (auto constOp = dyn_cast<lmhlo::ConstantOp>(op)) {
+    return emitConstOp(constOp, b, mapping, name);
   }
   // TODO(wyzero): support other lmhlo ops.
   return failure();
@@ -115,9 +217,11 @@ LogicalResult emitLmhloOp(Operation* op, OpBuilder& b,
 
 LogicalResult emitLmhloFusionOp(lmhlo::FusionOp op, OpBuilder& b,
                                 BlockAndValueMapping& mapping) {
+  TransformNameAssigner assigner;
   for (Operation& op : op.getRegion().getBlocks().front()) {
     if (isa<lmhlo::TerminatorOp>(&op)) continue;
-    if (failed(emitLmhloOp(&op, b, mapping))) return failure();
+    if (failed(emitLmhloOp(&op, b, mapping, assigner.nameNewOperation(&op))))
+      return failure();
   }
   return success();
 }

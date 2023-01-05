@@ -102,7 +102,17 @@ class TestDiscSlices(DiscTestCase):
         annotations = [([4, -1, 256], dtype), ([4, -1, 256], dtype)]
         self._test_cvt_to_disc(func, test_data, annotations)
 
-    @skipIfEnableTorchMlir()
+    def test_narrow(self):
+
+        @torch.jit.script
+        def func(x):
+            return torch.narrow(x, 1, 32, 16)
+
+        x = torch.randn([4, 64, 12], device=self.device)
+        self._test_slice(func, x=x)
+        x = torch.randn([4, 48, 12], device=self.device)
+        self._test_slice(func, x=x)
+
     def test_unbind(self):
         x = torch.randn([4, 64, 256], device=self.device)
         y = torch.randn([1, 4, 256], device=self.device)
@@ -124,7 +134,6 @@ class TestDiscSlices(DiscTestCase):
         with tools.trust_tracing_shape():
             self._test_cvt_to_disc(func, test_data, annotations)
 
-    @skipIfEnableTorchMlir()
     def test_chunk(self):
 
         @torch.jit.script
@@ -132,12 +141,30 @@ class TestDiscSlices(DiscTestCase):
             z1, z2, z3, z4, z5, z6 = torch.chunk(x, 6, -1)
             return z1, z2, z3, z4, z5, z6
 
-        print(func.graph)
         x = torch.randn([4, 64, 11], device=self.device)
         self._test_slice(func, x=x)
 
         x = torch.randn([4, 64, 12], device=self.device)
         self._test_slice(func, x=x)
+
+    def test_split(self):
+
+        @torch.jit.script
+        def func(x):
+            z1, z2, z3, z4, z5, z6 = torch.split(x, 2, -1)
+            return z1, z2, z3, z4, z5, z6
+
+        x = torch.randn([4, 64, 11], device=self.device)
+        annotations = [([-1, -1, 11], torch.float)]
+        self._test_disc(func, annotations, (x, ))
+        annotations = [([-1, -1, -1], torch.float)]
+        self._test_disc(func, annotations, (x, ))
+
+        x = torch.randn([4, 64, 12], device=self.device)
+        annotations = [([4, -1, 12], torch.float)]
+        self._test_disc(func, annotations, (x, ))
+        annotations = [([4, -1, -1], torch.float)]
+        self._test_disc(func, annotations, (x, ))
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,10 +20,11 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
-#define DEBUG_TYPE "disc-algebra-simplifier"
+#define DEBUG_TYPE "disc-algebraic-simplifier"
 
 // This file implements some basic optimizations to do algebra simplification.
 
@@ -390,7 +391,92 @@ struct SimplifierFromElementsPattern
   }
 };
 
-void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
+// Consant folding the broadcasted constant, for patterns like:
+//   %0 = mhlo.constant // Scalar or splat constant
+//   %1 = mhlo.dynamic_broadcast_in_dim(%0, ...)
+//   %2 = mhlo.rsqrt(%1, ...)
+// Convert:
+//   %0_clone = mhlo.constant // the value of rsqrt is calculated and folded.
+//   %1_clone = mhlo.dynamic_broadcast_in_dim(%0_clone, ...)
+struct FoldBcastOfComputationOnConstantPattern
+    : public OpRewritePattern<mhlo::ConstantOp> {
+  using OpRewritePattern<mhlo::ConstantOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::ConstantOp op,
+                                PatternRewriter& rewriter) const override {
+    Value result = op.getResult();
+    auto type = result.getType().dyn_cast<RankedTensorType>();
+    if (!type || !type.hasStaticShape()) {
+      return failure();
+    }
+    if (!op.getValue().isSplat() && type.getNumElements() != 1) {
+      return failure();
+    }
+
+    auto loc = op->getLoc();
+    auto block = op->getBlock();
+    auto elem_ty = type.getElementType();
+
+    OpBuilder::InsertPoint ip = rewriter.saveInsertionPoint();
+    for (Operation* user : result.getUsers()) {
+      if (auto bcast = dyn_cast_or_null<mhlo::DynamicBroadcastInDimOp>(user)) {
+        auto bcast_result = bcast.getResult();
+        auto bcast_type = bcast_result.getType().dyn_cast<RankedTensorType>();
+        for (Operation* bcast_user : bcast_result.getUsers()) {
+          if (isa<mhlo::RsqrtOp, mhlo::SqrtOp>(bcast_user)) {
+            bool is_rsqrt = isa<mhlo::RsqrtOp>(bcast_user);
+            if (elem_ty.isIntOrIndex()) {
+              int64_t val =
+                  (*op.getValue().getValues<APInt>().begin()).getSExtValue();
+              val = std::sqrt(val);
+              if (is_rsqrt) {
+                val = 1 / val;
+              }
+              rewriter.setInsertionPointAfter(bcast_user);
+              Value new_const = rewriter.create<mhlo::ConstantOp>(
+                  loc, DenseElementsAttr::get(type, val));
+              Value new_bcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+                  loc, bcast_type, new_const, bcast.getOutputDimensions(),
+                  bcast.getBroadcastDimensions());
+              rewriter.replaceOp(bcast_user, new_bcast);
+              rewriter.restoreInsertionPoint(ip);
+              return success();
+            } else if (isa<mlir::FloatType>(elem_ty)) {
+              APFloat val = *op.getValue().getValues<APFloat>().begin();
+              double double_val = val.convertToDouble();
+              double_val = std::sqrt(double_val);
+              if (is_rsqrt) {
+                double_val = 1 / double_val;
+              }
+              APFloat new_val(double_val);
+              bool ignored;
+              new_val.convert(val.getSemantics(),
+                              llvm::APFloat::rmNearestTiesToEven, &ignored);
+              rewriter.setInsertionPointAfter(bcast_user);
+              Value new_const = rewriter.create<mhlo::ConstantOp>(
+                  loc, DenseElementsAttr::get(type, new_val));
+              Value new_bcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+                  loc, bcast_type, new_const, bcast.getOutputDimensions(),
+                  bcast.getBroadcastDimensions());
+              rewriter.replaceOp(bcast_user, new_bcast);
+              rewriter.restoreInsertionPoint(ip);
+              return success();
+            } else {
+              continue;
+            }
+          } else {
+            // TODO: support more algebraic patterns.
+            return failure();
+          }
+        }
+      }
+    }
+
+    return failure();
+  }
+};
+
+void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
     BroadCastInDimOfReshapeOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
@@ -402,6 +488,12 @@ void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
     SimplifierFromElementsPattern
   >(patterns.getContext());
 
+  if (isMemIntensiveOptExperimentalEnabled()) {
+    // Will be enabled by default after a set of robustness testing.
+    patterns.insert<FoldBcastOfComputationOnConstantPattern>(
+        patterns.getContext());
+  }
+
   // zero tensor related patterns
   patterns.insert<
     AddZeroTensorOp,
@@ -410,22 +502,24 @@ void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
   // clang-format on
 }
 
-struct DiscAlgebraSimplifierPass
-    : public DiscAlgebraSimplifierPassBase<DiscAlgebraSimplifierPass> {
+struct DiscAlgebraicSimplifierPass
+    : public DiscAlgebraicSimplifierPassBase<DiscAlgebraicSimplifierPass> {
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<mhlo::MhloDialect>();
   }
   void runOnOperation() override;
 };
 
-void DiscAlgebraSimplifierPass::runOnOperation() {
+void DiscAlgebraicSimplifierPass::runOnOperation() {
   // Setup rewriter patterns.
   MLIRContext& ctx = getContext();
   RewritePatternSet patterns(&ctx);
-  populateDiscAlgebraSimplifierPatterns(patterns);
+  populateDiscAlgebraicSimplifierPatterns(patterns);
 
-  if (failed(
-          applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+  GreedyRewriteConfig config = GreedyRewriteConfig();
+  config.maxIterations = GreedyRewriteConfig::kNoIterationLimit;
+  if (failed(applyPatternsAndFoldGreedily(getOperation(), std::move(patterns),
+                                          config))) {
     signalPassFailure();
     return;
   }
@@ -433,8 +527,9 @@ void DiscAlgebraSimplifierPass::runOnOperation() {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscAlgebraSimplifierPass() {
-  return std::make_unique<DiscAlgebraSimplifierPass>();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscAlgebraicSimplifierPass() {
+  return std::make_unique<DiscAlgebraicSimplifierPass>();
 }
 
 }  // namespace disc_ral

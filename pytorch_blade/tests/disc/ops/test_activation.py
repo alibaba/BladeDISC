@@ -62,9 +62,11 @@ class TestDiscActivation(DiscTestCase):
     def test_hardtanh_dynamic_shape(self):
         self._test_activation(torch.nn.Hardtanh(), torch.nn.functional.hardtanh, [([-1, -1, -1, -1], torch.float)])
 
-    @skipIfEnableTorchMlir()
     def test_glu(self):
         self._test_activation(torch.nn.GLU(), torch.nn.functional.glu, [([2, 4, 16, 16], torch.float)])
+
+    def test_selu(self):
+        self._test_activation(torch.nn.SELU(), torch.nn.functional.selu, [([2, 4, 16, 16], torch.float)])
 
     def test_hardswish(self):
 

@@ -1712,8 +1712,8 @@ cc_library(
 )
 
 cc_library(
-    name = "disc_algebra_simplifier",
-    srcs = ["transforms/disc_algebra_simplifier.cc"],
+    name = "disc_algebraic_simplifier",
+    srcs = ["transforms/disc_algebraic_simplifier.cc"],
     deps = [
         ":disc_shape_optimization_utils",
         ":mhlo_disc",
@@ -1908,6 +1908,7 @@ cc_library(
     hdrs = ["transforms/disc_pdl_utils.h"],
     deps = [
         ":mhlo_disc",
+        "//tensorflow/tsl/platform:logging",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:PDLLAST",
@@ -1995,17 +1996,19 @@ cc_library(
 
 genrule(
   name = "cutlass_header_preprocess",
-  srcs = ["cutlass", "utils/cutlass_required_headers.cu"],
+  srcs = [
+      "cutlass",
+      "utils/cutlass_required_headers.cu",
+      "utils/preprocess_hdrs_to_rstr.sh"],
   outs = [
-      "utils/cutlass_header_preprocess.cpp1.ii.h",
+      "utils/cutlass_header_preprocess.700.cpp1.ii.h",
+      "utils/cutlass_header_preprocess.750.cpp1.ii.h",
+      "utils/cutlass_header_preprocess.800.cpp1.ii.h",
+      "utils/cutlass_header_preprocess.860.cpp1.ii.h",
       "utils/cutlass_header_preprocess.cpp4.ii.h"],
   cmd = """
         UTILS_DIR=$$(dirname $(location utils/cutlass_required_headers.cu));
-        bash $${UTILS_DIR}/preprocess_cutlass_headers.sh $(SRCS) $(OUTS);
-        sed -i '1s/^/R\"bladedisc_rstr(\\n/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
-        sed -i '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
-        sed -i '1s/^/R\"bladedisc_rstr(\\n/' $(location utils/cutlass_header_preprocess.cpp4.ii.h);
-        sed -i '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp4.ii.h)
+        bash $${UTILS_DIR}/preprocess_hdrs_to_rstr.sh $(SRCS) $(OUTS)
         """
 )
 
@@ -2030,6 +2033,7 @@ disc_cc_library(
         ":lmhlo_disc",
         ":pass_details",
         "@llvm-project//mlir:Pass",
+        "//tensorflow/tsl/platform:cuda_libdevice_path",
         "//tensorflow/core:lib",
     ] + if_cuda_is_configured([
         ":compute_intensive_fusion_deps",
@@ -2038,8 +2042,9 @@ disc_cc_library(
 )
 
 cc_library(
-    name = "disc_transform_legalize_to_loop",
-    srcs = ["transforms/disc_transform_legalize_to_loop.cc"],
+    name = "disc_transform_schedule",
+    srcs = ["transforms/disc_transform_schedule.cc"],
+    hdrs = ["transforms/disc_transform_schedule.h"],
     deps = [
         ":codegen_utils",
         ":disc_lhlo_elemental_utils",
@@ -2051,6 +2056,8 @@ cc_library(
         "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
+        "//tensorflow/compiler/mlir/disc/tools/disc-transform:DISCLinalgExtDialect",
+        "//tensorflow/tsl/platform:logging",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AffineDialect",
         "@llvm-project//mlir:FuncDialect",
@@ -2068,6 +2075,15 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_transform_legalize_to_loop",
+    srcs = ["transforms/disc_transform_legalize_to_loop.cc"],
+    deps = [
+        ":disc_transform_schedule",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -2080,7 +2096,7 @@ cc_library(
         ":conv_rewriter",
         ":quantized_dot_rewriter",
         ":disc_dot_merge",
-        ":disc_algebra_simplifier",
+        ":disc_algebraic_simplifier",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
         ":disc_buffer_deallocation",
@@ -2495,6 +2511,8 @@ tf_cc_binary(
     ] + if_cuda_is_configured([
         "@local_config_cuda//cuda:cuda_headers",
         "@local_config_cuda//cuda:cuda_driver",
+    ]) + if_rocm_is_configured([
+	"//tensorflow/stream_executor/rocm:rocm_driver",
     ]),
 )
 

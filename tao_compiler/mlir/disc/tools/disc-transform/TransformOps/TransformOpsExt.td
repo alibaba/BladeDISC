@@ -139,4 +139,128 @@ def FoldProducerExtractSliceOp : Op<Transform_Dialect, "disc.fold_producer_extra
   }];
 }
 
+def CacheReadOp : Op<Transform_Dialect, "disc.cache_read",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Given a target `tensor.ExtractSliceOp` named 's0', first tile and pack source of the `s0`,
+    and then replace `s0` with a new `tensor.ExtractSliceOp` named `s1`. `s1` will read from
+    the packed and tiled source to increase the cache hit ratio. the transformed source tensor
+    will be placed right before the `anthor` op.
+
+    Returns the new tensor.ExtractSliceOp.
+
+    The following attributes need to be set:
+      - tileLevels: please see the document of `disc_ral::disc_linalg_ext::MultiLevelPackOp`
+      - tileSizes: please see the document of `disc_ral::disc_linalg_ext::MultiLevelPackOp`
+      - permutation: please see the document of `disc_ral::disc_linalg_ext::MultiLevelPackOp`
+      - padded (optional): indicates that the slice op is padded and target tile is the padded
+        version.
+
+    Example #0:
+     convert from:
+     ```
+      for (i, j) {
+        %0 = tensor.extract_slice %arg0[i, j][32, 32][1, 1] : tensor<256x256xf32> to tensor<32x32xf32>
+        use(%0)
+      }
+     ```
+     to:
+     ```
+      %0 = tensor.empty() : tensor<8x8x32x32xf32>
+      %packed = disc_linalg_ext.multi_level_pack %arg0 with
+          tile_levels = [1, 1] tile_sizes = [32, 32] permutation = [0, 3, 1, 3] into %0
+          (tensor<256x256xf32> tensor<8x8x32x32xf32>) -> tensor<8x8x32x32xf32>
+      for (i, j) {
+        i', j' = f(i, j) // index mapping
+        %0 = tensor.extract_slice %packed[i', j', 0, 0][1, 1, 32, 32][1, 1, 1, 1] : tensor<8x8x32x32xf32> to tensor<32x32xf32>
+        use(%0)
+      }
+     ```
+
+    Example #1:
+     convert from:
+     ```
+      #map = affine_map<(d0)[s0] -> (-d0 + s0, 32)>
+      %cst0 = arith.constant 0.000000e+00 : f32
+      for (i, j) {
+        %s0 = affine.min #map(%i)[%d0]
+        %s1 = affine.min #map(%j)[%d1]
+        %0 = tensor.extract_slice %arg0[i, j][%s0, %s1][1, 1] : tensor<?x?xf32> to tensor<?x?xf32>
+        %1 = tensor.pad %0 low[0, 0] high[32, 32] {
+        ^bb0(%arg12: index, %arg13: index):
+          tensor.yield %cst0 : f32
+        } : tensor<?x?xf32> to tensor<32x32xf32>
+        use(%1)
+      }
+     ```
+     to:
+     ```
+      %0 = tensor.empty() : tensor<?x?x32x32xf32>
+      %packed = disc_linalg_ext.multi_level_pack %arg0 with
+          %cst0 tile_levels = [1, 1] tile_sizes = [32, 32] permutation = [0, 3, 1, 3] into %0
+          (tensor<?x?xf32> tensor<?x?x32x32xf32>) -> tensor<?x?x32x32xf32>
+      for (i, j) {
+        i', j' = f(i, j) // index mapping
+        %0 = tensor.extract_slice %packed[i', j', 0, 0][1, 1, 32, 32][1, 1, 1, 1] : tensor<?x?x32x32xf32> to tensor<32x32xf32>
+        use(%0)
+      }
+     ```
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       PDL_Operation:$anchor,
+                       I64ArrayAttr:$tile_levels,
+                       I64ArrayAttr:$tile_sizes,
+                       I64ArrayAttr:$permutation,
+                       UnitAttr:$padded);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = [{
+    attr-dict
+    $target `at` $anchor `with`
+    `tile_levels` `=` $tile_levels
+    `tile_sizes` `=` $tile_sizes
+    `permutation` `=` $permutation
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let builders = [
+    OpBuilder<(ins "Value":$target, "Value":$anchor,
+                   "ArrayRef<int64_t>":$tileLevels,
+                   "ArrayRef<int64_t>":$tileSizes,
+                   CArg<"bool", "false">:$padded,
+                   CArg<"ArrayRef<int64_t>", "{}">:$permutation)>
+  ];
+}
+
+def LowerMultiLevelPackToLoopOp : Op<Transform_Dialect, "disc.lower_multi_level_pack_to_loop",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Replace a MultiLevelPackOp to its loop level equivalent.
+
+    Returns a handle to the outter most loop.
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let builders = [
+    OpBuilder<(ins "Value":$target)>
+  ];
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

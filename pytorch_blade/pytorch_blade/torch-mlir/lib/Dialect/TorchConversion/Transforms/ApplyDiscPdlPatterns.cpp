@@ -9,6 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -114,6 +115,13 @@ struct ApplyDiscPdlPatternsPass
             ApplyDiscPdlPatternsPass>::ApplyDiscPdlPatternsBase() {
     this->pdll_files_ = pdll_files;
     this->pdll_include_dirs_ = pdll_include_dirs;
+  }
+
+  void getDependentDialects(DialectRegistry& registry) const override {
+    registry.insert<mhlo::MhloDialect>();
+    registry.insert<mhlo_disc::MhloDiscDialect>();
+    registry.insert<tensor::TensorDialect>();
+    mlir::disc_ral::getPDLDependentDialects(registry);
   }
   void runOnOperation() override;
 };

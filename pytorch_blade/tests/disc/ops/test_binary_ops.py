@@ -149,7 +149,7 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_binary_type_promotion(torch.mul)
         if utils.torch_version_number() >= utils.parse_version("1.6.1"):
             self._test_binary_type_promotion(torch.true_divide)
-        if utils.torch_version_number() < utils.parse_version("1.14.0"):
+        if utils.torch_version_number() < utils.parse_version("1.13.0"):
             self._test_binary_type_promotion(torch.floor_divide)
         if not isTorchMlirEnable():
             self._test_binary_type_promotion(torch.rsub)
@@ -163,7 +163,7 @@ class TestDiscBinaryOps(DiscTestCase):
         # torch.aten.div between Tensor[int]s meet RefineType error in TorchMLIR
         if utils.torch_version_number() >= utils.parse_version("1.6.1"):
             self._test_func(torch.true_divide, test_int=True)
-        if utils.torch_version_number() < utils.parse_version("1.14.0"):
+        if utils.torch_version_number() < utils.parse_version("1.13.0"):
             self._test_func(torch.floor_divide, test_int=True)
         if not isTorchMlirEnable():
             self._test_func(torch.rsub)
@@ -269,6 +269,9 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_func(torch.lt)
         self._test_binary_type_promotion(torch.lt)
         self._test_cmp_func(torch.lt)
+
+    def test_max(self):
+        self._test_func(torch.max)
 
     def test_arange(self):
         # Given int dtype.

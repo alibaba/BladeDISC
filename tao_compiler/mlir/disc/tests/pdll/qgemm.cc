@@ -23,7 +23,7 @@ const std::string c_ft_path = "tensorflow/compiler/mlir/disc/tests/pdll/data/";
 
 TEST(SimpleTest, FusedAddMul) {
   EnvSetting setting = {
-      {"DISC_TF_PDLL_FILES", {c_ft_path + "qgemm_i8_per_channel.pdll", false}},
+      {"DISC_TF_PDLL_FILES", {c_ft_path + "qgemm_i8.pdll", false}},
       {"DISC_FAKE_QUANT_TO_QUANT_AND_DEQUANT", {"true", false}}};
   EnvSettingContext ctx(setting);
   std::vector<float> inputs(4 * 25, -0.6);
@@ -31,7 +31,7 @@ TEST(SimpleTest, FusedAddMul) {
   auto datas = output.flat<float>();
   for (int i = 0; i < output.NumElements(); ++i) datas(i) = 12.0;
   EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "qgemm_i8_per_channel.mlir",
+      /*mlir_file_path*/ c_ft_path + "qgemm_i8_per_tensor.mlir",
       /*backend_types*/ {BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,

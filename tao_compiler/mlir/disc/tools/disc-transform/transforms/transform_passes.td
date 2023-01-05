@@ -18,6 +18,9 @@ include "mlir/Pass/PassBase.td"
 def DiscLegalizeLmhloFusionToLinalgPass : Pass<"disc-legalize-lmhlo-fusion-to-linalg", "ModuleOp"> {
   let summary = "Pass to convert a lmhlo fusion op to linalg on tensor.";
   let constructor = "createDiscLegalizeLmhloFusionToLinalgPass()";
+  let dependentDialects = [
+      "disc_ral::disc_linalg_ext::DISCLinalgExtDialect",
+  ];
 }
 
 def DiscTransformDialectInterpreterPass : Pass<"disc-transform-dialect-interpreter", "ModuleOp"> {
@@ -29,6 +32,11 @@ def DiscTransformDialectInterpreterPass : Pass<"disc-transform-dialect-interpret
     Option<"enableExpensiveChecks_", "enable-expensive-checks", "bool",
            /*default=*/"false", "perform expensive checks to better report errors in the transform IR.">,
   ];
+}
+
+def DiscTransformDialectEraseSchedulePass : Pass<"disc-transform-dialect-erase-schedule", "ModuleOp"> {
+  let summary = "Pass to erase transform dialect schedule from the IR.";
+  let constructor = "createDiscTransformDialectEraseSchedulePass()";
 }
 
 def DiscRewritePayloadIRForRALPass : Pass<"disc-rewrite-payload-ir-for-ral", "ModuleOp"> {

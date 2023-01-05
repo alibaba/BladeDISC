@@ -23,6 +23,7 @@ limitations under the License.
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -34,12 +35,17 @@ limitations under the License.
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/LogicalResult.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/passes.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_transform_schedule.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "tensorflow/tsl/platform/default/logging.h"
 
 // This file implements logic to legalize transform fusion pattern to loop.
 
@@ -81,8 +87,13 @@ struct DiscTransformLegalizeToLoopPass
 
   void runOnOperation() override;
 
+  void getDependentDialects(DialectRegistry& registry) const override {
+    addTransformDialectDependentDialects(registry);
+  }
+
   LogicalResult handleCpuFusionOp(OpBuilder& b, Operation* fusion,
-                                  ShapeAnalysis& shapeAnalysis);
+                                  ShapeAnalysis& shapeAnalysis,
+                                  ScheduleDispatcher& scheduleDispatcher);
   // Outlines the fusion op to a standalone module op.
   LogicalResult outlineFusionOp(lmhlo::FusionOp fusionOp,
                                 FusionPattern& fusionPattern,
@@ -130,10 +141,26 @@ LogicalResult DiscTransformLegalizeToLoopPass::outlineFusionOp(
 
 LogicalResult DiscTransformLegalizeToLoopPass::runTransformPipeline(
     ModuleOp m) {
+  if (VLOG_IS_ON(1))
+    llvm::dbgs() << "/// ------- Apply Transform IR for fusion:\n"
+                 << m << "\n\n";
+
   PassManager pm(m.getContext());
+  auto printingFlags = OpPrintingFlags();
+  printingFlags.elideLargeElementsAttrs(16);
+  pm.enableIRPrinting(
+      /*shouldPrintBeforePass=*/nullptr,
+      /*shouldPrintAfterPass=*/
+      [](Pass* pass, Operation*) { return VLOG_IS_ON(1); },
+      /*printModuleScope=*/false,
+      /*printAfterOnlyOnChange=*/true,
+      /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
+
   pm.addPass(createDiscLegalizeLmhloFusionToLinalgPass());
-  pm.addPass(createDiscTransformDialectInterpreterPass(transformFileName_,
-                                                       enableExpensiveChecks_));
+  // Using transform IR attached in the module.
+  pm.addPass(createDiscTransformDialectInterpreterPass(
+      /* transformFileName */ "", enableExpensiveChecks_));
+  pm.addPass(createDiscTransformDialectEraseSchedulePass());
   pm.addNestedPass<func::FuncOp>(createDiscMemrefCopyToLinalgPass());
   pm.addPass(createDiscRewritePayloadIRForRALPass(gpuEnabled_));
   return pm.run(m);
@@ -155,13 +182,33 @@ LogicalResult DiscTransformLegalizeToLoopPass::inlineTransformedModule(
   b.setInsertionPoint(body, body->begin());
   auto mapping = buildValueMapping(fusionPattern, funcOps[0], true);
   for (auto& nestedOp : funcOps[0].getBody().front().without_terminator()) {
+    // ConstantWrapperOp will be cloned when we handle its corresponding
+    // bufferization::to_memref op.
+    if (isa<disc_linalg_ext::ConstantWrapperOp>(&nestedOp)) continue;
+    if (auto toMemrefOp = dyn_cast<bufferization::ToMemrefOp>(&nestedOp)) {
+      auto constOp = toMemrefOp->getOperand(0)
+                         .getDefiningOp<disc_linalg_ext::ConstantWrapperOp>();
+      if (!constOp)
+        return constOp->emitError()
+               << "unkown operand for bufferization::ToMemrefOp\n";
+      auto ip = b.saveInsertionPoint();
+      b.setInsertionPoint(fusion);
+      Location loc = constOp->getLoc();
+      Value buffer = b.create<memref::AllocOp>(
+          loc, toMemrefOp.getResult().getType().cast<MemRefType>());
+      b.create<lmhlo::ConstantOp>(loc, constOp.getValue(), buffer);
+      mapping.map(toMemrefOp.getResult(), buffer);
+      b.restoreInsertionPoint(ip);
+      continue;
+    }
     Operation* cloned = b.clone(nestedOp, mapping);
   }
   return success();
 }
 
 LogicalResult DiscTransformLegalizeToLoopPass::handleCpuFusionOp(
-    OpBuilder& b, Operation* fusion, ShapeAnalysis& shapeAnalysis) {
+    OpBuilder& b, Operation* fusion, ShapeAnalysis& shapeAnalysis,
+    ScheduleDispatcher& scheduleDispatcher) {
   auto fusionOp = cast<lmhlo::FusionOp>(fusion);
   assert(fusionOp);
   FusionPattern fusionPattern(fusionOp, &shapeAnalysis);
@@ -172,19 +219,30 @@ LogicalResult DiscTransformLegalizeToLoopPass::handleCpuFusionOp(
 
   // 1, Outline the fusion to a standalone module op.
   OwningOpRef<ModuleOp> m;
-  if (failed(outlineFusionOp(fusionOp, fusionPattern, m))) return failure();
+  if (failed(outlineFusionOp(fusionOp, fusionPattern, m))) {
+    return fusionOp->emitError() << "failed to outlineFusionOp\n";
+  }
   LLVM_DEBUG(llvm::dbgs() << "After outline fusion op:\n" << m.get() << "\n");
 
-  // 2, TODO(wyzero): assign a default schedule for each pattern here.
+  // 2, assign a default schedule for each pattern here.
+  PatternDescription patternDescription(fusionOp, fusionPattern, shapeAnalysis);
+  if (failed(scheduleDispatcher.dispatch(patternDescription, m.get()))) {
+    return fusionOp->emitError() << "failed to assignSchedule\n";
+  }
+  LLVM_DEBUG(llvm::dbgs() << "After assign schedule for fusion op:\n"
+                          << m.get() << "\n");
 
   // 3, Build a nested pass pipeline to legalize the outlined fusion op.
-  if (failed(runTransformPipeline(m.get()))) return failure();
+  if (failed(runTransformPipeline(m.get()))) {
+    return fusionOp->emitError() << "failed to run runTransformPipeline\n";
+  }
   LLVM_DEBUG(llvm::dbgs() << "After run transform pipeline:\n"
                           << m.get() << "\n");
 
   // 4, Inline the lowered IR into the orignal module.
-  if (failed(inlineTransformedModule(b, fusion, fusionPattern, m.get())))
-    return failure();
+  if (failed(inlineTransformedModule(b, fusion, fusionPattern, m.get()))) {
+    return fusion->emitError() << "failed to inlineTransformedModule\n";
+  }
   LLVM_DEBUG(llvm::dbgs() << "After inline transformed module:\n"
                           << *fusion << "\n");
   return success();
@@ -209,6 +267,9 @@ void DiscTransformLegalizeToLoopPass::runOnOperation() {
     }
   }
 
+  // Assign a transform schedule for the given fusion pattern.
+  ScheduleDispatcher scheduleDispatcher{transformFileName_};
+
   for (Operation* fusion : gpu_fusion_worklist) {
     // TODO(disc): handling stitch fusion on GPU.
     return signalPassFailure();
@@ -223,7 +284,8 @@ void DiscTransformLegalizeToLoopPass::runOnOperation() {
     }
 
     // Error message should be emitted inside the function.
-    if (failed(handleCpuFusionOp(b, fusion, *shapeAnalysisPtr))) {
+    if (failed(handleCpuFusionOp(b, fusion, *shapeAnalysisPtr,
+                                 scheduleDispatcher))) {
       return signalPassFailure();
     }
   }

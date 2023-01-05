@@ -45,8 +45,7 @@ limitations under the License.
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
 #include "tensorflow/compiler/xla/stream_executor/gpu/asm_compiler.h"
 #endif
-
-#if TENSORFLOW_USE_ROCM
+#if (TENSORFLOW_USE_ROCM || TENSORFLOW_USE_DCU)
 #include "rocm/rocm_config.h"
 #include "tensorflow/compiler/xla/stream_executor/rocm/rocm_driver_wrapper.h"
 #include "tensorflow/core/platform/rocm_rocdl_path.h"
@@ -280,7 +279,7 @@ class GpuKernelToBlobPass
     // Parse ROCm architecture.
     absl::string_view consumable_arch(arch_str);
     if (!absl::ConsumePrefix(&consumable_arch, "gfx")) {
-      return tensorflow::errors::Internal(
+      return tsl::errors::Internal(
           "Could not parse ROCm architecture prefix (expected gfx)");
     }
     std::string libdevice_dir = tensorflow::RocdlRoot();
@@ -311,14 +310,16 @@ class GpuKernelToBlobPass
           new llvm::raw_fd_ostream(ll_path, ec, llvm::sys::fs::OF_None));
       llvmModule->print(*ll_fs, nullptr);
       ll_fs->flush();
-      const auto& blob = hsaco_or.ValueOrDie();
+
+      const auto& blob = hsaco_or.value();
       std::string llvmpath = kname + "_debugllvm.hsaco";
       auto myfile = std::fstream(llvmpath, std::ios::out | std::ios::binary);
       myfile.write((char*)blob.data(), blob.size());
       myfile.close();
       LOG(INFO) << "llvm hsaco to " << llvmpath;
       hipModule_t hipmodule;
-      hipError_t res = tensorflow::wrap::hipModuleLoadData(
+
+      hipError_t res = stream_executor::wrap::hipModuleLoadData(
           &hipmodule, reinterpret_cast<const void*>(blob.data()));
       if (res != hipSuccess) {
         LOG(WARNING) << "error for hsoco build " << res << " " << kname;

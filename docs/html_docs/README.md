@@ -10,6 +10,8 @@ pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple
 * Refer to [workaround](workaround_passpipeline_html.sh) if the notebook
   documents with run results are to be demo on websites.
 
+* Generate htmls with `make html`.
+
 * To check the generated htmls:
 
 ```shell

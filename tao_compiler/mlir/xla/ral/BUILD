@@ -301,6 +301,7 @@ cc_library(
         "context/stream_executor_based_impl.cc",
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
+        "context/quantized_gpu_kernel_impl.cc",
     ]) + if_patine([
         "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([
@@ -315,6 +316,7 @@ cc_library(
         "context/stream_executor_based_impl.h",
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.h",
+        "context/common_context_impl_quantization.h",
     ]) + if_disc_aarch64([
         "context/common_context_impl_acl.h",
     ]),
@@ -326,7 +328,13 @@ cc_library(
         "-fopenmp",
         "-ldl",
         "-lm"
-    ],
+    ] + if_blade_gemm([
+        "-Wl,--start-group",
+        "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",
+        "$(location @mkl_static//:lib)/libmkl_gnu_thread.a",
+        "$(location @mkl_static//:lib)/libmkl_core.a",
+        "-Wl,--end-group",
+    ]),
     deps = [
         ":pdll_util",
         ":ral_context",
@@ -355,6 +363,9 @@ cc_library(
     ]) + if_mkldnn([
         ":disc_mkl_cmake",
         ":ral_md5",
+    ]),
+    data = if_blade_gemm([
+        "@mkl_static//:lib",
     ]),
     alwayslink = 1,
 )
@@ -459,6 +470,8 @@ tf_gpu_kernel_library(
     ],
     copts = if_cuda_is_configured([
         "-DGOOGLE_CUDA=1"
+    ]) + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]),
     deps = if_cuda_is_configured([
         "@cub_archive//:cub",
@@ -495,7 +508,8 @@ cc_library(
     ]),
     copts = if_cuda_is_configured([
         "-DGOOGLE_CUDA=1"
-    ]),
+    ]) + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
+
     alwayslink = 1,
 )
 
@@ -657,6 +671,7 @@ cc_library(
         "context/stream_executor_based_impl.cc",
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
+        "context/quantized_gpu_kernel_impl.cc",
     ]) + if_patine([
         "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([
@@ -671,6 +686,7 @@ cc_library(
     ] + if_cuda_or_rocm([
     ])+ if_mkldnn([
         "context/common_context_impl_mkldnn.h",
+        "context/common_context_impl_quantization.h",
     ]) + if_disc_aarch64([
         "context/common_context_impl_acl.h",
     ]),
@@ -687,7 +703,13 @@ cc_library(
         "-fopenmp",
         "-ldl",
         "-lm"
-    ],
+    ] + if_blade_gemm([
+        "-Wl,--start-group",
+        "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",
+        "$(location @mkl_static//:lib)/libmkl_gnu_thread.a",
+        "$(location @mkl_static//:lib)/libmkl_core.a",
+        "-Wl,--end-group",
+    ]),
     deps = [
         ":pdll_util",
         ":ral_context",
@@ -708,6 +730,9 @@ cc_library(
     ]) + if_mkldnn([
         ":disc_mkl_bazel",
         ":ral_md5",
+    ]),
+    data = if_blade_gemm([
+        "@mkl_static//:lib",
     ]),
     alwayslink = 1,
 )
@@ -850,12 +875,19 @@ cuda_library(
         "context/custom_library/transpose.h",
         "context/custom_library/dimensions.h",
         "context/custom_library/gpu_helper.h"
-    ],
-    copts = if_rocm_is_configured([
+    ] + if_cuda_is_configured([
+        "context/stream_executor_based_impl.h"
+    ]),
+    copts = [
+        "-DDISC_BUILD_FROM_TF_BRIDGE"
+    ] + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
+    ]) + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]) + cuda_default_copts(),
     deps = [
+        ":ral_context",
         "@local_config_tf//:libtensorflow_framework",
         "@local_config_tf//:tf_header_lib",
     ] + if_cuda_is_configured([
@@ -871,9 +903,13 @@ cc_library(
     srcs = [
         "context/transpose_impl.cc",
     ],
-    copts = if_rocm_is_configured([
+    copts = [
+        "-DDISC_BUILD_FROM_TF_BRIDGE",
+    ] + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
+    ]) + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]) + cuda_default_copts(),
     deps = [
         ":ral_context",

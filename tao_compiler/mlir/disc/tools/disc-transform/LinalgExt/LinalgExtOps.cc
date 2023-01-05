@@ -94,19 +94,6 @@ SmallVector<OpFoldResult> getDims(OpBuilder& builder, Location loc,
       [&](int64_t dim) { return getDim(builder, loc, shapedTypeValue, dim); }));
 }
 
-/// Returns a vector that interchanges `elements` starting at offset `offset`
-/// based on the indexes in `interchangeVector`.
-template <typename T>
-SmallVector<T> interchange(ArrayRef<T> elements,
-                           ArrayRef<int64_t> interchangeVector,
-                           int offset = 0) {
-  SmallVector<T> vec = llvm::to_vector(elements);
-  for (auto en : llvm::enumerate(interchangeVector)) {
-    vec[en.index() + offset] = elements[en.value() + offset];
-  }
-  return vec;
-}
-
 //===----------------------------------------------------------------------===//
 // PackOp
 //===----------------------------------------------------------------------===//
@@ -290,6 +277,57 @@ LogicalResult MultiLevelPackOp::reifyResultShapes(
   reifiedReturnShapes.resize(1);
   reifiedReturnShapes[0] = getValueOrCreateConstantIndexOp(
       builder, getLoc(), getResultShape(builder));
+  return success();
+}
+
+static SmallVector<uint64_t> delinearize(uint64_t idx,
+                                         ArrayRef<int64_t> shape) {
+  SmallVector<uint64_t> indices(shape.size());
+  for (int d = static_cast<int>(shape.size()) - 1; d >= 0; --d) {
+    indices[d] = idx % shape[d];
+    idx /= shape[d];
+  }
+  return indices;
+}
+
+LogicalResult MultiLevelPackOp::fold(ArrayRef<Attribute> operands,
+                                     SmallVectorImpl<OpFoldResult>& results) {
+  if (operands.size() < 1 || !operands[0]) return failure();
+  auto srcElemAtts = operands[0].dyn_cast<ElementsAttr>();
+  if (!srcElemAtts) return failure();
+
+  auto srcTy = srcElemAtts.getType();
+  int srcRank = srcTy.getRank();
+  auto dstTy = this->getOutputType();
+  if (!dstTy.hasStaticShape()) return failure();
+  int dstRank = dstTy.getRank();
+
+  auto tileLevelsVec = this->getTileLevelsVec();
+  auto tileSizesVec = this->getTileSizesVec();
+  auto permutationVec = this->getPermutationVec();
+  auto logicalDim2SrcDim =
+      this->getOutputLogicalDimToInputDimMapping(tileLevelsVec, tileSizesVec);
+  auto logicalDim2TileSize =
+      this->getOutputLogicalDimToTileSizeMapping(tileLevelsVec, tileSizesVec);
+
+  SmallVector<Attribute> dstAttrs;
+  for (uint64_t idx = 0; idx < dstTy.getNumElements(); ++idx) {
+    auto indices = delinearize(idx, dstTy.getShape());
+    SmallVector<uint64_t> srcIndices(srcRank, 0);
+    for (int dstIdx = 0; dstIdx < dstRank; ++dstIdx) {
+      int logicalIdx = permutationVec[dstIdx];
+      int srcIdx = logicalDim2SrcDim[logicalIdx];
+      srcIndices[srcIdx] += indices[dstIdx] * logicalDim2TileSize[logicalIdx];
+    }
+    if (srcElemAtts.isValidIndex(srcIndices)) {
+      dstAttrs.push_back(srcElemAtts.getValues<Attribute>()[srcIndices]);
+    } else {
+      if (operands.size() < 3 || !operands[2]) return failure();
+      dstAttrs.push_back(operands[2]);
+    }
+  }
+
+  results.push_back(DenseElementsAttr::get(dstTy, dstAttrs));
   return success();
 }
 

@@ -35,6 +35,10 @@ class OperationPass;
 
 namespace disc_ral {
 
+namespace disc_linalg_ext {
+class DISCLinalgExtDialect;
+}
+
 // Converts a lmhlo fusion op in side a function to its linalg on tensor
 // equivalent.
 std::unique_ptr<OperationPass<ModuleOp>>
@@ -44,6 +48,10 @@ createDiscLegalizeLmhloFusionToLinalgPass();
 std::unique_ptr<OperationPass<ModuleOp>>
 createDiscTransformDialectInterpreterPass(const std::string& fileName = "",
                                           bool enableExpensiveChecks = false);
+
+// Erases transform dialect schedule from the IR
+std::unique_ptr<OperationPass<ModuleOp>>
+createDiscTransformDialectEraseSchedulePass();
 
 // Converts the transformed payload IR to be suitable for RAL.
 std::unique_ptr<OperationPass<ModuleOp>> createDiscRewritePayloadIRForRALPass(

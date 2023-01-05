@@ -53,6 +53,9 @@ class TorchBladeBuild:
         self.cuda_available = check_env_flag(
             "TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT", "ON"
         )
+        self.dcu_rocm_available = check_env_flag( 
+            "TORCH_BLADE_BUILD_WITH_DCU_ROCM_SUPPORT", "OFF"    
+        )
         self.build_tensorrt = check_env_flag(
             "TORCH_BLADE_BUILD_TENSORRT", "OFF"
         )
@@ -74,7 +77,9 @@ class TorchBladeBuild:
         self.skip_compute_intensive_fusion = check_env_flag(
             "TORCH_BLADE_BUILD_SKIP_COMPUTE_INTENSIVE_FUSION", "OFF"
         )
-
+        self.build_neural_engine = check_env_flag(
+            "TORCH_BLADE_ENABLE_NEURAL_ENGINE", "OFF"
+        )
 
 
         self.tensorrt_dir = os.getenv("TENSORRT_INSTALL_PATH", "/usr/local/TensorRT/")

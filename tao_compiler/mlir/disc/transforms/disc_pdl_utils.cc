@@ -33,6 +33,7 @@ limitations under the License.
 #include "mlir/Tools/PDLL/ODS/Context.h"
 #include "mlir/Tools/PDLL/Parser/Parser.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "tensorflow/tsl/platform/default/logging.h"
 
 #define DEBUG_TYPE "disc-pdl-utils"
 
@@ -89,6 +90,7 @@ static const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite CreateCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
   Rewrite SetAttr(op : Op, key : Attr, value : Attr);
   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
+  Rewrite GetAttrOrDefault(op : Op, key : Attr, value : Attr) -> (Attr);
 
   Constraint CheckConstantTensor(v : Value);
   Rewrite IsConstantTensor(v : Value) -> Attr;
@@ -143,7 +145,10 @@ OwningOpRef<ModuleOp> compilePDLL(
       op->erase();
     }
   }
-  llvm::errs() << "/////// Parsed PDL module: \n" << pdlModule.get() << "\n\n";
+  if (VLOG_IS_ON(1)) {
+    llvm::errs() << "/////// Parsed PDL module: \n"
+                 << pdlModule.get() << "\n\n";
+  }
   return pdlModule;
 }
 
@@ -258,6 +263,12 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
             NamedAttribute(keyAttr.cast<StringAttr>(), valueAttr));
         auto newCustomAttrs = DictionaryAttr::get(op->getContext(), newAttrs);
         op->setAttr("custom_attrs", newCustomAttrs);
+      });
+  pdlPatterns.registerRewriteFunction(
+      "GetAttrOrDefault", [](PatternRewriter& rewriter, Operation* op,
+                             Attribute keyAttr, Attribute valueAttr) {
+        StringRef key = keyAttr.cast<StringAttr>().getValue();
+        return op->hasAttr(key) ? op->getAttr(key) : valueAttr;
       });
   pdlPatterns.registerRewriteFunction("CreateCustomCall", createCustomCall);
   pdlPatterns.registerRewriteFunction("PackValue_0", packValues<0>);

@@ -347,7 +347,9 @@ Status CompilerMLIR::ConvertToMlir(const TaoCompilerInput& input,
   std::string graph_def_str = graph_def.SerializeAsString();
   VLOG(2) << "GraphDef str:\n" << graph_def.DebugString();
 
-  context_.reset(new mlir::MLIRContext);
+  mlir::DialectRegistry registry;
+  mlir::registerAllDialects(registry);
+  context_.reset(new mlir::MLIRContext(registry));
   auto& context = *context_;
   GraphDebugInfo debug_info;
   GraphImportConfig specs;

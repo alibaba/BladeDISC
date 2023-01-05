@@ -13,7 +13,7 @@ import contextlib
 
 try:
     from .._torch_blade._tensorrt import *
-except ImportError as e:
+except ImportError:
     pass
 
 

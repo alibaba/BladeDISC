@@ -26,6 +26,7 @@ def DISCLinalgExt_Dialect : Dialect {
     non-structured operations, ie, can not be represented in Linalg operations.
   }];
   let hasCanonicalizer = 1;
+  let hasConstantMaterializer = 1;
   let useDefaultAttributePrinterParser = 0;
 }
 

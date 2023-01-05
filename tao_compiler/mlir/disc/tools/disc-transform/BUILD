@@ -282,7 +282,10 @@ cc_library(
     name = "legalize_lmhlo_fusion_to_linalg",
     srcs = ["transforms/legalize_lmhlo_fusion_to_linalg.cc"],
     deps = [
+        ":DISCLinalgExtDialect",
+        ":disc_transform_utils",
         ":pass_details",
+        "//tensorflow/compiler/xla/mlir_hlo:legalize_to_linalg_utils",
         "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
@@ -318,6 +321,7 @@ cc_library(
         "@llvm-project//mlir:PDLInterpDialect",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:SCFTransformOps",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:TransformDialect",

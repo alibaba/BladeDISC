@@ -14,15 +14,15 @@ import shutil
 import subprocess
 import tempfile
 from datetime import datetime
+from io import BytesIO
 
 import torch
 import torch_blade
-from torch_blade import mlir, tools
+from torch_blade import mlir, tools, utils
 from torch_blade._torch_blade import _backends
 from torch_blade.clustering import support_fusion_group, support_group_conversion
 from torch_blade.config import Config
 from torch_blade.logging import logger
-
 
 def _dump_to_tempfile(tmp_dir, dump_bytes):
     inp_file = tempfile.NamedTemporaryFile(dir=tmp_dir, delete=False)
@@ -107,10 +107,15 @@ def _get_mlir_unsupported(graph):
     unspt_nodes = [n for n in graph.nodes() if not mlir.is_mlir_mhlo_supported(n)]
     return set(unspt_nodes + extra_unspt_nodes)
 
+def _subgraph_to_bytes(subgraph, group_name):
+    fallback_module = utils.subgraph_to_module(subgraph, group_name)
+    m_bytes = BytesIO()
+    torch.jit.save(fallback_module, m_bytes)
+    return m_bytes.getvalue()
 
 def _disc_engine_conversion(module):
     def try_cvt_to_disc_engine_func(
-            c_module, subgraph, group_name, grp_calib_data=None
+            c_module, c_module_lock, subgraph, group_name, grp_calib_data=None
     ):
         attr_name = f"{mlir._DISC_GROUP_NAME}{group_name}"
         try:
@@ -122,16 +127,22 @@ def _disc_engine_conversion(module):
             state.engine_bytes = so_bytes
             state.model_proto = pb_bytes
             state.backend_name = mlir.backend_name()
-            fallback_bytes = ""
+            debug_fallback = tools.read_bool_from_env('TORCH_BLADE_DEBUG_ENABLE_ERROR_FALLBACK', False)
+            if debug_fallback:
+                fallback_bytes = _subgraph_to_bytes(subgraph, attr_name)
+            else:
+                fallback_bytes = ""
+
             # register engine into module, something like:
             # __torch__.torch.classes.torch_blade.Engine = prim::GetAttr[name="disc_grp0"](%self)
-            eng_type = _backends.register_engine(
-                c_module,
-                state,
-                attr_name,
-                fallback_bytes,
-                str(subgraph),
-            )
+            with c_module_lock:
+                eng_type = _backends.register_engine(
+                    c_module,
+                    state,
+                    attr_name,
+                    fallback_bytes,
+                    str(subgraph),
+                )
 
             return attr_name, eng_type
         except Exception as error:

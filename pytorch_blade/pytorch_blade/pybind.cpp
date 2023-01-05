@@ -26,6 +26,10 @@
 #include "compiler/tensorrt/pybind_functions.h"
 #endif // TORCH_BLADE_BUILD_TENSORRT
 
+#ifdef TORCH_BLADE_BUILD_NEURAL_ENGINE
+#include "compiler/neural_engine/pybind_functions.h"
+#endif
+
 #ifdef TORCH_BLADE_BUILD_MLIR
 #include "compiler/mlir/pybind_functions.h"
 #endif // TORCH_BLADE_BUILD_MLIR
@@ -72,6 +76,10 @@ void initModules<false>(py::module& m) {
 #ifdef TORCH_BLADE_BUILD_TENSORRT
   torch::blade::tensorrt::initTensorRTBindings(m);
 #endif // TORCH_BLADE_BUILD_TENSORRT
+
+#ifdef TORCH_BLADE_BUILD_NEURAL_ENGINE
+  torch::blade::neural_engine::initNeuralEngineBindings(m);
+#endif // TORCH_BLADE_BUILD_NEURAL_ENGINE
 
 #ifdef TORCH_BLADE_BUILD_MLIR
   torch::blade::disc::initMLIRBindings(m);

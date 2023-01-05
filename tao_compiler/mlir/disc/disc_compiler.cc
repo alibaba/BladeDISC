@@ -127,16 +127,24 @@ LogicalResult RewriteLLVMModule(llvm::Module* m) {
   return success();
 }
 
-std::unique_ptr<llvm::TargetMachine> GetTargetMachine(llvm::Module* module) {
+std::unique_ptr<llvm::TargetMachine> GetTargetMachine(
+    llvm::Module* module, const DISCLoweringOptions& options) {
+  auto& cpuOptions = options.cpu_options;
   llvm::Triple triple(module->getTargetTriple());
   if (triple.getTriple().empty()) {
-    triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
+    triple = llvm::Triple(cpuOptions.llvm_target_triple.empty()
+                              ? llvm::sys::getDefaultTargetTriple()
+                              : cpuOptions.llvm_target_triple.c_str());
     module->setTargetTriple(triple.getTriple());
   }
+  std::string cpuName = cpuOptions.llvm_target_cpu;
+  if (cpuName.empty()) {
+    cpuName = llvm::sys::getHostCPUName();
+  }
   if (VLOG_IS_ON(1)) {
-    llvm::errs() << "host default target triple: "
-                 << llvm::sys::getDefaultTargetTriple() << "\n";
-    llvm::errs() << "host cpu name: " << llvm::sys::getHostCPUName() << "\n";
+    llvm::errs() << "host default target triple: " << triple.getTriple()
+                 << "\n";
+    llvm::errs() << "host cpu name: " << cpuName << "\n";
   }
 
   std::string error;
@@ -149,15 +157,23 @@ std::unique_ptr<llvm::TargetMachine> GetTargetMachine(llvm::Module* module) {
   // Retrieve host CPU name and sub-target features and add them to builder.
   // Relocation model, code model and codegen opt level are kept to default
   // values.
-  llvm::StringMap<bool> FeatureMap;
-  llvm::SubtargetFeatures Features;
-  llvm::sys::getHostCPUFeatures(FeatureMap);
-  for (auto& Feature : FeatureMap)
-    Features.AddFeature(Feature.first(), Feature.second);
+  std::string features = cpuOptions.llvm_target_cpu_features;
+  if (features.empty()) {
+    llvm::StringMap<bool> FeatureMap;
+    llvm::SubtargetFeatures Features;
+    llvm::sys::getHostCPUFeatures(FeatureMap);
+    for (auto& Feature : FeatureMap)
+      Features.AddFeature(Feature.first(), Feature.second);
+    features = Features.getString();
+  }
+
+  if (VLOG_IS_ON(1)) {
+    llvm::errs() << "host cpu features: " << features << "\n";
+  }
 
   return std::unique_ptr<llvm::TargetMachine>(target->createTargetMachine(
-      triple.str(), std::string(llvm::sys::getHostCPUName()),
-      Features.getString(), llvm::TargetOptions(), llvm::Reloc::Model::PIC_));
+      triple.str(), cpuName, features, llvm::TargetOptions(),
+      llvm::Reloc::Model::PIC_, {}, llvm::CodeGenOpt::Aggressive));
 }
 
 }  // namespace
@@ -181,6 +197,13 @@ void CpuLoweringOptions::initFromEnvVars() {
   tensorflow::ReadBoolFromEnvVar("DISC_CPU_ENABLE_MULTI_THREAD",
                                  target_multi_threading,
                                  &target_multi_threading);
+  tensorflow::ReadStringFromEnvVar("DISC_CPU_LLVM_TARGET_TRIPLE",
+                                   llvm_target_triple, &llvm_target_triple);
+  tensorflow::ReadStringFromEnvVar("DISC_CPU_LLVM_TARGET_CPU", llvm_target_cpu,
+                                   &llvm_target_cpu);
+  tensorflow::ReadStringFromEnvVar("DISC_CPU_LLVM_TARGET_CPU_FEATURES",
+                                   llvm_target_cpu_features,
+                                   &llvm_target_cpu_features);
 }
 
 LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
@@ -227,8 +250,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // quantization related passes.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscCustomCallRewriterPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertFakeQuantOpPass());
-  pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscLowerQuantizeAndDequantizePass());
 
   if (gpu_enabled) {
     pm.addNestedPass<FuncOp>(
@@ -254,7 +275,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraSimplifierPass());
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscSplitLargeOpsPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscDotRewriterPass());
   if (enable_shape_constraint_ir) {
@@ -266,7 +287,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // it to sparse if its meet condition.
   bool enable_sparse = false;
   tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SPARSE", false, &enable_sparse);
-  if (!enable_sparse) {
+  // When `DISC_ENABLE_DOT_MERGE` is not disabled, it merges dot ops that either
+  // share the same operand or have the same shape. After more benchmarking of
+  // this flag, we will decide whether this flag should be default on or off.
+  bool enable_dot_merge = true;
+  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_DOT_MERGE", enable_dot_merge,
+                                 &enable_dot_merge);
+  enable_dot_merge &= !enable_sparse;
+  if (enable_dot_merge) {
     // Either merge dots to batched dot or merge dots sharing the same operand.
     pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
   }
@@ -358,7 +386,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   if (enable_shape_constraint_ir) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
-    pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraSimplifierPass());
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
   }
 
   if (!enable_shape_constraint_ir) {
@@ -402,8 +430,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addPass(disc_ral::createDiscAssignMemorySpacePass("main", gpu_enabled));
 
+  bool enable_comp_intens_fusion =
+      isCompIntensFusionEnabled() &&
+      ((gpu_options.cc_major == 7 && gpu_options.cc_minor == 0) ||
+       (gpu_options.cc_major == 7 && gpu_options.cc_minor == 5) ||
+       (gpu_options.cc_major == 8 && gpu_options.cc_minor == 0) ||
+       (gpu_options.cc_major == 8 && gpu_options.cc_minor == 6));
   bool enable_stitch =
-      isStitchEnabled() || (gpu_enabled && isCompIntensFusionEnabled());
+      isStitchEnabled() || (gpu_enabled && enable_comp_intens_fusion);
   if (enable_shape_constraint_ir) {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscDuplicateComputationForFusionPass(
@@ -429,14 +463,12 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   std::string fusion_strategy = enable_stitch ? "stitch" : "base";
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscFusionPass(gpu_enabled, fusion_strategy));
-  if (isCompIntensFusionEnabled() && gpu_enabled) {
-    // TODO: move out constant result of kDot fusion.
+  if (enable_comp_intens_fusion && gpu_enabled) {
     pm.addPass(disc_ral::createDiscCompIntensFusionToFuncPass());
   }
   if (gpu_enabled) {
     // TODO: Support cpu stitch with splat const
     pm.addNestedPass<FuncOp>(disc_ral::createDiscFuseSplatConstPass());
-    auto& gpu_options = options.gpu_info;
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscSpecializeFusionWithSpeculationPass(
             gpu_options.sm_count, gpu_options.max_threads_per_sm));
@@ -788,7 +820,8 @@ LogicalResult LowerLLVMToBinary(ModuleOp module,
     DumpLLVMModule(llvm_module.get());
   }
 
-  std::unique_ptr<llvm::TargetMachine> tm = GetTargetMachine(llvm_module.get());
+  std::unique_ptr<llvm::TargetMachine> tm =
+      GetTargetMachine(llvm_module.get(), options);
   if (!tm) {
     llvm::errs() << "create TargetMachine failed\n";
     return failure();

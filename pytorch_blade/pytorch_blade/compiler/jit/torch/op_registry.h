@@ -16,6 +16,7 @@
 
 #include <torch/csrc/jit/ir/ir.h>
 #include <memory>
+#include "pytorch_blade/common_utils/macros.h"
 #include "pytorch_blade/compiler/jit/torch/schema_set.h"
 
 namespace torch {

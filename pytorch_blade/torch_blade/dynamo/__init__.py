@@ -9,16 +9,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch_blade.dynamo.patch_user_defined
+
 from torch._dynamo.optimizations.training import aot_autograd
 from torch._dynamo.optimizations.backends import BACKENDS, create_backend
-from functorch._src import compilers
+from torch._dynamo.optimizations.subgraph import SubGraph
+from torch._functorch import compilers
 from functorch.compile import min_cut_rematerialization_partition
 
 import torch
 import torch_blade
 import torch.fx as fx
-from typing import Callable, Optional, Tuple, Union
-
+from typing import Callable
 
 def _disc_compile(fx_g: fx.GraphModule, inps, use_ts=False, is_training=True) -> Callable:
     """
@@ -84,7 +86,16 @@ def disc_compile(fx_g: fx.GraphModule, inps, use_ts=False) -> Callable:
     return _disc_compile(fx_g, inps, use_ts=False)
 
 def disc(fx_g: fx.GraphModule, inps) -> Callable:
-    return _disc_compile(fx_g, inps, use_ts=False, is_training=False)
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        scripted = SubGraph(fx_g, inps, tmp).scripted
+        torch._C._jit_pass_remove_mutation(scripted.graph)
+        f = torch.jit.freeze(scripted.eval())
+        cfg = torch_blade.Config()
+        cfg.disable_optimization_for_inference = False
+        with cfg:
+            f = torch_blade.optimize(f, True, tuple(inps))
+        return f
 
 @compilers.make_boxed_compiler
 def disc_compile_ts(fx_g: fx.GraphModule, inps, use_ts=False) -> Callable:

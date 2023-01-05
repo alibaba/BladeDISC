@@ -10,17 +10,18 @@
 # limitations under the License.
 
 import argparse
-import os
-import time
-import subprocess
-import shutil
-import logging
-import sys
-import re
 import json
-from subprocess import Popen, PIPE, STDOUT
+import logging
+import os
+import pickle
+import re
+import shutil
+import subprocess
+import sys
+import time
 from contextlib import contextmanager
 from datetime import datetime
+from subprocess import PIPE, STDOUT, Popen
 
 
 class StageTiming:
@@ -717,17 +718,14 @@ def disc_conf_file(root):
 
 def save_args_to_cache(root, args):
     """Save confs to `disc_conf_file()`"""
-    with open(disc_conf_file(root), "w") as f:
-        for k, v in args.__dict__.items():
-            f.write(f"{k}={v}\n")
+    with open(disc_conf_file(root), "wb") as f:
+        pickle.dump(args, f)
 
 def restore_args_from_cache(root, args):
     """Restore confs from `disc_conf_file()`"""
-    with open(disc_conf_file(root), "r") as f:
-        for line in f.readlines():
-            k, v = line.rstrip().split("=")
-            k = k.strip()
-            v = v.strip()
+    with open(disc_conf_file(root), "rb") as f:
+        args_tmp = pickle.load(f)
+        for k, v in args_tmp.__dict__.items():
             setattr(args, k, v)
 
 

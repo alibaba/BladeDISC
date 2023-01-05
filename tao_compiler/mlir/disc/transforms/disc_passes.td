@@ -405,9 +405,9 @@ def DiscDotMergePass : Pass<"disc-dot-merge", "mlir::func::FuncOp"> {
   let constructor = "createDiscDotMergePass()";
 }
 
-def DiscAlgebraSimplifierPass : Pass<"disc-algebra-simplifier", "mlir::func::FuncOp"> {
-  let summary = "Apply some basic algebra simplification optimizations";
-  let constructor = "createDiscAlgebraSimplifierPass()";
+def DiscAlgebraicSimplifierPass : Pass<"disc-algebraic-simplifier", "mlir::func::FuncOp"> {
+  let summary = "Apply some basic algebraic simplification optimizations";
+  let constructor = "createDiscAlgebraicSimplifierPass()";
 }
 
 def DiscDynamicSliceConverterPass : Pass<"disc-dynamic-slice-converter", "mlir::func::FuncOp"> {
@@ -574,14 +574,5 @@ def DiscTransformLegalizeToLoopPass : Pass<"disc-transform-legalize-to-loop", "m
            /*default=*/"\"\"", "Filename of the transform schedule.">,
     Option<"enableExpensiveChecks_", "enable-expensive-checks", "bool",
            /*default=*/"false", "perform expensive checks to better report errors in the transform IR.">,
-  ];
-  let dependentDialects = [
-      "AffineDialect",
-      "LLVM::LLVMDialect",
-      "arith::ArithDialect",
-      "linalg::LinalgDialect",
-      "scf::SCFDialect",
-      "tensor::TensorDialect",
-      "vector::VectorDialect",
   ];
 }

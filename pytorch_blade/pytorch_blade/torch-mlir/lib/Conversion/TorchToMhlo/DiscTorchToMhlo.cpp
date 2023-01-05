@@ -40,6 +40,9 @@
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
+#include <numeric>
+#include <unordered_set>
+
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -99,10 +102,10 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   auto name = op.name();
-  if (std::string("aten.einsum") == name) {
-    auto outTy = getTypeConverter()
-                     ->convertType(op.getResult(0).getType())
-                     .dyn_cast<mlir::RankedTensorType>();
+  auto outTy = getTypeConverter()
+                   ->convertType(op.getResult(0).getType())
+                   .dyn_cast<mlir::RankedTensorType>();
+  if ("aten.einsum" == name) {
     SmallVector<Value> torchTensors;
     if (!getListConstructElements(op.getOperand(1), torchTensors))
       return rewriter.notifyMatchFailure(
@@ -143,7 +146,37 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
         rhs,
         mlir::StringAttr::get(rewriter.getContext(), equation));
     return success();
+  } else if ("prims.broadcast_in_dim" == name) {
+    auto shape = op.getOperand(1);
+    SmallVector<Value, 4> dimSizes;
+    getListConstructElements(shape, dimSizes);
+    // BladeDISC use i32 as shape
+    std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
+      dSize = rewriter.create<ToI64Op>(loc, dSize).getResult();
+      // dimSize: cast i64 -> i32
+      dSize =
+          rewriter.create<arith::TruncIOp>(loc, rewriter.getI32Type(), dSize);
+      return dSize;
+    });
+
+    SmallVector<int64_t> inputDims;
+    if (!matchPattern(op.getOperand(2), m_TorchConstantIntList(inputDims))) {
+      return rewriter.notifyMatchFailure(op, "non-int dim list unsupported");
+    }
+    SmallVector<Value> torchTensors{op.getOperand(0)};
+    auto builtinTensors = Torch::getTypeConvertedValues(
+        rewriter, op->getLoc(), getTypeConverter(), torchTensors);
+    auto mhloShape =
+        rewriter.create<mlir::tensor::FromElementsOp>(loc, dimSizes);
+    auto result = rewriter.replaceOpWithNewOp<mhlo::DynamicBroadcastInDimOp>(
+        op,
+        outTy,
+        builtinTensors[0],
+        mhloShape,
+        rewriter.getI64TensorAttr(inputDims));
+    return success();
   }
+
   return failure();
 }
 } // namespace
@@ -228,6 +261,27 @@ class ConvertAtenUnaryOp : public OpConversionPattern<AtenOpT> {
 } // namespace
 
 namespace {
+template <typename AtenOpT, typename ArithOpT>
+class ConvertAtenArithOp : public OpConversionPattern<AtenOpT> {
+ public:
+  using OpConversionPattern<AtenOpT>::OpConversionPattern;
+  using OpAdaptor = typename AtenOpT::Adaptor;
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    rewriter.replaceOpWithNewOp<ArithOpT>(
+        op,
+        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op.getType()),
+        adaptor.a(),
+        adaptor.b());
+    return success();
+  }
+};
+} // namespace
+
+namespace {
 template <typename AtenOpT>
 class ConvertAtenExtractOp : public OpConversionPattern<AtenOpT> {
  public:
@@ -242,38 +296,208 @@ class ConvertAtenExtractOp : public OpConversionPattern<AtenOpT> {
     if (!inpTy)
       return op.emitError("only RankedTensorType is supported");
 
-    auto outTy = OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+    Type outTy = OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
         op.getType());
-    auto elemTy = inpTy.getElementType();
+    Type elemTy = inpTy.getElementType();
+    Value extractOutput =
+        rewriter.create<tensor::ExtractOp>(op.getLoc(), elemTy, input);
 
-    if (outTy != elemTy) {
-      auto output =
-          rewriter.create<tensor::ExtractOp>(op.getLoc(), elemTy, input);
-
-      bool toWider =
-          outTy.getIntOrFloatBitWidth() > elemTy.getIntOrFloatBitWidth();
-      if (elemTy.isIntOrIndex()) {
-        if (toWider) {
-          rewriter.replaceOpWithNewOp<arith::ExtSIOp>(op, outTy, output);
-        } else {
-          rewriter.replaceOpWithNewOp<arith::TruncIOp>(op, outTy, output);
-        }
-      } else {
-        if (toWider) {
-          rewriter.replaceOpWithNewOp<arith::ExtFOp>(op, outTy, output);
-        } else {
-          rewriter.replaceOpWithNewOp<arith::TruncFOp>(op, outTy, output);
-        }
-      }
-    } else {
-      rewriter.replaceOpWithNewOp<tensor::ExtractOp>(op, outTy, input);
+    if (elemTy == outTy) {
+      rewriter.replaceOp(op, {extractOutput});
+      return success();
     }
-    return success();
+
+    // outTy and elemTy may be diffrent datatypes like int to float
+    // refer to
+    // https://github.com/llvm/llvm-project/blob/main/mlir/lib/Conversion/TosaToLinalg/TosaToLinalg.cpp
+    bool bitExtend =
+        outTy.getIntOrFloatBitWidth() > elemTy.getIntOrFloatBitWidth();
+    auto loc = op.getLoc();
+    using mlir::FloatType, mlir::IntegerType;
+    // float to float
+    if (elemTy.isa<FloatType>() && outTy.isa<FloatType>()) {
+      if (bitExtend) {
+        rewriter.replaceOpWithNewOp<arith::ExtFOp>(op, outTy, extractOutput);
+        return success();
+      } else {
+        rewriter.replaceOpWithNewOp<arith::TruncFOp>(op, outTy, extractOutput);
+        return success();
+      }
+    }
+
+    // integer to float
+    // 1-bit integers need to be treated as signless.
+    if (elemTy.isInteger(1)) {
+      if (outTy.isa<IntegerType>() && bitExtend) {
+        rewriter.replaceOpWithNewOp<arith::ExtUIOp>(op, outTy, extractOutput);
+        return success();
+      } else if (arith::UIToFPOp::areCastCompatible(elemTy, outTy)) {
+        rewriter.replaceOpWithNewOp<arith::UIToFPOp>(op, outTy, extractOutput);
+        return success();
+      }
+    }
+
+    if (elemTy.isUnsignedInteger() && outTy.isa<FloatType>()) {
+      // Unsigned integers need an unrealized cast so that they can be passed
+      // to UIToFP.
+      ValueRange valueRange{extractOutput};
+      Value unrealizedCast =
+          rewriter
+              .create<UnrealizedConversionCastOp>(
+                  loc,
+                  rewriter.getIntegerType(elemTy.getIntOrFloatBitWidth()),
+                  valueRange)
+              .getResult(0);
+      rewriter.replaceOpWithNewOp<arith::UIToFPOp>(op, outTy, unrealizedCast);
+      return success();
+    }
+
+    if (arith::SIToFPOp::areCastCompatible(elemTy, outTy))
+    // All other si-to-fp conversions should be handled by SIToFP.
+    {
+      rewriter.replaceOpWithNewOp<arith::SIToFPOp>(op, outTy, extractOutput);
+      return success();
+    }
+
+    // integer to integer
+    if (elemTy.isa<IntegerType>() && outTy.isInteger(1)) {
+      // Casting to boolean, integers need to only be checked as not-equal to
+      // zero.
+      Value zero = rewriter.create<arith::ConstantIntOp>(
+          loc, 0, elemTy.getIntOrFloatBitWidth());
+      rewriter.replaceOpWithNewOp<arith::CmpIOp>(
+          op, arith::CmpIPredicate::ne, extractOutput, zero);
+      return success();
+    }
+
+    if (elemTy.isa<IntegerType>() && outTy.isa<IntegerType>() && bitExtend) {
+      rewriter.replaceOpWithNewOp<arith::ExtSIOp>(op, outTy, extractOutput);
+      return success();
+    }
+
+    if (elemTy.isa<IntegerType>() && outTy.isa<IntegerType>() && !bitExtend) {
+      auto intMin = rewriter.create<arith::ConstantIntOp>(
+          loc,
+          APInt::getSignedMinValue(outTy.getIntOrFloatBitWidth())
+              .getSExtValue(),
+          elemTy.getIntOrFloatBitWidth());
+
+      auto intMax = rewriter.create<arith::ConstantIntOp>(
+          loc,
+          APInt::getSignedMaxValue(outTy.getIntOrFloatBitWidth())
+              .getSExtValue(),
+          elemTy.getIntOrFloatBitWidth());
+
+      auto smallerThanMin = rewriter.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::slt, extractOutput, intMin);
+      auto minOrArg = rewriter.create<arith::SelectOp>(
+          loc, smallerThanMin, intMin, extractOutput);
+      auto largerThanMax = rewriter.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::slt, intMax, extractOutput);
+
+      Value clamped = rewriter.create<arith::SelectOp>(
+          loc, largerThanMax, intMax, minOrArg);
+      rewriter.replaceOpWithNewOp<arith::TruncIOp>(op, outTy, clamped);
+      return success();
+    }
+
+    // float to integer
+
+    if (elemTy.isa<FloatType>() && outTy.isInteger(1)) {
+      // Casting to boolean, floats need to only be checked as not-equal to
+      // zero.
+      Value zero = rewriter.create<arith::ConstantOp>(
+          loc, rewriter.getFloatAttr(elemTy, 0.0));
+      rewriter.replaceOpWithNewOp<arith::CmpFOp>(
+          op, arith::CmpFPredicate::UNE, extractOutput, zero);
+      return success();
+    }
+
+    if (arith::FPToSIOp::areCastCompatible(elemTy, outTy)) {
+      auto zero = rewriter.create<arith::ConstantOp>(
+          loc, rewriter.getFloatAttr(elemTy, 0.0f));
+      auto half = rewriter.create<arith::ConstantOp>(
+          loc, rewriter.getFloatAttr(elemTy, 0.5f));
+
+      auto intMin = rewriter.create<arith::ConstantOp>(
+          loc,
+          rewriter.getFloatAttr(
+              elemTy,
+              APInt::getSignedMinValue(outTy.getIntOrFloatBitWidth())
+                  .getSExtValue()));
+
+      auto intMax = rewriter.create<arith::ConstantOp>(
+          loc,
+          rewriter.getFloatAttr(
+              elemTy,
+              APInt::getSignedMaxValue(outTy.getIntOrFloatBitWidth())
+                  .getSExtValue()));
+
+      auto added = rewriter.create<arith::AddFOp>(loc, extractOutput, half);
+      auto subbed = rewriter.create<arith::SubFOp>(loc, extractOutput, half);
+      auto negative = rewriter.create<arith::CmpFOp>(
+          loc, arith::CmpFPredicate::OLT, extractOutput, zero);
+      auto rounded =
+          rewriter.create<arith::SelectOp>(loc, negative, subbed, added);
+
+      Value minValue = rewriter.create<arith::MinFOp>(loc, rounded, intMax);
+      Value clamped = rewriter.create<arith::MaxFOp>(loc, minValue, intMin);
+
+      rewriter.replaceOpWithNewOp<arith::FPToSIOp>(op, outTy, clamped);
+      return success();
+    }
+
+    return op.emitError("unsupport AtenExtractOp dtype conversion");
   }
 };
 } // namespace
 
 namespace {
+template <>
+LogicalResult ConvertAtenOp<AtenArangeOp>::matchAndRewrite(
+    AtenArangeOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto end = adaptor.end();
+  if (!end.getType().isIntOrIndex())
+    return rewriter.notifyMatchFailure(op, "non-int end unsupported");
+
+  if (!op.dtype().getType().isa<Torch::NoneType>()) {
+    int64_t dtypeInt;
+    if (!matchPattern(op.dtype(), m_TorchConstantInt(&dtypeInt)))
+      return rewriter.notifyMatchFailure(op, "non-const dtype unsupported");
+
+    Type resDtype = getTypeForScalarType(
+        op.getContext(), (torch_upstream::ScalarType)dtypeInt);
+    if (resDtype.isIntOrIndex())
+      return rewriter.notifyMatchFailure(
+          op, "non-int arange dtype unsupported");
+  }
+
+  auto iotaShape = rewriter.create<mlir::tensor::FromElementsOp>(
+      op->getLoc(), ArrayRef<Value>{end});
+  rewriter.replaceOpWithNewOp<mhlo::DynamicIotaOp>(
+      op, getTypeConverter()->convertType(op.getType()), iotaShape, /*dim*/ 0);
+  return success();
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenCopyOp>::matchAndRewrite(
+    AtenCopyOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.src();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError("only RankedTensorType is supported");
+  }
+
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), input);
+  return success();
+}
+
 // Convert a Aten::Relu6 to HLO
 // Relu6(x) = min(AtenRelu(x), 6)
 template <>
@@ -1112,10 +1336,59 @@ LogicalResult ConvertAtenOp<AtenEmbeddingOp>::matchAndRewrite(
   return success();
 }
 } // namespace
+namespace {
+template <>
+LogicalResult ConvertAtenOp<AtenSqueezeDimOp>::matchAndRewrite(
+    AtenSqueezeDimOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto self = adaptor.self();
+  auto selfTy = self.getType().template cast<RankedTensorType>();
+  if (!selfTy)
+    return op.emitError("only ranked tensor types are supported");
+  int64_t dim;
+  if (!matchPattern(op.dim(), m_TorchConstantInt(&dim)))
+    return rewriter.notifyMatchFailure(
+        op, "only constant dim is currently supported");
+
+  auto rank = selfTy.getRank();
+  if (rank == 0)
+    return rewriter.notifyMatchFailure(
+        op, "the rank of tensor must be greater than 0");
+
+  dim = toPositiveDim(dim, rank);
+  if (selfTy.getShape()[dim] != 1 &&
+      selfTy.getShape()[dim] != ShapedType::kDynamicSize) {
+    rewriter.replaceOpWithNewOp<tensor::CastOp>(
+        op, getTypeConverter()->convertType(op.getType()), adaptor.self());
+    return success();
+  }
+
+  SmallVector<int64_t, 4> dims(rank);
+  std::iota(dims.begin(), dims.end(), 0);
+  dims.erase(dims.begin() + dim);
+  if (dims.size() == 0) {
+    rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(
+        op, getTypeConverter()->convertType(op.getType()), self);
+    return success();
+  }
+  auto newDimSizesInfo =
+      mhlo::getDimSizesOfTensor(rewriter, op, self, dims, kMhloDimSizeBits);
+  if (failed(newDimSizesInfo))
+    return rewriter.notifyMatchFailure(
+        op, "failed to get dimension sizes of the input");
+  auto newDimSizes = *newDimSizesInfo;
+  auto mhloShape =
+      rewriter.create<tensor::FromElementsOp>(op.getLoc(), newDimSizes);
+  rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
+      op, getTypeConverter()->convertType(op.getType()), self, mhloShape);
+  return success();
+}
+} // namespace
+
 // -----------------------------------------------------------------------------
 // TorchToMhlo Pass
 // -----------------------------------------------------------------------------
-
 namespace {
 class DiscConvertTorchToMhlo
     : public TorchConversion::DiscConvertTorchToMhloBase<
@@ -1146,7 +1419,11 @@ class DiscConvertTorchToMhlo
 
     RewritePatternSet patterns(context);
     auto opIsDynamicallyLegal = [&](OperatorOp op) {
-      if ("aten.einsum" == op.name()) {
+      static std::unordered_set<std::string> illegalSet{
+          "aten.einsum",
+          "prims.broadcast_in_dim",
+      };
+      if (illegalSet.find(op.name().str()) != illegalSet.end()) {
         return false;
       }
       return true;
@@ -1163,6 +1440,7 @@ class DiscConvertTorchToMhlo
     INSERT_UNARY_CONVERT_PATTERN(AtenContiguousOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenToDtypeOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenToDtypeLayoutOp);
+    INSERT_UNARY_CONVERT_PATTERN(AtenToPrimDeviceOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenTypeAsOp);
 #undef INSERT_UNARY_CONVERT_PATTERN
 
@@ -1173,9 +1451,19 @@ class DiscConvertTorchToMhlo
     INSERT_UNARY_PATTERN(AtenNegOp, mhlo::NegOp)
     INSERT_UNARY_PATTERN(AtenFloorOp, mhlo::FloorOp)
     INSERT_UNARY_PATTERN(AtenCeilOp, mhlo::CeilOp)
-    INSERT_UNARY_PATTERN(AtenCopyOp, mhlo::CopyOp)
     INSERT_UNARY_PATTERN(AtenItemOp, tensor::ExtractOp)
     INSERT_UNARY_PATTERN(AtenCopyOp, mhlo::CopyOp)
+    INSERT_UNARY_PATTERN(AtenCosOp, mhlo::CosineOp)
+    INSERT_UNARY_PATTERN(AtenSinOp, mhlo::SineOp)
+    INSERT_UNARY_PATTERN(AtenAbsOp, mhlo::AbsOp)
+#undef INSERT_UNARY_PATTERN
+
+#define INSERT_ARITH_PATTERN(AtenOp, ArithOp) \
+  target.addIllegalOp<AtenOp>();              \
+  patterns.add<ConvertAtenArithOp<AtenOp, ArithOp>>(typeConverter, context);
+    INSERT_ARITH_PATTERN(AtenAddIntOp, arith::AddIOp)
+    INSERT_ARITH_PATTERN(AtenSubIntOp, arith::SubIOp)
+    INSERT_ARITH_PATTERN(AtenFloordivIntOp, arith::DivSIOp)
 #undef INSERT_UNARY_PATTERN
 
 #define INSERT_EXTRACT_PATTERN(AtenOp) \
@@ -1189,6 +1477,8 @@ class DiscConvertTorchToMhlo
 #define INSERT_ATENOP_PATTERN(AtenOp) \
   target.addIllegalOp<AtenOp>();      \
   patterns.add<ConvertAtenOp<AtenOp>>(typeConverter, context)
+    INSERT_ATENOP_PATTERN(AtenArangeOp);
+    INSERT_ATENOP_PATTERN(AtenCopyOp);
     INSERT_ATENOP_PATTERN(AtenLeakyReluOp);
     INSERT_ATENOP_PATTERN(AtenRelu6Op);
     INSERT_ATENOP_PATTERN(AtenSiluOp);
@@ -1207,6 +1497,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenFloatScalarOp);
     INSERT_ATENOP_PATTERN(AtenMaxDimOp);
     INSERT_ATENOP_PATTERN(AtenWhereSelfOp);
+    INSERT_ATENOP_PATTERN(AtenSqueezeDimOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \
@@ -1218,6 +1509,8 @@ class DiscConvertTorchToMhlo
         AtenPowTensorTensorOp, chlo::BroadcastPowOp);
     INSERT_BINARY_BROADCAST_PATTERN(AtenMinimumOp, chlo::BroadcastMinOp);
     INSERT_BINARY_BROADCAST_PATTERN(Aten__And__TensorOp, chlo::BroadcastAndOp);
+    INSERT_BINARY_BROADCAST_PATTERN(
+        AtenBitwiseAndTensorOp, chlo::BroadcastAndOp);
 #undef INSERT_BINARY_BROADCAST_PATTERN
 
     if (failed(applyPartialConversion(

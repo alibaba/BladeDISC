@@ -11,13 +11,39 @@
 
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/SourceMgr.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Parser/Parser.h"
+#include "mlir/Support/FileUtilities.h"
 
 #define DEBUG_TYPE "disc-transform-utils"
 
 namespace mlir {
 namespace disc_ral {
+
+const char* kDISCLinalgTransformName = "disc.transform.name";
+
+TransformNameAssigner::TransformNameAssigner(ArrayRef<Operation*> ops) {
+  for (auto op : ops) nameNewOperation(op);
+}
+
+std::string TransformNameAssigner::nameNewOperation(Operation* op) {
+  SmallString<128> fullName;
+  auto opName = op->getName().stripDialect().str();
+  fullName.append(opName);
+  if (auto cnt = nameCounterMap_[opName]++) {
+    fullName.append(("_" + Twine(cnt)).str());
+  }
+
+  return nameMap_[op] = fullName.str();
+}
+
+const std::unordered_map<Operation*, std::string>&
+TransformNameAssigner::getNameMap() {
+  return nameMap_;
+}
 
 /// Create a linalg::GenericOp version of an n-D copy that can further tile,
 /// lower to loops or vectorize, unlike the current implementation of
@@ -47,6 +73,26 @@ Operation* createLinalgCopyOp(OpBuilder& b, Location loc, Value from, Value to,
         b.create<linalg::YieldOp>(loc, args.front());
       },
       attributes);
+}
+
+/// Load transform dialect IR from the given file.
+LogicalResult parseTransformModuleFromFile(
+    MLIRContext* context, llvm::StringRef transformFileName,
+    OwningOpRef<ModuleOp>& transformModule) {
+  // Parse transformFileName content into a ModuleOp.
+  std::string errorMessage;
+  auto memoryBuffer = openInputFile(transformFileName, &errorMessage);
+  if (!memoryBuffer) {
+    llvm::errs() << "failed to parse transform file: " << transformFileName
+                 << "\n";
+    return failure();
+  }
+  // Tell sourceMgr about this buffer, the parser will pick it up.
+  llvm::SourceMgr sourceMgr;
+  sourceMgr.AddNewSourceBuffer(std::move(memoryBuffer), llvm::SMLoc());
+  transformModule =
+      OwningOpRef<ModuleOp>(parseSourceFile<ModuleOp>(sourceMgr, context));
+  return success();
 }
 
 }  // namespace disc_ral

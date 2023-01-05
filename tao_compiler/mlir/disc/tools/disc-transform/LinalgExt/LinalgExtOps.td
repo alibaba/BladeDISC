@@ -40,6 +40,38 @@ class DISCLinalgExt_Op<string mnemonic, list<Trait> traits = []> :
   code extraLinalgExtOpClassDeclaration = "";
 }
 
+// We intentionally mark this op not folable since folding it may lose the
+// specail semantics captured by this op. For example, it maybe be folded to
+// a arith.constant op. It's only supposed to be folded in some special
+// usecases (e.g. for packed weight).
+def DISCLinalgExt_ConstantWrapperOp : Op<DISCLinalgExt_Dialect, "constant_wrapper", [
+    Pure, AllTypesMatch<["value", "result"]>]>{
+  let summary = "integer or floating point tensor constant";
+  let description = [{
+    The `constant` operation produces an SSA value equal to some integer or
+    floating-point constant specified by an attribute. This is the way MLIR
+    forms simple integer and floating point constants.
+
+    Note that this op is not foldable, and is supposed to be used as a placeholder for
+    later rewriting for RAL.
+
+    Example:
+
+    ```
+    // Integer constant
+    %1 = disc_linalg_ext.constant_wrapper dense<42> : tensor<i32>
+
+    // Equivalent generic form
+    %1 = "disc_linalg_ext.constant_wrapper"() {value = dense<42> : tensor<i32>} : () -> tensor<i32>
+    ```
+  }];
+
+  let arguments = (ins ElementsAttr:$value);
+  let results = (outs AnyType:$result);
+
+  let assemblyFormat = "attr-dict $value";
+}
+
 def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
   DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>,
 ]>{
@@ -82,6 +114,7 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
     disc_linalg_ext.multi_level_pack %arg0 with padding_value(%pad : f32)
       tile_levels = [1, 1] tile_sizes = [8, 2] permutation = [0, 2, 1, 3]
       into %arg1 : (tensor<13x15xf32> tensor<2x8x8x2xf32>)
+    ```
 
     Example KC_to_KCc{1}k{1}k{2}c{2} with padding:
 
@@ -119,6 +152,8 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
       CArg<"Optional<Value>", "llvm::None">:$paddingValue
       )>
   ];
+
+  let hasFolder = 1;
 
   let extraClassDeclaration = extraLinalgExtOpClassDeclaration # [{
 
@@ -199,6 +234,48 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
     int64_t getExpectedResultRank() {
       auto vs = getTileLevelsVec();
       return getExpectedResultRank(vs);
+    }
+
+    // Returns the map: logical dim of output -> input dim
+    // Here the logical dim is the dim before transpose.
+    DenseMap<int, int> getOutputLogicalDimToInputDimMapping(
+        ArrayRef<int64_t> tileLevelsVec, ArrayRef<int64_t> tileSizesVec) {
+      int logicalIdx = 0;
+      DenseMap<int, int> dst2src;
+      for (int i = 0; i < tileLevelsVec.size(); ++i) {
+        for (int j = 0; j <= tileLevelsVec[i]; ++j) {
+          dst2src[logicalIdx++] = i;
+        }
+      }
+      return dst2src;
+    }
+
+    // Returns the map: logical dim of output -> tile size for each dim
+    // Here the logical dim is the dim before transpose.
+    DenseMap<int, int> getOutputLogicalDimToTileSizeMapping(
+        ArrayRef<int64_t> tileLevelsVec, ArrayRef<int64_t> tileSizesVec) {
+      int logicalIdx = 0;
+      int tileSizeIdx = 0;
+      DenseMap<int, int> logicalDim2TileSize;
+      for (int i = 0; i < tileLevelsVec.size(); ++i) {
+        for (int j = 0; j < tileLevelsVec[i]; ++j) {
+          logicalDim2TileSize[logicalIdx++] = tileSizesVec[tileSizeIdx++];
+        }
+        logicalDim2TileSize[logicalIdx++] = 1;
+      }
+      return logicalDim2TileSize;
+    }
+
+    // Returns the inner most dims
+    DenseSet<int> getOutputInnerMostDims(
+        ArrayRef<int64_t> tileLevelsVec, ArrayRef<int64_t> tileSizesVec) {
+      int logicalIdx = 0;
+      DenseSet<int> innerMostDims;
+      for (int i = 0; i < tileLevelsVec.size(); ++i) {
+        logicalIdx += tileLevelsVec[i];
+        innerMostDims.insert(logicalIdx++);
+      }
+      return innerMostDims;
     }
 
     // Method to get the shape of the result as `SmallVector<OpFoldResult>`.

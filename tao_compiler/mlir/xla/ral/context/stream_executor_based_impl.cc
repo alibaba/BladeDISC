@@ -19,6 +19,7 @@
 #include "absl/types/optional.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/pdll_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
@@ -462,62 +463,6 @@ void ral_qgemm(
         false, &kernel_scale, &beta);
     if (ret) {
       return;
-    } else {
-      ctx->signalError(Context::FAILURE, "Bladnn gemm run fail.");
-    }
-  }
-#endif
-  ctx->signalError(Context::FAILURE, "Should turn on bladnn first.");
-}
-
-template <int N>
-MemRefType<int8_t, N> ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor(
-    ExecutionContext* ctx, void* stream_handle, MemRefType<int8_t, N> input,
-    MemRefType<int8_t, 2> weight, MemRefType<int8_t, 1> bias,
-    MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
-    MemRefType<float, 0> weightScales, MemRefType<int32_t, 0> weightZeroPoints,
-    MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
-    void* customAttrs) {
-  int64_t m = 1;
-  int64_t k = weight.sizes[1];
-  int64_t n = weight.sizes[0];
-  int64_t resultSizes[N];
-  for (int i = 0; i < N - 1; i += 1) {
-    m *= input.sizes[i];
-    resultSizes[i] = input.sizes[i];
-  }
-  resultSizes[N - 1] = n;
-
-  if (isEmptyMemref(input) || isEmptyMemref(weight)) {
-    TAO_VLOG(1) << "ral_qgemm: early return for empty tensor";
-    return assignMemRef<int8_t, N>(nullptr, resultSizes);
-  }
-
-  float input_scale, weight_scale, result_scale;
-
-  input_scale = inputScales.data[0];
-  weight_scale = weightScales.data[0];
-  result_scale = resultScales.data[0];
-
-  float kernel_scale = input_scale * weight_scale / result_scale;
-  float beta = 1.0f;
-
-#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-  {
-    auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
-    auto data =
-        static_cast<int8_t*>(gpu_driver->alloc(ctx, m * n * sizeof(int8_t)));
-    auto result = assignMemRef<int8_t, N>(data, resultSizes);
-    void* s = gpu_driver->asCUStream(ctx, stream_handle);
-    bladnn::Context bladnn_ctx{s};
-    bladnn::Dtype in_dtype = toBlaDNNDtype<int8_t>();
-    bladnn::Dtype out_dtype = toBlaDNNDtype<int8_t>();
-    bool ret =
-        bladnn::gemm(&bladnn_ctx, in_dtype, 0, input.data, m, k, in_dtype, 1,
-                     weight.data, n, k, out_dtype, result.data, m, n, 1, false,
-                     false, &kernel_scale, &beta, bias.data);
-    if (ret) {
-      return result;
     } else {
       ctx->signalError(Context::FAILURE, "Bladnn gemm run fail.");
     }
@@ -1883,6 +1828,113 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
   return;
 }
 
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+// layout:
+// input: NHWC
+// kernel: OHWI
+// output: NHWC
+template <typename T, int NDims>
+MemRefType<T, NDims> ral_conv_biasadd(ExecutionContext* ctx,
+                                      void* stream_handle /*stream_handle*/,
+                                      MemRefType<T, NDims> input,
+                                      MemRefType<T, NDims> kernel,
+                                      MemRefType<T, 1> bias,
+                                      void* customAttrs) {
+  // const std::vector<int32_t> nhwc_ohwi_layout = {0, 3, 1, 2, 3, 0,
+  //                                             1, 2, 0, 3, 1, 2};
+  auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_conv_biasadd");
+  if (!attr) {
+    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
+  }
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  auto& stride_attr =
+      dictAttr.get("stride").template as<DenseElementsPDLAttr>();
+  auto stride = stride_attr.getValue<int64_t>();
+  auto& padding_attr =
+      dictAttr.get("padding").template as<DenseElementsPDLAttr>();
+  auto padding = padding_attr.getValue<int64_t>();
+  auto& dilation_attr =
+      dictAttr.get("dilation").template as<DenseElementsPDLAttr>();
+  auto dilation = dilation_attr.getValue<int64_t>();
+  int groups = dictAttr.get("groups").template as<IntPDLAttr>().getValue();
+
+  std::string format =
+      dictAttr.get("data_format").template as<StrPDLAttr>().getValue();
+  TAO_CHECK(format == "NHWC");
+  auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+  auto stream =
+      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+  void* s = stream->implementation()->GpuStreamHack();
+  int32_t n = input.sizes[0];
+  T* a_data = input.data;
+  T* b_data = kernel.data;
+  T* c_data = bias.data;
+  int32_t ic = 0;
+  int32_t oc = 0;
+  int32_t ih = 0;
+  int32_t iw = 0;
+  int32_t oh = 0;
+  int32_t ow = 0;
+  int32_t kh = 0;
+  int32_t kw = 0;
+  int32_t ki = 0;
+  int32_t ko = 0;
+  ih = input.sizes[1];
+  iw = input.sizes[2];
+  ic = input.sizes[3];
+  ko = kernel.sizes[0];
+  kh = kernel.sizes[1];
+  kw = kernel.sizes[2];
+  ki = kernel.sizes[3];
+  oc = ko;
+
+  int pad_h = padding[0];
+  int pad_w = padding[1];
+  int stride_h = stride[0];
+  int stride_w = stride[1];
+  int dilation_h = dilation[0];
+  int dilation_w = dilation[1];
+
+  oh = ((ih + 2 * pad_h - dilation_h * (kh - 1) - 1) / stride_h + 1);
+  ow = ((iw + 2 * pad_w - dilation_w * (kw - 1) - 1) / stride_w + 1);
+
+  int64_t resultSizes[4] = {n, oh, ow, oc};
+
+  if (isEmptyMemref(input) || isEmptyMemref(kernel)) {
+    TAO_VLOG(1) << "ral_conv_biasadd: early return for empty tensor";
+    return assignMemRef<T, NDims>(nullptr, resultSizes);
+    ;
+  }
+
+  auto data =
+      static_cast<T*>(gpu_driver->alloc(ctx, n * oh * ow * oc * sizeof(T)));
+  auto result = assignMemRef<T, NDims>(data, resultSizes);
+
+  bool is_depthwise = false;
+  if (ic != ki) {
+    TAO_CHECK(ki == 1);
+    is_depthwise = true;
+    TAO_CHECK(groups = ic);
+  }
+  auto conv_kind = bladnn::ConvKind::kFprop;
+  auto data_layout = bladnn::Layout::kNHWC;
+  auto kernel_layout = bladnn::Layout::kNHWC;
+  const float alpha = 1.0f;
+  const float beta = 1.0f;
+  bladnn::Dtype dtype = toBlaDNNDtype<T>();
+  bool ret = false;
+
+  ret = bladnn::conv2d(
+      s, dtype, dtype, conv_kind, data_layout, kernel_layout, n, ih, iw, ic, ko,
+      kh, kw, oh, ow, pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w,
+      groups, &alpha, a_data, b_data, &beta, c_data, result.data, nullptr);
+  if (!ret) {
+    ctx->signalError(Context::FAILURE, "bladnn fail");
+  }
+  return result;
+}
+#endif
+
 }  // namespace gpu_conv_impl
 
 ////////////////////////////////////////////////////////////////////////
@@ -1925,10 +1977,13 @@ TAO_RAL_API("ral_conv", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv<Eigen::half, 3>);
 TAO_RAL_API("ral_qconv", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_qconv<int8_t, 4>);
-TAO_RAL_API("ral_pdll_qgemm", "gpu",
-            gpu::se_impl::ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor<2>);
-TAO_RAL_API("ral_pdll_qgemm", "gpu",
-            gpu::se_impl::ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor<3>);
+
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+TAO_RAL_API("ral_pdll_conv_bias", "gpu",
+            gpu::se_impl::gpu_conv_impl::ral_conv_biasadd<Eigen::half, 4>);
+TAO_RAL_API("ral_pdll_conv_bias", "gpu",
+            gpu::se_impl::gpu_conv_impl::ral_conv_biasadd<float, 4>);
+#endif
 
 // compute-intensive fusion
 TAO_RAL_API("ral_comp_intens_fusion", "gpu",

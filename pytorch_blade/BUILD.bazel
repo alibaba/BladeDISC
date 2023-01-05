@@ -8,7 +8,10 @@ config_setting(
     name = "enable_cuda",
     values = {"define": "enable_cuda=true"},
 )
-
+config_setting(
+    name = "enable_rocm",
+    values = {"define": "enable_rocm=true"},
+)
 config_setting(
     name = "enable_tensorrt",
     values = {"define": "enable_tensorrt=true"},
@@ -32,4 +35,9 @@ config_setting(
 config_setting(
     name = "enable_quantization",
     values = {"define": "enable_quantization=true"}
+)
+
+config_setting(
+    name = "enable_neural_engine",
+    values = {"define": "enable_neural_engine=true"}
 )

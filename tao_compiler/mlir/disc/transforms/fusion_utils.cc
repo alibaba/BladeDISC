@@ -1337,6 +1337,12 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 ////////////////////// Base GPU FusionStrategy Implementation /////////
 //////////////////////////////////////////////////////////////////
 
+bool isSingleElementH2DOp(Operation* op) {
+  auto h2d_op = dyn_cast<lmhlo_disc::H2DOp>(op);
+  if (!h2d_op) return false;
+  return op->getOperand(0).getType().cast<MemRefType>().getNumElements() == 1;
+}
+
 bool BaseGpuFusionStrategy::isFusible(Operation* op) {
   // Only rank-2 tensor -> rank-1 tensor reduction are supported now.
   if (isa<lmhlo::ReduceOp>(op) &&
@@ -1344,6 +1350,7 @@ bool BaseGpuFusionStrategy::isFusible(Operation* op) {
     return false;
 
   if (isa<lmhlo::TransposeOp>(op) && isRank2or3Transpose(op)) return false;
+  if (isSingleElementH2DOp(op)) return true;
 
   return BaseFusionStrategy::isFusible(op);
 }

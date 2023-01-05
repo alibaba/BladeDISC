@@ -271,6 +271,8 @@ LogicalResult lowerHelper(OpBuilder& b, Location loc, Operation* op,
           b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::ReshapeOp>(
           b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+      succeeded(miscLowerHelper<lmhlo_disc::H2DOp>(
+          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::ReverseOp>(
           b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config))
     ) {

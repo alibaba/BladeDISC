@@ -13,12 +13,6 @@ import argparse
 import os
 import pandas as pd
 
-COMPARE_FIELDS = [
-    "disc (latency)",
-    "blade (latency)",
-    "dynamo-blade (latency)",
-    "dynamo-disc (latency)",
-]
 NOTICE_FILEDS = [
     "disc (compiled)",
     "disc (clusters)",
@@ -45,7 +39,7 @@ def try_cast_to_float(to_cast: str):
         return to_cast
 
 
-def analyze_target(target, diff_percent):
+def analyze_target(target, diff_percent, compare_fields):
     result = []
     baseline_file = f"{target}.csv"
     current_run_file = os.path.join(target, "summary.csv")
@@ -62,7 +56,7 @@ def analyze_target(target, diff_percent):
         return result
 
     for index in range(len(baseline_csv)):
-        for field in COMPARE_FIELDS + NOTICE_FILEDS:
+        for field in compare_fields + NOTICE_FILEDS:
             model_name = model_list[index]
             baseline, current_run = (
                 baseline_csv.iloc[index][field],
@@ -103,13 +97,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p", "--percent", type=int, help="performance relative diff percent"
     )
+    parser.add_argument(
+        "-f", "--fields", nargs="+", default=[], help="Specify compare fields"
+    )
     parser.add_argument("-i", "--info", help="produce run info")
     args = parser.parse_args()
 
     need_issue = False
     results = ""
     for target in args.targets:
-        result = analyze_target(target, args.percent)
+        result = analyze_target(target, args.percent, args.fields)
         if result:
             need_issue = True
             results += f"\n- {target}:\n"

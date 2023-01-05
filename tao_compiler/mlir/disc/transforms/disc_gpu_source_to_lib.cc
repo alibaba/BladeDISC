@@ -184,14 +184,30 @@ LogicalResult DiscGPUSourceToLibPass::compilePreprocessedCUDASourceToLib(
   std::string tmp_path = "/tmp/";
   bin_path = tmp_path + random_number + ".so";
 
-  // clang-format off
-  const char *headers_cpp1 =
-#include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.cpp1.ii.h"
-  ;
-  const char *headers_cpp4 =
+  char* headers_cpp1;
+  if (cc_major_ == 7 && cc_minor_ == 0) {
+    headers_cpp1 =
+#include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.700.cpp1.ii.h"
+        ;
+  } else if (cc_major_ == 7 && cc_minor_ == 5) {
+    headers_cpp1 =
+#include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.750.cpp1.ii.h"
+        ;
+  } else if (cc_major_ == 8 && cc_minor_ == 0) {
+    headers_cpp1 =
+#include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.800.cpp1.ii.h"
+        ;
+  } else if (cc_major_ == 8 && cc_minor_ == 6) {
+    headers_cpp1 =
+#include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.860.cpp1.ii.h"
+        ;
+  } else {
+    return failure();
+  }
+
+  const char* headers_cpp4 =
 #include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.cpp4.ii.h"
-  ;
-  // clang-format on
+      ;
 
   auto synthesizeCodeAndWriteFile = [&](std::string path, std::string header,
                                         std::string body) {

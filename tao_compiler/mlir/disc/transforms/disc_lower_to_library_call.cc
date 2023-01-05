@@ -104,6 +104,12 @@ void InsertSyncOnStream(Operation* op, Value ctx, Value stream_handle,
                               "sync_on_stream", false, "gpu");
 }
 
+// return true if op in fusion block
+bool isInFusionBlock(Operation* op) {
+  if (op->getParentOfType<FusionOp>() != nullptr) return true;
+  return false;
+}
+
 // Converting:
 //   %output = disc_ral.recv_input(ctx, input_idx)
 //     to
@@ -159,6 +165,8 @@ struct GpuCopyOpConvertor : public OpRewritePattern<OpTy> {
 
   LogicalResult matchAndRewrite(OpTy op,
                                 PatternRewriter& rewriter) const override {
+    if (isInFusionBlock(op)) return failure();
+
     Value ctx = GetContextValueFromFunctionArguments(op);
     if (!ctx) {
       return op->emitOpError(
@@ -420,7 +428,7 @@ struct DynamicConvLikeConverter : public OpRewritePattern<OpTy> {
 // the copied result value.
 Value getCopyRemovableResult(Operation* op) {
   // Not removable if inside a fusion.
-  if (op->getParentOfType<FusionOp>() != nullptr) return {};
+  if (isInFusionBlock(op)) return {};
 
   // TODO(disc): add cpu copy removal support.
   if (isa<ReshapeOp, DynamicReshapeOp, CopyOp>(op)) {

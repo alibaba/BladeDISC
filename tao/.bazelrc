@@ -42,7 +42,7 @@ build:disc_cuda --config=disc --config=cuda
 build:disc_dcu --config=disc --config=dcu
 build:disc_rocm --config=disc --config=rocm
 
-build:disc_mkldnn --config=disc --cxxopt=-DTAO_ENABLE_MKLDNN --define is_mkldnn=true
+build:disc_mkldnn --config=disc --cxxopt=-DTAO_ENABLE_MKLDNN --define is_mkldnn=true --action_env BUILD_WITH_MKLDNN=1
 build:disc_blaze --config=disc --cxxopt=-DBLAZE_OPT
 
 build:cxx11abi_0 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0

@@ -33,6 +33,7 @@ limitations under the License.
 #include "mlir/Tools/PDLL/ODS/Context.h"
 #include "mlir/Tools/PDLL/Parser/Parser.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "tensorflow/tsl/platform/default/logging.h"
 
 #define DEBUG_TYPE "disc-pdl-utils"
 
@@ -144,7 +145,10 @@ OwningOpRef<ModuleOp> compilePDLL(
       op->erase();
     }
   }
-  llvm::errs() << "/////// Parsed PDL module: \n" << pdlModule.get() << "\n\n";
+  if (VLOG_IS_ON(1)) {
+    llvm::errs() << "/////// Parsed PDL module: \n"
+                 << pdlModule.get() << "\n\n";
+  }
   return pdlModule;
 }
 

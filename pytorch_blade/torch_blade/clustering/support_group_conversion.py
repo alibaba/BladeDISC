@@ -9,9 +9,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import concurrent.futures
+from threading import RLock
+
 import torch
 import torch_blade
 from torch_blade import pass_manager, tools, utils
+from torch_blade.config import Config
 from torch_blade.logging import logger
 
 def replace_group_with_engine(
@@ -129,8 +133,14 @@ def _adapt_node_number_outputs(graph, node):
         _adapt_output_value(graph, node, out)
 
 
+# With this lock to serialize access to `module' be for potential parallel execution of
+# `function group_node_to_engine'. Because among all arguments of the function, `module'
+# is shared across all threads.
+_module_lock = RLock()
+
 def group_node_to_engine(
-        module, node,
+        module,
+        node,
         try_cvt_to_engine_func,
         adapt_number_ios,
         idxes,
@@ -159,20 +169,23 @@ def group_node_to_engine(
         _adapt_node_number_inputs(subgraph, subgraph.return_node())
 
     # TODO(gty): refactor register engine attribute as a common process
-    ret_eng = try_cvt_to_engine_func(module, subgraph, group_name, grp_calib_data)
-    if (ret_eng is None):
+    ret_eng = try_cvt_to_engine_func(module, _module_lock, subgraph, group_name, grp_calib_data)
+    if ret_eng is None:
+        logger.debug(f"Failed to convert group {group_name} to engine")
         return
     attr_name, eng_type = ret_eng
 
-    if adapt_number_ios:
-        # NB: Only do number types adaption after the subgraph conversion success
-        _adapt_node_number_outputs(module.forward.graph, node)
-        _adapt_node_number_inputs(module.forward.graph, node)
+    with _module_lock:
+        if adapt_number_ios:
+            # NB: Only do number types adaption after the subgraph conversion success
+            _adapt_node_number_outputs(module.forward.graph, node)
+            _adapt_node_number_inputs(module.forward.graph, node)
 
-    graph = module.forward.graph
-    engine_holder = graph.input_list()[0]
+        graph = module.forward.graph
+        engine_holder = graph.input_list()[0]
 
-    replace_group_with_engine(graph, engine_holder, node, attr_name, eng_type)
+        replace_group_with_engine(graph, engine_holder, node, attr_name, eng_type)
+    logger.debug(f"Group converting complete: {group_name}")
 
 
 def group_nodes(block):
@@ -211,7 +224,6 @@ def group_to_engine_conversion(
         start_id = sorted(engine_id)[-1] + 1
     else:
         start_id = 0
-    success_grp_num = 0
 
     fusion_group_nodes = group_nodes(graph)
     all_calib_data = None
@@ -222,19 +234,42 @@ def group_to_engine_conversion(
                            "is not equal to the number of fusion group nodes")
             all_calib_data = None
 
-    for idx, node in enumerate(group_nodes(graph)):
-        logger.debug(f"Converting fusion group {idx} ...")
-        group_id = success_grp_num + start_id
-        grp_calib_data = all_calib_data[idx] if all_calib_data is not None else None
-        group_node_to_engine(
-            module,
-            node,
-            try_cvt_to_engine_func,
-            adapt_number_ios,
-            (group_id, idx),
-            grp_calib_data
-        )
-        success_grp_num += 1
+    cfg = Config.get_current_context_or_new()
+    num_parallism = cfg.experimental_subgraph_conversion_parallelism
+    if num_parallism <= 1:
+        success_grp_num = 0
+        for idx, node in enumerate(group_nodes(graph)):
+            logger.debug(f"Converting fusion group {idx} ...")
+            group_id = success_grp_num + start_id
+            grp_calib_data = all_calib_data[idx] if all_calib_data is not None else None
+            group_node_to_engine(
+                module,
+                node,
+                try_cvt_to_engine_func,
+                adapt_number_ios,
+                (group_id, idx),
+                grp_calib_data
+            )
+            success_grp_num += 1
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_parallism) as executor:
+            futures = []
+            for idx, node in enumerate(group_nodes(graph)):
+                logger.debug(f"Submit to convert fusion group {idx} ...")
+                group_id = idx + start_id
+                grp_calib_data = all_calib_data[idx] if all_calib_data is not None else None
+                f = executor.submit(group_node_to_engine,
+                                    module,
+                                    node,
+                                    try_cvt_to_engine_func,
+                                    adapt_number_ios,
+                                    (group_id, idx),
+                                    grp_calib_data)
+                futures.append(f)
+            concurrent.futures.wait(futures, return_when=concurrent.futures.ALL_COMPLETED)
+            for f in futures:
+                if f.exception() is not None:
+                    raise f.exception()
 
     utils.block_topology_ajust(graph)
     if (not utils.graph_in_topology_order(graph)):

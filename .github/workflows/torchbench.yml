@@ -15,7 +15,7 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu117
       device: gpu-bench
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
@@ -30,7 +30,7 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu117
       device: gpu-bench
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
@@ -45,7 +45,7 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu117
       device: gpu-bench
       timeout_minutes: 4320 # 72h
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
@@ -61,8 +61,8 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu
-      device: cpu
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
+      device: bare_metal_x86
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu tiny 
@@ -75,8 +75,8 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu
-      device: cpu
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
+      device: bare_metal_x86
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu partial 
@@ -89,8 +89,8 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu
-      device: cpu
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
+      device: bare_metal_x86
       timeout_minutes: 4320 # 72h
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
@@ -104,8 +104,8 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu-aarch64
-      device: aarch64
+      base_image: bladedisc/bladedisc:latest-runtime-torch1.13.1-cpu-aarch64
+      device: aarch64-bench
       dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
       extra_envs: -e RELATED_DIFF_PERCENT=5
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh aarch64 tiny
@@ -118,8 +118,8 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu-aarch64
-      device: aarch64
+      base_image: bladedisc/bladedisc:latest-runtime-torch1.13.1-cpu-aarch64
+      device: aarch64-bench
       dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
       extra_envs: -e RELATED_DIFF_PERCENT=5
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh aarch64 partial
@@ -132,8 +132,8 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu-aarch64
-      device: aarch64
+      base_image: bladedisc/bladedisc:latest-runtime-torch1.13.1-cpu-aarch64
+      device: aarch64-bench
       timeout_minutes: 4320 # 72h
       dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
       extra_envs: -e RELATED_DIFF_PERCENT=5

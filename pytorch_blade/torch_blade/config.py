@@ -188,6 +188,7 @@ class Config(ConfigContext):
         self._opt_pipeline = 'DISC'
         # TODO(tanyo): merge dynamic_tuning_shapes and annotate_args
         self._annotate_args: List[Optional[ArgAnnotation]] = []
+        self._experimental_subgraph_conversion_parallelism = 1
 
     @property
     def optimization_pipeline(self):
@@ -468,7 +469,7 @@ class Config(ConfigContext):
                 _onnx_stable_opsets
             )
             _onnx_master_opset = _onnx_main_opset
-        elif TORCH_VERSION < (1, 14):
+        elif TORCH_VERSION < (1, 13):
             from torch.onnx._constants import onnx_default_opset as _default_onnx_opset_version
             from torch.onnx._constants import onnx_main_opset as _onnx_master_opset
             from torch.onnx._constants import onnx_stable_opsets as _onnx_stable_opsets
@@ -584,5 +585,19 @@ class Config(ConfigContext):
     def annotate_args(self, val):
         assert isinstance(val, list), "annotate_args should be list, got {}".format(type(val))
         for i, v in enumerate(val):
-            assert isinstance(v, tuple), "annotate_args[{}] should be list, got{}".format(i, type(v))
+            assert isinstance(v, tuple), "annotate_args[{}] should be tuple, got{}".format(i, type(v))
         self._annotate_args = val
+
+    @property
+    def experimental_subgraph_conversion_parallelism(self):
+        """The number of threads used for subgraph conversion(aka compiling subgraphs to backends).
+        By default, conversion is performed in a single thread.
+        """
+        assert isinstance(self._experimental_subgraph_conversion_parallelism, int)
+        return self._experimental_subgraph_conversion_parallelism
+
+    @experimental_subgraph_conversion_parallelism.setter
+    def experimental_subgraph_conversion_parallelism(self, val):
+        assert isinstance(val, int), \
+            "experimental_subgraph_conversion_parallelism should be int, got {}".format(type(val))
+        self._experimental_subgraph_conversion_parallelism = val

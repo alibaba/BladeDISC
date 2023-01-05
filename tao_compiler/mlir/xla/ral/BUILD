@@ -328,7 +328,13 @@ cc_library(
         "-fopenmp",
         "-ldl",
         "-lm"
-    ],
+    ] + if_blade_gemm([
+        "-Wl,--start-group",
+        "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",
+        "$(location @mkl_static//:lib)/libmkl_gnu_thread.a",
+        "$(location @mkl_static//:lib)/libmkl_core.a",
+        "-Wl,--end-group",
+    ]),
     deps = [
         ":pdll_util",
         ":ral_context",
@@ -357,6 +363,9 @@ cc_library(
     ]) + if_mkldnn([
         ":disc_mkl_cmake",
         ":ral_md5",
+    ]),
+    data = if_blade_gemm([
+        "@mkl_static//:lib",
     ]),
     alwayslink = 1,
 )
@@ -694,7 +703,13 @@ cc_library(
         "-fopenmp",
         "-ldl",
         "-lm"
-    ],
+    ] + if_blade_gemm([
+        "-Wl,--start-group",
+        "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",
+        "$(location @mkl_static//:lib)/libmkl_gnu_thread.a",
+        "$(location @mkl_static//:lib)/libmkl_core.a",
+        "-Wl,--end-group",
+    ]),
     deps = [
         ":pdll_util",
         ":ral_context",
@@ -715,6 +730,9 @@ cc_library(
     ]) + if_mkldnn([
         ":disc_mkl_bazel",
         ":ral_md5",
+    ]),
+    data = if_blade_gemm([
+        "@mkl_static//:lib",
     ]),
     alwayslink = 1,
 )

@@ -115,7 +115,7 @@ def _subgraph_to_bytes(subgraph, group_name):
 
 def _disc_engine_conversion(module):
     def try_cvt_to_disc_engine_func(
-            c_module, subgraph, group_name, grp_calib_data=None
+            c_module, c_module_lock, subgraph, group_name, grp_calib_data=None
     ):
         attr_name = f"{mlir._DISC_GROUP_NAME}{group_name}"
         try:
@@ -135,13 +135,14 @@ def _disc_engine_conversion(module):
 
             # register engine into module, something like:
             # __torch__.torch.classes.torch_blade.Engine = prim::GetAttr[name="disc_grp0"](%self)
-            eng_type = _backends.register_engine(
-                c_module,
-                state,
-                attr_name,
-                fallback_bytes,
-                str(subgraph),
-            )
+            with c_module_lock:
+                eng_type = _backends.register_engine(
+                    c_module,
+                    state,
+                    attr_name,
+                    fallback_bytes,
+                    str(subgraph),
+                )
 
             return attr_name, eng_type
         except Exception as error:

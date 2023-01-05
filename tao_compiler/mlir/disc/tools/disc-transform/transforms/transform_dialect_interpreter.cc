@@ -118,9 +118,18 @@ void DiscTransformDialectInterpreterPass::runOnOperation() {
   if (transformFileName_.empty()) {
     llvm::errs() << "no transform file name specified, assuming the transform "
                     "module is embedded in the IR next to the top-level\n";
-    // parse transform ops from the module itself.
+    // Parse transform ops from the module itself.
+
+    // Note that We cloned the transform IR into a standalone module to avoid
+    // it's being modified during transformation.
+    auto transformModule = ModuleOp::create(module->getLoc());
+    auto b = OpBuilder::atBlockBegin(transformModule.getBody());
+    for (auto op : module.getBody()->getOps<transform::TransformOpInterface>())
+      b.clone(*op);
+
+    // Apply the transform IR.
     for (auto op :
-         module.getBody()->getOps<transform::TransformOpInterface>()) {
+         transformModule.getBody()->getOps<transform::TransformOpInterface>()) {
       if (failed(transform::applyTransforms(
               module, op,
               transform::TransformOptions().enableExpensiveChecks(

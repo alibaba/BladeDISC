@@ -15,6 +15,7 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
+#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 
@@ -261,6 +262,8 @@ LogicalResult InputInlineFusionPattern::inlineFuseLhloOp(
                                               load_ops, lower_config) ||
       miscFuseHelper<DynamicGatherOp>(b, user, producer, load_op, load_ops,
                                       lower_config) ||
+      miscFuseHelper<lmhlo_disc::H2DOp>(b, user, producer, load_op, load_ops,
+                                        lower_config) ||
       miscFuseHelper<DynamicIotaOp>(b, user, producer, load_op, load_ops,
                                     lower_config) ||
       miscFuseHelper<DynamicPadOp>(b, user, producer, load_op, load_ops,

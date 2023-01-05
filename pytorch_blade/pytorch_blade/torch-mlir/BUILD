@@ -61,6 +61,7 @@ cc_library(
     ],
     hdrs = [
         "include/torch-mlir/Conversion/MhloPasses.h",
+        "include/torch-mlir/Dialect/TorchConversion/Transforms/DiscPdlPredefinedPatterns.h",
     ],
     strip_include_prefix = "include",
     deps = [

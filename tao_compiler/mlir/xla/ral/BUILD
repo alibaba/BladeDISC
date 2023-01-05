@@ -299,6 +299,7 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
+        "context/stream_executor_internal_impl.cc",
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
         "context/quantized_gpu_kernel_impl.cc",
@@ -669,6 +670,7 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
+        "context/stream_executor_internal_impl.cc",
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
         "context/quantized_gpu_kernel_impl.cc",

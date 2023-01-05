@@ -133,8 +133,7 @@ class LowerConfig {
     specific_stores_[store_for] = store;
   }
 
-  //  private:
- public:
+ private:
   DenseMap<std::pair<Operation*, Value>, SpecificLoader> specific_loaders_;
   DenseMap<std::pair<Operation*, Value>, SpecificStore> specific_stores_;
   DenseSet<Operation*> is_written_back_;

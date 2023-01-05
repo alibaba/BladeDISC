@@ -100,14 +100,14 @@ class InputInlineFusionPattern : public RewritePattern {
 
     // Returns success if any of parallelOp is processed.
     for (scf::ParallelOp parallelOp : innermostPloops) {
-      // auto func = one_pass_ ? processParallelOpGreedyly : processParallelOp;
       auto status = one_pass_
                         ? processParallelOpGreedyly(parallelOp, &parent_block,
                                                     rewriter, dominance_info)
                         : processParallelOp(parallelOp, &parent_block, rewriter,
                                             dominance_info);
-      // if (!failed(func(parallelOp, &parent_block, rewriter, dominance_info)))
-      if (!failed(status)) return success();
+      if (!failed(status)) {
+        return success();
+      }
     }
     return failure();
   }

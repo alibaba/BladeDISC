@@ -772,18 +772,6 @@ void FusionPattern::findOpsOfSkeletonGroup(
         auto output = input_op->getOperand(input_op->getNumOperands() - 1);
         int collapsed_tile_dim = getCollapsedTileDim(output);
         auto output_type = output.getType().cast<MemRefType>();
-        // auto output_shape = output_type.getShape();
-        // auto tile_info = tile_plan_[output];
-        // int tiled_dim_size = 1;
-        // for (auto tile : tile_info.tileSizes) {
-        //   int dim = tile.first;
-        //   if (output_shape[dim] == ShapedType::kDynamicSize) {
-        //     tiled_dim_size = ShapedType::kDynamicSize;
-        //     break;
-        //   } else {
-        //     tiled_dim_size *= output_shape[dim];
-        //   }
-        // }
         if (collapsed_tile_dim != ShapedType::kDynamicSize) {
           auto bit_width = row_per_block * collapsed_tile_dim *
                            output_type.getElementType().getIntOrFloatBitWidth();

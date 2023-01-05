@@ -2732,8 +2732,6 @@ LogicalResult initSkeletonGrpsAndCloneOps(
     }
   }
   int shmem_limit_bits = (shmem_limit_bytes == -1) ? -1 : shmem_limit_bytes * 8;
-  // TODO: if mem-intensive-opt-experimental is off, shmem-limit-bits should be
-  // negative.
   DenseSet<Operation*> shm_cached_ops;
   // { skeleton, group-ops-inorder }
   DenseMap<Operation*, SmallVector<Operation*>> skeleton_group_ops_old;
@@ -3604,7 +3602,6 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
   SmallVector<FusionPattern::SkeletonGroup> skeleton_groups;
   DenseMap<Operation*, Value> shm_cached_ops_and_view;
   DenseMap<Operation*, SmallVector<Operation*>> skeleton_group_ops;
-  // TODO: effect of row_per_block.
   if (failed(initSkeletonGrpsAndCloneOps(
           fusion_op, fusion_pattern, skeleton_groups, shm_cached_ops_and_view,
           skeleton_group_ops, shape_analysis, lower_config, true, row_per_block,
@@ -3713,7 +3710,6 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
       LowerConfig::SpecificStore store(result_shmem, element_per_block);
       lower_config.setSpecificStore(
           std::make_pair(fusion_op.getOperation(), output), store);
-      // TODO: add barrier between groups if necessary.
 
       // The assume-alignment on shm memref is to prevent error-delete due to
       // canonicalizer.
@@ -3738,26 +3734,6 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
       for (auto skeleton : skeletons) {
         Value out_value = cast<lmhlo::LmhloOp>(skeleton).getResultBuffer();
         Value result_shmem = shm_mapping[out_value];
-        // Value result_shmem;
-        // result_shmem = createSharedMemoryForOp(b, loc, skeleton, kWarpSize);
-        // if (result_shmem == nullptr) {
-        //   LLVM_DEBUG(llvm::dbgs() << "Create shared memory failed for: "
-        //                           << *skeleton << "\n");
-        //   return failure();
-        // }
-        // shm_mapping[out_value] = result_shmem;
-
-        // auto tile_info = tile_plan.find(out_value);
-        // if (tile_info == tile_plan.end() ||
-        //     tile_info->second.tileSizes.size() != 0) {
-        //   LLVM_DEBUG(llvm::dbgs()
-        //              << "Tile info error for: " << *skeleton << "\n");
-        //   return failure();
-        // }
-        // LowerConfig::SpecificLoader loader(result_shmem, row_per_block);
-        // lower_config.setSpecificLoader(
-        //     std::make_pair(fusion_op.getOperation(), out_value), loader);
-
         result_shmems.push_back(result_shmem);
         is_output.push_back(roots.contains(skeleton));
         external_only.push_back(external_only_roots.contains(skeleton));
@@ -3781,13 +3757,11 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
       require_barrier |= llvm::any_of(
           skeleton_group.root_member_list,
           [&](Operation* op) { return !external_only_roots.contains(op); });
-#if 1
       require_barrier |=
           llvm::any_of(skeleton_group_ops[skeletons[0]], [&](Operation* op) {
             return shm_cached_ops_and_view.find(op) !=
                    shm_cached_ops_and_view.end();
           });
-#endif
 
       if (require_barrier) {
         b.create<gpu::BarrierOp>(loc);

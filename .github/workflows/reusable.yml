@@ -69,6 +69,7 @@ jobs:
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
+        docker pull ${{ inputs.base_image }}
         docker build -t disc-dev-${{ inputs.name }} \
           --build-arg BASEIMAGE=${{ inputs.base_image }} \
           ${{ inputs.extra_build_args }} \

@@ -321,7 +321,7 @@ cc_library(
     ]) + if_disc_aarch64([
         "context/common_context_impl_acl.h",
     ]) + if_blade_gemm([
-        "bladnn/bladnn.h"
+        ":disc_blade_gemm_deps"
     ]),
     copts = [
         # "-DTF_1_12",
@@ -569,7 +569,7 @@ cc_library(
     ] + if_cuda_or_rocm([
         "//tensorflow/core:stream_executor_headers_lib",
     ]) + if_blade_gemm([
-        "bladnn/bladnn.h"
+        ":disc_blade_gemm_deps"
     ]),
     alwayslink = 1,
     visibility = ["//visibility:public"],
@@ -696,7 +696,7 @@ cc_library(
     ]) + if_disc_aarch64([
         "context/common_context_impl_acl.h",
     ]) + if_blade_gemm([
-        "bladnn/bladnn.h"
+        ":disc_blade_gemm_deps"
     ]),
     copts = [
         "-fopenmp",
@@ -904,7 +904,7 @@ cuda_library(
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
     ]) + if_blade_gemm([
-        "bladnn/bladnn.h"
+        ":disc_blade_gemm_deps"
     ]),
 )
 

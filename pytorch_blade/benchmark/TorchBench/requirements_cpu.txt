@@ -1,8 +1,8 @@
 --pre --extra-index-url https://download.pytorch.org/whl/nightly/cpu
 pandas
 librosa
-torchaudio==0.14.0.dev20221202+cpu
-torchtext==0.15.0.dev20221202
+torchaudio==2.0.0.dev20230101+cpu
+torchtext==0.15.0.dev20230101
 onnx
 onnxruntime
 pyyaml

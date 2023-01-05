@@ -320,6 +320,8 @@ cc_library(
         "context/common_context_impl_quantization.h",
     ]) + if_disc_aarch64([
         "context/common_context_impl_acl.h",
+    ]) + if_blade_gemm([
+        "bladnn/bladnn.h"
     ]),
     copts = [
         # "-DTF_1_12",
@@ -566,6 +568,8 @@ cc_library(
         "//third_party/eigen3",
     ] + if_cuda_or_rocm([
         "//tensorflow/core:stream_executor_headers_lib",
+    ]) + if_blade_gemm([
+        "bladnn/bladnn.h"
     ]),
     alwayslink = 1,
     visibility = ["//visibility:public"],
@@ -691,6 +695,8 @@ cc_library(
         "context/common_context_impl_quantization.h",
     ]) + if_disc_aarch64([
         "context/common_context_impl_acl.h",
+    ]) + if_blade_gemm([
+        "bladnn/bladnn.h"
     ]),
     copts = [
         "-fopenmp",
@@ -897,6 +903,8 @@ cuda_library(
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
+    ]) + if_blade_gemm([
+        "bladnn/bladnn.h"
     ]),
 )
 

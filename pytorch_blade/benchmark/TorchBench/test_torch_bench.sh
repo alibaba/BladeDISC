@@ -32,10 +32,9 @@ if [ $HARDWARE == "aarch64" ]; then
     cp -r /opt/venv_disc ./venv
 fi
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
-python3 -m pip install -q -r $script_dir/requirements_$HARDWARE.txt
-# fix for opacus_cifar10 install
-pip install opacus --no-deps
+
 # install dependencies
+python3 -m pip install -q -r $script_dir/requirements_$HARDWARE.txt
 git pull && git checkout main  && git submodule update --init --recursive --depth 1 && python3 install.py --continue_on_fail
 
 pushd $script_dir # pytorch_blade/benchmark/TorchBench

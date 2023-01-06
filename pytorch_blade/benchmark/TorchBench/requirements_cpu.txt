@@ -2,7 +2,8 @@
 pandas
 librosa
 torchaudio==2.0.0.dev20230101+cpu
-torchtext==0.15.0.dev20230101
+# torchtext depends on previous day's torch vision
+torchtext==0.15.0.dev20230102
 onnx
 onnxruntime
 pyyaml

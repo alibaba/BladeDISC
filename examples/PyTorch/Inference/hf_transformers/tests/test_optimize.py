@@ -13,7 +13,7 @@ import os
 import unittest
 
 import torch
-from blade_adapter import BladeModel, optimize
+from blade_adapter import WrapperModel, optimize
 from transformers import AutoModelForMaskedLM, PreTrainedModel
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -24,7 +24,7 @@ class OptimizeTest(unittest.TestCase):
     def test_no_task_no_model(self):
         self.assertRaises(ValueError, optimize)
 
-    def _eval_models(self, blade_model: BladeModel, eager_model: PreTrainedModel) -> None:
+    def _eval_models(self, blade_model: WrapperModel, eager_model: PreTrainedModel) -> None:
         inputs = blade_model.info.dummy_inputs
         blade_outputs = blade_model(**inputs)
         eager_outputs = eager_model(**inputs)

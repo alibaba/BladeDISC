@@ -2150,6 +2150,53 @@ MemRefType<T, 4> bladnn_groupnorm(ExecutionContext* ctx, void* stream_handle,
 
 }  // namespace groupnorm_impl
 
+namespace layernorm_impl {
+
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+
+template <typename T, int M, int N>
+MemRefType<T, M> bladnn_layernorm(ExecutionContext* ctx, void* stream_handle,
+                                  MemRefType<T, M> input,
+                                  MemRefType<T, N> weight,
+                                  MemRefType<T, N> bias, void* customAttrs) {
+  size_t nElems = Size(input);
+  auto driver = ctx->getDriver<gpu::GPUDriver>(gpu::GPUDriver::name());
+  TAO_CHECK(driver);
+  auto ptr = static_cast<T*>(driver->alloc(ctx, nElems * sizeof(T)));
+  auto output = assignMemRef<T, M>(ptr, input.sizes);
+
+  auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_conv_biasadd");
+  if (!attr) {
+    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
+  }
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  auto eps = dictAttr.get("eps").template as<FloatPDLAttr>().getValue();
+  auto stream = driver->asCUStream(ctx, stream_handle);
+  int m = 1;
+  int n = 1;
+  for (int i = 0; i < M; ++i) {
+    if (i < M - N) {
+      m *= input.sizes[i];
+    } else {
+      TAO_CHECK(input.sizes[i] == weight.sizes[i - M + N]);
+      TAO_CHECK(input.sizes[i] == bias.sizes[i - M + N]);
+      n *= input.sizes[i];
+    }
+  }
+  bool ret =
+      bladnn::layernorm(output.data, input.data, weight.data, bias.data,
+                        m, n,
+                        false, eps, stream);
+  if (!ret) {
+    ctx->signalError(Context::FAILURE, "fail to call bladnn::layernorm\n");
+  }
+  return output;
+}
+
+#endif
+
+}  // namespace layernorm_impl
+
 }  // namespace se_impl
 }  // namespace gpu
 
@@ -2201,6 +2248,12 @@ TAO_RAL_API("ral_pdll_mem_eff_attention_output_transpose", "gpu",
             gpu::se_impl::ral_pdll_mem_eff_attention_output_transpose);
 TAO_RAL_API("ral_pdll_group_norm", "gpu",
             gpu::se_impl::groupnorm_impl::bladnn_groupnorm<Eigen::half>);
+TAO_RAL_API("ral_pdll_layer_norm", "gpu",
+            gpu::se_impl::layernorm_impl::bladnn_layernorm<Eigen::half, 3, 1>);
+TAO_RAL_API("ral_pdll_layer_norm", "gpu",
+            gpu::se_impl::layernorm_impl::bladnn_layernorm<Eigen::half, 2, 1>);
+TAO_RAL_API("ral_pdll_layer_norm", "gpu",
+            gpu::se_impl::layernorm_impl::bladnn_layernorm<Eigen::half, 4, 3>);
 #endif
 
 // compute-intensive fusion

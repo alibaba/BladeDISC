@@ -20,6 +20,7 @@ limitations under the License.
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir-hlo/utils/placement_utils.h"
+#include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -4615,25 +4616,20 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
     }
   }
 
-  // memset multidim output to 0
-  {
-    llvm::SmallVector<Value, 2> lower(output_rank, zero), upper,
-        step(output_rank, one);
-    llvm::SmallVector<Value, 4> output_indices;
-    for (int i = 0; i < output_rank; ++i) {
-      upper.push_back(b.create<memref::DimOp>(loc, output, i));
-    }
-    auto parallel_op =
-        b.create<scf::ParallelOp>(loc, /* lowerBound */ lower,
-                                  /* upperBound */ upper, /* step */ step);
-    b.setInsertionPointToStart(parallel_op.getBody());
-    for (int i = 0; i < output_rank; ++i) {
-      output_indices.push_back(b.create<arith::IndexCastOp>(
-          loc, b.getIndexType(), parallel_op.getInductionVars()[i]));
-    }
-    b.create<memref::StoreOp>(loc, zero_floating, output, output_indices);
-    b.setInsertionPointAfter(parallel_op);
-  }
+  // memset output to 0
+  auto num_elements = emitNumElementsComputation(b, loc, output);
+  auto output_shape = getShapeValues(&b, output);
+  auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                     /* upperBound */ num_elements,
+                                     /* step */ one);
+  for_op.getBody()->clear();
+  b.setInsertionPointToStart(for_op.getBody());
+
+  Value i = for_op.getInductionVar();
+  auto index = calcMultiDimIndex(&b, loc, i, output_shape);
+  b.create<memref::StoreOp>(loc, zero_floating, output, index);
+  b.create<scf::YieldOp>(loc, ValueRange({}));
+  b.setInsertionPointAfter(for_op);
 
   if (isa<lmhlo_disc::SparseSegmentSumOp>(root_ops[0])) {
     // data/output's dim 1~(rank-1) are the same
@@ -4691,7 +4687,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
     //         ...
     //           for (m = 0; j < data.shape(rank-1); ++m) {
     //             output[segment_idx][j]...[m] +=
-    //             data[row_idx][j]...[m]/segment_count[segment_idx]
+    //               data[row_idx][j]...[m]/segment_count[segment_idx]
     //           }
     //         ...
     //       }
@@ -4746,6 +4742,8 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
     b.setInsertionPointAfter(parallel_op);
   }
   b.setInsertionPoint(operation);
+  // auto func = operation->getParentOfType<func::FuncOp>();
+  // func->dump();
 
   // TODO: Support fusion
   for (Operation* root_op : root_ops) root_op->erase();
@@ -4766,14 +4764,6 @@ LogicalResult lowerWithScheduleWhereOpCPU(
       where_op = root_op;
       break;
     }
-  }
-
-  if (parent) {
-    llvm::dbgs() << "************before**************\n";
-    for (Operation& op : parent->getOperations()) {
-      op.dump();
-    }
-    llvm::dbgs() << "************end before**************\n";
   }
 
   auto where = dyn_cast<lmhlo_disc::WhereOp>(where_op);

@@ -1378,12 +1378,14 @@ class ShapePropagator : public PropertyPropBase {
         [](Node* node) -> type_vec_t {
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
             auto device = getDeviceFromValue(node->namedInput(attr::device));
-            return {TensorType::create(
-                        type->scalarType(),
-                        device,
-                        type->dim(),
-                        /*requires_grad=*/c10::nullopt)
-                        ->withSymbolicShapes(type->symbolic_sizes())};
+            if (type->dim()) {
+              return {TensorType::create(
+                          type->scalarType(),
+                          device,
+                          type->dim(),
+                          /*requires_grad=*/c10::nullopt)
+                          ->withSymbolicShapes(type->symbolic_sizes())};
+            }
           }
           return {};
         }};

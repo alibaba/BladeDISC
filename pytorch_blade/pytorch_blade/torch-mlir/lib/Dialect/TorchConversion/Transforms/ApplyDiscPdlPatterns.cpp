@@ -157,10 +157,18 @@ void ApplyDiscPdlPatternsPass::runOnOperation() {
   (void)mlir::disc_ral::populateDiscPdlPatternsFromString(
       &patterns, getTorchPredefinedPDLPatterns());
 
+  auto pdll_include_dirs = mlir::disc_ral::ParseFileString(pdll_include_dirs_);
+  (void)mlir::disc_ral::populateDiscPdlPatternsFromString(
+      &patterns,
+      getTorchPredefinedPDLPatterns(),
+      pdll_include_dirs,
+      torch::kDefaultHelperFunctionDeclarations,
+      torch::registerPredefinedHelperFunctions);
+
   (void)mlir::disc_ral::populateDiscPdlPatternsFromFiles(
       &patterns,
       mlir::disc_ral::ParseFileString(pdll_files_),
-      mlir::disc_ral::ParseFileString(pdll_include_dirs_),
+      pdll_include_dirs,
       torch::kDefaultHelperFunctionDeclarations,
       torch::registerPredefinedHelperFunctions);
 

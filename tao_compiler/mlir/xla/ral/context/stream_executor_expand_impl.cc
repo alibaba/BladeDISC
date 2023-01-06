@@ -25,9 +25,6 @@
 #include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/core/util/env_var.h"
-#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-#include "bladnn/bladnn.h"
-#endif
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 

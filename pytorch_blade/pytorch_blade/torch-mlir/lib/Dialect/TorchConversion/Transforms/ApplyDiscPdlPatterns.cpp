@@ -1121,6 +1121,47 @@ std::string getTorchPredefinedPDLPatterns() {
       };
     }
 
+    Pattern TorchLayerNormOpF16 {
+      /// match phase: define the pattern
+      let eps_attr : Attr;
+      let eps = op<torch.constant.float> { value = eps_attr };
+      let ln = op<torch.aten.layer_norm>(
+        input: Value,
+        normalized_shape: Value,
+        weight: Value,
+        bias: Value,
+        eps.0,
+        cudnn_enabled: Value
+      ) -> (old_type: Type);
+      CheckNotTorchNone(weight);
+      CheckNotTorchNone(bias);
+      CheckTorchTensorElemType(input, attr<"\"f16\"">);
+
+      /// rewrite phase
+      rewrite ln with {
+        /// 1. create custom call op
+        let inputs = PackValue_3(attr<"\"in\"">, input, weight, bias);
+        let outputs = PackValue_1(attr<"\"out\"">, ln.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_layer_norm\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+        /// 3. set attrs that are directly passed to the custom call kernel.
+        SetCustomAttr(infos.op, attr<"\"eps\"">, eps_attr);
+
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace ln with rs;
+      };
+    }
+
   )pdll";
 #endif
 

@@ -2,5 +2,5 @@
 pandas
 librosa
 torchaudio==2.0.0.dev20230101+cu117
-torchtext==0.15.0.dev20230101
+torchtext==0.15.0.dev20230102
 pyyaml

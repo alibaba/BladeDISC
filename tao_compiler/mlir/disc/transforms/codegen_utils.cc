@@ -108,22 +108,6 @@ Value emitNumElementsComputation(OpBuilder& b, Location loc, Operation* op) {
   return emitNumElementsComputation(b, loc, result_memref);
 }
 
-SmallVector<Value> getShapeValues(OpBuilder* b, Value memref) {
-  auto shape = memref.getType().dyn_cast<ShapedType>().getShape();
-  int64_t rank = shape.size();
-  auto loc = memref.getLoc();
-
-  SmallVector<Value> result;
-  for (int i = 0; i < rank; ++i) {
-    if (shape[i] == ShapedType::kDynamicSize) {
-      result.push_back(b->create<DimOp>(loc, memref, i));
-    } else {
-      result.push_back(b->create<arith::ConstantIndexOp>(loc, shape[i]));
-    }
-  }
-  return result;
-}
-
 Value calcLinearIndex(OpBuilder* b, Location loc, const ValueRange multi_index,
                       const llvm::ArrayRef<Value> shape) {
   assert(multi_index.size() == shape.size());
@@ -170,50 +154,6 @@ SmallVector<Value> calcMultiDimIndex(OpBuilder* b, Location loc,
                                      Value linear_index, Value memref) {
   SmallVector<Value> shape_vec = getShapeValues(b, memref);
   return calcMultiDimIndex(b, loc, linear_index, shape_vec);
-}
-
-Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
-                   ValueRange toShape) {
-  int64_t rank = toShape.size();
-  auto memrefTy = toType.cast<MemRefType>();
-  auto getIntAttr = [&](int64_t val) {
-    return b.getIntegerAttr(b.getIndexType(), val);
-  };
-
-  SmallVector<OpFoldResult> foldSizes;
-  for (int i = 0; i < rank; ++i) {
-    if (memrefTy.getDimSize(i) == ShapedType::kDynamicSize) {
-      foldSizes.push_back(toShape[i]);
-    } else {
-      foldSizes.push_back(getIntAttr(memrefTy.getDimSize(i)));
-    }
-  }
-
-  Value dynamicStride;
-  int64_t staticStride = 1;
-  SmallVector<OpFoldResult> foldStrides;
-  for (int i = rank - 1; i >= 0; --i) {
-    if (staticStride != ShapedType::kDynamicSize) {
-      foldStrides.push_back(getIntAttr(staticStride));
-      if (memrefTy.getDimSize(i) == ShapedType::kDynamicSize) {
-        dynamicStride = b.create<arith::ConstantIndexOp>(loc, staticStride);
-        staticStride = ShapedType::kDynamicSize;
-      } else {
-        staticStride *= memrefTy.getDimSize(i);
-      }
-    } else {
-      foldStrides.push_back(dynamicStride);
-    }
-    if (dynamicStride) {
-      dynamicStride = b.create<arith::MulIOp>(loc, dynamicStride, toShape[i]);
-    }
-  }
-
-  OpFoldResult zero{getIntAttr(0)};
-  auto reversedStrides = llvm::to_vector<4>(llvm::reverse(foldStrides));
-  auto castOp = b.create<memref::ReinterpretCastOp>(loc, memrefTy, from, zero,
-                                                    foldSizes, reversedStrides);
-  return castOp;
 }
 
 using scf::IfOp;

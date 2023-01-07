@@ -368,7 +368,13 @@ class FusionPattern : public FusionPatternBase {
     DenseSet<Operation*> irregular_root_member_set;
   };
 
-  void findOpsOfSkeletonGroup(SkeletonGroup group, DenseSet<Operation*>& ops);
+  void findOpsOfSkeletonGroup(
+      SkeletonGroup group, DenseSet<Operation*>& ops,
+      DenseSet<Operation*>& shmem_cached_ops,
+      const DenseMap<Operation*, SmallVector<Operation*>>& existing_group_ops,
+      int row_per_block, int& shmem_usage_bits, const int shmem_limit_bits);
+
+  int64_t getCollapsedTileDim(Value value);
 
   DenseSet<Operation*>& getRegularXroots() { return regular_xroots_; }
 

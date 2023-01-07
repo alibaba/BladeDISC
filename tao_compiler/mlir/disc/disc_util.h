@@ -93,6 +93,8 @@ Value getRootMemRef(Value memref);
 
 bool isSameUnderlineBuffer(Value lhs, Value rhs);
 
+bool isSparseSegmentReductionOp(Operation* op);
+
 // For mhlo.EinsumOp. TODO: merge into mhlo dialect
 enum EquationVariable { kIsLhs, kIsRhs, kIsResult };
 bool parseEinsumEquation(

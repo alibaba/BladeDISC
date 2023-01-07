@@ -339,31 +339,35 @@ def HLO_SparseFillEmptyRowsOp : HLODISC_ShapedInterfaceOp<"sparse_fill_empty_row
   );
 }
 
-def HLO_SparseSegmentMeanOp : HLODISC_ShapedInterfaceOp<"sparse_segment_mean", [Pure]> {
-  let summary = "One-to-one mapping of TF_SparseSegmentMeanOp";
+def HLO_SparseSegmentReductionWithEmptyRowsOp : HLODISC_Op<"sparse_segment_reduction_with_empty_rows", [Pure]> {
+  let summary = "This is combination of sparse_fill_empty_rows + sparse_segment_mean/sum";
   let description = [{
-    See tf's sparse_segment_mean operator.
+    Since fuse 2 thses ops is difficult when these 2 both contains many loops after legalize-to-roots pass, however we can greatly simplify the computation in current impl.
   }];
   let arguments = (ins
     HLO_FpTensor:$data,
     HLO_I32OrI64Tensor:$indices,
-    HLO_I32OrI64Tensor:$segment_ids
+    HLO_I32OrI64Tensor:$unfilled_segment_ids,
+    TensorOf<[I64]>:$dense_shape,
+    DefaultValuedAttr<BoolAttr, "true">:$is_mean
   );
 
   let results = (outs
-    HLO_FpTensor:$output
+    HLO_FpTensor:$output,
+    TensorOf<[I1]>:$empty_row_indicator
   );
 }
 
-def HLO_SparseSegmentSumOp : HLODISC_ShapedInterfaceOp<"sparse_segment_sum", [Pure]> {
-  let summary = "One-to-one mapping of TF_SparseSegmentSumOp";
+def HLO_SparseSegmentReductionOp: HLODISC_ShapedInterfaceOp<"sparse_segment_reduction", [Pure]> {
+  let summary = "One-to-one mapping of TF_SparseSegmentMeanOp or TF_SparseSegmentSumOp";
   let description = [{
-    See tf's sparse_segment_sum operator.
+    See tf's sparse_segment_mean or sparse_segment_sum operator.
   }];
   let arguments = (ins
     HLO_FpTensor:$data,
     HLO_I32OrI64Tensor:$indices,
-    HLO_I32OrI64Tensor:$segment_ids
+    HLO_I32OrI64Tensor:$segment_ids,
+    DefaultValuedAttr<BoolAttr, "true">:$is_mean
   );
 
   let results = (outs

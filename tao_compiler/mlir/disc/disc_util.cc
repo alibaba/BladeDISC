@@ -82,6 +82,12 @@ bool isSameUnderlineBuffer(Value lhs, Value rhs) {
   return getRootMemRef(lhs) == getRootMemRef(rhs);
 }
 
+bool isSparseSegmentReductionOp(Operation* op) {
+  return isa<lmhlo_disc::SparseSegmentReductionOp>(op) ||
+      isa<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(op);
+}
+
+
 bool parseEinsumEquation(
     llvm::StringRef equation,
     llvm::SmallDenseMap<char, llvm::SmallDenseMap<EquationVariable, size_t>>&

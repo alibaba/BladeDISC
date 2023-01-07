@@ -2294,7 +2294,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
   b.create<gpu::BarrierOp>(loc);
 
   // if (local_row_index == 0) {
-  // 		if (is_valid) {
+  //		if (is_valid) {
   //			partial_result = shm[n] + shm[var_tile_w + n];
   //			atomicAdd(&global[col_index], partial_result);
   //    }
@@ -4517,43 +4517,31 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
     Block* parent = nullptr, bool non_fusion = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
   if (!(root_ops.size() == 1 &&
-        (isa<lmhlo_disc::SparseSegmentMeanOp>(root_ops[0]) ||
-         isa<lmhlo_disc::SparseSegmentSumOp>(root_ops[0])))) {
+        isa<lmhlo_disc::SparseSegmentReductionOp>(root_ops[0]))) {
     return dominant_op->emitError()
-           << "root_ops[0] is not a lmhlo_disc::SparseSegmentMeanOp or "
-              "lmhlo_disc::SparseSegmentSumOp";
+           << "root_ops[0] is not a lmhlo_disc::SparseSegmentReductionOp";
   }
-  auto sparse_segment_mean_op =
-      dyn_cast<lmhlo_disc::SparseSegmentMeanOp>(root_ops[0]);
-  auto sparse_segment_sum_op =
-      dyn_cast<lmhlo_disc::SparseSegmentSumOp>(root_ops[0]);
-  if (!sparse_segment_mean_op && !sparse_segment_sum_op) {
+  auto sparse_segment_reduction_op =
+      dyn_cast<lmhlo_disc::SparseSegmentReductionOp>(root_ops[0]);
+  if (!sparse_segment_reduction_op) {
     return dominant_op->emitError()
-           << "can not cast root_ops[0] to lmhlo_disc::SparseSegmentMeanOp "
+           << "can not cast root_ops[0] to lmhlo_disc::SparseSegmentReductionOp"
               "or lmhlo_disc::SparseSegmentSumOp";
   }
 
-  auto loc = sparse_segment_mean_op ? sparse_segment_mean_op.getLoc()
-                                    : sparse_segment_sum_op.getLoc();
+  auto loc = sparse_segment_reduction_op.getLoc();
+
   OpBuilder b(root_ops.back());
 
-  auto operation = sparse_segment_mean_op
-                       ? sparse_segment_mean_op.getOperation()
-                       : sparse_segment_sum_op.getOperation();
-  auto context = sparse_segment_mean_op ? sparse_segment_mean_op.getContext()
-                                        : sparse_segment_sum_op.getContext();
+  auto operation = sparse_segment_reduction_op.getOperation();
+  auto context = sparse_segment_reduction_op.getContext();
 
   // input
-  Value data = sparse_segment_mean_op ? sparse_segment_mean_op.getData()
-                                      : sparse_segment_sum_op.getData();
-  Value indices = sparse_segment_mean_op ? sparse_segment_mean_op.getIndices()
-                                         : sparse_segment_sum_op.getIndices();
-  Value segment_ids = sparse_segment_mean_op
-                          ? sparse_segment_mean_op.getSegmentIds()
-                          : sparse_segment_sum_op.getSegmentIds();
+  Value data = sparse_segment_reduction_op.getData();
+  Value indices = sparse_segment_reduction_op.getIndices();
+  Value segment_ids = sparse_segment_reduction_op.getSegmentIds();
   // output
-  Value output = sparse_segment_mean_op ? sparse_segment_mean_op.getOutput()
-                                        : sparse_segment_sum_op.getOutput();
+  Value output = sparse_segment_reduction_op.getOutput();
 
   MemRefType output_type = output.getType().template cast<MemRefType>();
   int64_t output_rank = output_type.getRank();
@@ -4631,7 +4619,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
   b.create<scf::YieldOp>(loc, ValueRange({}));
   b.setInsertionPointAfter(for_op);
 
-  if (isa<lmhlo_disc::SparseSegmentSumOp>(root_ops[0])) {
+  if (!sparse_segment_reduction_op.getIsMean()) {
     // data/output's dim 1~(rank-1) are the same
     // for (i = 0; i < indices.shape(0), ++i) {
     //   row_idx = indices[i]
@@ -4928,8 +4916,7 @@ LogicalResult lowerWithScheduleLoopCPU(
         root_ops, dominant_op, parent, non_fusion, shape_analysis);
   }
 
-  if (non_fusion && (isa<lmhlo_disc::SparseSegmentMeanOp>(dominant_op) ||
-                     isa<lmhlo_disc::SparseSegmentSumOp>(dominant_op))) {
+  if (non_fusion && isa<lmhlo_disc::SparseSegmentReductionOp>(dominant_op)) {
     return lowerWithScheduleSparseSegmentReductionOpCPU(
         root_ops, dominant_op, parent, non_fusion, shape_analysis);
   }

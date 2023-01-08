@@ -918,7 +918,42 @@ LogicalResult SparseSegmentReductionOp::verify() {
 // SparseSegmentReductionWithEmptyRowsOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult SparseSegmentReductionWithEmptyRowsOp::verify() { return Verify(this); }
+LogicalResult SparseSegmentReductionWithEmptyRowsOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  SparseSegmentReductionWithEmptyRowsOp::Adaptor adaptor(operands);
+  Location loc = this->getLoc();
+  auto data_type = adaptor.getData().getType().cast<RankedTensorType>();
+  auto indices_type = adaptor.getIndices().getType().cast<RankedTensorType>();
+  auto input_rank = data_type.getRank();
+  SmallVector<Value, 2> output_shape_values;
+  SmallVector<Value, 2> empty_rows_indicator_shape_values;
+  Value idx_zero = builder.create<arith::ConstantIndexOp>(loc, 0);
+  // dense shape should be rank 2 here, other wise we should multiply
+  // dim 0 ~ rank-1.
+  Value dense_rows = builder.create<arith::IndexCastOp>(
+      loc, builder.getIndexType(),
+      builder.create<tensor::ExtractOp>(loc, operands[3], idx_zero));
+  output_shape_values.push_back(dense_rows);
+
+  for (auto i = 1; i < input_rank; i++) {
+    output_shape_values.push_back(
+        builder.create<tensor::DimOp>(loc, operands[0], i));
+  }
+  Value output_shape =
+      builder.create<tensor::FromElementsOp>(loc, output_shape_values);
+  reifiedReturnShapes.push_back(output_shape);
+
+  empty_rows_indicator_shape_values.push_back(dense_rows);
+  Value empty_rows_indicator_shape =
+      builder.create<tensor::FromElementsOp>(loc, output_shape_values);
+  reifiedReturnShapes.push_back(empty_rows_indicator_shape);
+  return success();
+}
+
+LogicalResult SparseSegmentReductionWithEmptyRowsOp::verify() {
+  return Verify(this);
+}
 
 // CustomCallV2Op
 //===----------------------------------------------------------------------===//

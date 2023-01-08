@@ -339,7 +339,7 @@ def HLO_SparseFillEmptyRowsOp : HLODISC_ShapedInterfaceOp<"sparse_fill_empty_row
   );
 }
 
-def HLO_SparseSegmentReductionWithEmptyRowsOp : HLODISC_Op<"sparse_segment_reduction_with_empty_rows", [Pure]> {
+def HLO_SparseSegmentReductionWithEmptyRowsOp : HLODISC_ShapedInterfaceOp<"sparse_segment_reduction_with_empty_rows", [Pure]> {
   let summary = "This is combination of sparse_fill_empty_rows + sparse_segment_mean/sum";
   let description = [{
     Since fuse 2 thses ops is difficult when these 2 both contains many loops after legalize-to-roots pass, however we can greatly simplify the computation in current impl.

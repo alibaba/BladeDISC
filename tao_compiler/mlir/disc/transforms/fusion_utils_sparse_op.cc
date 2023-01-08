@@ -27,9 +27,9 @@ bool isOutputFusible(Operation* op) {
 }
 
 bool SparseOpCpuFusionStrategy::isFusible(Operation* op) {
-  return isa<lmhlo_disc::WhereOp>(op) || mlir::disc_ral::isFusible(op);
-  // return isa<lmhlo_disc::WhereOp>(op) ||
-  // isa<lmhlo::DynamicBroadcastInDimOp>(op) || isa<lmhlo::CompareOp>(op) ||
+  // return isa<lmhlo_disc::WhereOp>(op) || mlir::disc_ral::isFusible(op);
+  return isa<lmhlo_disc::WhereOp>(op) ||
+    isa<lmhlo::DynamicBroadcastInDimOp>(op) || isa<lmhlo::CompareOp>(op);
   // isOutputFusible(op);
 }
 

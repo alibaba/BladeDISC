@@ -32,6 +32,29 @@
 namespace mlir {
 namespace disc_ral {
 
+// sparse_ids = sparse_ops.sparse_reshape(sparse_ids, [
+//     math_ops.reduce_prod(
+//         array_ops.slice(original_shape, [0], [original_rank - 1])),
+//     array_ops.gather(original_shape, original_rank - 1)
+// ])
+struct SimplifySparseReshapeOp
+    : public OpRewritePattern<mhlo_disc::SparseReshapeOp> {
+  using OpRewritePattern<mhlo_disc::SparseReshapeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo_disc::SparseReshapeOp op,
+                                PatternRewriter& rewriter) const override {
+    llvm::dbgs() << "SimplifySparseReshapeOp \n";
+    // Location loc = op.getLoc();
+    // Value input = op.getOperand();
+    // auto input_type = input.getType().dyn_cast<RankedTensorType>();
+    // if (!input_type) return failure();
+
+    rewriter.replaceOp(op, {op.getInputIndices(), op.getInputShape()});
+
+    return success();
+  }
+};
+
 // Deal with gather generated from tf's sparse_op.sparse_retain in embedding
 // column 2 mhlo.dynamic_gather should be rewrite by this OpRewritePattern 1st
 // mhlo.dynamic_gather with 1-dimension input/output deal with sparse tensor's
@@ -44,6 +67,7 @@ struct RewriteDynamicGatherOp : public OpRewritePattern<mhlo::DynamicGatherOp> {
 
   LogicalResult matchAndRewrite(mhlo::DynamicGatherOp op,
                                 PatternRewriter& rewriter) const override {
+    llvm::dbgs() << "RewriteDynamicGatherOp \n";
     Location loc = op.getLoc();
 
     Value input = op.getOperand();
@@ -58,7 +82,6 @@ struct RewriteDynamicGatherOp : public OpRewritePattern<mhlo::DynamicGatherOp> {
 
     auto reshape_op = index.getDefiningOp();
     if (!(reshape_op && isa<mhlo::DynamicReshapeOp>(reshape_op))) {
-      VLOG(0) << "[debug] failure";
       return failure();
     }
     // TODO: check reshape with input (<?x1xi64>, <1xi64>) and output <?xi64>
@@ -78,13 +101,11 @@ struct RewriteDynamicGatherOp : public OpRewritePattern<mhlo::DynamicGatherOp> {
     auto real_dynamic_slice_op = reshape_op->getOperand(0).getDefiningOp();
     if (!(real_dynamic_slice_op &&
           isa<mhlo::RealDynamicSliceOp>(real_dynamic_slice_op))) {
-      VLOG(0) << "[debug] failure";
       return failure();
     }
 
     auto where_op = real_dynamic_slice_op->getOperand(0).getDefiningOp();
     if (!(where_op && isa<mhlo_disc::WhereOp>(where_op))) {
-      VLOG(0) << "[debug] failure";
       return failure();
     }
 
@@ -176,24 +197,97 @@ struct RewriteDynamicGatherOp : public OpRewritePattern<mhlo::DynamicGatherOp> {
   }
 };
 
-// sparse_ids = sparse_ops.sparse_reshape(sparse_ids, [
-//     math_ops.reduce_prod(
-//         array_ops.slice(original_shape, [0], [original_rank - 1])),
-//     array_ops.gather(original_shape, original_rank - 1)
-// ])
-struct SimplifySparseReshapeOp
-    : public OpRewritePattern<mhlo_disc::SparseReshapeOp> {
-  using OpRewritePattern<mhlo_disc::SparseReshapeOp>::OpRewritePattern;
+struct RewriteSparseSegmentReductionOp
+    : public OpRewritePattern<mhlo_disc::SparseSegmentReductionOp> {
+  using OpRewritePattern<mhlo_disc::SparseSegmentReductionOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(mhlo_disc::SparseReshapeOp op,
+  LogicalResult matchAndRewrite(mhlo_disc::SparseSegmentReductionOp op,
                                 PatternRewriter& rewriter) const override {
-    // Location loc = op.getLoc();
-    // Value input = op.getOperand();
-    // auto input_type = input.getType().dyn_cast<RankedTensorType>();
-    // if (!input_type) return failure();
+    llvm::dbgs() << "RewriteSparseSegmentReductionOp \n";
+    Location loc = op.getLoc();
 
-    rewriter.replaceOp(op, {op.getInputIndices(), op.getInputShape()});
+    Value indices = op.getIndices();
+    auto indices_type = indices.getType().dyn_cast<RankedTensorType>();
+    if (!indices_type) return failure();
 
+    auto segment_ids = op.getSegmentIds();
+    auto segment_ids_type = segment_ids.getType().dyn_cast<RankedTensorType>();
+    if (!segment_ids_type) return failure();
+
+    auto output = op.getOutput();
+    auto output_type = output.getType().dyn_cast<RankedTensorType>();
+    if (!output_type) return failure();
+
+    // check sparse_fill_empty_rows:1 --> real_dynamic_slice --> indices
+    auto real_dynamic_slice_1 = indices.getDefiningOp();
+    if (!(real_dynamic_slice_1 &&
+          isa<mhlo::RealDynamicSliceOp>(real_dynamic_slice_1))) {
+      return failure();
+    }
+
+    auto sparse_fill_empty_rows =
+        real_dynamic_slice_1->getOperand(0).getDefiningOp();
+    if (!(sparse_fill_empty_rows &&
+          isa<mhlo_disc::SparseFillEmptyRowsOp>(sparse_fill_empty_rows))) {
+      return failure();
+    }
+
+    // check sparse_fill_empty_rows:0 --> real_dynamic_slice -->
+    // real_dynamic_slice --> dynamic_reshape
+    auto dynamic_reshape = segment_ids.getDefiningOp();
+    if (!(dynamic_reshape && isa<mhlo::DynamicReshapeOp>(dynamic_reshape))) {
+      return failure();
+    }
+
+    // TODO(lanbo): check real dynamic slice is doing operations like ids[:, 0]
+    auto real_dynamic_slice_2 = dynamic_reshape->getOperand(0).getDefiningOp();
+    if (!(real_dynamic_slice_2 &&
+          isa<mhlo::RealDynamicSliceOp>(real_dynamic_slice_2))) {
+      return failure();
+    }
+
+    auto real_dynamic_slice_3 =
+        real_dynamic_slice_2->getOperand(0).getDefiningOp();
+    if (!(real_dynamic_slice_3 &&
+          isa<mhlo::RealDynamicSliceOp>(real_dynamic_slice_3))) {
+      return failure();
+    }
+
+    auto sparse_fill_empty_rows_1 =
+        real_dynamic_slice_3->getOperand(0).getDefiningOp();
+    if (!(sparse_fill_empty_rows &&
+          isa<mhlo_disc::SparseFillEmptyRowsOp>(sparse_fill_empty_rows))) {
+      return failure();
+    }
+    // (TODO) check from same sparse_fill_empty_rows
+    // if (sparse_fill_empty_rows->getOperation() !=
+    //     sparse_fill_empty_rows_1->getOperation()) {
+    //   return failure();
+    // }
+    // get input and output from sparse_fill_empty_rows
+    auto sparse_fill_op = dyn_cast_or_null<mhlo_disc::SparseFillEmptyRowsOp>(
+        sparse_fill_empty_rows);
+    auto origin_indices = sparse_fill_op.getIndices();
+    auto origin_values = sparse_fill_op.getValues();
+    auto dense_shape = sparse_fill_op.getDenseShape();
+    auto default_value = sparse_fill_op.getDefaultValue();
+    auto empty_row_indicator = sparse_fill_op.getEmptyRowIndicator();
+    auto empty_row_indicator_type =
+        empty_row_indicator.getType().dyn_cast<RankedTensorType>();
+    if (!empty_row_indicator_type) return failure();
+
+    auto sparse_segment_reduction_with_empty_rows =
+        rewriter.create<mhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(
+            loc, output_type, empty_row_indicator_type, op.getData(),
+            origin_values, origin_indices, dense_shape,
+            rewriter.getBoolAttr(op.getIsMean()));
+
+    // redirect use of origin empty_row_indicator to newly created op's output 1
+    // TODO(lanbo.llb): redirect reverse index map use
+    rewriter.replaceOp(op, sparse_segment_reduction_with_empty_rows.getResult(0));
+    llvm::dbgs() << "empty_row_indicator " << empty_row_indicator.hasOneUse() << "\n";
+    // NOTE: empty_row_indicator has shape.shape_of user, thus getValueUsers does not work here
+    empty_row_indicator.replaceAllUsesWith(sparse_segment_reduction_with_empty_rows.getResult(1));
     return success();
   }
 };
@@ -209,6 +303,7 @@ void DiscSparseOpRewriterPass::runOnOperation() {
   RewritePatternSet patterns(&ctx);
   patterns.insert<SimplifySparseReshapeOp>(patterns.getContext());
   patterns.insert<RewriteDynamicGatherOp>(patterns.getContext());
+  patterns.insert<RewriteSparseSegmentReductionOp>(patterns.getContext());
 
   if (failed(
           applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {

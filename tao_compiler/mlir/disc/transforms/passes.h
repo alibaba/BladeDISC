@@ -219,6 +219,9 @@ std::unique_ptr<OperationPass<FuncOp>> createLhloFusionInlinerPass();
 // Dot merge optimization.
 std::unique_ptr<OperationPass<FuncOp>> createDiscDotMergePass();
 
+// Quantized dot merge optimization.
+std::unique_ptr<OperationPass<FuncOp>> createDiscQuantizedDotMergePass();
+
 // Apply some basic algebra simplification optimizations.
 std::unique_ptr<OperationPass<FuncOp>> createDiscAlgebraicSimplifierPass();
 

@@ -1530,6 +1530,31 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_quantized_dot_merge",
+    srcs = ["transforms/disc_quantized_dot_merge.cc"],
+    hdrs = [
+        "transforms/passes.h",
+    ],
+    deps = [
+        ":cycle_detector",
+        ":disc_util",
+        ":mhlo_disc",
+        ":pass_details",
+        ":shape_utils",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_math_approximation",
     srcs = [
         "transforms/disc_math_approximation.cc",
@@ -2093,6 +2118,7 @@ cc_library(
         ":conv_rewriter",
         ":quantized_dot_rewriter",
         ":disc_dot_merge",
+        ":disc_quantized_dot_merge",
         ":disc_algebraic_simplifier",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",

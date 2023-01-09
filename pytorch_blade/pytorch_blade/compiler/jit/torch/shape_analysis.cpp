@@ -813,12 +813,21 @@ class ShapePropagator : public PropertyPropBase {
 
   static c10::optional<size_t> determineListSize(Value* list) {
     AT_ASSERT(list->type()->cast<ListType>());
+    if (auto ivalue = toIValue(list)) {
+      if (ivalue->isList())
+        return ivalue->toList().size();
+    }
     if (auto shape = constant_as<c10::List<int64_t>>(list)) {
       return shape->size();
     }
     auto input_node = list->node();
     if (input_node->kind() == prim::ListConstruct) {
       return input_node->inputs().size();
+    }
+    if (input_node->kind() == aten::size) {
+      if (auto type = input_node->input()->type()->cast<TensorType>()) {
+        return type->dim();
+      }
     }
     return c10::nullopt;
   }
@@ -2085,19 +2094,21 @@ class ShapePropagator : public PropertyPropBase {
     } else if (
         node->matches(
             "aten::tensor(t[] data, *, int? dtype=None, Device? device=None, bool requires_grad=False) -> (Tensor)")) {
-      auto list_node = node->input(0)->node();
-      if (list_node->kind() != prim::ListConstruct)
-        return false;
-      auto tensors = list_node->inputs();
       auto outTy = node->output()->type()->cast<TensorType>();
-      if (!outTy)
+      if (!(outTy && outTy->dim()))
         return false;
-      node->output()->setType(outTy->withSizes({tensors.size()}));
+      auto list = node->input(0);
+      if (auto list_size = determineListSize(list)) {
+        std::vector<c10::ShapeSymbol> new_sizes =
+            outTy->symbolic_sizes().sizes().value();
+        new_sizes[0] = c10::ShapeSymbol::fromStaticSize(*list_size);
+        node->output()->setType(outTy->withSymbolicShapes(new_sizes));
+      }
       return true;
     } else if (node->matches(
                    "aten::__getitem__.t(t[](a) list, int idx) -> (t(*))")) {
       auto list_node = node->input(0)->node();
-      if (list_node->kind() != aten::size)
+      if (list_node->kind() == aten::size)
         return true;
       if (list_node->kind() != prim::ListConstruct)
         return false;

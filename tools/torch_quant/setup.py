@@ -9,7 +9,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from setuptools import setup
+from setuptools import find_packages, setup
 from torch_quant import version
 
 setup(
@@ -18,6 +18,7 @@ setup(
     author='Alibaba PAI Team',
     description='PyTorch Quantization Toolkit For BladeDISC',
     url='https://github.com/alibaba/BladeDISC',
+    packages=find_packages(include=["torch_quant*"]),
     install_requires=[],
     zip_safe=False,
 )

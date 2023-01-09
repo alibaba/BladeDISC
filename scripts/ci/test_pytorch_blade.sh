@@ -73,7 +73,7 @@ mv pytorch_blade/dist/torch_blade*.whl ./build
 
 case $TORCH_BLADE_CI_BUILD_TORCH_VERSION in
   *1.11.* | *1.12.* | *1.13.*)
-    cd tools/torch_quant && bash ./test.sh
+    (cd tools/torch_quant && bash ./test.sh)
     mv tools/torch_quant/dist/torch_quant*.whl ./build
     ;;
 esac

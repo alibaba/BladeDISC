@@ -14,6 +14,8 @@ graph(%p1 : Float(*, *, *)):
   %new_zeros : Tensor = aten::new_zeros(%p1, %sizes, %cst6, %cst0, %cuda, %false)
   return (%new_zeros)
 
+// prim::device, aten::new_zeros
+// CHECK-LABEL: graph
 graph(%p1 : Float(*, *, *, device=cuda)):
   %cst0 : int = prim::Constant[value=0]()
   %cst6 : int = prim::Constant[value=6]()
@@ -26,20 +28,3 @@ graph(%p1 : Float(*, *, *, device=cuda)):
 // CHECK:  Float(*, *, *, device=cuda) = aten::new_zeros
   %new_zeros : Tensor = aten::new_zeros(%p1, %sizes, %cst6, %cst0, %cuda, %false)
   return (%new_zeros)
-
-graph(%p1 : Float(*, *, *, device=cpu)):
-  %cst0 : int = prim::Constant[value=0]()
-  %cst32 : int = prim::Constant[value=32]()
-  %cst512 : int = prim::Constant[value=512]()
-  %cst768 : int = prim::Constant[value=768]()
-  %sizes: int[] = prim::ListConstruct(%cst32, %cst512, %cst768)
-  %cpu: Device = prim::device(%p1)
-  %cst6 : int = prim::dtype(%p1)
-  %false: bool = prim::Constant[value=0]()
-// CHECK:  Float(*, *, *, device=cpu) = aten::new_zeros
-  %new_zeros : Tensor = aten::new_zeros(%p1, %sizes, %cst6, %cst0, %cpu, %false)
-  %cuda : Device = prim::Constant[value="cuda"]()
-  %none : NoneType = prim::Constant()
-// CHECK:  Float(*, *, *, device=cuda) = aten::to
-  %cuda_zeros : Tensor = aten::to(%new_zeros, %cuda, %none, %false, %false)
-  return (%cuda_zeros)

@@ -80,6 +80,30 @@ ShapeSymbol getSymDimSize(TensorTypePtr type, int64_t dim) {
   return ShapeSymbol::newSymbol();
 }
 
+c10::Device getDeviceFromValue(Value* value) {
+#ifdef TORCH_BLADE_BUILD_WITH_CUDA
+  c10::Device device = at::kCUDA;
+#else
+  c10::Device device = at::kCPU;
+#endif
+  if (value == nullptr)
+    return device;
+  if (value->node()->kind() == prim::device) {
+    auto inpNode = value->node();
+    auto inpTy = inpNode->input()->type()->cast<TensorType>();
+    if (inpTy && inpTy->device()) {
+      device = *inpTy->device();
+    }
+    return device;
+  }
+
+  auto maybe_device_option = ::torch::jit::toIValue(value);
+  if (maybe_device_option && maybe_device_option->isDevice()) {
+    device = maybe_device_option->toDevice();
+  }
+  return device;
+}
+
 bool mergeTypes(
     at::ArrayRef<Value*> lhs,
     at::ArrayRef<Value*> rhs,
@@ -576,17 +600,9 @@ class ShapePropagator : public PropertyPropBase {
       }
     }
 
-    at::Device default_device = at::kCPU;
-    if (auto device_index = node->schema().argumentIndexWithName("device")) {
-      auto inp = toIValue(node->inputs().at(*device_index));
-      if (inp == c10::nullopt) {
-        return;
-      } else if (!inp->isNone()) {
-        default_device = inp->toDevice();
-      }
-    }
+    auto device = getDeviceFromValue(node->namedInput(attr::device));
     node->output()->setType(TensorType::create(
-        default_type, default_device, dims, /*requires_grad=*/c10::nullopt));
+        default_type, device, dims, /*requires_grad=*/c10::nullopt));
   }
 
   void propagateNode(Node* node, bool insert_expands = true) override {
@@ -605,6 +621,10 @@ class ShapePropagator : public PropertyPropBase {
       case aten::IntImplicit:
       case aten::size:
       case prim::device:
+      case prim::dtype:
+      case prim::RaiseException:
+      case aten::dim:
+      case aten::append:
         return; // correct type is already set
       case aten::item:
       case aten::ScalarImplicit: {
@@ -761,6 +781,23 @@ class ShapePropagator : public PropertyPropBase {
       return PropagateCatShape(node);
     }
 
+    SchemaSet scalar_schemas{
+        "aten::gt.int(int a, int b) -> bool",
+        "aten::lt.int(int a, int b) -> bool",
+        "aten::ge.int(int a, int b) -> bool",
+        "aten::le.int(int a, int b) -> bool",
+        "aten::eq.int(int a, int b) -> bool",
+        "aten::add.int(int a, int b) -> int",
+        "aten::mul.int(int a, int b) -> int",
+        "aten::sub.int(int a, int b) -> int",
+        "aten::floordiv.int(int a, int b) -> int",
+    };
+
+    if (scalar_schemas.hasMember(*node)) {
+      // dtype already known
+      return;
+    }
+
     if (PropagateTensorShapeOnNode(node, insert_expands)) {
       return;
     }
@@ -776,12 +813,21 @@ class ShapePropagator : public PropertyPropBase {
 
   static c10::optional<size_t> determineListSize(Value* list) {
     AT_ASSERT(list->type()->cast<ListType>());
+    if (auto ivalue = toIValue(list)) {
+      if (ivalue->isList())
+        return ivalue->toList().size();
+    }
     if (auto shape = constant_as<c10::List<int64_t>>(list)) {
       return shape->size();
     }
     auto input_node = list->node();
     if (input_node->kind() == prim::ListConstruct) {
       return input_node->inputs().size();
+    }
+    if (input_node->kind() == aten::size) {
+      if (auto type = input_node->input()->type()->cast<TensorType>()) {
+        return type->dim();
+      }
     }
     return c10::nullopt;
   }
@@ -983,6 +1029,11 @@ class ShapePropagator : public PropertyPropBase {
             "aten::permute(Tensor self, int[] dims) -> Tensor",
             "aten::t(Tensor self) -> Tensor",
             "aten::transpose(Tensor self, int dim0, int dim1) -> Tensor",
+#if PYTORCH_VERSION_GE(1, 11)
+            "aten::constant_pad_nd(Tensor self, SymInt[] pad, Scalar value=0) -> Tensor",
+#else
+            "aten::constant_pad_nd(Tensor self, int[] pad, Scalar value=0) -> Tensor",
+#endif
         },
         [](Node* node) -> type_vec_t {
           if (auto input_type = node->input(0)->type()->cast<TensorType>()) {
@@ -1338,23 +1389,15 @@ class ShapePropagator : public PropertyPropBase {
         {"aten::to.device(Tensor self, Device device, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor",
          "aten::to.prim_Device(Tensor(a) self, Device? device, int? dtype=None, bool non_blocking=False, bool copy=False) -> Tensor(a|b)"},
         [](Node* node) -> type_vec_t {
-          at::optional<IValue> maybe_device_option = node->get(attr::device);
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
-            auto ret = type;
-            if (maybe_device_option && !maybe_device_option->isNone()) {
-              auto device = maybe_device_option->toDevice();
-#if PYTORCH_VERSION_GE(1, 11)
-              return {ret->withDevice(device)};
-#else
+            auto device = getDeviceFromValue(node->namedInput(attr::device));
+            if (type->dim()) {
               return {TensorType::create(
-                  ret->scalarType(),
-                  device,
-                  ret->sizes(),
-                  ret->strides(),
-                  /*requires_grad=*/c10::nullopt)};
-#endif
-            } else {
-              return {ret};
+                          type->scalarType(),
+                          device,
+                          type->dim(),
+                          /*requires_grad=*/c10::nullopt)
+                          ->withSymbolicShapes(type->symbolic_sizes())};
             }
           }
           return {};
@@ -1748,48 +1791,28 @@ class ShapePropagator : public PropertyPropBase {
 
     static const auto factory_with_ndim = [](Node* node,
                                              int dim) -> type_vec_t {
-      at::optional<IValue> maybe_device_option = node->get(attr::device);
-      auto device =
-          (maybe_device_option->isNone() ? at::kCPU
-                                         : maybe_device_option->toDevice());
+      auto device = getDeviceFromValue(node->namedInput(attr::device));
 
+      auto dtype = at::kFloat;
       at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
-      auto dtype =
-          (maybe_dtype_option->isNone() ? at::kFloat
-                                        : maybe_dtype_option->toScalarType());
-
+      if (maybe_dtype_option && maybe_dtype_option->isInt()) {
+        dtype = maybe_dtype_option->toScalarType();
+      }
       return {TensorType::create(
           dtype, device, dim, /*requires_grad=*/c10::nullopt)};
     };
 
     static const auto factory_like_with_ndim = [](Node* node,
                                                   int dim) -> type_vec_t {
-      auto tt = node->input(0)->type()->expect<TensorType>();
-      auto in_type = tt->scalarType();
-      auto in_dev = tt->device();
-
-      at::optional<IValue> maybe_layout_option = node->get(attr::layout);
-      if (!maybe_layout_option)
-        return {};
-
-      at::optional<IValue> maybe_device_option = node->get(attr::device);
-      if (!maybe_device_option)
-        return {};
-
-      if (!maybe_device_option->isNone()) {
-        in_dev = maybe_device_option->toDevice();
-      }
-
+      auto dtype = at::kFloat;
       at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
-      if (!maybe_dtype_option)
-        return {};
-
-      if (!maybe_dtype_option->isNone()) {
-        in_type = maybe_dtype_option->toScalarType();
+      if (maybe_dtype_option && maybe_dtype_option->isInt()) {
+        dtype = maybe_dtype_option->toScalarType();
       }
 
+      auto device = getDeviceFromValue(node->namedInput(attr::device));
       return {TensorType::create(
-          in_type, in_dev, dim, /*requires_grad=*/c10::nullopt)};
+          dtype, device, dim, /*requires_grad=*/c10::nullopt)};
     };
 
     // Requirements:
@@ -1879,8 +1902,9 @@ class ShapePropagator : public PropertyPropBase {
             "aten::randint(int low, int high, int[] size, *, int? dtype, int? layout, Device? device, bool? pin_memory) -> Tensor",
         },
         [](Node* node) -> type_vec_t {
-          if (auto maybe_size = node->get<c10::List<int64_t>>(attr::size)) {
-            return factory_with_ndim(node, (int)maybe_size->size());
+          if (auto list_size =
+                  determineListSize(node->namedInput(attr::size))) {
+            return factory_with_ndim(node, *list_size);
           }
           return {};
         }};
@@ -1900,24 +1924,12 @@ class ShapePropagator : public PropertyPropBase {
         [&](Node* node) -> type_vec_t {
           at::ScalarType dtype =
               *tryScalarTypeFromJitType(*node->input(0)->type());
-          at::optional<IValue> maybe_layout_option = node->get(attr::layout);
-          if (!maybe_layout_option)
-            return {};
-
-          at::optional<IValue> maybe_device_option = node->get(attr::device);
-          if (!maybe_device_option)
-            return {};
-          auto device =
-              (maybe_device_option->isNone() ? at::kCPU
-                                             : maybe_device_option->toDevice());
-
           at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
-          if (!maybe_dtype_option)
-            return {};
-          if (!maybe_dtype_option->isNone()) {
+          if (maybe_dtype_option && maybe_dtype_option->isInt()) {
             dtype = maybe_dtype_option->toScalarType();
           }
 
+          auto device = getDeviceFromValue(node->namedInput(attr::device));
           return {TensorType::create(
               dtype, device, /*dim=*/1, /*requires_grad=*/c10::nullopt)};
         }};
@@ -2086,18 +2098,22 @@ class ShapePropagator : public PropertyPropBase {
     } else if (
         node->matches(
             "aten::tensor(t[] data, *, int? dtype=None, Device? device=None, bool requires_grad=False) -> (Tensor)")) {
-      auto list_node = node->input(0)->node();
-      if (list_node->kind() != prim::ListConstruct)
-        return false;
-      auto tensors = list_node->inputs();
       auto outTy = node->output()->type()->cast<TensorType>();
-      if (!outTy)
+      if (!(outTy && outTy->dim()))
         return false;
-      node->output()->setType(outTy->withSizes({tensors.size()}));
+      auto list = node->input(0);
+      if (auto list_size = determineListSize(list)) {
+        std::vector<c10::ShapeSymbol> new_sizes =
+            outTy->symbolic_sizes().sizes().value();
+        new_sizes[0] = c10::ShapeSymbol::fromStaticSize(*list_size);
+        node->output()->setType(outTy->withSymbolicShapes(new_sizes));
+      }
       return true;
     } else if (node->matches(
                    "aten::__getitem__.t(t[](a) list, int idx) -> (t(*))")) {
       auto list_node = node->input(0)->node();
+      if (list_node->kind() == aten::size)
+        return true;
       if (list_node->kind() != prim::ListConstruct)
         return false;
       auto tensors = list_node->inputs();
@@ -2331,7 +2347,9 @@ class ShapePropagator : public PropertyPropBase {
       return true;
     } else if (
         node->matches(
-#if PYTORCH_VERSION_GE(1, 8)
+#if PYTORCH_VERSION_GE(1, 14)
+            "aten::slice.Tensor(Tensor(a) self, int dim=0, SymInt? start=None, SymInt? end=None, SymInt step=1) -> Tensor(a)"
+#elif PYTORCH_VERSION_GE(1, 8)
             "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor"
 #else
             "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor"
@@ -2415,7 +2433,6 @@ class ShapePropagator : public PropertyPropBase {
         if (auto type = input_type->cast<TensorType>()) {
           if (type->scalarType() && type->device()) {
             at::ScalarType default_type = *type->scalarType();
-            c10::Device default_device = *type->device();
             if (auto dtype_index =
                     node->schema().argumentIndexWithName("dtype")) {
               auto inp = toIValue(node->inputs().at(*dtype_index));
@@ -2426,19 +2443,10 @@ class ShapePropagator : public PropertyPropBase {
                 default_type = inp->toScalarType();
               }
             }
-            if (auto device_index =
-                    node->schema().argumentIndexWithName("device")) {
-              auto inp = toIValue(node->inputs().at(*device_index));
-              if (inp == c10::nullopt) {
-                return nullptr;
-              }
-              if (!inp->isNone()) {
-                default_device = inp->toDevice();
-              }
-            }
+            auto device = getDeviceFromValue(node->namedInput(attr::device));
             node->output()->setType(TensorType::create(
                 default_type,
-                default_device,
+                device,
                 type->dim(),
                 /*requires_grad=*/c10::nullopt));
           }

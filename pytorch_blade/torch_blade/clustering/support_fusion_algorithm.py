@@ -275,6 +275,7 @@ def _broadcast_unsupported_set(block, trt_unsupported, support_number_inpts_outs
     candidates = [n for n in trt_unsupported]
     while len(candidates) > 0:
         unspt_node = candidates.pop(0)
+        if unspt_node not in node2idx_map: continue
         n_idx = node2idx_map[unspt_node]
         visited.add(unspt_node)
         new_unspt_nodes = []

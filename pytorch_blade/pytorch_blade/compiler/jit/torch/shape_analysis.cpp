@@ -1029,7 +1029,11 @@ class ShapePropagator : public PropertyPropBase {
             "aten::permute(Tensor self, int[] dims) -> Tensor",
             "aten::t(Tensor self) -> Tensor",
             "aten::transpose(Tensor self, int dim0, int dim1) -> Tensor",
+#if PYTORCH_VERSION_GE(1, 11)
             "aten::constant_pad_nd(Tensor self, SymInt[] pad, Scalar value=0) -> Tensor",
+#else
+            "aten::constant_pad_nd(Tensor self, int[] pad, Scalar value=0) -> Tensor",
+#endif
         },
         [](Node* node) -> type_vec_t {
           if (auto input_type = node->input(0)->type()->cast<TensorType>()) {

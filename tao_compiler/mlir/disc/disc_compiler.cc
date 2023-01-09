@@ -276,7 +276,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
   }
 
-  bool enable_quantized_dot_merge = true;
+  bool enable_quantized_dot_merge = false;
   tensorflow::ReadBoolFromEnvVar("BLADE_GEMM_TUNE_JIT",
                                  enable_quantized_dot_merge,
                                  &enable_quantized_dot_merge);

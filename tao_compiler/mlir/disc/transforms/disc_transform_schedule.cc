@@ -244,7 +244,7 @@ buildInlineReductionInitializerOp(OpBuilder& b, Location& loc, Value initOp,
       loc, pdlType, initOp, loopOp, readerOp);
 }
 
-class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGaurd {
+class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
   explicit ParsedFromFileScheduleFactory(int64_t id, PatternKind kind,
                                          ArrayRef<StringRef> tags,
@@ -258,7 +258,7 @@ class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGaurd {
 ParsedFromFileScheduleFactory::ParsedFromFileScheduleFactory(
     int64_t id, PatternKind kind, ArrayRef<StringRef> tags,
     ModuleOp transformModule)
-    : ScheduleFactoryWithNoGaurd(id, kind, tags),
+    : ScheduleFactoryWithNoGuard(id, kind, tags),
       transformModule_(transformModule) {}
 
 LogicalResult ParsedFromFileScheduleFactory::assignSchedule(
@@ -271,9 +271,9 @@ LogicalResult ParsedFromFileScheduleFactory::assignSchedule(
   return success();
 }
 
-class Aarch64GEMMDefaultScheduleFactory : public ScheduleFactoryWithNoGaurd {
+class Aarch64GEMMDefaultScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
-  using ScheduleFactoryWithNoGaurd::ScheduleFactoryWithNoGaurd;
+  using ScheduleFactoryWithNoGuard::ScheduleFactoryWithNoGuard;
   LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
 };
 

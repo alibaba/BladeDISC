@@ -128,7 +128,7 @@ class ScheduleFactory {
   std::set<std::string> tagSet_;
 };
 
-class ScheduleFactoryWithNoGaurd : public ScheduleFactory {
+class ScheduleFactoryWithNoGuard : public ScheduleFactory {
  public:
   using ScheduleFactory::ScheduleFactory;
   bool noGuardCondition(PatternDescription&) override { return true; };
@@ -146,7 +146,7 @@ class ScheduleFactoryRegistry {
   static int64_t getNextUniqueId();
 
   // Inserts the new `ScheduleFactory`. Returns true if inserted, otherwise
-  // false. The larger the `prioirty`, the larger the change the factory being
+  // false. The larger the `prioirty`, the larger the chance the factory being
   // choosed. Note that we do not allow to assign the same priority for two
   // different factories with the same pattern kind.
   bool registerScheduleFactory(PatternKind kind, int priority,
@@ -178,13 +178,17 @@ class ScheduleFactoryRegistry {
   DISC_TRANSFORM_SCHEDULE_UNIQ(ctr, kind, priority, T, __VA_ARGS__)
 
 #define DISC_TRANSFORM_SCHEDULE_UNIQ(ctr, kind, priority, T, ...)             \
-  static bool unused_ret_val_##ctr =                                          \
-      ::mlir::disc_ral::ScheduleFactoryRegistry::get()                        \
-          .registerScheduleFactory(                                           \
-              kind, priority,                                                 \
-              std::make_unique<T>(::mlir::disc_ral::ScheduleFactoryRegistry:: \
-                                      getNextUniqueId(),                      \
-                                  kind, __VA_ARGS__));
+  static bool unused_ret_val_##ctr = []() {                                   \
+    bool ret = ::mlir::disc_ral::ScheduleFactoryRegistry::get()               \
+                   .registerScheduleFactory(                                  \
+                       kind, priority,                                        \
+                       std::make_unique<T>(                                   \
+                           ::mlir::disc_ral::ScheduleFactoryRegistry::        \
+                               getNextUniqueId(),                             \
+                           kind, __VA_ARGS__));                               \
+    if (!ret) ::llvm::dbgs() << "failed to register a new scheduleFactory\n"; \
+    return ret;                                                               \
+  }();
 
 // Assign schedule for the given PatternDescription according to its kind and
 // tag.

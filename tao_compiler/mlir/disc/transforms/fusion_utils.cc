@@ -257,14 +257,36 @@ void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag) {
   std::string oldTag;
   auto attr = op->getAttrOfType<StringAttr>(kFusionOpTagAttr);
   if (attr && attr.getValue().size()) {
-    oldTag = (Twine(attr.getValue()) + "X").str();
+    oldTag = (Twine(attr.getValue()) + kFusionTagSeparator).str();
   }
   op->setAttr(kFusionOpTagAttr, b.getStringAttr((Twine(oldTag) + tag).str()));
+}
+
+void mergeFusionTag(OpBuilder& b, lmhlo::FusionOp op,
+                    const std::set<std::string>& tagSet) {
+  auto opTagSet = parsefusionTagSetFromStr(getFusionTagStr(op));
+  for (const auto& tag : tagSet) opTagSet.insert(tag);
+  auto newTagStr = llvm::join(opTagSet, kFusionTagSeparator);
+  op->setAttr(kFusionOpTagAttr, b.getStringAttr(newTagStr));
 }
 
 StringRef getFusionTagStr(lmhlo::FusionOp op) {
   auto attr = op->getAttrOfType<StringAttr>(kFusionOpTagAttr);
   return attr ? attr.getValue() : "";
+}
+
+std::string fusionTagSetToStr(const std::set<std::string>& tagSet) {
+  SmallVector<StringRef> tags;
+  for (const auto& tag : tagSet) tags.push_back(tag);
+  return llvm::join(tags, kFusionTagSeparator);
+}
+
+std::set<std::string> parsefusionTagSetFromStr(StringRef tagStr) {
+  SmallVector<StringRef> tags;
+  std::set<std::string> tagSet;
+  tagStr.split(tags, kFusionTagSeparator, /*MaxSplit*/ -1, /*KeepEmpty*/ false);
+  for (auto tag : tags) tagSet.insert(tag.str());
+  return tagSet;
 }
 
 // Returns the full name of the fusion op

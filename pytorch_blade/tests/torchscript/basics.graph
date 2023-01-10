@@ -127,3 +127,15 @@ graph(%p1 : Float(*, *, *, device=cuda:0),
 // CHECK: Float(*, *, *, device=cuda:0) = aten::gru_cell(%p1, %p2, %p3, %p4, %p5, %p6)
   %1 :  Float(32, 32, 10, device=cuda:0) = aten::gru_cell(%p1, %p2, %p3, %p4, %p5, %p6)
   return (%1)
+
+
+// aten.div.Tensor_mode
+// CHECK-LABEL: graph
+graph(%p1 : Long(*, *, *, requires_grad=0),
+      %p2 : Long(*, *, *, requires_grad=0),
+      %p3 : str):
+// CHECK: Long(*, *, *) = aten::div
+  %1 : Tensor = aten::div(%p1, %p2, %p3)
+  return (%1)
+
+

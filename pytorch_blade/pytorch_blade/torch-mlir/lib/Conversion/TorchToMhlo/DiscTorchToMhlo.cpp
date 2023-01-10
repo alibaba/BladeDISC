@@ -827,7 +827,7 @@ LogicalResult ConvertAtenOp<AtenFlipOp>::matchAndRewrite(
   if (!matchPattern(op.dims(), m_TorchConstantIntList(dimListInt)))
     return rewriter.notifyMatchFailure(
         op, "Only constant dims are currently supported");
-  auto dims = mhlo::toPositiveDims(dimListInt, selfTy.getRank()); 
+  auto dims = mhlo::toPositiveDims(dimListInt, selfTy.getRank());
   std::copy(dims.begin(), dims.end(), dimListInt.begin());
   rewriter.replaceOpWithNewOp<mlir::mhlo::ReverseOp>(
       op,

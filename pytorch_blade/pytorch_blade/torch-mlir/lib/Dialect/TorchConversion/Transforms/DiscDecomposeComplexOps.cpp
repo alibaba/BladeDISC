@@ -404,6 +404,27 @@ LogicalResult ConvertAtenOp<AtenBatchNormOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<PrimDeviceOp>::matchAndRewrite(
+    PrimDeviceOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  rewriter.replaceOpWithNewOp<Torch::ConstantDeviceOp>(
+      op, op.getType(), "cuda");
+  return success();
+}
+
+template <>
+LogicalResult ConvertAtenOp<PrimDtypeOp>::matchAndRewrite(
+    PrimDtypeOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto outDtype = op.getType().template dyn_cast<BaseTensorType>().getDtype();
+  auto dtype = getDtypeIntValueForType(rewriter, op.getLoc(), outDtype);
+  rewriter.replaceOp(op, dtype);
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<AtenMaskedFillScalarOp>::matchAndRewrite(
     AtenMaskedFillScalarOp op,
     OpAdaptor adaptor,
@@ -620,6 +641,8 @@ class DiscDecomposeComplexOpsPass
     INSERT_ATENOP_PATTERN(AtenNativeDropoutOp);
     INSERT_ATENOP_PATTERN(AtenNllLossForwardOp);
     INSERT_ATENOP_PATTERN(AtenPowTensorScalarOp);
+    INSERT_ATENOP_PATTERN(PrimDeviceOp);
+    INSERT_ATENOP_PATTERN(PrimDtypeOp);
 
 #undef INSERT_ATENOP_PATTERN
 

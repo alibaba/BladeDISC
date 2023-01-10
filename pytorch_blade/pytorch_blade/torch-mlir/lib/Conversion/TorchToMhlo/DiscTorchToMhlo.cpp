@@ -654,6 +654,21 @@ LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<AtenNegIntOp>::matchAndRewrite(
+    AtenNegIntOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto val = adaptor.a();
+  auto zero = rewriter.create<mlir::arith::ConstantOp>(
+      op->getLoc(), rewriter.getIntegerAttr(val.getType(), 0));
+
+  rewriter.replaceOpWithNewOp<arith::SubIOp>(
+      op, getTypeConverter()->convertType(op.getType()), zero, val);
+
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<TensorStaticInfoCastOp>::matchAndRewrite(
     TensorStaticInfoCastOp op,
     OpAdaptor adaptor,
@@ -1500,6 +1515,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenMaxDimOp);
     INSERT_ATENOP_PATTERN(AtenWhereSelfOp);
     INSERT_ATENOP_PATTERN(AtenSqueezeDimOp);
+    INSERT_ATENOP_PATTERN(AtenNegIntOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \

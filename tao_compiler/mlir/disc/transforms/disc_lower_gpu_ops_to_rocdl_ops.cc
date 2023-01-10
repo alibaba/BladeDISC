@@ -131,7 +131,7 @@ void configureGpuToROCDLConversionLegality(ConversionTarget& target) {
   target.addIllegalOp<LLVM::CosOp, LLVM::ExpOp, LLVM::FAbsOp, LLVM::FCeilOp,
                       LLVM::FFloorOp, LLVM::LogOp, LLVM::Log10Op, LLVM::Log2Op,
                       LLVM::PowOp, LLVM::SinOp, LLVM::SqrtOp>();
- 
+
   target.addIllegalOp<UnrealizedConversionCastOp>();
   // TODO: Remove once we support replacing non-root ops.
   target.addLegalOp<gpu::YieldOp, gpu::GPUModuleOp, gpu::ModuleEndOp>();
@@ -164,8 +164,8 @@ void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
                                                    "__ocml_ceil_f64");
   patterns.add<OpToFuncCallLowering<math::CosOp>>(converter, "__ocml_cos_f32",
                                                   "__ocml_cos_f64");
-  patterns.add<OpToFuncCallLowering<math::CopySignOp>>(converter, "__ocml_copysign_f32",
-                                                  "__ocml_copysign_f64");
+  patterns.add<OpToFuncCallLowering<math::CopySignOp>>(
+      converter, "__ocml_copysign_f32", "__ocml_copysign_f64");
   patterns.add<OpToFuncCallLowering<math::ExpOp>>(converter, "__ocml_exp_f32",
                                                   "__ocml_exp_f64");
   patterns.add<OpToFuncCallLowering<math::ExpM1Op>>(

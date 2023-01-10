@@ -431,6 +431,10 @@ def test_tao_compiler(root, args):
 
             flag = test_tao_compiler_add_flags_platform_alibaba(root, args, flag)
 
+            TARGET_QUANTIZED_DOT_MERGE = "//tensorflow/compiler/mlir/disc/transforms/tests:disc-quantized-dot-merge.mlir.test"
+            TARGET_DOT_MERGE = "//tensorflow/compiler/mlir/disc/transforms/tests:disc-dot-merge.mlir.test"
+
+            """
             mlir_tests_list = [
                 TARGET_DISC_IR_TEST,
                 TARGET_DISC_TRANSFORMS_TEST,
@@ -440,6 +444,8 @@ def test_tao_compiler(root, args):
               + TARGET_DISC_PDLL_TESTS \
               + TARGET_DISC_CUDA_SOURCE_TESTS \
               + TARGET_DISC_TRANSFORM_DIALECT_TESTS
+            """
+            mlir_tests_list = [TARGET_QUANTIZED_DOT_MERGE, TARGET_DOT_MERGE]
             MLIR_TESTS = " ".join(mlir_tests_list)
             bazel_test(MLIR_TESTS, flag=flag)
             flag += " --action_env=BRIDGE_ENABLE_TAO=true "

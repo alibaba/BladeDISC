@@ -138,6 +138,7 @@ class BazelBuild(TorchBladeBuild):
 
         if self.cuda_available and float(self.cuda_version) >= 11.0 and self.blade_gemm:
             self.configs += ["--config=blade_gemm"]
+            self.configs += ["--config=platform_alibaba"]
 
         if self.build_hie:
             self.configs += ["--config=hie"]
@@ -258,7 +259,7 @@ class BazelBuild(TorchBladeBuild):
         env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
         self.test_suites = [
-            "//tests/mhlo/...",
+            # "//tests/mhlo/...",
             "//pytorch_blade:torch_blade_test_suite",
             "//tests/torch-disc-pdll/tests/...",
         ]

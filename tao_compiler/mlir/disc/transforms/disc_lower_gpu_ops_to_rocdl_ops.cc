@@ -33,6 +33,7 @@
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
@@ -126,10 +127,11 @@ void configureGpuToROCDLConversionLegality(ConversionTarget& target) {
   target.addLegalDialect<ROCDL::ROCDLDialect>();
   target.addIllegalDialect<gpu::GPUDialect>();
   target.addIllegalDialect<cf::ControlFlowDialect>();
+  target.addIllegalDialect<arith::ArithDialect, math::MathDialect>();
   target.addIllegalOp<LLVM::CosOp, LLVM::ExpOp, LLVM::FAbsOp, LLVM::FCeilOp,
                       LLVM::FFloorOp, LLVM::LogOp, LLVM::Log10Op, LLVM::Log2Op,
                       LLVM::PowOp, LLVM::SinOp, LLVM::SqrtOp>();
-
+ 
   target.addIllegalOp<UnrealizedConversionCastOp>();
   // TODO: Remove once we support replacing non-root ops.
   target.addLegalOp<gpu::YieldOp, gpu::GPUModuleOp, gpu::ModuleEndOp>();
@@ -162,6 +164,8 @@ void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
                                                    "__ocml_ceil_f64");
   patterns.add<OpToFuncCallLowering<math::CosOp>>(converter, "__ocml_cos_f32",
                                                   "__ocml_cos_f64");
+  patterns.add<OpToFuncCallLowering<math::CopySignOp>>(converter, "__ocml_copysign_f32",
+                                                  "__ocml_copysign_f64");
   patterns.add<OpToFuncCallLowering<math::ExpOp>>(converter, "__ocml_exp_f32",
                                                   "__ocml_exp_f64");
   patterns.add<OpToFuncCallLowering<math::ExpM1Op>>(

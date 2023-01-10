@@ -303,11 +303,11 @@ MemRefType<int8_t, N> ral_pdll_qgemm_per_channel(
     bladnn::Context bladnn_ctx{s};
     bladnn::Dtype in_dtype = bladnn::Dtype::kS8;
     bladnn::Dtype out_dtype = bladnn::Dtype::kS8;
-    bool ret = false;
 
-    ret = bladnn::gemm(&bladnn_ctx, in_dtype, 0, input.data, m, k, in_dtype, 1,
-                       weight.data, n, k, out_dtype, result.data, m, n, 1,
-                       false, false, &alpha, &beta, kernel_scale, kernel_bias);
+    bool ret =
+        bladnn::gemm(&bladnn_ctx, in_dtype, 0, input.data, m, k, in_dtype, 1,
+                     weight.data, n, k, out_dtype, result.data, m, n, 1, false,
+                     false, &alpha, &beta, kernel_scale, kernel_bias);
 
     if (ret) {
       return result;

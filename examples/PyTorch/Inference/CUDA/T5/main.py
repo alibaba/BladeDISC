@@ -22,21 +22,6 @@ import ctypes
 import torch_blade
 import torch_blade.tensorrt
 
-_cudart = ctypes.CDLL('libcudart.so')
-
-
-def cu_prof_start():
-    ret = _cudart.cudaProfilerStart()
-    if ret != 0:
-        raise Exception('cudaProfilerStart() returned %d' % ret)
-
-
-def cu_prof_stop():
-    ret = _cudart.cudaProfilerStop()
-    if ret != 0:
-        raise Exception('cudaProfilerStop() returned %d' % ret)
-
-
 def trace_model(model, inputs, amp: bool):
     with torch.cuda.amp.autocast(amp), torch.no_grad():
         traced_model = torch.jit.trace(model, inputs, strict=False, check_trace=False)
@@ -57,10 +42,8 @@ def evaluate_torch(model, inputs):
     print("average time in {} iterations: {} seconds".format(iters, avg_time))
 
     # profile start
-    cu_prof_start()
-    model(*tuple(inputs))
-    cu_prof_stop()
-    # profile end
+    with torch.cuda.profiler.profile():
+        model(*tuple(inputs))
 
 
 def disc_optimize(model, inputs, out_file: str):
@@ -99,9 +82,10 @@ def run():
 
     # Run naive torch.
     print("Naive PyTorch.")
-    model = traced_model_amp
-    evaluate_torch(model, inputs)
+    with torch.cuda.amp.autocast(True), torch.no_grad():
+        evaluate_torch(model, inputs)
 
+    model = traced_model_amp
     # Run BladeDISC optimization.
     print("BladeDISC Optimization.")
     disc_optimize(traced_model_amp, inputs, 't5-base_amp.disc.pt')

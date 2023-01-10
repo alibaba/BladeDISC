@@ -27,22 +27,6 @@ import torch_blade
 import torch_blade.tensorrt
 import torch_blade.utils as utils
 
-# Tools for profiling, to be removed in the final release.
-_cudart = ctypes.CDLL('libcudart.so')
-
-
-def cu_prof_start():
-    ret = _cudart.cudaProfilerStart()
-    if ret != 0:
-        raise Exception('cudaProfilerStart() returned %d' % ret)
-
-
-def cu_prof_stop():
-    ret = _cudart.cudaProfilerStop()
-    if ret != 0:
-        raise Exception('cudaProfilerStop() returned %d' % ret)
-
-
 class BertModelAMP(BertModel):
 
     def __init__(self, config, add_pooling_layer=True):
@@ -121,9 +105,8 @@ def evaluate_torch(model, inputs):
     print("average time in {} iterations: {} seconds".format(iters, avg_time))
 
     # profile start
-    cu_prof_start()
-    model(*tuple(inputs))
-    cu_prof_stop()
+    with torch.cuda.profiler.profile():
+        model(*tuple(inputs))
     # profile end
 
 

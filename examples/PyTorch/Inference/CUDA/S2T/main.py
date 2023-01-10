@@ -22,21 +22,6 @@ from transformers import Speech2TextForConditionalGeneration
 
 import torch_blade
 
-_cudart = ctypes.CDLL('libcudart.so')
-
-
-def cu_prof_start():
-    ret = _cudart.cudaProfilerStart()
-    if ret != 0:
-        raise Exception('cudaProfilerStart() returned %d' % ret)
-
-
-def cu_prof_stop():
-    ret = _cudart.cudaProfilerStop()
-    if ret != 0:
-        raise Exception('cudaProfilerStop() returned %d' % ret)
-
-
 class ModelWrapper(torch.nn.Module):
 
     def __init__(self, original_model, amp: bool):
@@ -75,15 +60,14 @@ def evaluate_torch(model, inputs):
     print("average time in {} iterations: {} seconds".format(iters, avg_time))
 
     # profile start
-    cu_prof_start()
-    model(inputs[0], inputs[1], inputs[2])
-    cu_prof_stop()
+    with torch.cuda.profiler.profile():
+        model(inputs[0], inputs[1], inputs[2])
 
 
 def disc_optimize(model, inputs, out_file: str):
     torch_config = torch_blade.config.Config()
     torch_config.enable_mlir_amp = False  # disable mix-precision
-
+    torch_config.customize_op_black_list = ['aten::_convolution']
     traced_model = torch.jit.trace(model.cuda().eval(), inputs,
                                    strict=False).cuda().eval()
 

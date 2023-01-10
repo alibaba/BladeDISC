@@ -43,7 +43,6 @@ struct SimplifySparseReshapeOp
 
   LogicalResult matchAndRewrite(mhlo_disc::SparseReshapeOp op,
                                 PatternRewriter& rewriter) const override {
-    llvm::dbgs() << "SimplifySparseReshapeOp \n";
     // Location loc = op.getLoc();
     // Value input = op.getOperand();
     // auto input_type = input.getType().dyn_cast<RankedTensorType>();
@@ -67,7 +66,6 @@ struct RewriteDynamicGatherOp : public OpRewritePattern<mhlo::DynamicGatherOp> {
 
   LogicalResult matchAndRewrite(mhlo::DynamicGatherOp op,
                                 PatternRewriter& rewriter) const override {
-    llvm::dbgs() << "RewriteDynamicGatherOp \n";
     Location loc = op.getLoc();
 
     Value input = op.getOperand();
@@ -203,7 +201,6 @@ struct RewriteSparseSegmentReductionOp
 
   LogicalResult matchAndRewrite(mhlo_disc::SparseSegmentReductionOp op,
                                 PatternRewriter& rewriter) const override {
-    llvm::dbgs() << "RewriteSparseSegmentReductionOp \n";
     Location loc = op.getLoc();
 
     Value indices = op.getIndices();
@@ -276,6 +273,17 @@ struct RewriteSparseSegmentReductionOp
         empty_row_indicator.getType().dyn_cast<RankedTensorType>();
     if (!empty_row_indicator_type) return failure();
 
+    op.getOperation()->dump();
+#if 1
+    auto empty_row_users = llvm::to_vector<4>(empty_row_indicator.getUsers());
+    if (empty_row_users.size() > 1) {
+      rewriter.setInsertionPointAfter(sparse_fill_empty_rows);
+    } else {
+      rewriter.setInsertionPoint(sparse_fill_empty_rows);
+    }
+#else
+    rewriter.setInsertionPoint(sparse_fill_empty_rows);
+#endif
     auto sparse_segment_reduction_with_empty_rows =
         rewriter.create<mhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(
             loc, output_type, empty_row_indicator_type, op.getData(),
@@ -284,10 +292,10 @@ struct RewriteSparseSegmentReductionOp
 
     // redirect use of origin empty_row_indicator to newly created op's output 1
     // TODO(lanbo.llb): redirect reverse index map use
-    rewriter.replaceOp(op, sparse_segment_reduction_with_empty_rows.getResult(0));
-    llvm::dbgs() << "empty_row_indicator " << empty_row_indicator.hasOneUse() << "\n";
-    // NOTE: empty_row_indicator has shape.shape_of user, thus getValueUsers does not work here
-    empty_row_indicator.replaceAllUsesWith(sparse_segment_reduction_with_empty_rows.getResult(1));
+    empty_row_indicator.replaceAllUsesWith(
+        sparse_segment_reduction_with_empty_rows.getResult(1));
+    rewriter.replaceOp(op,
+                       sparse_segment_reduction_with_empty_rows.getResult(0));
     return success();
   }
 };
@@ -297,13 +305,24 @@ struct DiscSparseOpRewriterPass
   void runOnOperation() override;
 };
 
+bool initSparseSegmentReductionRewrite() {
+  const char* env = getenv("DISC_ENABLE_SPARSE_SEGMENT_REDUCTION_REWRITE");
+  if (!env) return false;
+  std::string envStr = env;
+  std::transform(envStr.begin(), envStr.end(), envStr.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return envStr == "true" || envStr == "1";
+}
+
 void DiscSparseOpRewriterPass::runOnOperation() {
   // Setup rewriter patterns.
   MLIRContext& ctx = getContext();
   RewritePatternSet patterns(&ctx);
   patterns.insert<SimplifySparseReshapeOp>(patterns.getContext());
   patterns.insert<RewriteDynamicGatherOp>(patterns.getContext());
-  patterns.insert<RewriteSparseSegmentReductionOp>(patterns.getContext());
+  if (initSparseSegmentReductionRewrite()) {
+    patterns.insert<RewriteSparseSegmentReductionOp>(patterns.getContext());
+  }
 
   if (failed(
           applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {

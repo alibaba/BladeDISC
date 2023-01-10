@@ -26,11 +26,13 @@ bool isOutputFusible(Operation* op) {
   return isa<lmhlo::DynamicReshapeOp>(op) || isa<lmhlo::DynamicGatherOp>(op);
 }
 
-bool SparseOpCpuFusionStrategy::isFusible(Operation* op) {
-  // return isa<lmhlo_disc::WhereOp>(op) || mlir::disc_ral::isFusible(op);
+bool isInputFusible(Operation* op) {
   return isa<lmhlo_disc::WhereOp>(op) ||
     isa<lmhlo::DynamicBroadcastInDimOp>(op) || isa<lmhlo::CompareOp>(op);
-  // isOutputFusible(op);
+}
+
+bool SparseOpCpuFusionStrategy::isFusible(Operation* op) {
+  return isa<lmhlo_disc::WhereOp>(op) || mlir::disc_ral::isFusible(op);
 }
 
 bool SparseOpCpuFusionStrategy::initFusionPattern(
@@ -98,7 +100,7 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   if (rhs.getFusionType() == FusionType::kWhere) {
     // Basic Input fusion for where op
     for (Operation* op : lhs.getOpList()) {
-      if (!this->isFusible(op) || op->getAttr(kDiscShapeCalcAttr) != nullptr) {
+      if (!isInputFusible(op) || op->getAttr(kDiscShapeCalcAttr) != nullptr) {
         return false;
       }
     }
@@ -112,16 +114,14 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   } else {
     return false;
   }
-  if (target.getOpList().size() >= 6) {
-    llvm::dbgs() << "SparseOpCpuFusionStrategy::tryFuse success() \n";
-    llvm::dbgs() << "*********************lhs*********************\n";
-    dumpFusionPattern(lhs);
-    llvm::dbgs() << "*********************rhs*********************\n";
-    dumpFusionPattern(rhs);
-    llvm::dbgs() << "*********************res*********************\n";
-    dumpFusionPattern(target);
-    llvm::dbgs() << "*********************end*********************\n\n";
-  }
+  llvm::dbgs() << "SparseOpCpuFusionStrategy::tryFuse success() \n";
+  llvm::dbgs() << "*********************lhs*********************\n";
+  dumpFusionPattern(lhs);
+  llvm::dbgs() << "*********************rhs*********************\n";
+  dumpFusionPattern(rhs);
+  llvm::dbgs() << "*********************res*********************\n";
+  dumpFusionPattern(target);
+  llvm::dbgs() << "*********************end*********************\n\n";
   return true;
 }
 

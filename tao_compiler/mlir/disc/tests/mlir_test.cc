@@ -854,6 +854,7 @@ Status MlirTestImpl::GenerateInputAndRun() {
   }
 
   int num_iters = profiling_ ? c_ProfilingWarmUpSteps : 1;
+  num_iters = 1000;
   for (int iter = 0; iter < num_iters; iter++) {
     std::chrono::steady_clock::time_point begin =
         std::chrono::steady_clock::now();
@@ -927,7 +928,7 @@ Status MlirTestImpl::GenerateInputAndRun() {
                                                                      begin)
                        .count() /
                    1000.0
-            << " ms";
+            << " ms for exec iter: " << iter;
   }
 
   for (int idx = 0; idx < num_outputs_; ++idx) {

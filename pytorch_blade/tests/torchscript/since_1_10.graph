@@ -62,6 +62,16 @@ graph(%p1 : Float(*, *, *, device=cuda:0)):
   %3 : Tensor = aten::to(%p1, %1, %2, %2)
   return (%3)
 
+// aten.div.Tensor_mode
+// CHECK-LABEL: graph
+graph(%p1 : Long(*, *, *, requires_grad=0),
+      %p2 : Long(*, *, *, requires_grad=0),
+      %p3 : str):
+// CHECK: Long(*, *, *) = aten::div
+  %1 : Tensor = aten::div(%p1, %p2, %p3)
+  return (%1)
+
+
 // aten::to.prim_Device
 // CHECK-LABEL: graph
 graph(%p1 : Float(device=cuda:0)):

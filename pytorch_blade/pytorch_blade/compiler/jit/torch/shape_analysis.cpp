@@ -1129,6 +1129,13 @@ class ShapePropagator : public PropertyPropBase {
           if (auto maybe_tensor_types = gatherTensorTypes(node)) {
             AT_ASSERT(maybe_tensor_types->size() >= 2);
             auto dtype = getPromotedTypeForArithmeticOp(node);
+#if PYTORCH_VERSION_GE(1, 9)
+            if (node->matches(
+                    "aten::div.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor")) {
+              return {broadcast(*maybe_tensor_types, dtype)};
+            }
+#endif // PYTORCH_VERSION_GE(1, 9)
+
             if ((node->kind() == aten::div || node->kind() == aten::div_) &&
                 dtype.has_value() &&
                 c10::isIntegralType(dtype.value(), false)) {

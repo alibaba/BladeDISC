@@ -448,7 +448,7 @@ std::string getTorchPredefinedPDLPatterns() {
         let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
 
         /// 2. set attrs that are used by bladedisc.
-        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_trt\"">);
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha\"">);
         SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
         SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
@@ -581,7 +581,7 @@ std::string getTorchPredefinedPDLPatterns() {
         let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
 
         /// 2. set attrs that are used by bladedisc.
-        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_trt\"">);
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha\"">);
         SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
         SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
@@ -725,7 +725,7 @@ std::string getTorchPredefinedPDLPatterns() {
         let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
 
         /// 2. set attrs that are used by bladedisc.
-        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_trt\"">);
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha\"">);
         SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
         SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
@@ -861,7 +861,7 @@ std::string getTorchPredefinedPDLPatterns() {
         let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
 
         /// 2. set attrs that are used by bladedisc.
-        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_trt\"">);
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha\"">);
         SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
         SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);

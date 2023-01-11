@@ -695,7 +695,7 @@ MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention_output_transpose(
   return result;
 }
 
-MemRefType<Eigen::half, 3> ral_pdll_mha_trt(
+MemRefType<Eigen::half, 3> ral_pdll_mha(
     ExecutionContext* ctx, void* stream_handle /*stream_handle*/,
     MemRefType<Eigen::half, 4> query, MemRefType<Eigen::half, 4> key,
     MemRefType<Eigen::half, 4> value, void* customAttrs) {
@@ -2309,8 +2309,8 @@ TAO_RAL_API("ral_pdll_mem_eff_attention", "gpu",
             gpu::se_impl::ral_pdll_mem_eff_attention);
 TAO_RAL_API("ral_pdll_mem_eff_attention_output_transpose", "gpu",
             gpu::se_impl::ral_pdll_mem_eff_attention_output_transpose);
-TAO_RAL_API("ral_pdll_mha_trt", "gpu",
-            gpu::se_impl::ral_pdll_mha_trt);
+TAO_RAL_API("ral_pdll_mha", "gpu",
+            gpu::se_impl::ral_pdll_mha);
 TAO_RAL_API("ral_pdll_group_norm", "gpu",
             gpu::se_impl::groupnorm_impl::bladnn_groupnorm<Eigen::half>);
 TAO_RAL_API("ral_pdll_layer_norm", "gpu",

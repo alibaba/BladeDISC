@@ -30,11 +30,11 @@ using CUDAStream = ::c10::hip::HIPStream;
 #else // TORCH_BLADE_USE_ROCM
 #include <c10/cuda/CUDAStream.h>
 #endif // TORCH_BLADE_USE_ROCM
-#include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
+#include "ral/context/base/cuda/cuda_context_impl.h"
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 // TODO(disc): figure out why the bazel does not trigger re-compile this file
 // after we update ral.
-#include "tensorflow/compiler/mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
+#include "ral/context/base/cpu/cpu_context_impl.h"
 
 #include "pytorch_blade/common_utils/macros.h"
 #include "pytorch_blade/common_utils/tempfs.h"

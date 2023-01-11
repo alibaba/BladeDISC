@@ -1,0 +1,25 @@
+# RAL implementations
+
+load(
+    "@org_tensorflow//tensorflow:tensorflow.bzl",
+    "tf_cc_shared_object",
+    "tf_cc_test",
+    "tf_copts",
+    "tf_gpu_kernel_library",
+    "tf_gpu_library",
+    "tf_native_cc_binary",
+)
+
+cc_library(
+    name = "ral_logging",
+    srcs = [
+        "ral_logging.cc",
+    ],
+    hdrs = [
+        "ral_logging.h",
+    ],
+    deps = [
+
+    ],
+    alwayslink = 1,
+)

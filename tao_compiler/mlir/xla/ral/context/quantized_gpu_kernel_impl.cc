@@ -17,10 +17,10 @@
 #include <iostream>
 
 #include "absl/types/optional.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
+#include "ral/context/common_context_impl.h"
+#include "ral/context/context_util.h"
+#include "ral/context/stream_executor_based_impl.h"
+#include "ral/device/gpu/gpu_driver.h"
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 #include "bladnn/bladnn.h"

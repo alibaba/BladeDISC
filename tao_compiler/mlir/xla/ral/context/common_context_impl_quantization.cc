@@ -10,7 +10,7 @@
 // limitations under the License.
 
 #if defined(TAO_CPU_ONLY)
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_quantization.h"
+#include "ral/context/common_context_impl_quantization.h"
 
 // aarch64 related
 #if defined(TAO_AARCH64)
@@ -19,8 +19,8 @@
 
 // x86 related
 #if defined(TAO_X86)
-#include "tensorflow/compiler/mlir/xla/ral/context/mkldnn/ideep/ideep/abstract_types.hpp"
-#include "tensorflow/compiler/mlir/xla/ral/context/mkldnn/ideep/ideep/attributes.hpp"
+#include "ral/context/mkldnn/ideep/ideep/abstract_types.hpp"
+#include "ral/context/mkldnn/ideep/ideep/attributes.hpp"
 #endif
 
 namespace tao {

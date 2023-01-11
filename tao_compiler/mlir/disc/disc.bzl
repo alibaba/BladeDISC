@@ -22,7 +22,7 @@ def disc_cc_library(copts = tf_copts(), **kwargs):
 
 def if_platform_alibaba(if_true, if_false=[]):
     return select({
-        "//tensorflow/compiler/mlir/disc:is_platform_alibaba": if_true,
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:is_platform_alibaba": if_true,
         "//conditions:default": if_false
     })
 
@@ -35,42 +35,42 @@ def if_cuda_or_rocm(if_true, if_false=[]):
 
 def if_patine(if_true, if_false=[]):
     return select({
-        "//tensorflow/compiler/mlir/disc:is_patine": if_true,
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:is_patine": if_true,
         "//conditions:default": if_false
     })
 
 def if_blade_gemm(if_true, if_false=[]):
     return select({
-        "//tensorflow/compiler/mlir/disc:is_blade_gemm": if_true,
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:is_blade_gemm": if_true,
         "//conditions:default": if_false
     })
 
 def if_mkldnn(if_true, if_false=[]):
     return select({
-        "//tensorflow/compiler/mlir/disc:is_mkldnn": if_true,
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:is_mkldnn": if_true,
         "//conditions:default": if_false
     })
 
 def if_disc_aarch64(if_true, if_false=[]):
     return select({
-        "//tensorflow/compiler/mlir/disc:disc_aarch64": if_true,
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_aarch64": if_true,
         "//conditions:default": if_false
     })
 
 def if_disc_x86(if_true, if_false=[]):
     return select({
-        "//tensorflow/compiler/mlir/disc:disc_x86": if_true,
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_x86": if_true,
         "//conditions:default": if_false
     })
 
 def if_torch_disc(if_true, if_false=[]):
     return select({
-        "//tensorflow/compiler/mlir/disc:is_torch_disc": if_true,
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:is_torch_disc": if_true,
         "//conditions:default": if_false
     })
 
 def if_skip_compute_intensive_fusion(if_true, if_false=[]):
     return select({
-        "//tensorflow/compiler/mlir/disc:skip_compute_intensive_fusion": if_true,
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:skip_compute_intensive_fusion": if_true,
         "//conditions:default": if_false
     })

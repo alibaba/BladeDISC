@@ -28,7 +28,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_metadata.h"
+#include "ral/ral_metadata.h"
 #include "tensorflow/core/platform/env.h"
 
 namespace mlir {

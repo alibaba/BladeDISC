@@ -12,7 +12,7 @@
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_STREAM_EXECUTOR_BASED_IMPL_H_
 #define TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_STREAM_EXECUTOR_BASED_IMPL_H_
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+#include "ral/ral_helper.h"
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 

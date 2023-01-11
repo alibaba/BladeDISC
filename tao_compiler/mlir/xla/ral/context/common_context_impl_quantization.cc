@@ -354,7 +354,7 @@ void ral_qconv_acl_s8_s8_s8_per_channel(
 ///        convolution creator.
 /// @param input [batch, in_height, in_width, in_channels] with "NHWC" or
 ///              [batch, in_channels, in_height, in_width] with "NCHW"
-/// @param weight [filter_height, filter_width, in_channels, out_channels]
+/// @param weight [out_channels, filter_height, filter_width, in_channels]
 /// @param customAttrs data_format, padding, strides, dilations
 /// @return result [batch, out_height, out_width, out_channels] with "NHWC" or
 ///                [batch, out_channels, out_height, out_width] with "NCHW"
@@ -374,7 +374,7 @@ MemRefType<int8_t, NDims> ral_pdll_qconv_acl_s8_s8_s8_per_channel(
   }
 
   auto attr = getOrParsePDLAttr(ctx, customAttrs,
-                                "ral_pdll_qgemm_acl_s8_s8_s8_per_channel");
+                                "ral_pdll_qconv_acl_s8_s8_s8_per_channel");
   if (!attr) {
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }
@@ -416,8 +416,7 @@ MemRefType<int8_t, NDims> ral_pdll_qconv_acl_s8_s8_s8_per_channel(
     if (!generateExplicitPaddings<NDims>(reorderDims, explicit_paddings,
                                          padding))
       ctx->signalError(Context::FAILURE, "fail to generate explicit paddings");
-  }
-  {
+  } else {
     if (!generatePadding<NDims>(input, weight, padding_str, reorderDims,
                                 strides, dilations, padding))
       ctx->signalError(Context::FAILURE, "fail to generate paddings");

@@ -705,12 +705,14 @@ def parse_args():
         "--bridge-gcc",
         required=False,
         choices=VALID_GCC,
+        default="default",
         help="GCC version to compile tao bridge, required for configure stages.",
     )
     parser.add_argument(
         "--compiler-gcc",
         required=False,
         choices=["7.3", "7.5", "default"],
+        default="default",
         help="GCC version to compile tao compiler, required for configure stages.",
     )
     parser.add_argument(
@@ -829,13 +831,6 @@ def parse_args():
     if args.stage in ["all", "configure"]:
         assert args.bridge_gcc, "--bridge-gcc is required."
         assert args.compiler_gcc, "--compiler-gcc is required."
-    else:
-        assert (
-            args.bridge_gcc is None
-        ), "--bridge-gcc should be given only for configure."
-        assert (
-            args.compiler_gcc is None
-        ), "--compiler-gcc should be given only for configure."
 
     if args.version == "auto":
         args.version = open(get_version_file()).read().split()[0]

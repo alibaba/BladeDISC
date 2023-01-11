@@ -34,6 +34,7 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Constraint CheckTorchConstantIntList(v : Value);
   Constraint CheckTorchValueTensorLiteral(v : Value);
   Constraint CheckTorchTensorElemType(v: Value, type_str: Attr);
+  Constraint CheckTorchQkvWeightEqual(q: Value, k: Value, v: Value);
 
   Rewrite CreateTorchCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
   Rewrite ConvertTorchConstantIntListToI64DenseElemsAttr(cst: Value) -> Attr;
@@ -146,6 +147,25 @@ static LogicalResult checkTorchValueTensorLiteral(
                 .template getDefiningOp<Torch::ValueTensorLiteralOp>();
   if (!op) {
     return failure();
+  }
+  return success();
+}
+
+static LogicalResult checkTorchQkvWeightEqual(
+  PatternRewriter& rewriter,
+  ArrayRef<PDLValue> values
+){
+  auto first_value = values[0].cast<Value>();
+  auto firstTensorTy = first_value.getType().dyn_cast<Torch::ValueTensorType>();
+  for(int i = 1; i < values.size(); i += 1){
+    auto v = values[i].cast<Value>();
+    auto tensorTy = v.getType().dyn_cast<Torch::ValueTensorType>();
+    if(tensorTy.areAllSizesKnown() == false){
+      return failure();
+    }
+    if(firstTensorTy.hasSameSizesAndDtype(tensorTy) == false){
+      return failure();
+    }
   }
   return success();
 }
@@ -329,6 +349,8 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
       "CheckTorchValueTensorLiteral", checkTorchValueTensorLiteral);
   pdlPatterns.registerConstraintFunction(
       "CheckTorchTensorElemType", checkTorchTensorElemType);
+  pdlPatterns.registerConstraintFunction(
+      "CheckTorchQkvWeightEqual", checkTorchQkvWeightEqual);
 }
 
 } // namespace torch

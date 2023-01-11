@@ -54,6 +54,28 @@ namespace disc_ral {
 
 namespace {
 
+// map<pattern-name, filename>, bypass codegen pass pipeline and use IR passed
+// from `filename`.
+const std::unordered_map<std::string, std::string>&
+bypassCodegenPatternNameMap() {
+  static std::unordered_map<std::string, std::string> m = []() {
+    std::unordered_map<std::string, std::string> m;
+    const char* env = getenv("DISC_TRANSFORM_DEBUG_BYPASS_FUSION_PATTERNS");
+    if (env) {
+      SmallVector<StringRef> settings;
+      StringRef(env).split(settings, ';', /*MaxSplit=*/-1, /*KeepEmpty=*/false);
+      for (auto& setting : settings) {
+        SmallVector<StringRef> items;
+        setting.split(items, ':', /*MaxSplit=*/-1, /*KeepEmpty=*/false);
+        assert(setting.size() == 2);
+        m[items[0].str()] = items[1].str();
+      }
+    }
+    return m;
+  }();
+  return m;
+}
+
 BlockAndValueMapping buildValueMapping(FusionPattern& fusionPattern,
                                        func::FuncOp funcOp,
                                        bool reverse = false) {
@@ -265,6 +287,23 @@ LogicalResult DiscTransformLegalizeToLoopPass::handleCpuFusionOp(
     // skip non-transform-based fusion pattern.
     return success();
   }
+  auto& bypassMap = bypassCodegenPatternNameMap();
+  auto it = bypassMap.find(getFusionName(fusionOp).str());
+  if (it != bypassMap.end()) {
+    OwningOpRef<ModuleOp> m;
+    if (failed(parseTransformModuleFromFile(b.getContext(), it->second, m))) {
+      llvm::dbgs() << "illegal bypass transform fusion pattern codegen "
+                      "setting, unable to load module from: "
+                   << it->second << "\n";
+      return failure();
+    }
+    // Inline the lowered IR into the orignal module.
+    if (failed(inlineTransformedModule(b, fusion, fusionPattern, m.get()))) {
+      return fusion->emitError()
+             << "failed to inline module load from bypass setting\n";
+    }
+    return success();
+  }
 
   // 0, inject schedule selection logic
   // clone the fusion op, each for one candidate schedule.
@@ -274,7 +313,7 @@ LogicalResult DiscTransformLegalizeToLoopPass::handleCpuFusionOp(
     return fusionOp->emitError() << "failed to injectScheduleSelectionIR\n";
   }
   LLVM_DEBUG(llvm::dbgs() << "After injectScheduleSelectionIR:\n"
-                          << m.get() << "\n");
+                          << fusion->getParentOfType<func::FuncOp>() << "\n");
 
   for (auto fusion : clonedFusionOps) {
     b.setInsertionPoint(fusion);

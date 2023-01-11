@@ -324,6 +324,562 @@ std::string getTorchPredefinedPDLPatterns() {
       };
     }
 
+
+    Pattern TorchAttentionTransFP16CastGraphTRT {
+        // q projection
+        let q_project = op<torch.aten.linear>(
+            x: Value,
+            q_weight: Value,
+            q_bias: Value
+        );
+
+        let q_reshape = op<torch.aten.reshape>(
+            q_project.0,
+            q_reshape_list: Value
+        );
+        let q_permute = op<torch.aten.permute>(
+            q_reshape.0,
+            q_permute_list: Value
+        );
+        let q_permute_reshape = op<torch.aten.reshape>(
+            q_permute.0,
+            q_permute_reshape_list: Value
+        );
+        //
+
+        // k projection
+        let k_project = op<torch.aten.linear>(
+            x,
+            k_weight: Value,
+            k_bias: Value
+        );
+        let k_reshape = op<torch.aten.reshape>(
+            k_project.0,
+            k_reshape_list: Value
+        );
+        let k_permute = op<torch.aten.permute>(
+            k_reshape.0,
+            k_permute_list: Value
+        );
+        let k_permute_reshape = op<torch.aten.reshape>(
+            k_permute.0,
+            k_permute_reshape_list: Value
+        );
+        //
+
+        /// match phase: define the pattern
+        let transpose_op = op<torch.aten.transpose.int>(
+            k_permute_reshape.0,
+            int1: Value,
+            int2: Value
+        );
+        let matmul_qk_op = op<torch.aten.baddbmm>(
+            empty: Value,
+            q_permute_reshape.0,
+            transpose_op.0,
+            zero_int: Value,
+            alpha: Value
+        );
+        let softmax_op = op<torch.aten.softmax.int>(
+            matmul_qk_op.0,
+            s_dim: Value,
+            s_dtype: Value
+        );
+
+        // add type convert to convert type from fp32 to fp16
+        let cast_op = op<torch.aten.to.dtype>(
+            softmax_op.0,
+            c_dtype: Value,
+            c_arg1: Value,
+            c_arg2: Value,
+            c_arg3: Value
+        );
+
+        // v projection
+        let v_project = op<torch.aten.linear>(
+            x,
+            v_weight: Value,
+            v_bias: Value
+        );
+        let v_reshape = op<torch.aten.reshape>(
+            v_project.0,
+            v_reshape_list: Value
+        );
+        let v_permute = op<torch.aten.permute>(
+            v_reshape.0,
+            v_permute_list: Value
+        );
+        let v_permute_reshape = op<torch.aten.reshape>(
+            v_permute.0,
+            v_permute_reshape_list: Value
+        );
+        //
+
+        let matmul_qkv_op = op<torch.aten.bmm>(
+            cast_op.0,
+            v_permute_reshape.0
+        );
+
+        let reshape_o_op = op<torch.aten.reshape>(
+            matmul_qkv_op.0,
+            reshape_o_list: Value
+        );
+
+        let permute_o_op = op<torch.aten.permute>(
+            reshape_o_op.0,
+            permute_o_list: Value
+        );
+
+        let reshape_transpose_o_op = op <torch.aten.reshape>(
+            permute_o_op.0,
+            reshape_transpose_o_list: Value
+        );
+
+        CheckTorchTensorElemType(q_project.0, attr<"\"f16\"">);
+        CheckTorchTensorElemType(k_project.0, attr<"\"f16\"">);
+        CheckTorchTensorElemType(v_project.0, attr<"\"f16\"">);
+
+        CheckTorchQkvWeightEqual(q_weight, k_weight, v_weight);
+
+        /// rewrite phase
+        rewrite reshape_transpose_o_op with {
+
+        /// 1. create custom call op
+        let inputs = PackValue_3(attr<"\"in\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+        let outputs = PackValue_1(attr<"\"out\"">, reshape_transpose_o_op.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_tensorrt\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+        let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+        SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace reshape_transpose_o_op with rs;
+        };
+    }
+
+    Pattern TorchAttentionTransFP16NoCastGraphTRT {
+        // q projection
+        let q_project = op<torch.aten.linear>(
+            x: Value,
+            q_weight: Value,
+            q_bias: Value
+        );
+
+        let q_reshape = op<torch.aten.reshape>(
+            q_project.0,
+            q_reshape_list: Value
+        );
+        let q_permute = op<torch.aten.permute>(
+            q_reshape.0,
+            q_permute_list: Value
+        );
+        let q_permute_reshape = op<torch.aten.reshape>(
+            q_permute.0,
+            q_permute_reshape_list: Value
+        );
+        //
+
+        // k projection
+        let k_project = op<torch.aten.linear>(
+            x,
+            k_weight: Value,
+            k_bias: Value
+        );
+        let k_reshape = op<torch.aten.reshape>(
+            k_project.0,
+            k_reshape_list: Value
+        );
+        let k_permute = op<torch.aten.permute>(
+            k_reshape.0,
+            k_permute_list: Value
+        );
+        let k_permute_reshape = op<torch.aten.reshape>(
+            k_permute.0,
+            k_permute_reshape_list: Value
+        );
+        //
+
+        /// match phase: define the pattern
+        let transpose_op = op<torch.aten.transpose.int>(
+            k_permute_reshape.0,
+            int1: Value,
+            int2: Value
+        );
+        let matmul_qk_op = op<torch.aten.baddbmm>(
+            empty: Value,
+            q_permute_reshape.0,
+            transpose_op.0,
+            zero_int: Value,
+            alpha: Value
+        );
+        let softmax_op = op<torch.aten.softmax.int>(
+            matmul_qk_op.0,
+            s_dim: Value,
+            s_dtype: Value
+        );
+
+        // v projection
+        let v_project = op<torch.aten.linear>(
+            x,
+            v_weight: Value,
+            v_bias: Value
+        );
+        let v_reshape = op<torch.aten.reshape>(
+            v_project.0,
+            v_reshape_list: Value
+        );
+        let v_permute = op<torch.aten.permute>(
+            v_reshape.0,
+            v_permute_list: Value
+        );
+        let v_permute_reshape = op<torch.aten.reshape>(
+            v_permute.0,
+            v_permute_reshape_list: Value
+        );
+        //
+
+        let matmul_qkv_op = op<torch.aten.bmm>(
+            softmax_op.0,
+            v_permute_reshape.0
+        );
+
+        let reshape_o_op = op<torch.aten.reshape>(
+            matmul_qkv_op.0,
+            reshape_o_list: Value
+        );
+
+        let permute_o_op = op<torch.aten.permute>(
+            reshape_o_op.0,
+            permute_o_list: Value
+        );
+
+        let reshape_transpose_o_op = op <torch.aten.reshape>(
+            permute_o_op.0,
+            reshape_transpose_o_list: Value
+        );
+
+        CheckTorchTensorElemType(q_project.0, attr<"\"f16\"">);
+        CheckTorchTensorElemType(k_project.0, attr<"\"f16\"">);
+        CheckTorchTensorElemType(v_project.0, attr<"\"f16\"">);
+
+        CheckTorchQkvWeightEqual(q_weight, k_weight, v_weight);
+
+        /// rewrite phase
+        rewrite reshape_transpose_o_op with {
+
+        /// 1. create custom call op
+        let inputs = PackValue_3(attr<"\"in\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+        let outputs = PackValue_1(attr<"\"out\"">, reshape_transpose_o_op.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_tensorrt\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+        let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+        SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace reshape_transpose_o_op with rs;
+        };
+    }
+
+    Pattern TorchDiffusers07AttentionTransFP16CastGraphTRT {
+        /// match phase: define the pattern
+
+        // q projection
+        let q_project = op<torch.aten.linear>(
+            x: Value,
+            q_weight: Value,
+            q_bias: Value
+        );
+
+        let q_reshape = op<torch.aten.reshape>(
+            q_project.0,
+            q_reshape_list: Value
+        );
+        let q_permute = op<torch.aten.permute>(
+            q_reshape.0,
+            q_permute_list: Value
+        );
+        let q_permute_reshape = op<torch.aten.reshape>(
+            q_permute.0,
+            q_permute_reshape_list: Value
+        );
+        //
+
+        // k projection
+        let k_project = op<torch.aten.linear>(
+            x,
+            k_weight: Value,
+            k_bias: Value
+        );
+        let k_reshape = op<torch.aten.reshape>(
+            k_project.0,
+            k_reshape_list: Value
+        );
+        let k_permute = op<torch.aten.permute>(
+            k_reshape.0,
+            k_permute_list: Value
+        );
+        let k_permute_reshape = op<torch.aten.reshape>(
+            k_permute.0,
+            k_permute_reshape_list: Value
+        );
+        //
+
+        let transpose_op = op<torch.aten.transpose.int>(
+            k_permute_reshape.0,
+            int1: Value,
+            int2: Value
+        );
+        let matmul_qk_op = op<torch.aten.matmul>(
+            q_permute_reshape.0,
+            transpose_op.0
+        );
+        let mul_qk_op = op<torch.aten.mul.Tensor>(
+            matmul_qk_op.0,
+            alpha: Value
+        );
+        let softmax_op = op<torch.aten.softmax.int>(
+            mul_qk_op.0,
+            s_dim: Value,
+            s_dtype: Value
+        );
+
+        // add type convert to convert type from fp32 to fp16
+        let cast_op = op<torch.aten.to.dtype>(
+            softmax_op.0,
+            c_dtype: Value,
+            c_arg1: Value,
+            c_arg2: Value,
+            c_arg3: Value
+        );
+
+        // v projection
+        let v_project = op<torch.aten.linear>(
+            x,
+            v_weight: Value,
+            v_bias: Value
+        );
+        let v_reshape = op<torch.aten.reshape>(
+            v_project.0,
+            v_reshape_list: Value
+        );
+        let v_permute = op<torch.aten.permute>(
+            v_reshape.0,
+            v_permute_list: Value
+        );
+        let v_permute_reshape = op<torch.aten.reshape>(
+            v_permute.0,
+            v_permute_reshape_list: Value
+        );
+        //
+
+        let matmul_qkv_op = op<torch.aten.matmul>(
+            cast_op.0,
+            v_permute_reshape.0
+        );
+
+        let reshape_o_op = op<torch.aten.reshape>(
+            matmul_qkv_op.0,
+            reshape_o_list: Value
+        );
+
+        let permute_o_op = op<torch.aten.permute>(
+            reshape_o_op.0,
+            permute_o_list: Value
+        );
+
+        let reshape_transpose_o_op = op <torch.aten.reshape>(
+            permute_o_op.0,
+            reshape_transpose_o_list: Value
+        );
+
+        CheckTorchTensorElemType(q_project.0, attr<"\"f16\"">);
+        CheckTorchTensorElemType(k_project.0, attr<"\"f16\"">);
+        CheckTorchTensorElemType(v_project.0, attr<"\"f16\"">);
+
+        CheckTorchQkvWeightEqual(q_weight, k_weight, v_weight);
+
+        /// rewrite phase
+        rewrite reshape_transpose_o_op with {
+
+        /// 1. create custom call op
+        let inputs = PackValue_3(attr<"\"in\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+        let outputs = PackValue_1(attr<"\"out\"">, reshape_transpose_o_op.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_tensorrt\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+        let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+        SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace reshape_transpose_o_op with rs;
+        };
+    }
+
+
+    Pattern TorchDiffusers07AttentionTransFP16NoCastGraphTRT {
+        /// match phase: define the pattern
+
+        // q projection
+        let q_project = op<torch.aten.linear>(
+            x: Value,
+            q_weight: Value,
+            q_bias: Value
+        );
+
+        let q_reshape = op<torch.aten.reshape>(
+            q_project.0,
+            q_reshape_list: Value
+        );
+        let q_permute = op<torch.aten.permute>(
+            q_reshape.0,
+            q_permute_list: Value
+        );
+        let q_permute_reshape = op<torch.aten.reshape>(
+            q_permute.0,
+            q_permute_reshape_list: Value
+        );
+        //
+
+        // k projection
+        let k_project = op<torch.aten.linear>(
+            x,
+            k_weight: Value,
+            k_bias: Value
+        );
+        let k_reshape = op<torch.aten.reshape>(
+            k_project.0,
+            k_reshape_list: Value
+        );
+        let k_permute = op<torch.aten.permute>(
+            k_reshape.0,
+            k_permute_list: Value
+        );
+        let k_permute_reshape = op<torch.aten.reshape>(
+            k_permute.0,
+            k_permute_reshape_list: Value
+        );
+        //
+
+        let transpose_op = op<torch.aten.transpose.int>(
+            k_permute_reshape.0,
+            int1: Value,
+            int2: Value
+        );
+        let matmul_qk_op = op<torch.aten.matmul>(
+            q_permute_reshape.0,
+            transpose_op.0
+        );
+        let mul_qk_op = op<torch.aten.mul.Tensor>(
+            matmul_qk_op.0,
+            alpha: Value
+        );
+        let softmax_op = op<torch.aten.softmax.int>(
+            mul_qk_op.0,
+            s_dim: Value,
+            s_dtype: Value
+        );
+
+        // v projection
+        let v_project = op<torch.aten.linear>(
+            x,
+            v_weight: Value,
+            v_bias: Value
+        );
+        let v_reshape = op<torch.aten.reshape>(
+            v_project.0,
+            v_reshape_list: Value
+        );
+        let v_permute = op<torch.aten.permute>(
+            v_reshape.0,
+            v_permute_list: Value
+        );
+        let v_permute_reshape = op<torch.aten.reshape>(
+            v_permute.0,
+            v_permute_reshape_list: Value
+        );
+        //
+
+        let matmul_qkv_op = op<torch.aten.matmul>(
+            softmax_op.0,
+            v_permute_reshape.0
+        );
+
+        let reshape_o_op = op<torch.aten.reshape>(
+            matmul_qkv_op.0,
+            reshape_o_list: Value
+        );
+
+        let permute_o_op = op<torch.aten.permute>(
+            reshape_o_op.0,
+            permute_o_list: Value
+        );
+
+        let reshape_transpose_o_op = op <torch.aten.reshape>(
+            permute_o_op.0,
+            reshape_transpose_o_list: Value
+        );
+
+        CheckTorchTensorElemType(q_project.0, attr<"\"f16\"">);
+        CheckTorchTensorElemType(k_project.0, attr<"\"f16\"">);
+        CheckTorchTensorElemType(v_project.0, attr<"\"f16\"">);
+
+        CheckTorchQkvWeightEqual(q_weight, k_weight, v_weight);
+
+        /// rewrite phase
+        rewrite reshape_transpose_o_op with {
+
+        /// 1. create custom call op
+        let inputs = PackValue_3(attr<"\"in\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+        let outputs = PackValue_1(attr<"\"out\"">, reshape_transpose_o_op.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_tensorrt\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+        let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
+        SetCustomAttr(infos.op, attr<"\"alpha\"">, alpha_attr);
+
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace reshape_transpose_o_op with rs;
+        };
+    }
+
     Pattern TorchAttentionTransFP16CastGraph {
       /// match phase: define the pattern
       let transpose_op = op<torch.aten.transpose.int>(

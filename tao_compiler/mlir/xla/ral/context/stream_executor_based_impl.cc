@@ -735,14 +735,26 @@ MemRefType<Eigen::half, 3> ral_pdll_mha_trt(
       ctx, batch_size * num_heads * seq_len * head_dim * sizeof(Eigen::half)));
   auto result = assignMemRef<Eigen::half, 3>(data, resultSizes);
 
+  // pack memory alloc
+  int32_t cu_seqlens_d_size = (batch_size + 1) * sizeof(int32_t);
+  int32_t qkv_size = batch_size * seq_len * num_heads * head_dim * 3 * sizeof(Eigen::half);
+
+  auto packed_qkv = static_cast<Eigen::half*>(gpu_driver->alloc(
+      ctx, qkv_size));
+  auto cu_seqlens_d = static_cast<int32_t*>(gpu_driver->alloc(
+      ctx, cu_seqlens_d_size));
+  // pack memory alloc
+
   bool ret = bladnn::fmha(
-      result.data, query_data, key_data, value_data, &batch_size,
+      result.data, query_data, key_data, value_data, packed_qkv, cu_seqlens_d, &batch_size,
       seq_len, seq_len_kv, num_heads, head_dim, head_dim_v, 0.0f, alpha_softmax,
       false, s, true);
 
   if (!ret) {
     ctx->signalError(Context::FAILURE, "bladnn fail");
   }
+  gpu_driver->dealloc(ctx, packed_qkv);
+  gpu_driver->dealloc(ctx, cu_seqlens_d);
   return result;
 }
 #endif

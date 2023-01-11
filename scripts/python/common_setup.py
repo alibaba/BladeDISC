@@ -180,6 +180,12 @@ def which(cmd):
         raise Exception("failed to find command: " + cmd)
     return found
 
+def extra_link_flags():
+    from distutils.spawn import find_executable
+    if find_executable("ld.lld"):
+        return " --linkopt=-fuse-ld=lld"
+    else:
+        return " --linkopt='-fuse-ld=gold -Xlinker --stub-group-size -Xlinker 10000000'"
 
 @contextmanager
 def cwd(path):

@@ -14,3 +14,5 @@ set -ex
 pip install -r requirements-dev.txt
 python -m unittest discover -s tests
 python setup.py bdist_wheel
+pip install --find-links=dist torch_quant
+python -c 'import torch_quant; print(torch_quant.__version__)'

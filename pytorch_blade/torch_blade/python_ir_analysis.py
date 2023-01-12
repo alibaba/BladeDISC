@@ -249,7 +249,7 @@ def _aten_undefined(container_map, local, graph, node):
         # meet undefined use, stop static analysis
         container_map[inp] = Container(instance=container.instance, static=False)
 
-def _jit_pass_clean_python_ir(graph):
+def _jit_pass_clean_python_ir(graph, is_training=False):
     handler = {
         "prim::DictConstruct": _prim_dict_construct,
         "prim::ListConstruct": _prim_list_construct,
@@ -292,7 +292,9 @@ def _jit_pass_clean_python_ir(graph):
         torch._C._jit_pass_dce(graph)
         tools._jit_pass_lower_simple_tuples(graph)
         tools._jit_pass_const_loop_unrolling(graph)
-        torch._C._jit_pass_constant_propagation(graph)
+        if not is_training:
+            # training with dynamo 
+            torch._C._jit_pass_constant_propagation(graph)
 
         analysis_python_ir(graph)
     # eliminate dead codes create during analysis_python_ir

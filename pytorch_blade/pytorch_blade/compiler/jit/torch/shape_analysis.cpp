@@ -1901,10 +1901,20 @@ class ShapePropagator : public PropertyPropBase {
             "aten::randint(int high, int[] size, *, int? dtype, int? layout, Device? device, bool? pin_memory) -> Tensor",
             "aten::randint(int low, int high, int[] size, *, int? dtype, int? layout, Device? device, bool? pin_memory) -> Tensor",
         },
-        [](Node* node) -> type_vec_t {
+        [&](Node* node) -> type_vec_t {
           if (auto list_size =
                   determineListSize(node->namedInput(attr::size))) {
-            return factory_with_ndim(node, *list_size);
+            auto ret = factory_with_ndim(node, *list_size);
+            if (node->kind() == aten::full) {
+              at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
+              if (maybe_dtype_option && maybe_dtype_option->isInt()) {
+                return ret;
+              }
+              at::ScalarType dtype =
+                  *tryScalarTypeFromJitType(*node->input(1)->type());
+              return {ret[0]->withScalarType(dtype)};
+            }
+            return ret;
           }
           return {};
         }};

@@ -1441,6 +1441,8 @@ Status RunCudnnConvolution<int8_t>(
           params.bias_descriptor, DeviceMemory<float>(operand_buffers[2]),
           se::dnn::ActivationMode::kNone, output_descriptor, &output_buf,
           scratch_allocator, algorithm, profile_result);
+#elif TF_MAJOR_VERSION == 1 && TF_MINOR_VERSION == 12
+      return errors::Internal("Not supported on tensorflow==1.12");
 #else
       stream->ThenFusedConvolveWithAlgorithm(
           input_descriptor, input_buf, params.scale, filter_descriptor,

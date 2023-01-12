@@ -710,7 +710,9 @@ struct CudnnConvParams {
   std::vector<int64_t> filter_shape;
   std::vector<int64_t> output_shape;
   std::vector<int64_t> metadata;
-
+#if TENSORFLOW_USE_ROCM
+  std::optional<uint64_t> workspace_size;
+#endif
   DataLayout input_dl;
   FilterLayout filter_dl;
   DataLayout output_dl;
@@ -1314,8 +1316,14 @@ Status RunCudnnConvolution(CudnnConvParams& params,
   auto& filter_descriptor = params.filter_descriptor;
   auto& convolution_descriptor = params.convolution_descriptor;
   auto& output_descriptor = params.output_descriptor;
+#if TENSORFLOW_USE_ROCM
+  AlgorithmConfig algorithm{AlgorithmDesc(
+      params.algo_id, params.tensor_ops_enabled, params.workspace_size)};
+#else
   AlgorithmConfig algorithm{
       AlgorithmDesc(params.algo_id, params.tensor_ops_enabled)};
+#endif
+
 #if TENSORFLOW_USE_ROCM
   if (profile_result) {
     algorithm.set_scratch_size(profile_result->scratch_size());
@@ -1505,6 +1513,7 @@ bool PickBestAlgorithm(CudnnConvParams& params,
                               result_buffer, &scratch_allocator)) {
     params.algo_id = profile_result.algorithm().algo_id();
     params.tensor_ops_enabled = profile_result.algorithm().tensor_ops_enabled();
+    params.workspace_size = profile_result.algorithm().workspace_size();
 #else
   for (const AlgorithmDesc& alg : GetAlgorithms(params.kind, stream_exec)) {
     params.algo_id = alg.algo_id();

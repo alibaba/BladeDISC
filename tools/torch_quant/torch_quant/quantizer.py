@@ -10,15 +10,19 @@
 # limitations under the License.
 
 from enum import Enum
-from typing import Optional
+from functools import partial
+from typing import Callable, Dict, Optional
 
+import torch
 import torch.nn as nn
 from torch.fx import GraphModule, Tracer
-from torch_quant.graph import (fold_qdq, insert_act_observer, modify_graph,
+from torch_quant.graph import (GraphModContext, fold_qdq, insert_act_observer,
                                observer_to_qdq, q_ref_dq_to_fbgemm,
+                               quantizable_module_to_observed,
                                quantizable_module_to_ref, set_qconfig)
 from torch_quant.module import ModuleFilter, copy_and_replace, fx_trace
-from torch_quant.observer import toggle_observer
+from torch_quant.observer import (BiasObserver, MinMaxObserver, Observer,
+                                  toggle_observer)
 
 
 class Backend(Enum):
@@ -27,16 +31,43 @@ class Backend(Enum):
     FBGEMM = 2
 
 
+DEFAULT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
+    Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8),
+    Backend.DISC: partial(MinMaxObserver, dtype=torch.qint8),
+    Backend.FBGEMM: partial(MinMaxObserver, dtype=torch.quint8),
+}
+
+DEFAULT_W_OB_CTR = partial(MinMaxObserver, dtype=torch.qint8)
+DEFAULT_BIAS_OB_CTR = BiasObserver
+
+
 class Quantizer:
     def __init__(self, module_filter: Optional[ModuleFilter] = None,
-                 backend: Optional[Backend] = Backend.REFERENCE,
-                 tracer: Optional[Tracer] = None) -> None:
+                 backend: Backend = Backend.REFERENCE,
+                 tracer: Optional[Tracer] = None,
+                 act_ob_ctr: Optional[Callable[..., Observer]] = None,
+                 w_ob_ctr: Optional[Callable[..., Observer]] = None,
+                 bias_ob_ctr: Optional[Callable[..., Observer]] = None,
+                 ) -> None:
         self.module_filter = module_filter
         self.backend = backend
         self.tracer = tracer
+        self.act_ob_ctr = act_ob_ctr or DEFAULT_ACT_OB_CTR[backend]
+        self.w_ob_ctr = w_ob_ctr or DEFAULT_W_OB_CTR
+        self.bias_ob_ctr = bias_ob_ctr or DEFAULT_BIAS_OB_CTR
 
     def calib_gm(self,  gm: GraphModule, root: nn.Module) -> None:
-        modify_graph(gm, root, [set_qconfig, insert_act_observer])
+        ctx = GraphModContext(gm, root, self.act_ob_ctr,
+                              self.w_ob_ctr, self.bias_ob_ctr)
+        # TODO(litan.ls): unify graph modification for different backends
+        if self.backend == Backend.DISC:
+            ctx.modify_graph([
+                set_qconfig,
+                insert_act_observer,
+                quantizable_module_to_observed,
+            ])
+        else:
+            ctx.modify_graph([set_qconfig, insert_act_observer])
         toggle_observer(gm, observe=True, fake_quant=False)
 
     def calib(self, model: nn.Module) -> nn.Module:
@@ -46,19 +77,34 @@ class Quantizer:
         return copy_and_replace(model, trace_mapping)
 
     def quantize_gm(self, gm: GraphModule, root: nn.Module) -> None:
-        passes = [set_qconfig, insert_act_observer,
-                  observer_to_qdq, quantizable_module_to_ref]
-        if self.backend == Backend.REFERENCE:
-            ...
-        elif self.backend == Backend.DISC:
-            raise NotImplementedError(
-                f'Backend {self.backend.name} has not been implemented yet.')
+        ctx = GraphModContext(gm, root, self.act_ob_ctr,
+                              self.w_ob_ctr, self.bias_ob_ctr)
+        if self.backend == Backend.DISC:
+            ctx.modify_graph([
+                set_qconfig,
+                insert_act_observer,
+                quantizable_module_to_observed,
+            ])
+            toggle_observer(gm, observe=False, fake_quant=True)
+
+        elif self.backend == Backend.REFERENCE:
+            ctx.modify_graph([
+                set_qconfig,
+                insert_act_observer,
+                observer_to_qdq,
+                quantizable_module_to_ref,
+            ])
         elif self.backend == Backend.FBGEMM:
-            passes += [q_ref_dq_to_fbgemm, fold_qdq]
+            ctx.modify_graph([
+                set_qconfig,
+                insert_act_observer,
+                observer_to_qdq,
+                quantizable_module_to_ref,
+                q_ref_dq_to_fbgemm,
+                fold_qdq,
+            ])
         else:
             raise ValueError(f'Unsupported backend {self.backend.name}')
-
-        modify_graph(gm, root, passes)
 
     def quantize(self, model: nn.Module) -> nn.Module:
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)

@@ -21,9 +21,10 @@ from torch_quant.quantizer import Backend, Quantizer
 class QuantizerTest(unittest.TestCase):
     @parameterized.expand([
         (Backend.REFERENCE, ),
-        (Backend.FBGEMM, ),
+        #(Backend.FBGEMM, ),
+        (Backend.DISC, ),
     ])
-    def test_calib_and_quantize(self, backend) -> None:
+    def test_calib_and_quantize(self, backend: Backend) -> None:
         model = SimpleModule()
         quantizer = Quantizer(backend=backend)
         dummy_input = torch.randn((1, 2, 5, 5))
@@ -40,9 +41,13 @@ class QuantizerTest(unittest.TestCase):
             quant_output, original_output, rtol=0.1, atol=0.5)
 
     # TODO(litan.ls): QAT is more suitable for this case
-    def test_load_from_state_dict(self) -> None:
+    @parameterized.expand([
+        (Backend.REFERENCE, ),
+        (Backend.DISC, ),
+    ])
+    def test_load_from_state_dict(self, backend: Backend) -> None:
         model = SimpleModule()
-        quantizer = Quantizer()
+        quantizer = Quantizer(backend=backend)
         dummy_input = torch.randn((1, 2, 5, 5))
 
         quantizer.calib(model)(dummy_input)
@@ -55,9 +60,13 @@ class QuantizerTest(unittest.TestCase):
         quant_output = quantizer.quantize(model)(dummy_input)
         self.assertTrue(torch.equal(loaded_quant_output, quant_output))
 
-    def test_save_and_load_quantized(self) -> None:
+    @parameterized.expand([
+        (Backend.REFERENCE, ),
+        (Backend.DISC, ),
+    ])
+    def test_save_and_load_quantized(self, backend: Backend) -> None:
         model = SimpleModule()
-        quantizer = Quantizer()
+        quantizer = Quantizer(backend=backend)
         dummy_input = torch.randn((1, 2, 5, 5))
 
         quant_model = quantizer.quantize(model)

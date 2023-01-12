@@ -21,7 +21,8 @@ import torch.nn.quantized._reference as nnqr
 from torch.fx import GraphModule, Node
 from torch.quantization import (DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS,
                                 QConfig)
-from torch_quant.observer import MinMaxObserver, Observer
+from torch_quant.observed_module import OB_MODULE_MAPPING
+from torch_quant.observer import Observer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -58,11 +59,24 @@ def _register_buffer(root: nn.Module, full_path: str, tensor: torch.Tensor) -> N
     parent.register_buffer(name, tensor)
 
 
+GraphModPass = Callable[['GraphModContext'], None]
+
+
 class GraphModContext:
-    def __init__(self, gm: GraphModule, root: nn.Module) -> None:
+    def __init__(self, gm: GraphModule, root: nn.Module,
+                 act_ob_ctr: Callable[..., Observer],
+                 w_ob_ctr: Callable[..., Observer],
+                 bias_ob_ctr: Callable[..., Observer]) -> None:
         self.gm = gm
         self.root = root
         self.modules = dict(self.root.named_modules())
+        self.act_ob_ctr = act_ob_ctr
+        self.w_ob_ctr = w_ob_ctr
+        self.bias_ob_ctr = bias_ob_ctr
+
+    def modify_graph(self, passes: Iterable[GraphModPass]) -> None:
+        for p in passes:
+            p(self)
 
     def nodes_by_module_type(self, module_types: Iterable[Type[nn.Module]]) -> Iterable[Node]:
         for node in self.gm.graph.nodes:
@@ -115,15 +129,6 @@ class GraphModContext:
         return m
 
 
-GraphModPass = Callable[[GraphModContext], None]
-
-
-def modify_graph(gm: GraphModule, root: nn.Module, passes: Iterable[GraphModPass]) -> None:
-    ctx = GraphModContext(gm=gm, root=root)
-    for p in passes:
-        p(ctx)
-
-
 # Some basic and generic graph modification passes:
 
 # set QConfig to quantizable modules so we can reuse nn.intrinsic/qat modules
@@ -131,8 +136,7 @@ def modify_graph(gm: GraphModule, root: nn.Module, passes: Iterable[GraphModPass
 def set_qconfig(ctx: GraphModContext) -> None:
     for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
         m = ctx.modules.get(node.target)
-        m.qconfig = QConfig(activation=None, weight=partial(
-            MinMaxObserver, dtype=torch.qint8))
+        m.qconfig = QConfig(activation=None, weight=ctx.w_ob_ctr)
 
 
 def insert_act_observer(ctx: GraphModContext) -> None:
@@ -151,14 +155,41 @@ def insert_act_observer(ctx: GraphModContext) -> None:
         else:
             ob_path = f'{act.target}_ob'
 
-        ob_ctr = partial(MinMaxObserver, dtype=torch.quint8)
-        _ = ctx.get_or_create_module(ob_path, ob_ctr)
+        _ = ctx.get_or_create_module(ob_path, ctx.act_ob_ctr)
         with ctx.gm.graph.inserting_after(act):
             ob_node = ctx.gm.graph.call_module(ob_path, (act, ))
         act.replace_all_uses_with(
             ob_node, delete_user_cb=lambda user: user in act_nodes[act])
         LOGGER.debug(f'insert ob({ob_path}) after {act.op}({act.target})')
     # TODO(litan.ls): handle output node
+    ctx.gm.recompile()
+
+
+def quantizable_module_to_observed(ctx: GraphModContext) -> None:
+    """
+    Replace quantizable modules with observed version.
+
+    For quantizable modules (e.g. Conv2D, Linear), weight is stored and used
+    internally, instead of as a sperated node in fx graph. So we need to
+    replace quantizable modules with observed version, to insert an observer
+    after weight. 
+
+    Args:
+        ctx (GraphModContext): Context object for graph modification.
+    """
+    for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
+        src = ctx.modules[node.target]
+        dst_type = OB_MODULE_MAPPING.get(type(src))
+        if dst_type is None:
+            raise ValueError(f'{type(src)} cannot be observed.')
+        act_ob = ctx.modules[node.args[0].target]
+        w_ob_path = f'{node.target}.w_ob'
+        bias_ob_path = f'{node.target}.bias_ob'
+        w_ob = ctx.get_or_create_module(w_ob_path, ctx.w_ob_ctr)
+        bias_ob = ctx.get_or_create_module(
+            bias_ob_path, partial(ctx.bias_ob_ctr, w_ob, act_ob))
+        dst = dst_type.from_float(src, w_ob, bias_ob)
+        ctx.replace_module(node.target, dst)
     ctx.gm.recompile()
 
 

@@ -66,7 +66,8 @@ namespace disc_ral {
 class InputInlineFusionPattern : public RewritePattern {
  public:
   explicit InputInlineFusionPattern(MLIRContext* context,
-                                    LowerConfig* lower_config = nullptr)
+                                    LowerConfig* lower_config = nullptr,
+                                    bool one_pass = false)
       : RewritePattern(lmhlo::FusionOp::getOperationName(), 1, context),
         lower_config_(lower_config) {}
 
@@ -95,8 +96,9 @@ class InputInlineFusionPattern : public RewritePattern {
     // Returns success if any of parallelOp is processed.
     for (scf::ParallelOp parallelOp : innermostPloops) {
       if (!failed(processParallelOp(parallelOp, &parent_block, rewriter,
-                                    dominance_info)))
+                                    dominance_info))) {
         return success();
+      }
     }
     return failure();
   }

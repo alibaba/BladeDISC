@@ -64,6 +64,24 @@ LowerConfig::SpecificLoader* LowerConfig::getSpecificLoader(Operation* op,
              : &specific_loader->second;
 }
 
+LowerConfig::SpecificStore* LowerConfig::getSpecificStore(Operation* op,
+                                                          Value operand) {
+  auto getParentFusionOp = [&](Operation* op) {
+    auto parent = op->getParentOp();
+    while (parent != nullptr && !isa<lmhlo::FusionOp>(parent)) {
+      parent = parent->getParentOp();
+    }
+    return dyn_cast_or_null<lmhlo::FusionOp>(parent);
+  };
+  lmhlo::FusionOp fusion = getParentFusionOp(op);
+  if (fusion == nullptr) {
+    return nullptr;
+  }
+  auto specific_store = specific_stores_.find(std::make_pair(fusion, operand));
+  return (specific_store == specific_stores_.end()) ? nullptr
+                                                    : &specific_store->second;
+}
+
 Value createMaySpecificLoad(OpBuilder& b, Location loc, Operation* op,
                             Value memref, ValueRange indices,
                             LowerConfig* lower_config) {
@@ -104,12 +122,20 @@ Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Operation* op,
 
 Value mayCreateStore(OpBuilder* b, Location loc, Operation* op, Value value,
                      ValueRange out_indices, LowerConfig* lower_config) {
-  if (lower_config != nullptr && lower_config->isWrittenBack(op)) {
+  if (lower_config != nullptr) {
     Value out_memref = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     if (out_memref == nullptr) {
       return nullptr;
     }
-    b->create<memref::StoreOp>(loc, value, out_memref, out_indices);
+    // Write back to off-chip memory.
+    if (lower_config->isWrittenBack(op)) {
+      b->create<memref::StoreOp>(loc, value, out_memref, out_indices);
+    }
+    // Store on on-chip memory.
+    auto store = lower_config->getSpecificStore(op, out_memref);
+    if (store != nullptr) {
+      (*store)(*b, value, out_memref, out_indices);
+    }
   }
   return nullptr;
 }

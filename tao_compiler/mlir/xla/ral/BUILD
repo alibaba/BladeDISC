@@ -16,7 +16,7 @@ load(
     "if_cuda_is_configured",
     "cuda_library",
 )
-load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured")
+load("@local_config_rocm//rocm:build_defs.bzl","if_dcu", "if_rocm_is_configured")
 load(
     "@com_google_protobuf//:protobuf.bzl",
     "cc_proto_library",
@@ -323,7 +323,8 @@ cc_library(
     copts = [
         # "-DTF_1_12",
         "-fopenmp",
-    ] + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
+    ] + if_dcu(["-DTENSORFLOW_USE_DCU=1"])
+    + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
     linkopts = [
         "-fopenmp",
         "-ldl",
@@ -508,6 +509,8 @@ cc_library(
     ]),
     copts = if_cuda_is_configured([
         "-DGOOGLE_CUDA=1"
+    ]) + if_dcu([
+        "-DTENSORFLOW_USE_DCU=1"
     ]) + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
 
     alwayslink = 1,
@@ -695,6 +698,8 @@ cc_library(
         "-DDISC_BUILD_FROM_TF_BRIDGE"
     ] + if_cuda_or_rocm([
         "-DTAO_RAL_USE_STREAM_EXECUTOR"
+    ]) + if_dcu([
+        "-DTENSORFLOW_USE_DCU=1"
     ]) + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
@@ -908,6 +913,8 @@ cc_library(
     ] + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
+    ]) + if_dcu([
+        "-DTENSORFLOW_USE_DCU=1"
     ]) + if_cuda_or_rocm([
         "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]) + cuda_default_copts(),

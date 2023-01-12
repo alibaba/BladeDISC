@@ -257,14 +257,36 @@ void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag) {
   std::string oldTag;
   auto attr = op->getAttrOfType<StringAttr>(kFusionOpTagAttr);
   if (attr && attr.getValue().size()) {
-    oldTag = (Twine(attr.getValue()) + "X").str();
+    oldTag = (Twine(attr.getValue()) + kFusionTagSeparator).str();
   }
   op->setAttr(kFusionOpTagAttr, b.getStringAttr((Twine(oldTag) + tag).str()));
+}
+
+void mergeFusionTag(OpBuilder& b, lmhlo::FusionOp op,
+                    const std::set<std::string>& tagSet) {
+  auto opTagSet = parsefusionTagSetFromStr(getFusionTagStr(op));
+  for (const auto& tag : tagSet) opTagSet.insert(tag);
+  auto newTagStr = llvm::join(opTagSet, kFusionTagSeparator);
+  op->setAttr(kFusionOpTagAttr, b.getStringAttr(newTagStr));
 }
 
 StringRef getFusionTagStr(lmhlo::FusionOp op) {
   auto attr = op->getAttrOfType<StringAttr>(kFusionOpTagAttr);
   return attr ? attr.getValue() : "";
+}
+
+std::string fusionTagSetToStr(const std::set<std::string>& tagSet) {
+  SmallVector<StringRef> tags;
+  for (const auto& tag : tagSet) tags.push_back(tag);
+  return llvm::join(tags, kFusionTagSeparator);
+}
+
+std::set<std::string> parsefusionTagSetFromStr(StringRef tagStr) {
+  SmallVector<StringRef> tags;
+  std::set<std::string> tagSet;
+  tagStr.split(tags, kFusionTagSeparator, /*MaxSplit*/ -1, /*KeepEmpty*/ false);
+  for (auto tag : tags) tagSet.insert(tag.str());
+  return tagSet;
 }
 
 // Returns the full name of the fusion op
@@ -732,14 +754,27 @@ FusionPattern FusionPattern::createWithoutInit(
   return FusionPattern(op_list);
 }
 
-void FusionPattern::findOpsOfSkeletonGroup(SkeletonGroup group,
-                                           DenseSet<Operation*>& ops) {
+void FusionPattern::findOpsOfSkeletonGroup(
+    SkeletonGroup group, DenseSet<Operation*>& ops,
+    DenseSet<Operation*>& shmem_cached_ops,
+    const DenseMap<Operation*, SmallVector<Operation*>>& existing_group_ops,
+    int row_per_block, int& shmem_usage_bits, const int shmem_limit_bits) {
   ops.clear();
   // All operators dominanted by `group` can be traced back from skeleton op.
   SmallVector<Operation*> skeletons = group.skeletons;
   DenseSet<Operation*> fusion_ops(op_list_.begin(), op_list_.end());
   DenseSet<Operation*> xroot_members(group.root_member_list.begin(),
                                      group.root_member_list.end());
+  DenseSet<Operation*> existing_group_op_set;
+  for (auto& existing_group : existing_group_ops) {
+    existing_group_op_set.insert(existing_group.second.begin(),
+                                 existing_group.second.end());
+  }
+  DenseSet<Operation*> all_skeletons(sub_root_ops_.begin(),
+                                     sub_root_ops_.end());
+  for (auto value : external_only_results_) {
+    all_skeletons.insert(findLastWriter(value));
+  }
   std::function<void(Operation*, DenseSet<Operation*>&)> findGroupOps;
   findGroupOps = [&](Operation* op, DenseSet<Operation*>& grp_ops) {
     int64_t num_input_operand = op->getNumOperands() - getNumResultOperands(op);
@@ -749,9 +784,28 @@ void FusionPattern::findOpsOfSkeletonGroup(SkeletonGroup group,
       // Ops in current group:
       //   1. Op is in `op_list_`;
       //   2. If it is regular-xroot, it can only be owned by current group.
+      //   3. If op exists in previous groups, try to make it buffered in shared
+      //      memory.
       bool not_owned_regular_xroot = regular_xroots_.contains(input_op) &&
                                      !xroot_members.contains(input_op);
-      if (!fusion_ops.contains(input_op) || not_owned_regular_xroot) {
+      if (existing_group_op_set.contains(input_op) &&
+          !shmem_cached_ops.contains(input_op) &&
+          !all_skeletons.contains(input_op)) {
+        auto output = input_op->getOperand(input_op->getNumOperands() - 1);
+        int collapsed_tile_dim = getCollapsedTileDim(output);
+        auto output_type = output.getType().cast<MemRefType>();
+        if (collapsed_tile_dim != ShapedType::kDynamicSize) {
+          auto bit_width = row_per_block * collapsed_tile_dim *
+                           output_type.getElementType().getIntOrFloatBitWidth();
+          if (shmem_usage_bits + bit_width < shmem_limit_bits) {
+            shmem_usage_bits += bit_width;
+            shmem_cached_ops.insert(input_op);
+          }
+        }
+      }
+      bool is_prev_shmem_cached = shmem_cached_ops.contains(input_op);
+      if (!fusion_ops.contains(input_op) || not_owned_regular_xroot ||
+          is_prev_shmem_cached) {
         // TODO: to check operand of fusion?
         continue;
       }
@@ -763,6 +817,22 @@ void FusionPattern::findOpsOfSkeletonGroup(SkeletonGroup group,
     ops.insert(skeleton);
     findGroupOps(skeleton, ops);
   }
+}
+
+int64_t FusionPattern::getCollapsedTileDim(Value value) {
+  auto value_type = value.getType().cast<MemRefType>();
+  auto value_shape = value_type.getShape();
+  int collapsed_tile_dim = 1;
+  for (auto tile : tile_plan_[value].tileSizes) {
+    int dim = tile.first;
+    if (value_shape[dim] == ShapedType::kDynamicSize) {
+      collapsed_tile_dim = ShapedType::kDynamicSize;
+      break;
+    } else {
+      collapsed_tile_dim *= value_shape[dim];
+    }
+  }
+  return collapsed_tile_dim;
 }
 
 bool getOrderedSkeletonGroups(

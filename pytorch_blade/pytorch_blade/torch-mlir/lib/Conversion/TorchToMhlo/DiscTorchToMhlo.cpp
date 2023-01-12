@@ -654,6 +654,21 @@ LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<AtenNegIntOp>::matchAndRewrite(
+    AtenNegIntOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto val = adaptor.a();
+  auto zero = rewriter.create<mlir::arith::ConstantOp>(
+      op->getLoc(), rewriter.getIntegerAttr(val.getType(), 0));
+
+  rewriter.replaceOpWithNewOp<arith::SubIOp>(
+      op, getTypeConverter()->convertType(op.getType()), zero, val);
+
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<TensorStaticInfoCastOp>::matchAndRewrite(
     TensorStaticInfoCastOp op,
     OpAdaptor adaptor,
@@ -827,7 +842,8 @@ LogicalResult ConvertAtenOp<AtenFlipOp>::matchAndRewrite(
   if (!matchPattern(op.dims(), m_TorchConstantIntList(dimListInt)))
     return rewriter.notifyMatchFailure(
         op, "Only constant dims are currently supported");
-
+  auto dims = mhlo::toPositiveDims(dimListInt, selfTy.getRank());
+  std::copy(dims.begin(), dims.end(), dimListInt.begin());
   rewriter.replaceOpWithNewOp<mlir::mhlo::ReverseOp>(
       op,
       getTypeConverter()->convertType(op.getType()),
@@ -1442,6 +1458,7 @@ class DiscConvertTorchToMhlo
     INSERT_UNARY_CONVERT_PATTERN(AtenToDtypeLayoutOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenToPrimDeviceOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenTypeAsOp);
+    INSERT_UNARY_CONVERT_PATTERN(AtenDetachOp);
 #undef INSERT_UNARY_CONVERT_PATTERN
 
 #define INSERT_UNARY_PATTERN(AtenOp, MhloOp) \
@@ -1498,6 +1515,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenMaxDimOp);
     INSERT_ATENOP_PATTERN(AtenWhereSelfOp);
     INSERT_ATENOP_PATTERN(AtenSqueezeDimOp);
+    INSERT_ATENOP_PATTERN(AtenNegIntOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \

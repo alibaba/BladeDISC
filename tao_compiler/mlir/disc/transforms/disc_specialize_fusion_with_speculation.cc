@@ -84,16 +84,6 @@ bool HasCandidateBroadcastOp(FusionOp fusion_op) {
   return false;
 }
 
-Value createViewLike(OpBuilder& b, Location loc, Value from, Value to) {
-  SmallVector<Value> toShape = getShapeValues(&b, to);
-  auto toType = to.getType().cast<MemRefType>();
-  auto fromType = from.getType().cast<MemRefType>();
-  auto targetType =
-      MemRefType::get(toType.getShape(), fromType.getElementType(),
-                      toType.getLayout(), toType.getMemorySpace());
-  return CastMemRefTo(b, loc, from, targetType, toShape);
-}
-
 struct ShapeConstraintIRCloneContext {
   BlockAndValueMapping valueMapping;
   DenseMap<Value, SmallVector<SymbolicDimOp>> value2Symbols;

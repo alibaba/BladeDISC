@@ -263,4 +263,54 @@ def LowerMultiLevelPackToLoopOp : Op<Transform_Dialect, "disc.lower_multi_level_
   }];
 }
 
+def InlineReductionInitializerOp : Op<Transform_Dialect, "disc.inline_reduction_initializer",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Given a buffer popluated by a reduction loop named `l0`, inline the initializer of the buffer
+    into the loop `l0`.
+
+    Returns the new xfer_read op.
+
+    Example:
+     convert from:
+     ```
+      linalg.fill ins(%cst : f32) outs(%0 : memref<?x?xf32>)
+      scf.for %iv = %init to %stop step %step {
+        %1 = memref.subview %0[...] : memref<?x?xf32> to memref<?x?xf32, strided<[?, 1], offset: 0>>
+        %2 = vector.transfer_read %1[%c0, %c0], %cst : memref<?x?xf32, strided<[?, 1], offset: 0>>, vector<1x16xf32>
+        use(%2)
+      }
+     ```
+     to:
+     ```
+      %0 = memref.alloca() : memref<1x16xf32>
+      linalg.fill ins(%cst : f32) outs(%0 : memref<1x16xf32>)
+      scf.for %iv = %init to %stop step %step {
+        %1 = memref.subview %0[...] : memref<?x?xf32> to memref<?x?xf32, strided<[?, 1], offset: 0>>
+        %first_step = arith.cmpi eq %iv, %init : i1
+        %2 = scf.if %first_step -> memref<?x?xf32, strided<[?, 1], offset: ?>> {
+          %cast = memref.cast %0 :  memref<1x16xf32> to memref<?x?xf32, strided<[?, 1], offset: ?>>
+          scf.yield %cast : memref<?x?xf32, strided<[?, 1], offset: ?>>
+        } else {
+          %cast = memref.cast %1 :  memref<?x?xf32, strided<[?, 1], offset: 0>> to memref<?x?xf32, strided<[?, 1], offset: ?>>
+          scf.yield %cast : memref<?x?xf32, strided<[?, 1], offset: ?>>
+        }
+        %3 = vector.transfer_read %2[%c0, %c0], %cst : memref<?x?xf32, strided<[?, 1], offset: 0>>, vector<1x16xf32>
+        use(%3)
+      }
+     ```
+  }];
+
+  let arguments = (ins PDL_Operation:$initializer,
+                       PDL_Operation:$loop,
+                       PDL_Operation:$reader);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = [{
+    attr-dict $initializer `for` `reader` $reader  `into` `loop` $loop
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

@@ -41,6 +41,10 @@ def DiscLhloLegalizeRootsToParallelLoopsPass : Pass<"disc-lhlo-legalize-roots-to
   let options = [
     Option<"core_count_", "core-count", "int",
             /*default=*/"-1", "core count (e.g., SM count on NVIDIA GPU).">,
+    Option<"cc_major_", "gpu-sm-cc-major", "int",
+            /*default=*/"8", "gpu sm cc_major.">,
+    Option<"cc_minor_", "gpu-sm-cc-minor", "int",
+            /*default=*/"0", "gpu sm cc_minor.">,
   ];
   let dependentDialects = [
     "mlir::scf::SCFDialect",

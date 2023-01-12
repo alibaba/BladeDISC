@@ -33,7 +33,7 @@ function ci_build() {
     elif [ "$TORCH_BLADE_BUILD_WITH_DCU_ROCM_SUPPORT" = "ON"  ]; then
       export TORCH_BLADE_BUILD_TENSORRT=OFF
       export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
-      python3 ../scripts/python/common_setup.py 
+      python3 ../scripts/python/common_setup.py --rocm_path=/opt/dtk 
     else
       python3 ../scripts/python/common_setup.py --cpu_only
     fi

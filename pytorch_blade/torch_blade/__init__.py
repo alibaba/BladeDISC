@@ -52,7 +52,7 @@ try:
 except ImportError:
     pass
 
-if utils.torch_version_number() >= utils.parse_version("1.14.0"):
+if utils.torch_version_number() >= utils.parse_version("2.0.0"):
     import torch_blade.dynamo
 
 def init_ltc_disc_backend():

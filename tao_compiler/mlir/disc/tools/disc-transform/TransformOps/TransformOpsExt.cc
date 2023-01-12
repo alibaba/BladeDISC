@@ -1080,6 +1080,130 @@ DiagnosedSilenceableFailure LowerMultiLevelPackToLoopOp::applyToOne(
   return DiagnosedSilenceableFailure(success());
 }
 
+//===---------------------------------------------------------------------===//
+// InlineReductionInitializer
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+/// Given two MemRefTypes `aT` and `bT`, return a MemRefType to which both can
+/// be cast. If the MemRefTypes don't have the same rank or are not strided,
+/// return null; otherwise:
+///   1. if `aT` and `bT` are cast-compatible, return `aT`.
+///   2. else return a new MemRefType obtained by iterating over the shape and
+///   strides and:
+///     a. keeping the ones that are static and equal across `aT` and `bT`.
+///     b. using a dynamic shape and/or stride for the dimensions that don't
+///        agree.
+MemRefType getCastCompatibleMemRefType(MemRefType aT, MemRefType bT) {
+  if (memref::CastOp::areCastCompatible(aT, bT)) return aT;
+  if (aT.getRank() != bT.getRank()) return MemRefType();
+  int64_t aOffset, bOffset;
+  SmallVector<int64_t, 4> aStrides, bStrides;
+  if (failed(getStridesAndOffset(aT, aStrides, aOffset)) ||
+      failed(getStridesAndOffset(bT, bStrides, bOffset)) ||
+      aStrides.size() != bStrides.size())
+    return MemRefType();
+
+  ArrayRef<int64_t> aShape = aT.getShape(), bShape = bT.getShape();
+  int64_t resOffset;
+  SmallVector<int64_t, 4> resShape(aT.getRank(), 0),
+      resStrides(bT.getRank(), 0);
+  for (int64_t idx = 0, e = aT.getRank(); idx < e; ++idx) {
+    resShape[idx] =
+        (aShape[idx] == bShape[idx]) ? aShape[idx] : ShapedType::kDynamicSize;
+    resStrides[idx] = (aStrides[idx] == bStrides[idx])
+                          ? aStrides[idx]
+                          : ShapedType::kDynamicStrideOrOffset;
+  }
+  resOffset =
+      (aOffset == bOffset) ? aOffset : ShapedType::kDynamicStrideOrOffset;
+  return MemRefType::get(
+      resShape, aT.getElementType(),
+      StridedLayoutAttr::get(aT.getContext(), resOffset, resStrides));
+}
+
+}  // namespace
+
+void InlineReductionInitializerOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::consumesHandle({this->getOperation()->getOperand(0)}, effects);
+  transform::onlyReadsHandle({this->getOperation()->getOperand(1)}, effects);
+  transform::consumesHandle({this->getOperation()->getOperand(2)}, effects);
+  transform::producesHandle(this->getOperation()->getResults(), effects);
+  transform::modifiesPayload(effects);
+}
+
+DiagnosedSilenceableFailure InlineReductionInitializerOp::apply(
+    transform::TransformResults& results, transform::TransformState& state) {
+  ArrayRef<Operation*> initOps = state.getPayloadOps(getInitializer());
+  if (initOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one initializer but got ")
+           << initOps.size();
+  auto fillOp = dyn_cast<linalg::FillOp>(initOps[0]);
+  if (!fillOp)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the initializer be a fill op");
+
+  ArrayRef<Operation*> loopOps = state.getPayloadOps(getLoop());
+  if (loopOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one loop but got ")
+           << loopOps.size();
+  auto forOp = dyn_cast<scf::ForOp>(loopOps[0]);
+  if (!forOp)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the loop to a for op");
+
+  ArrayRef<Operation*> readerOps = state.getPayloadOps(getReader());
+  if (readerOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one reader but got ")
+           << readerOps.size();
+  auto readerOp = dyn_cast<vector::TransferReadOp>(readerOps[0]);
+  if (!readerOp)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the reader to a transfer_read op");
+
+  OpBuilder b(fillOp.getOperation());
+  auto vectorTy = readerOp->getResultTypes()[0].cast<VectorType>();
+  auto memrefTy =
+      MemRefType::get(vectorTy.getShape(), vectorTy.getElementType());
+  Value newInitBuffer = b.create<memref::AllocaOp>(
+      fillOp.getLoc(), memrefTy, ValueRange{}, b.getI64IntegerAttr(64));
+  b.create<linalg::FillOp>(fillOp.getLoc(), ValueRange{readerOp.getPadding()},
+                           ValueRange{newInitBuffer});
+
+  b.setInsertionPoint(readerOp.getOperation());
+  Value firstIter =
+      b.create<arith::CmpIOp>(readerOp.getLoc(), arith::CmpIPredicate::eq,
+                              forOp.getLowerBound(), forOp.getInductionVar());
+  auto castTy = getCastCompatibleMemRefType(
+      readerOp.getSource().getType().cast<MemRefType>(), memrefTy);
+  if (!castTy) {
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "failed to find compatible memref type");
+  }
+
+  auto ifOp = b.create<scf::IfOp>(readerOp.getLoc(), TypeRange{castTy},
+                                  firstIter, true);
+  b.setInsertionPointToStart(ifOp.thenBlock());
+  Value thenResult =
+      b.create<memref::CastOp>(readerOp.getLoc(), castTy, newInitBuffer)
+          ->getResult(0);
+  b.create<scf::YieldOp>(readerOp.getLoc(), thenResult);
+  b.setInsertionPointToStart(ifOp.elseBlock());
+  Value elseResult =
+      b.create<memref::CastOp>(readerOp.getLoc(), castTy, readerOp.getSource())
+          ->getResult(0);
+  b.create<scf::YieldOp>(readerOp.getLoc(), elseResult);
+  readerOp->replaceUsesOfWith(readerOp.getSource(), ifOp->getResult(0));
+  fillOp->erase();
+  results.set(getResult().cast<OpResult>(), {readerOp});
+  return DiagnosedSilenceableFailure(success());
+}
+
 }  // namespace transform_dialect
 
 void registerTransformDialectCommonExtension(DialectRegistry& registry) {

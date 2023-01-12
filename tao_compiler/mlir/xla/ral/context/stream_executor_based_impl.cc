@@ -2092,6 +2092,47 @@ MemRefType<T, M> bladnn_layernorm(ExecutionContext* ctx, void* stream_handle,
 
 }  // namespace layernorm_impl
 
+namespace upsample_impl {
+
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+
+template <typename T>
+MemRefType<T, 4> bladnn_upsample(ExecutionContext* ctx, void* stream_handle,
+                                 MemRefType<T, 4> input,
+                                 void* customAttrs) {
+  auto driver = ctx->getDriver<gpu::GPUDriver>(gpu::GPUDriver::name());
+  TAO_CHECK(driver);
+
+/*
+  auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_conv_biasadd");
+  if (!attr) {
+    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
+  }
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  auto eps = dictAttr.get("eps").template as<FloatPDLAttr>().getValue();
+*/
+
+  int64_t resultSizes[4];
+  resultSizes[0] = input.sizes[0];
+  resultSizes[1] = input.sizes[1] * 2;
+  resultSizes[2] = input.sizes[2] * 2;
+  resultSizes[3] = input.sizes[3];
+  size_t nElems = resultSizes[0] * resultSizes[1] * resultSizes[2] * resultSizes[3]; 
+  auto ptr = static_cast<T*>(driver->alloc(ctx, nElems * sizeof(T)));
+  auto output = assignMemRef<T, 4>(ptr, resultSizes);
+
+  auto stream = driver->asCUStream(ctx, stream_handle);
+  bool ret =
+      bladnn::upsample(output.data, input.data, input.sizes[0], input.sizes[1], input.sizes[2], input.sizes[3], resultSizes[1], resultSizes[2], stream);
+  if (!ret) {
+    ctx->signalError(Context::FAILURE, "fail to call bladnn::upsample\n");
+  }
+  return output;
+}
+
+#endif
+
+}  // namespace upsample_impl
 }  // namespace se_impl
 }  // namespace gpu
 
@@ -2151,6 +2192,8 @@ TAO_RAL_API("ral_pdll_layer_norm", "gpu",
             gpu::se_impl::layernorm_impl::bladnn_layernorm<Eigen::half, 2, 1>);
 TAO_RAL_API("ral_pdll_layer_norm", "gpu",
             gpu::se_impl::layernorm_impl::bladnn_layernorm<Eigen::half, 4, 3>);
+TAO_RAL_API("ral_pdll_upsample", "gpu",
+            gpu::se_impl::upsample_impl::bladnn_upsample<Eigen::half>);
 #endif
 
 // compute-intensive fusion

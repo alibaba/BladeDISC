@@ -1718,6 +1718,39 @@ std::string getTorchPredefinedPDLPatterns() {
       };
     }
 
+    Pattern TorchUpsampleOpF16 {
+      /// match phase: define the pattern
+      let up = op<torch.aten.upsample_nearest2d.vec>(
+        input: Value,
+        size: Value,
+        scale: Value
+      ) -> (old_type: Type);
+      CheckTorchTensorElemType(input, attr<"\"f16\"">);
+
+      /// rewrite phase
+      rewrite up with {
+        /// 1. create custom call op
+        let inputs = PackValue_1(attr<"\"in\"">, input);
+        let outputs = PackValue_1(attr<"\"out\"">, up.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_upsample\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"NCHW\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"NCHW\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"NHWC\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"NHWC\"">);
+
+        /// 3. set attrs that are directly passed to the custom call kernel.
+
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace up with rs;
+      };
+    }
+
   )pdll";
 #endif
 

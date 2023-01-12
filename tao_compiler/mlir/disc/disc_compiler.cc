@@ -299,6 +299,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
   }
 
+  bool enable_quantized_dot_merge = false;
+  tensorflow::ReadBoolFromEnvVar("BLADE_GEMM_TUNE_JIT",
+                                 enable_quantized_dot_merge,
+                                 &enable_quantized_dot_merge);
+  if (enable_quantized_dot_merge) {
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscQuantizedDotMergePass());
+  }
+
   if (enable_shape_constraint_ir) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());

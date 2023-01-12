@@ -409,6 +409,12 @@ def DiscDotMergePass : Pass<"disc-dot-merge", "mlir::func::FuncOp"> {
   let constructor = "createDiscDotMergePass()";
 }
 
+def DiscQuantizedDotMergePass : Pass<"disc-quantized-dot-merge", "mlir::func::FuncOp"> {
+  let summary = "Dot merge optimization. Either merge same-shape dots into "
+                "batched dot, or merge dots with same operand into one (on-going)";
+  let constructor = "createDiscQuantizedDotMergePass()";
+}
+
 def DiscAlgebraicSimplifierPass : Pass<"disc-algebraic-simplifier", "mlir::func::FuncOp"> {
   let summary = "Apply some basic algebraic simplification optimizations";
   let constructor = "createDiscAlgebraicSimplifierPass()";

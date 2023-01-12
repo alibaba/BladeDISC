@@ -188,7 +188,7 @@ def _jit_pass_onnx_constfold(graph, params_dict):
     return graph, params_dict
 
 
-def _jit_pass_freeze_rank(graph):
+def _jit_pass_freeze_rank(graph, is_training=False):
     def freeze_rank_analysis(outer_block):
         dim_nodes = [
             n
@@ -208,7 +208,8 @@ def _jit_pass_freeze_rank(graph):
 
     freeze_rank_analysis(graph)
     torch._C._jit_pass_dce(graph)
-    torch._C._jit_pass_constant_propagation(graph)
+    if not is_training:
+        torch._C._jit_pass_constant_propagation(graph)
 
 def _jit_pass_freeze_requires_grad(graph):
     # Note: this replace requires_grad to false,
@@ -344,20 +345,20 @@ def _optimize_common(c_module):
         # recover the original op. Otherwise,
         # we can't do the type promotion correctly.
         _jit_pass_replace_inplace_name(graph)
-
     torch._C._jit_pass_remove_mutation(graph)
 
     # TODO: if dynamic rank exists, this pass maybe leads to error
     if IGNORE_DYNAMIC_RANK:
-        _jit_pass_freeze_rank(c_module.forward.graph)
-
+        _jit_pass_freeze_rank(c_module.forward.graph, is_training)
+        if not is_training:
+            torch._C._jit_pass_constant_propagation(graph)
     tools._jit_pass_lower_simple_tuples(c_module.forward.graph)
     _jit_pass_clean_script(c_module.forward.graph)
 
     # The _jit_pass_clean_python_ir was placed here,
     # because it needs some preprocess jit pass before,
     # such as remove grads ir nodes, freeze rank, tuple lowering etc.
-    _jit_pass_clean_python_ir(graph)
+    _jit_pass_clean_python_ir(graph, is_training)
 
     if cfg.enable_int8:
         _jit_pass_quantization_postprocess(c_module)

@@ -54,6 +54,8 @@ def _disc_compile(fx_g: fx.GraphModule, inps, use_ts=False, is_training=True) ->
                 node.target = torch.ops.aten.sum
             if node.target == torch.ops.prims.convert_element_type:
                 node.target = torch.ops.aten.to
+            if node.target == torch.ops.aten.view:
+                node.target = torch.ops.aten.reshape
 
         for node in fx_g.graph.nodes:
             new_kwargs = {}
@@ -67,8 +69,10 @@ def _disc_compile(fx_g: fx.GraphModule, inps, use_ts=False, is_training=True) ->
         fx_g.recompile()
         f = torch.jit.script(fx_g)
         torch._C._jit_pass_remove_mutation(f.graph)
-
-        f = torch.jit.freeze(f.eval())
+        if not is_training:
+            # evaluation will const propergate some ops into constant tensors,
+            # the const tensor cased some unepxected error while executing with fake Tnesor
+            f = torch.jit.freeze(f.eval())
         if use_ts:
             return f
         cfg = torch_blade.Config()

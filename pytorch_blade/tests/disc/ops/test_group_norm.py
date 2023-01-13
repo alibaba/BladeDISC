@@ -19,7 +19,7 @@ class TestDiscGroupNorm(DiscTestCase):
     def _test_group_norm(self, groupnorm):
         test_data = torch.randn([2, 320, 64, 64], device=self.device)
         annotation = ([-1, -1, -1, -1], torch.float)
-        self._test_disc(groupnorm, [annotation], (test_data,), atol=2e-2)
+        self._test_disc(groupnorm, [annotation], (test_data,), rtol=1e-3)
 
     def test_groupnorm_module(self):
         groupnorm = torch.nn.GroupNorm(32, 320, affine=False)

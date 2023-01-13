@@ -154,9 +154,6 @@ void ApplyDiscPdlPatternsPass::runOnOperation() {
   MLIRContext* context = &getContext();
   RewritePatternSet patterns(context);
 
-  (void)mlir::disc_ral::populateDiscPdlPatternsFromString(
-      &patterns, getTorchPredefinedPDLPatterns());
-
   auto pdll_include_dirs = mlir::disc_ral::ParseFileString(pdll_include_dirs_);
   (void)mlir::disc_ral::populateDiscPdlPatternsFromString(
       &patterns,

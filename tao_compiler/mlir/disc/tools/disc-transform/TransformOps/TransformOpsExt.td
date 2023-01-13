@@ -313,4 +313,58 @@ def InlineReductionInitializerOp : Op<Transform_Dialect, "disc.inline_reduction_
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
 
+def DecomposeVectorsOp : Op<Transform_Dialect, "disc.decompose_vectors",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Decompose vector ops and related vector transform_read/write ops into fine-grained-size vector ops.
+
+    Without this decomposition, llvm backend will mis-allocate vector register for some vector ops
+    with specific shape (e.g. 8x12xf32 failed to map to hardware register). This is a workaround for this.
+
+    Examples:
+     convert
+      ```
+       %0 = vector.transfer_read %arg0[..., %c0] : vector<8xf32>
+       %1 = vector.transfer_read %arg1[..., %c0] : vector<8xf32>
+       %2 = vector.transfer_read %arg2[..., %c0] : vector<8xf32>
+       %3 = vector.fma %0, %1, %2 : vector<8xf32>
+       vector.transfer_write %3, %arg2[..., %c0] : vector<8xf32>
+      ```
+     to:
+      ```
+       %0_0 = vector.transfer_read %arg0[..., %c0] : vector<4xf32>
+       %0_1 = vector.transfer_read %arg0[..., %c4] : vector<4xf32>
+       %1_0 = vector.transfer_read %arg1[..., %c0] : vector<4xf32>
+       %1_1 = vector.transfer_read %arg1[..., %c4] : vector<4xf32>
+       %2_0 = vector.transfer_read %arg2[..., %c0] : vector<4xf32>
+       %2_1 = vector.transfer_read %arg2[..., %c4] : vector<4xf32>
+       %3_0 = vector.fma %0_0, %1_0, %2_0 : vector<4xf32>
+       %3_1 = vector.fma %0_1, %1_1, %2_1 : vector<4xf32>
+       vector.transfer_write %3_0, %arg2[..., %c0] : vector<4xf32>
+       vector.transfer_write %3_1, %arg2[..., %c4] : vector<4xf32>
+      ```
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       I64Attr:$vector_size);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let builders = [
+    OpBuilder<(ins "Value":$target, "int64_t":$vector_size)>
+  ];
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

@@ -339,7 +339,7 @@ cc_library(
         ":context_util",
         "@com_google_absl//absl/strings"
     ] + if_cuda_is_configured([
-        "@org_tensorflow//tensorflow/stream_executor:cuda_platform",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:all_runtime",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
@@ -435,7 +435,7 @@ cc_library(
         "@org_tensorflow//tensorflow/core:stream_executor_headers_lib",
         "@com_google_absl//absl/strings",
     ] + if_cuda_is_configured([
-        "@org_tensorflow//tensorflow/stream_executor:cuda_platform",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:all_runtime",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
@@ -462,6 +462,8 @@ tf_gpu_kernel_library(
     ],
     copts = if_cuda_is_configured([
         "-DGOOGLE_CUDA=1"
+    ]) + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]),
     deps = if_cuda_is_configured([
         "@cub_archive//:cub",
@@ -488,7 +490,7 @@ cc_library(
         "@org_tensorflow//tensorflow/core:stream_executor_headers_lib",
         "@com_google_absl//absl/strings",
     ] + if_cuda_is_configured([
-        "@org_tensorflow//tensorflow/stream_executor:cuda_platform",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:all_runtime",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
@@ -498,7 +500,7 @@ cc_library(
     ]),
     copts = if_cuda_is_configured([
         "-DGOOGLE_CUDA=1"
-    ]),
+    ]) + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
     alwayslink = 1,
 )
 
@@ -518,7 +520,7 @@ cc_library(
         "@org_tensorflow//tensorflow/core:lib",
         "@com_google_absl//absl/strings",
     ] + if_cuda_is_configured([
-        "@org_tensorflow//tensorflow/stream_executor:cuda_platform",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:all_runtime",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
@@ -588,7 +590,7 @@ disc_cc_library(
         "@org_tensorflow//tensorflow/stream_executor/rocm:rocm_platform",
         "@org_tensorflow//tensorflow/stream_executor/rocm:rocm_driver",
     ]) + if_cuda_is_configured([
-        "@org_tensorflow//tensorflow/stream_executor/cuda:cuda_platform",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:all_runtime",
         "@local_config_cuda//cuda:cuda_driver",
     ]),
     alwayslink = 1,
@@ -601,12 +603,13 @@ tf_cc_shared_object(
         "//conditions:default": [
             "-z defs",
             "-Wl,--version-script",  #  This line must be directly followed by the version_script.lds file
-            "$(location @org_tensorflow//tensorflow/compiler/mlir/xla/ral:context_version_scripts.lds)",
+            "$(location :context_version_scripts.lds)",
         ],
     }),
     deps = [
         ":ral_base_cpu_context_impl",
-        "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:context_version_scripts.lds",
+        #"@org_tensorflow//tensorflow/compiler/mlir/xla/ral:context_version_scripts.lds",
+        ":context_version_scripts.lds",
     ] + if_cuda_or_rocm([
         ":ral_base_cuda_context_impl",
     ]))

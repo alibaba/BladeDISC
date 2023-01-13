@@ -28,7 +28,7 @@
 #endif // TORCH_BLADE_USE_ROCM
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_api.h"
+#include "ral_api.h"
 
 #include "pytorch_blade/common_utils/utils.h"
 

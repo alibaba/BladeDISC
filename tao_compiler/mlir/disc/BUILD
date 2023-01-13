@@ -830,7 +830,7 @@ cc_library(
         ":disc_util",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/mlir/xla/ral:ral_metadata",
+        "@org_disc//ral:ral_metadata",
         "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "//tensorflow/core/platform:env",
         "@llvm-project//llvm:Core",

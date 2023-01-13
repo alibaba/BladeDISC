@@ -112,6 +112,11 @@ local_repository(
     path = "../tf_community",
 )
 
+local_repository(
+    name = "org_disc",
+    path = "../disc"
+)
+
 load("@org_third_party//bazel:blade_disc_dnn_workspace.bzl", "blade_disc_dnn_workspace")
 
 blade_disc_dnn_workspace()

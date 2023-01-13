@@ -9,10 +9,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/custom_library/gpu_helper.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/custom_library/tf_transpose.cu.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/custom_library/transpose.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
+#include "ral/context/custom_library/gpu_helper.h"
+#include "ral/context/custom_library/tf_transpose.cu.h"
+#include "ral/context/custom_library/transpose.h"
+#include "ral/context/stream_executor_based_impl.h"
 
 namespace tao {
 namespace ral {

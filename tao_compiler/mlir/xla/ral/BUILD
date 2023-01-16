@@ -676,7 +676,6 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
-        "context/stream_executor_expand_impl.cc",
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
         "context/quantized_gpu_kernel_impl.cc",
@@ -687,6 +686,8 @@ cc_library(
         "context/common_context_impl_quantization.cc",
     ]) + if_disc_aarch64([
         "context/common_context_impl_acl.cc",
+    ]) + if_blade_gemm([
+        "context/stream_executor_expand_impl.cc",
     ]),
     hdrs = [
         "context/common_context_impl.h",

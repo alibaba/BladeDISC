@@ -9,17 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/Interfaces/SideEffectInterfaces.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_pdl_utils.h"
-#include "torch-mlir/Conversion/MhloPasses.h"
-#include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
+#include "utils/env.h"
 
 #include "tests/torch-disc-pdll/utils.h"
 
@@ -29,7 +19,7 @@ using namespace mlir::torch;
 namespace {
 
 // add pre-defined pdll patterns here.
-std::string getTorchPredefinedPDLPatterns() {
+inline std::string getTorchPredefinedPDLPatterns() {
   std::string preDefinedPatterns;
   return preDefinedPatterns;
 }

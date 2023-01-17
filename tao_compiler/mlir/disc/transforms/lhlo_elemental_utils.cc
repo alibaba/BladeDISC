@@ -1317,10 +1317,10 @@ arith::AtomicRMWKind getAtomicRMWKind(Region& body) {
     if (result_elem_type.isF16() || result_elem_type.isF32() ||
         result_elem_type.isF64()) {
       return arith::AtomicRMWKind::maxf;
-    } else if (result_elem_type.isSignedInteger()) {
-      return arith::AtomicRMWKind::maxs;
-    } else if (result_elem_type.isUnsignedInteger() ||
+    } else if (result_elem_type.isSignedInteger() ||
                result_elem_type.isSignlessInteger()) {
+      return arith::AtomicRMWKind::maxs;
+    } else if (result_elem_type.isUnsignedInteger()) {
       return arith::AtomicRMWKind::maxu;
     } else {
       assert(false && "unexpected atomic reduce operation");
@@ -1329,10 +1329,10 @@ arith::AtomicRMWKind getAtomicRMWKind(Region& body) {
     if (result_elem_type.isF16() || result_elem_type.isF32() ||
         result_elem_type.isF64()) {
       return arith::AtomicRMWKind::minf;
-    } else if (result_elem_type.isSignedInteger()) {
-      return arith::AtomicRMWKind::mins;
-    } else if (result_elem_type.isUnsignedInteger() ||
+    } else if (result_elem_type.isSignedInteger() ||
                result_elem_type.isSignlessInteger()) {
+      return arith::AtomicRMWKind::mins;
+    } else if (result_elem_type.isUnsignedInteger()) {
       return arith::AtomicRMWKind::minu;
     } else {
       assert(false && "unexpected atomic reduce operation");

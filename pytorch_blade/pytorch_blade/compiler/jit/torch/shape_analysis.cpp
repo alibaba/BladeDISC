@@ -791,6 +791,14 @@ class ShapePropagator : public PropertyPropBase {
         "aten::mul.int(int a, int b) -> int",
         "aten::sub.int(int a, int b) -> int",
         "aten::floordiv.int(int a, int b) -> int",
+        "aten::gt.float(float a, float b) -> bool",
+        "aten::lt.float(float a, float b) -> bool",
+        "aten::ge.float(float a, float b) -> bool",
+        "aten::le.float(float a, float b) -> bool",
+        "aten::eq.float(float a, float b) -> bool",
+        "aten::add.float(float a, float b) -> float",
+        "aten::mul.float(float a, float b) -> float",
+        "aten::sub.float(float a, float b) -> float",
     };
 
     if (scalar_schemas.hasMember(*node)) {
@@ -804,7 +812,8 @@ class ShapePropagator : public PropertyPropBase {
 
     if (node->maybeSchema()) {
       LOG(WARNING) << "failed PropagateTensorShapeOnNode with schema: \n"
-                   << node->schema();
+                   << node->schema() << "\n"
+                   << *node;
     }
 
     // shape anaysis failed, erase traced shape only
@@ -1098,6 +1107,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::sub_inplace(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
             "aten::mul_inplace(Tensor self, Tensor other) -> Tensor",
             "aten::div_inplace(Tensor self, Tensor other) -> Tensor",
+            "aten::tril.out(Tensor self, int diagonal=0, *, Tensor(a!) out) -> (Tensor(a!))",
         },
         [](Node* node) -> type_vec_t {
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
@@ -1281,6 +1291,7 @@ class ShapePropagator : public PropertyPropBase {
     static const register_formula_for where_op{
         {
             "aten::where(Tensor condition, Tensor self, Tensor other) -> Tensor",
+            "aten::where.ScalarOther(Tensor condition, Tensor self, Scalar other) -> (Tensor)",
         },
         [](Node* node) -> type_vec_t {
           if (auto maybe_tensor_types = gatherTensorTypes(node)) {
@@ -1789,7 +1800,10 @@ class ShapePropagator : public PropertyPropBase {
     //   tensor inputs  : 1
     //   tensor outputs : 1
     static const register_formula_for register_softmax{
-        {"aten::softmax(Tensor self, int dim, int? dtype) -> Tensor"},
+        {
+            "aten::softmax(Tensor self, int dim, int? dtype) -> Tensor",
+            "aten::log_softmax.int(Tensor self, int dim, int? dtype=None) -> (Tensor)",
+        },
         [](Node* node) -> type_vec_t {
           at::optional<IValue> opt_dtype = node->get(attr::dtype);
           return reduce_op_handler(
@@ -1937,6 +1951,8 @@ class ShapePropagator : public PropertyPropBase {
     static const register_formula_for rank1_factories_with_options{
         {
             "aten::arange(Scalar end, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None) -> (Tensor)",
+            "aten::arange.start(Scalar start, Scalar end, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None) -> (Tensor)",
+            "aten::arange.start_step(Scalar start, Scalar end, Scalar step, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None) -> (Tensor)",
         },
         [&](Node* node) -> type_vec_t {
           at::ScalarType dtype =

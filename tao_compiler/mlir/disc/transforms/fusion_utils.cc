@@ -1515,7 +1515,11 @@ bool StitchCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 
 bool StitchCpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                                 FusionPattern& fusion_pattern) {
-  fusion_pattern.setFusionType(FusionType::kStitch);
+  StitchCPUAnalysis stitchAnalysis(fusion_pattern, shapeAnalysis);
+  if (!stitchAnalysis.fusibilityAnalysis())
+    fusion_pattern.setFusionType(FusionType::kNone);
+  else
+    fusion_pattern.setFusionType(FusionType::kStitch);
   return true;
 }
 

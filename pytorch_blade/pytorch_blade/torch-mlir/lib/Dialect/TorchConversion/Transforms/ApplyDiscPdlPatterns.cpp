@@ -9,6 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -20,6 +21,7 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/DiscPdlPredefinedPatterns.h"
 
 #include "tests/torch-disc-pdll/utils.h"
 
@@ -99,12 +101,6 @@ bool isOpTriviallyDeadDisc(Operation* op) {
   return op->use_empty() && wouldOpBeTriviallyDeadDisc(op);
 }
 
-// add pre-defined pdll patterns here.
-std::string getTorchPredefinedPDLPatterns() {
-  std::string preDefinedPatterns;
-  return preDefinedPatterns;
-}
-
 struct ApplyDiscPdlPatternsPass
     : public mlir::torch::TorchConversion::ApplyDiscPdlPatternsBase<
           ApplyDiscPdlPatternsPass> {
@@ -121,6 +117,7 @@ struct ApplyDiscPdlPatternsPass
     registry.insert<mhlo::MhloDialect>();
     registry.insert<mhlo_disc::MhloDiscDialect>();
     registry.insert<tensor::TensorDialect>();
+    registry.insert<pdl_interp::PDLInterpDialect>();
     mlir::disc_ral::getPDLDependentDialects(registry);
   }
   void runOnOperation() override;
@@ -157,13 +154,18 @@ void ApplyDiscPdlPatternsPass::runOnOperation() {
   MLIRContext* context = &getContext();
   RewritePatternSet patterns(context);
 
+  auto pdll_include_dirs = mlir::disc_ral::ParseFileString(pdll_include_dirs_);
   (void)mlir::disc_ral::populateDiscPdlPatternsFromString(
-      &patterns, getTorchPredefinedPDLPatterns());
+      &patterns,
+      getTorchPredefinedPDLPatterns(),
+      pdll_include_dirs,
+      torch::kDefaultHelperFunctionDeclarations,
+      torch::registerPredefinedHelperFunctions);
 
   (void)mlir::disc_ral::populateDiscPdlPatternsFromFiles(
       &patterns,
       mlir::disc_ral::ParseFileString(pdll_files_),
-      mlir::disc_ral::ParseFileString(pdll_include_dirs_),
+      pdll_include_dirs,
       torch::kDefaultHelperFunctionDeclarations,
       torch::registerPredefinedHelperFunctions);
 

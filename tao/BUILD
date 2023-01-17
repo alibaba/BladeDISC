@@ -104,7 +104,8 @@ cc_library(
         ":version_header",
         "@local_config_tf//:tf_header_lib",
         "@local_config_tf//:libtensorflow_framework",
-        "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
+        #"@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
+        "@org_disc//ral:ral_bridge",
     ] + if_platform_alibaba([
         "@blade_service_common//blade_service_common:blade_service_common_deps",
     ]),

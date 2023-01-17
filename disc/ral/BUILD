@@ -16,7 +16,7 @@ load(
     "if_cuda_is_configured",
     "cuda_library",
 )
-load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured")
+load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured",  "if_dcu")
 load(
     "@com_google_protobuf//:protobuf.bzl",
     "cc_proto_library",
@@ -858,12 +858,19 @@ cuda_library(
         "context/custom_library/transpose.h",
         "context/custom_library/dimensions.h",
         "context/custom_library/gpu_helper.h"
-    ],
-    copts = if_rocm_is_configured([
+    ] + if_cuda_is_configured([
+        "context/stream_executor_based_impl.h"
+    ]),
+    copts = [
+        "-DDISC_BUILD_FROM_TF_BRIDGE"
+    ] + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
+    ]) + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]) + cuda_default_copts(),
     deps = [
+        ":ral_context",
         "@local_config_tf//:libtensorflow_framework",
         "@local_config_tf//:tf_header_lib",
     ] + if_cuda_is_configured([
@@ -879,9 +886,15 @@ cc_library(
     srcs = [
         "context/transpose_impl.cc",
     ],
-    copts = if_rocm_is_configured([
+    copts = [
+        "-DDISC_BUILD_FROM_TF_BRIDGE",
+    ] + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
+    ]) + if_dcu([
+        "-DTENSORFLOW_USE_DCU=1"
+    ]) + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
     ]) + cuda_default_copts(),
     deps = [
         ":ral_context",

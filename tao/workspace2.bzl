@@ -11,6 +11,10 @@ def _tao_bridge_repositories():
         name = "org_tao_compiler",
         path = "../tao_compiler/",
     )
+    native.local_repository(
+        name = "org_disc",
+        path = "../disc/",
+    )
 
 def workspace():
     _tao_bridge_repositories()

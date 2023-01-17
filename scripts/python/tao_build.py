@@ -282,7 +282,7 @@ def build_tao_compiler(root, args):
     BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
     TARGET_TAO_COMPILER_MAIN = "//tensorflow/compiler/decoupling:tao_compiler_main"
     TARGET_DISC_OPT = "//tensorflow/compiler/mlir/disc:disc-opt"
-    TARGET_DISC_REPLAY = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-main"
+    #TARGET_DISC_REPLAY = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-main"
 
     targets = None
     if args.bazel_target is not None:
@@ -338,8 +338,8 @@ def build_tao_compiler(root, args):
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
         # TODO:(fl237079) Support disc_replay for rocm version
-        if not args.rocm and not args.dcu:
-            bazel_build(TARGET_DISC_REPLAY, flag=flag)
+        #if not args.rocm and not args.dcu:
+        #    bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
             "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/tensorflow/compiler/decoupling/".format(
                 root

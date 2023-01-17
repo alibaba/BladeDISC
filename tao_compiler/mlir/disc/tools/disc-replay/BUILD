@@ -21,11 +21,11 @@ disc_cc_library(
         "disc_interpreter.h"
     ],
     deps = [
+        "@org_disc//ral:ral_base_context_lib",
         "//tensorflow/compiler/mlir/disc:all_passes",
         "//tensorflow/compiler/decoupling:tao_compiler_input",
         "//tensorflow/compiler/decoupling:tao_compiler",
         "//tensorflow/compiler/xla/mlir_hlo:all_passes",
-        "//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",
         "//tensorflow/core:lib",
         "//tensorflow/core:framework",
         "//tensorflow/core:tensorflow",

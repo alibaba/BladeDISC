@@ -30,12 +30,12 @@
 #include "arm_compute/runtime/NEON/NEFunctions.h"
 #include "arm_compute/runtime/NEON/functions/NEActivationLayer.h"
 #include "arm_compute/runtime/NEON/functions/NEPermute.h"
-#include "src/core/helpers/MemoryHelpers.h"
 #include "ral/context/common_context_impl.h"
 #include "ral/context/context_util.h"
 #include "ral/device/cpu/cpu_driver.h"
 #include "ral/ral_base.h"
 #include "ral/ral_helper.h"
+#include "src/core/helpers/MemoryHelpers.h"
 
 namespace arm_compute {
 

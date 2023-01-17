@@ -22,11 +22,11 @@
 #include "arm_compute/core/utils/quantization/AsymmHelpers.h"
 #include "arm_compute/runtime/NEON/NEScheduler.h"
 #include "arm_compute/runtime/NEON/functions/NEFFTConvolutionLayer.h"
+#include "ral/ral_md5.h"
 #include "src/common/utils/Log.h"
 #include "src/cpu/operators/CpuConv2d.h"
 #include "src/cpu/operators/CpuDepthwiseConv2d.h"
 #include "src/cpu/operators/CpuGemmLowpMatrixMultiplyCore.h"
-#include "ral/ral_md5.h"
 
 namespace arm_compute {
 using namespace arm_compute::experimental;

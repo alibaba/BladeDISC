@@ -18,9 +18,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "ral/context/tensorflow/tf_context_impl.h"
 #include "tao_bridge/common.h"
 #include "tao_bridge/tao_compilation_result.pb.h"
-#include "ral/context/tensorflow/tf_context_impl.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/stream_executor/device_memory.h"
 

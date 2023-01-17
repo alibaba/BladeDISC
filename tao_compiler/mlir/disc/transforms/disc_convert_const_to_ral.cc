@@ -24,11 +24,11 @@ limitations under the License.
 #include "mlir/IR/SymbolTable.h"  // from @llvm-project
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Pass/Pass.h"  // TF:llvm-project
+#include "ral/ral_metadata.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
-#include "ral/ral_metadata.h"
 #include "tensorflow/core/platform/env.h"
 
 namespace mlir {

@@ -571,7 +571,7 @@ cc_library(
     ] + if_cuda_or_rocm([
         "//tensorflow/core:stream_executor_headers_lib",
     ]) + if_blade_gemm([
-        ":disc_blade_gemm_deps"
+        "@blade_gemm//:blade_gemm"
     ]),
     alwayslink = 1,
     visibility = ["//visibility:public"],
@@ -737,7 +737,7 @@ cc_library(
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
     ]) + if_blade_gemm([
-        ":disc_blade_gemm_deps",
+        "@blade_gemm//:blade_gemm",
     ]) + if_mkldnn([
         ":disc_mkl_bazel",
         ":ral_md5",
@@ -907,7 +907,7 @@ cuda_library(
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
     ]) + if_blade_gemm([
-        ":disc_blade_gemm_deps",
+        "@blade_gemm//:blade_gemm",
     ]),
 )
 

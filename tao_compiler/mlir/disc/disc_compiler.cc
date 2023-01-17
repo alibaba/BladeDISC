@@ -63,6 +63,7 @@ limitations under the License.
 #include "mlir/Target/LLVMIR/Export.h"  // from @llvm-project
 #include "mlir/Transforms/Passes.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/passes.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/passes.h"
@@ -586,6 +587,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addPass(createGpuKernelOutliningPass());
     pm.addPass(disc_ral::createDiscAssignKernelNamePass());
   } else {
+    pm.addNestedPass<FuncOp>(
+        disc_ral::createDiscConvertForeachThreadOpToParallelOpPass());
     if (options.cpu_options.target_multi_threading) {
       pm.addNestedPass<FuncOp>(disc_ral::createDiscCpuMapParallelLoopPass());
       pm.addPass(disc_ral::createDiscOutlineCpuKernelPass());

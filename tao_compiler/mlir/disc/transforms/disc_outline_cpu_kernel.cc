@@ -221,33 +221,38 @@ static void convertToLaunchFuncOp(Operation* launchOp, func::FuncOp kernelFunc,
   launchOp->erase();
 }
 
+/// Checks whether the given op can be hoisted by checking that
+/// - the op and none of its contained operations depend on values inside of the
+///   loop (by means of calling definedOutside).
+/// - the op is not terminator.
+bool canBeHoisted(Operation* op,
+                  llvm::function_ref<bool(Value)> definedOutside) {
+  // Do not move terminators.
+  if (op->hasTrait<OpTrait::IsTerminator>()) return false;
+
+  // Walk the nested operations and check that all used values are either
+  // defined outside of the loop or in a nested region, but not at the level of
+  // the loop body.
+  auto walkFn = [&](Operation* child) {
+    for (Value operand : child->getOperands()) {
+      // Ignore values defined in a nested region.
+      if (op->isAncestor(operand.getParentRegion()->getParentOp())) continue;
+      if (!definedOutside(operand)) return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
+  };
+  return !op->walk(walkFn).wasInterrupted();
+}
+
 LogicalResult cloneAndMoveTo(OpBuilder& b, scf::ParallelOp parallelOp,
                              ValueRange lower, ValueRange upper,
                              ValueRange step, Block* block) {
-  auto cloned = cast<scf::ParallelOp>(b.clone(*parallelOp.getOperation()));
+  scf::ParallelOp cloned =
+      cast<scf::ParallelOp>(b.clone(*parallelOp.getOperation()));
   cloned->setOperands(0, lower.size(), lower);
   cloned->setOperands(lower.size(), upper.size(), upper);
   cloned->setOperands(lower.size() + upper.size(), step.size(), step);
   cloned->moveBefore(block, block->begin());
-
-  // Move out memref.alloc/dealloc op from the loop op.
-  // They are used to manage the tile buffers. We can re-use these buffers cross
-  // iterations in the same thread.
-  SmallVector<Operation*> allocOps;
-  SmallVector<Operation*> deallocOps;
-  for (Operation& op : cloned.getLoopBody().front()) {
-    if (isa<memref::AllocOp>(&op)) {
-      allocOps.push_back(&op);
-    } else if (isa<memref::DeallocOp>(&op)) {
-      deallocOps.push_back(&op);
-    }
-  }
-  for (Operation* op : allocOps) {
-    op->moveBefore(cloned);
-  }
-  for (Operation* op : llvm::reverse(deallocOps)) {
-    op->moveAfter(cloned);
-  }
 
   if (cloned
           .walk([&](LoopLikeOpInterface loopLike) {
@@ -258,7 +263,35 @@ LogicalResult cloneAndMoveTo(OpBuilder& b, scf::ParallelOp parallelOp,
     return failure();
   }
 
-  moveLoopInvariantCode(cloned);
+  // Move out memref.alloc/dealloc op from the loop op.
+  // They are used to manage the tile buffers. We can re-use these buffers cross
+  // iterations in the same thread.
+  auto definedOutside = [&](Value value) {
+    auto loopLike = dyn_cast<LoopLikeOpInterface>(cloned.getOperation());
+    assert(loopLike);
+    return loopLike.isDefinedOutsideOfLoop(value);
+  };
+
+  struct AllocDeallocPair {
+    memref::AllocOp allocOp;
+    memref::DeallocOp deallocOp;
+  };
+  DenseMap<Value, AllocDeallocPair> allocAndDeallocPairs;
+  for (Operation& op : cloned.getLoopBody().front()) {
+    if (auto allocOp = dyn_cast<memref::AllocOp>(&op)) {
+      if (canBeHoisted(&op, definedOutside))
+        allocAndDeallocPairs[op.getResult(0)].allocOp = allocOp;
+    } else if (auto deallocOp = dyn_cast<memref::DeallocOp>(&op)) {
+      auto it = allocAndDeallocPairs.find(op.getOperand(0));
+      if (it != allocAndDeallocPairs.end()) it->second.deallocOp = deallocOp;
+    }
+  }
+  for (auto& pair : allocAndDeallocPairs) {
+    if (!pair.second.allocOp || !pair.second.deallocOp) continue;
+    pair.second.allocOp->moveBefore(cloned);
+    pair.second.deallocOp->moveAfter(cloned);
+  }
+
   return success();
 }
 

@@ -244,6 +244,13 @@ buildInlineReductionInitializerOp(OpBuilder& b, Location& loc, Value initOp,
       loc, pdlType, initOp, loopOp, readerOp);
 }
 
+transform_dialect::DecomposeVectorsOp buildDecomposeVectors(
+    OpBuilder& b, Location& loc, Value target, int64_t vectorSize) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::DecomposeVectorsOp>(loc, pdlType, target,
+                                                         vectorSize);
+}
+
 class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
   explicit ParsedFromFileScheduleFactory(int64_t id, PatternKind kind,
@@ -498,8 +505,8 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::buildGuardCondition(
   }
   bool lhsTranspose = (lhsContractingDims[0] == lhsTy.getRank() - 2);
   Value dimK = b.create<memref::DimOp>(loc, lhs, lhsTranspose ? 0 : 1);
-  Value largeK = b.create<arith::ConstantIndexOp>(loc, 1024);
-  pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt, dimK, largeK);
+  Value largeK = b.create<arith::ConstantIndexOp>(loc, 768);
+  pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, dimK, largeK);
   return success();
 }
 
@@ -563,12 +570,14 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
   auto fuseIntoContainingOp =
       buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
 
-  // first/second level tile size for dimension m
-  int64_t M0 = 6;
+  // first level tile size for dimension m
+  int64_t M0 = 8;
   // first/second level tile size for dimension n
-  int64_t N0 = 208, N1 = 16;
-  // first level tile size for dimension k
+  int64_t N0 = 204, N1 = 12;
+  // first/second level tile size for dimension k
   int64_t K0 = 512, K1 = 1;
+  // TODO(wyzero): query cpuinfo.
+  int64_t hardwareVectorSizeInBytes = 4;
 
   auto tileOp0 = buildTileOp(b, loc, tiledMatmul, {0, N0, K0}, {0, 2, 1});
   auto tileOp1 =
@@ -696,6 +705,7 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
                     "linalg-copy", true, "eltwise", false);
   buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
                     "linalg-copy", true, "eltwise", false);
+  variant = buildDecomposeVectors(b, loc, variant, hardwareVectorSizeInBytes);
   b.create<transform::YieldOp>(loc);
   return success();
 }

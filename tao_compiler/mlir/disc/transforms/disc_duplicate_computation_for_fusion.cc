@@ -146,8 +146,7 @@ LogicalResult DuplicateConstantWithBcast::matchAndRewrite(
       auto new_bcast_alloc = builder.clone(*orig_bcast_alloc.getOperation());
       Value new_bcast_memref = new_bcast_alloc->getResult(0);
       builder.create<lmhlo::DynamicBroadcastInDimOp>(
-          loc, new_bcast_memref.getType(), new_const_memref,
-          bcast.getOutputDimensions(), new_bcast_memref,
+          loc, new_const_memref, bcast.getOutputDimensions(), new_bcast_memref,
           bcast.getBroadcastDimensions());
 
       user->replaceUsesOfWith(bcast_output, new_bcast_memref);

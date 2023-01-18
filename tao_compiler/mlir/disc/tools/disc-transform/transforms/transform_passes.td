@@ -55,3 +55,8 @@ def DiscMemrefCopyToLinalgPass : Pass<"disc-memref-copy-to-linalg", "func::FuncO
       "linalg::LinalgDialect",
   ];
 }
+
+def DiscConvertForeachThreadOpToParallelOpPass : Pass<"disc-convert-foreach-thread-op-to-parallel-op", "func::FuncOp"> {
+  let summary = "Pass to convert memref.copy to linalg.";
+  let constructor = "createDiscConvertForeachThreadOpToParallelOpPass()";
+}

@@ -311,6 +311,34 @@ std::string generateSignatureForFusion(FusionPattern& fusionPattern) {
     sig.push_back('_');
   }
 
+  if (fusionPattern.isTransformBasedFusion()) {
+    if (auto dotOp = dyn_cast_or_null<lmhlo::DotGeneralOp>(
+            fusionPattern.getDominantOp())) {
+      auto lhsTy = dotOp->getOperand(0).getType().cast<MemRefType>();
+      auto rhsTy = dotOp->getOperand(1).getType().cast<MemRefType>();
+      auto appendShapeToStr = [&](ArrayRef<int64_t> shape) {
+        for (const auto& en : llvm::enumerate(shape)) {
+          if (en.index() > 0) sig.append("x");
+          if (en.value() == ShapedType::kDynamicSize) {
+            sig.append("u");
+          } else {
+            sig.append(Twine(en.value()).str());
+          }
+        }
+      };
+      sig.append("_LS_");
+      appendShapeToStr(lhsTy.getShape());
+      sig.append("_RS_");
+      appendShapeToStr(rhsTy.getShape());
+      auto dimNumbers = dotOp.getDotDimensionNumbers();
+      sig.append("_LC_");
+      appendShapeToStr(dimNumbers.getLhsContractingDimensions());
+      sig.append("_RC_");
+      appendShapeToStr(dimNumbers.getRhsContractingDimensions());
+      sig.append("_");
+    }
+  }
+
   sig.append(
       ("_" + Twine(num_ops) + "_" + Twine(fusionPattern.getResults().size()))
           .str());
@@ -1515,7 +1543,11 @@ bool StitchCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 
 bool StitchCpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                                 FusionPattern& fusion_pattern) {
-  fusion_pattern.setFusionType(FusionType::kStitch);
+  StitchCPUAnalysis stitchAnalysis(fusion_pattern, shapeAnalysis);
+  if (!stitchAnalysis.fusibilityAnalysis())
+    fusion_pattern.setFusionType(FusionType::kNone);
+  else
+    fusion_pattern.setFusionType(FusionType::kStitch);
   return true;
 }
 

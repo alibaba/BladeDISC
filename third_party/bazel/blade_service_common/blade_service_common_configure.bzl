@@ -26,10 +26,10 @@ def _blade_service_common_impl(repository_ctx):
                 "%{RULES_FOREIGN_CC_MAKE}": "@rules_foreign_cc//tools/build_defs:configure.bzl",
                 "%{ARGS}": "args = foreign_make_args(),"
             }
-            _tpl(repository_ctx, "libuuid.BUILD.tpl", substitutions)
+            _tpl(repository_ctx, "libuuid.BUILD", substitutions)
             substitutions["%{TARGETS}"] = "targets = [\"\", \"install_sw\"],"
             substitutions["%{STATIC_LIB_ARG}"] = "out_static_libs"
-            _tpl(repository_ctx, "openssl.BUILD.tpl", substitutions)
+            _tpl(repository_ctx, "openssl.BUILD", substitutions)
         repository_ctx.template("blade_service_common_workspace.bzl", Label("//bazel/blade_service_common:blade_service_common_workspace.bzl.tpl"), {
         })
     else:

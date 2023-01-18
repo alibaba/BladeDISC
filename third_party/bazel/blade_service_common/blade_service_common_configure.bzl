@@ -23,7 +23,7 @@ def _blade_service_common_impl(repository_ctx):
             _tpl(repository_ctx, "openssl.BUILD", substitutions)
         else:
             substitutions = {
-                "%{RULES_FOREIGN_CC_MAKE}": "@rules_foreign_cc//tools/build_defs:configure.bzl",
+                "%{RULES_FOREIGN_CC_MAKE}": "@rules_foreign_cc//foreign_cc:defs.bzl",
                 "%{ARGS}": "args = foreign_make_args(),"
             }
             _tpl(repository_ctx, "libuuid.BUILD", substitutions)

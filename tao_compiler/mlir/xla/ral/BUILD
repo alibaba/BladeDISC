@@ -957,6 +957,8 @@ cc_library(
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
+    ]) + if_blade_gemm([
+        "@blade_gemm//:blade_gemm",
     ]),
     alwayslink = 1,
 )

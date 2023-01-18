@@ -443,6 +443,9 @@ cc_library(
         "tensorflow/compiler/xla/mlir_hlo/include",
         "."
     ],
+    copts = tf_copts() + if_rocm_is_configured([
+        "-DTENSORFLOW_USE_ROCM=1"
+    ]),
     deps = [
         "@com_google_absl//absl/strings",
         ":pass_details",

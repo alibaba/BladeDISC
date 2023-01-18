@@ -270,7 +270,7 @@ struct DiscConvRewriterPass
                                                  &use_tf32));
       if (cc_major >= 8 && (!is_fp32 || use_tf32) ||
           inputTy.getElementType().isF16() &&
-              filterTy.getElementType().isF16()) {
+              filterTy.getElementType().isF16() && (!TENSORFLOW_USE_ROCM)) {
         // TensorCore prefers NHWC layouts
         fillNHWC(inputLayout, num_spatial_dims);
         fillNHWC(outputLayout, num_spatial_dims);

@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-rewrite-payload-ir-for-ral -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-convert-foreach-thread-op-to-parallel-op -split-input-file %s | FileCheck %s
 
 #map = affine_map<()[s0] -> (s0 ceildiv 6)>
 #map1 = affine_map<()[s0] -> (s0 ceildiv 16)>
@@ -8,7 +8,6 @@
 #map5 = affine_map<(d0) -> (d0 * 16)>
 module {
   // CHECK-LABEL: @matmul_nn
-  // CHECK-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "cpu">, %[[ARG1:.*]]: memref<?x?xf32, "cpu">, %[[ARG2:.*]]: memref<?x?xf32, "cpu">)
   func.func @matmul_nn(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?x?xf32>) -> memref<?x?xf32> attributes {test = true} {
     %cst = arith.constant 0.000000e+00 : f32
     %c0 = arith.constant 0 : index
@@ -18,6 +17,8 @@ module {
     %0 = affine.apply #map()[%dim]
     %1 = affine.apply #map1()[%dim_0]
     %dim_1 = memref.dim %arg0, %c1 : memref<?x?xf32>
+    // CHECK-NOT: scf.foreach_thread
+    // CHECK: scf.parallel
     scf.foreach_thread (%arg3, %arg4) in (%0, %1) {
       %2 = affine.min #map2(%arg3)[%dim]
       %3 = affine.min #map3(%arg4)[%dim_0]

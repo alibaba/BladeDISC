@@ -372,6 +372,23 @@ cc_library(
 )
 
 cc_library(
+    name = "convert-foreach-thread-op-to-parallel-op",
+    srcs = ["transforms/convert_foreach_thread_op_to_parallel_op.cc"],
+    deps = [
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/passes.h",
@@ -381,6 +398,7 @@ cc_library(
         ":friends",
     ],
     deps = [
+        ":convert-foreach-thread-op-to-parallel-op",
         ":legalize_lmhlo_fusion_to_linalg",
         ":memref_copy_to_linalg",
         ":rewrite-payload-ir-for-ral",

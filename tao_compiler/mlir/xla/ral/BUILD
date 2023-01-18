@@ -207,6 +207,7 @@ cc_library(
         ["//tao/blade_gemm:blade_gemm"],
     )
 )
+
 cc_library(
     name = "disc_blade_gemm_deps",
     deps = if_platform_alibaba([
@@ -757,7 +758,7 @@ cc_library(
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
     ]) + if_blade_gemm([
-        ":disc_blade_gemm_deps",
+        "@blade_gemm//:blade_gemm",
         "@mkl_static//:mkl_static_lib",
     ]) + if_mkldnn([
         ":disc_mkl_bazel",
@@ -765,7 +766,6 @@ cc_library(
     ]),
     data = if_blade_gemm([
         "@mkl_static//:lib",
-        # "@mkl_static//:mkl_static_lib",
     ]),
     alwayslink = 1,
 )
@@ -926,8 +926,6 @@ cuda_library(
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
-    ]) + if_blade_gemm([
-        ":disc_blade_gemm_deps",
     ]),
 )
 

@@ -18,52 +18,12 @@ load("@org_tensorflow//tensorflow/core/platform:build_config_root.bzl", "if_stat
 load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library", "gentbl_filegroup", "td_library")
 load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda_is_configured")
 load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured")
-load("//tensorflow/compiler/mlir/disc:disc.bzl",
+load("//tensorflow/compiler/mlir/util:util.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
      "if_skip_compute_intensive_fusion",
 )
-load("//tensorflow/compiler/mlir/disc:disc.bzl", "if_torch_disc")
-
-config_setting(
-    name = "is_platform_alibaba",
-    define_values = {"is_platform_alibaba": "true"},
-)
-
-config_setting(
-    name = "is_patine",
-    define_values = {"is_patine": "true"},
-)
-
-config_setting(
-    name = "is_blade_gemm",
-    define_values = {"is_blade_gemm": "true"},
-)
-
-config_setting(
-    name = "is_mkldnn",
-    define_values = {"is_mkldnn": "true"},
-)
-
-config_setting(
-    name = "disc_aarch64",
-    define_values = {"disc_aarch64": "true"},
-)
-
-config_setting(
-    name = "disc_x86",
-    define_values = {"disc_x86": "true"},
-)
-
-config_setting(
-    name = "is_torch_disc",
-    define_values = {"is_torch_disc": "true"},
-)
-
-config_setting(
-    name = "skip_compute_intensive_fusion",
-    define_values = {"skip_compute_intensive_fusion": "true"},
-)
+load("//tensorflow/compiler/mlir/util:util.bzl", "if_torch_disc")
 
 package(
     default_visibility = [":friends"],

@@ -1,7 +1,7 @@
 licenses(["notice"])  # Apache 2.0
 
 load("//tensorflow:tensorflow.bzl", "tf_cc_binary", "tf_cc_test")
-load("//tensorflow/compiler/mlir/disc:disc.bzl", "if_platform_alibaba")
+load("//tensorflow/compiler/mlir/util:util.bzl", "if_platform_alibaba")
 
 package_group(
     name = "internal",
@@ -25,7 +25,7 @@ package(
 
 load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda_is_configured")
 load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured")
-load("//tensorflow/compiler/mlir/disc:disc.bzl", "if_cuda_or_rocm")
+load("//tensorflow/compiler/mlir/util:util.bzl", "if_cuda_or_rocm")
 load(
     "@com_google_protobuf//:protobuf.bzl",
     "cc_proto_library",

@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 config_setting(
     name = "is_platform_alibaba",
     define_values = {"is_platform_alibaba": "true"},
@@ -8,6 +6,11 @@ config_setting(
 config_setting(
     name = "is_patine",
     define_values = {"is_patine": "true"},
+)
+
+config_setting(
+    name = "is_blade_gemm",
+    define_values = {"is_blade_gemm": "true"},
 )
 
 config_setting(
@@ -26,8 +29,13 @@ config_setting(
 )
 
 config_setting(
-    name = "is_cxx11_abi",
-    define_values = {"is_cxx11_abi": "true"},
+    name = "is_torch_disc",
+    define_values = {"is_torch_disc": "true"},
+)
+
+config_setting(
+    name = "skip_compute_intensive_fusion",
+    define_values = {"skip_compute_intensive_fusion": "true"},
 )
 
 config_setting(

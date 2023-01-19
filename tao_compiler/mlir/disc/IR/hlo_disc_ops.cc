@@ -168,8 +168,10 @@ OpFoldResult QuantizeOp::fold(ArrayRef<Attribute> operands) {
     return {};
   }
 
-  DenseElementsAttr scale = operands[1].dyn_cast<DenseElementsAttr>();
-  DenseElementsAttr zeroPoint = operands[2].dyn_cast<DenseElementsAttr>();
+  DenseElementsAttr scale = operands[1].dyn_cast_or_null<DenseElementsAttr>();
+  DenseElementsAttr zeroPoint =
+      operands[2].dyn_cast_or_null<DenseElementsAttr>();
+  if (!scale || !zeroPoint) return {};
   ArrayRef<int64_t> scaleShape = scale.getType().getShape();
   ArrayRef<int64_t> zeroPointShape = zeroPoint.getType().getShape();
   // scale & zero_point must have the same shape

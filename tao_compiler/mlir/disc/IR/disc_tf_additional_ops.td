@@ -17,7 +17,9 @@ limitations under the License.
 #ifndef DISC_TF_ADDITIONAL_OPS
 #define DISC_TF_ADDITIONAL_OPS
 
-include "tensorflow/compiler/mlir/tensorflow/ir/tf_op_base.td"
+//include "tf_op_base.td"
+//include "tensorflow/compiler/mlir/tensorflow/ir/tf_op_base.td"
+include "external/org_tensorflow/tensorflow/compiler/mlir/tensorflow/ir/tf_op_base.td"
 
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/CallInterfaces.td"

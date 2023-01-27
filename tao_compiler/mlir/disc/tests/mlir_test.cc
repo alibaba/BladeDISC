@@ -216,19 +216,21 @@ MlirTest::MlirTest(const std::string& mlir_file_path,
       profiling_(profiling),
       multi_cc_mode_(multi_cc_mode),
       multi_cc_mode_dbg_ptx_only_(multi_cc_mode_dbg_ptx_only) {
-  ReadStringFromEnvVar("TF_OPT_PATH", "tensorflow/compiler/mlir/tf-opt",
-                       &tf_opt_path_);
+  ReadStringFromEnvVar(
+      "TF_OPT_PATH", "external/org_tensorflow/tensorflow/compiler/mlir/tf-opt",
+      &tf_opt_path_);
 
   ReadStringFromEnvVar("DHLO_COMPILER_MAIN_PATH",
                        "tensorflow/compiler/mlir/disc/disc_compiler_main",
                        &dhlo_compiler_main_path_);
 
-  ReadStringFromEnvVar("TF_MLIR_TRANSLATE_PATH",
-                       "tensorflow/compiler/mlir/tf-mlir-translate",
-                       &tf_mlir_translate_path_);
+  ReadStringFromEnvVar(
+      "TF_MLIR_TRANSLATE_PATH",
+      "external/org_tensorflow/tensorflow/compiler/mlir/tf-mlir-translate",
+      &tf_mlir_translate_path_);
 
   compiled_so_file_ = tmp_dir_ + test_name_ + ".so";
-
+  VLOG(0) << "tf_opt_pat: " << tf_opt_path_;
   VLOG(0) << "mlir_file_path: " << mlir_file_path_;
   VLOG(0) << "tmp_dir: " << tmp_dir_;
   VLOG(0) << "test_name: " << test_name_;
@@ -236,8 +238,10 @@ MlirTest::MlirTest(const std::string& mlir_file_path,
 
 Status MlirTest::Run() {
   TF_RETURN_IF_ERROR(CompileMlirToBinary());
+  VLOG(0) << "run compiled program\n";
   TF_RETURN_IF_ERROR(GenerateInputAndRun());
   if (expected_output_vals_.empty()) {
+    VLOG(0) << "run golden tf\n";
     TF_RETURN_IF_ERROR(RunGoldenTF());
   }
   TF_RETURN_IF_ERROR(CompareResults());
@@ -250,6 +254,7 @@ int MlirTest::CallBinary(std::string program_path,
   process.SetProgram(program_path, args);
   process.SetChannelAction(tensorflow::CHAN_STDOUT, tensorflow::ACTION_PIPE);
   process.SetChannelAction(tensorflow::CHAN_STDERR, tensorflow::ACTION_PIPE);
+  VLOG(0) << "program_path: " << program_path << "\n";
   if (!process.Start()) {
     return 1;
   }
@@ -267,6 +272,7 @@ int MlirTest::CallBinary(std::string program_path,
           << stdout_output << "\n============ END ============\n";
   VLOG(0) << "-- stderr:\n"
           << stderr_output << "\n============ END ============\n";
+  VLOG(0) << "ret: " << s << "\n";
   return s;
 }
 
@@ -275,6 +281,7 @@ Status MlirTest::CompileMlirToBinary() {
   std::string tf_dialect_file = tmp_dir_ + test_name_ + "_tf_dialect.mlir";
   std::vector<std::string> args = {tf_opt_path_, "--tf-standard-pipeline",
                                    mlir_file_path_, "-o", tf_dialect_file};
+  VLOG(0) << "tf_opt_path: " << tf_opt_path_ << "\n";
   if (CallBinary(tf_opt_path_, args)) {
     return Internal("tf_executor dialect -> tf dialect failed");
   }

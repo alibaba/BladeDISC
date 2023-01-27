@@ -29,12 +29,12 @@ limitations under the License.
 #include <unordered_map>
 
 #include "absl/strings/str_split.h"
+#include "decoupling/compiler_base.h"
+#include "decoupling/tao_compiler_input.pb.h"
+#include "decoupling/tao_compiler_trace.h"
 #include "llvm/Support/CommandLine.h"
 #include "mlir/Pass/PassManager.h"  // from @llvm-project
 #include "mlir/Support/Timing.h"    // from @llvm-project
-#include "tensorflow/compiler/decoupling/compiler_base.h"
-#include "tensorflow/compiler/decoupling/tao_compiler_input.pb.h"
-#include "tensorflow/compiler/decoupling/tao_compiler_trace.h"
 #include "tensorflow/compiler/xla/debug_options_flags.h"
 #include "tensorflow/compiler/xla/statusor.h"
 #include "tensorflow/core/lib/strings/strcat.h"

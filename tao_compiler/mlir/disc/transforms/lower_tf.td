@@ -16,7 +16,7 @@ limitations under the License.
 include "mlir/IR/OpBase.td"
 include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.td"
 include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.td"
-include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.td"
+include "external/org_tensorflow/tensorflow/compiler/mlir/tensorflow/ir/tf_ops.td"
 
 // Treated as passthrough IdentityOp
 def : Pat<(TF_CheckNumericsOp $arg, $msg), (TF_IdentityOp $arg)>;

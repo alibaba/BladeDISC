@@ -4370,6 +4370,7 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
     ArrayRef<Operation*> root_ops, Operation* dominant_op,
     Block* parent = nullptr, bool non_fusion = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
+  llvm::dbgs() << "come in lowerWithScheduleSparseFillEmptyRowsOpCPU\n";
   if (!(root_ops.size() == 1 &&
         isa<lmhlo_disc::SparseFillEmptyRowsOp>(root_ops[0]))) {
     return dominant_op->emitError()
@@ -4998,9 +4999,11 @@ LogicalResult lowerWithScheduleLoopCPU(
     Block* parent = nullptr, bool non_fusion = false, bool parallel_loop = true,
     bool multi_dim_loop = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
+  llvm::dbgs() << "parallel_loop: " << parallel_loop << "\n";
   Value result = cast<lmhlo::LmhloOp>(dominant_op).getResultBuffer();
   int64_t rank = result.getType().cast<MemRefType>().getRank();
   if (!multi_dim_loop || !rank || !parallel_loop) {
+    llvm::dbgs() << "lower with lowerWithScheduleLoop\n";
     return lowerWithScheduleLoop(root_ops, dominant_op, parent, non_fusion,
                                  parallel_loop, shape_analysis);
   }
@@ -5330,6 +5333,8 @@ struct DiscLhloLegalizeRootsToParallelLoops
       // should be sufficient for performance.
       // TODO(disc): Revisit this when the backend is cpu and the calculation is
       // for data.
+      llvm::dbgs() << "cpu-no-fusion-op: \n";
+      op->dump();
       if (failed(lowerWithScheduleLoopCPU({op}, op, nullptr,
                                           /*non_fusion=*/true,
 #ifdef TAO_CPU_ONLY

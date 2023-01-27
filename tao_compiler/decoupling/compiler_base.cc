@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/decoupling/compiler_base.h"
+#include "decoupling/compiler_base.h"
 
 namespace tensorflow {
 namespace tao {

@@ -26,7 +26,7 @@ load("//tensorflow/compiler/mlir/util:util.bzl",
 load("//tensorflow/compiler/mlir/util:util.bzl", "if_torch_disc")
 
 package(
-    default_visibility = [":friends"],
+    default_visibility = ["//visibility:public"],
     licenses = ["notice"],  # Apache 2.0
 )
 
@@ -38,10 +38,10 @@ package_group(
         "//learning/brain/experimental/swift_mlir/...",
         "//learning/brain/google/xla/kernels/...",
         "//learning/brain/swift/swift_mlir/...",
-        "//tensorflow/compiler/mlir/...",
-        "//tensorflow/compiler/tf2xla/...",
-        "//tensorflow/compiler/xla/...",
-        "//tensorflow/compiler/...",
+        #"@org_tensorflow//tensorflow/compiler/mlir/...",
+        #"@org_tensorflow//tensorflow/compiler/tf2xla/...",
+        #"@org_tensorflow//tensorflow/compiler/xla/...",
+        #"@org_tensorflow//tensorflow/compiler/...",
         "//third_party/iree/...",
         "//third_party/mlir_edge/...",
         "//third_party/tf_runtime/tools/tf_kernel_gen/...",
@@ -99,7 +99,7 @@ cc_library(
     ],
     deps = if_torch_disc(
         ["@mlir-hlo//:mlir_hlo"],
-        ["//tensorflow/compiler/xla/mlir_hlo:mlir_hlo"]
+        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo"]
     )
 )
 
@@ -138,8 +138,8 @@ tf_cc_test(
     deps = [
         ":cycle_detector",
         # TODO(b/160617323): Decouple MLIR HLO from TensorFlow/XLA
-        "//tensorflow/compiler/xla:test",
-        "//tensorflow/core:test_main",
+        "@org_tensorflow//tensorflow/compiler/xla:test",
+        "@org_tensorflow//tensorflow/core:test_main",
     ],
 )
 
@@ -166,8 +166,8 @@ cc_library(
     deps = [
         ":cycle_detector",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//mlir:MemRefDialect",
         "@llvm-project//mlir:ShapeDialect",
         "@llvm-project//llvm:Support",
@@ -186,13 +186,13 @@ disc_cc_library(
     deps = [
         ":all_passes",
         ":disc_ral",
-        "//tensorflow/compiler/xla/mlir_hlo:all_passes",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo_gpu",
-        "//tensorflow/core/platform:status",
-        "//tensorflow/compiler/mlir/tensorflow:compile_mlir_util",
-        "//tensorflow/compiler/mlir/tensorflow:tf_dialect_passes",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:all_passes",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo_gpu",
+        "@org_tensorflow//tensorflow/core/platform:status",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:compile_mlir_util",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tf_dialect_passes",
         "@llvm-project//llvm:OrcJIT",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:ExecutionEngineUtils",
@@ -236,7 +236,7 @@ cc_library(
         ":disc_to_llvm_common",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//llvm:TransformUtils",
         "@llvm-project//mlir:AffineDialect",
@@ -274,7 +274,7 @@ cc_library(
     ],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -292,9 +292,9 @@ cc_library(
         ":disc_map_hlo_to_lhlo_op",
         ":lmhlo_disc",
         ":mhlo_disc",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/compiler/xla/mlir_hlo:map_hlo_to_lhlo_op",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_hlo_to_lhlo_op",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:Support",
@@ -311,9 +311,9 @@ cc_library(
         ":codegen_utils",
         ":disc_shape_optimization_utils",
         ":disc_util",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:GPUDialect",
         "@llvm-project//mlir:IR",
@@ -336,11 +336,11 @@ cc_library(
         ":input_inline_fusion_pattern",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+        "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:GPUDialect",
@@ -360,8 +360,8 @@ cc_library(
     srcs = ["transforms/disc_fuse_splat_const.cc"],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:MemRefDialect",
@@ -384,7 +384,7 @@ cc_library(
     deps = [
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/mlir/tensorflow:tensorflow",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow",
         "@llvm-project//mlir:Dialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -407,12 +407,12 @@ cc_library(
         "@com_google_absl//absl/strings",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:Transforms",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
     alwayslink = 1,
 )
@@ -430,12 +430,12 @@ cc_library(
         "@com_google_absl//absl/strings",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:Transforms",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
     alwayslink = 1,
 )
@@ -451,7 +451,7 @@ cc_library(
     deps = [
         ":disc_util",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -471,7 +471,7 @@ cc_library(
     deps = [
         ":disc_util",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -491,7 +491,7 @@ cc_library(
     deps = [
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -513,7 +513,7 @@ cc_library(
         ":mhlo_disc",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -534,7 +534,7 @@ cc_library(
         ":pass_details",
         ":placement_utils",
         ":mhlo_disc",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -558,7 +558,7 @@ cc_library(
         ":disc_shape",
         ":disc_util",
         ":source_emitter",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AffineDialect",
         "@llvm-project//mlir:IR",
@@ -582,8 +582,8 @@ cc_library(
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Core",
         "@llvm-project//mlir:Dialect",
         "@llvm-project//mlir:IR",
@@ -606,7 +606,7 @@ cc_library(
     ],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -626,8 +626,8 @@ cc_library(
         ":codegen_utils",
         ":fusion_utils",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -648,8 +648,8 @@ cc_library(
         ":codegen_utils",
         ":fusion_utils",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AffineDialect",
         "@llvm-project//mlir:FuncDialect",
@@ -671,8 +671,8 @@ cc_library(
         ":codegen_utils",
         ":fusion_utils",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AffineDialect",
         "@llvm-project//mlir:FuncDialect",
@@ -713,8 +713,8 @@ cc_library(
         ":disc_util",
         ":mhlo_disc",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:MemRefDialect",
@@ -744,7 +744,7 @@ cc_library(
         ":lmhlo_disc",
         ":placement_utils",
         ":shape_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Core",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
@@ -765,8 +765,8 @@ cc_library(
         ":pass_details",
         ":placement_utils",
         ":cycle_detector",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Core",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
@@ -791,8 +791,8 @@ cc_library(
         ":pass_details",
         ":placement_utils",
         "//tensorflow/compiler/mlir/xla/ral:ral_metadata",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/core/platform:env",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/core/platform:env",
         "@llvm-project//llvm:Core",
         "@llvm-project//mlir:Dialect",
         "@llvm-project//mlir:IR",
@@ -831,7 +831,7 @@ cc_library(
         ":qconv_custom_call",
         ":sparse_custom_call",
         ":topk_custom_call",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -865,7 +865,7 @@ cc_library(
         ":topk_custom_call",
         ":qconv_custom_call",
         ":sparse_custom_call",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//llvm:TransformUtils",
         "@llvm-project//mlir:FuncDialect",
@@ -895,8 +895,8 @@ cc_library(
         ":disc_util",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -953,21 +953,21 @@ disc_cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:ToLLVMIRTranslation",
         "@llvm-project//mlir:Transforms",
-        "//tensorflow/compiler/xla/service/gpu/llvm_gpu_backend",
-        "//tensorflow/compiler/xla/service/gpu:stream_executor_util",
-        "//tensorflow/compiler/xla/service/gpu:target_constants",
-        "//tensorflow/compiler/xla/service/gpu:gpu_asm_opts_util",
-        "//tensorflow/compiler/xla/service:hlo_module_config",
-        "//tensorflow/compiler/xla:debug_options_flags",
-        "//tensorflow/compiler/xla:status",
-        "//tensorflow/compiler/xla:statusor",
-        "//tensorflow/compiler/xla/stream_executor/gpu:asm_compiler",
-        "//tensorflow/tsl/platform:cuda_libdevice_path",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/xla/service/gpu/llvm_gpu_backend",
+        "@org_tensorflow//tensorflow/compiler/xla/service/gpu:stream_executor_util",
+        "@org_tensorflow//tensorflow/compiler/xla/service/gpu:target_constants",
+        "@org_tensorflow//tensorflow/compiler/xla/service/gpu:gpu_asm_opts_util",
+        "@org_tensorflow//tensorflow/compiler/xla/service:hlo_module_config",
+        "@org_tensorflow//tensorflow/compiler/xla:debug_options_flags",
+        "@org_tensorflow//tensorflow/compiler/xla:status",
+        "@org_tensorflow//tensorflow/compiler/xla:statusor",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/gpu:asm_compiler",
+        "@org_tensorflow//tensorflow/tsl/platform:cuda_libdevice_path",
+        "@org_tensorflow//tensorflow/core:lib",
     ] + if_cuda_is_configured([
-        "//tensorflow/compiler/xla/stream_executor/cuda:cuda_asm_compiler",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:cuda_asm_compiler",
     ]) + if_rocm_is_configured([
-        "//tensorflow/core/platform:rocm_rocdl_path",
+        "@org_tensorflow//tensorflow/core/platform:rocm_rocdl_path",
     ]),
 )
 
@@ -1030,8 +1030,8 @@ cc_library(
         ":codegen_utils",
         ":disc_lhlo_elemental_utils",
         ":fusion_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:MemRefDialect",
@@ -1050,9 +1050,9 @@ cc_library(
         ":fusion_utils",
         ":input_inline_fusion_pattern",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
         "@com_google_absl//absl/memory",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Analysis",
@@ -1075,7 +1075,7 @@ cc_library(
     ],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1099,7 +1099,7 @@ cc_library(
     ],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:FuncDialect",
@@ -1122,7 +1122,7 @@ cc_library(
     ],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1178,7 +1178,7 @@ cc_library(
 filegroup(
     name = "disc_lower_tf_ops_td_files",
     srcs = [
-        "//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
         "@llvm-project//mlir:OpBaseTdFiles",
         "@llvm-project//mlir:SideEffectInterfacesTdFiles",
         "@llvm-project//mlir:include/mlir/Interfaces/InferTypeOpInterface.td",
@@ -1199,10 +1199,13 @@ gentbl_cc_library(
     td_file = "transforms/lower_tf.td",
     td_srcs = [
         ":disc_lower_tf_ops_td_files",
-        "//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
-        "//tensorflow/compiler/mlir/tensorflow:tensorflow_optimize_td_files",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_optimize_td_files",
     ],
-    deps = ["//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"],
+    deps = [
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
+    ],
 )
 
 cc_library(
@@ -1223,10 +1226,10 @@ cc_library(
         ":topk_custom_call",
         ":qconv_custom_call",
         ":sparse_custom_call",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/mlir/tensorflow:tensorflow",
-        "//tensorflow/compiler/mlir/tensorflow:convert_tensor",
-        "//tensorflow/compiler/mlir/xla:legalize_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:convert_tensor",
+        "@org_tensorflow//tensorflow/compiler/mlir/xla:legalize_utils",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1407,7 +1410,7 @@ cc_library(
     deps = [
         ":fusion_utils",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:GPUDialect",
@@ -1429,7 +1432,7 @@ cc_library(
     ],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:LLVMCommonConversion",
@@ -1450,7 +1453,7 @@ cc_library(
         ":mhlo_disc",
         ":pass_details",
         ":shape_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1476,7 +1479,7 @@ cc_library(
         ":mhlo_disc",
         ":pass_details",
         ":shape_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1501,7 +1504,7 @@ cc_library(
         ":mhlo_disc",
         ":pass_details",
         ":shape_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1606,7 +1609,7 @@ cc_library(
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1650,9 +1653,9 @@ cc_library(
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1673,7 +1676,7 @@ cc_library(
         ":mhlo_disc",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1691,7 +1694,7 @@ cc_library(
     srcs = ["transforms/lhlo_fusion_inliner.cc"],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//mlir:Pass",
     ],
 )
@@ -1703,7 +1706,7 @@ cc_library(
         ":disc_shape_optimization_utils",
         ":mhlo_disc",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -1722,7 +1725,7 @@ cc_library(
         ":disc_shape_optimization_utils",
         ":mhlo_disc",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -1744,7 +1747,7 @@ cc_library(
         ":disc_shape_optimization_utils",
         ":mhlo_disc",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -1791,7 +1794,7 @@ cc_library(
         ":disc_shape_optimization_utils",
         ":disc_util",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -1836,7 +1839,7 @@ cc_library(
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Core",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
@@ -1856,7 +1859,7 @@ cc_library(
         ":disc_shape_optimization_utils",
         ":mhlo_disc",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -1875,7 +1878,7 @@ cc_library(
         ":disc_shape_optimization_utils",
         ":mhlo_disc",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
@@ -1893,7 +1896,7 @@ cc_library(
     hdrs = ["transforms/disc_pdl_utils.h"],
     deps = [
         ":mhlo_disc",
-        "//tensorflow/tsl/platform:logging",
+        "@org_tensorflow//tensorflow/tsl/platform:logging",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:PDLLAST",
@@ -1971,7 +1974,7 @@ cc_library(
         ":disc_util",
         ":pass_details",
         ":source_emitter",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:Support",
@@ -2018,8 +2021,8 @@ disc_cc_library(
         ":lmhlo_disc",
         ":pass_details",
         "@llvm-project//mlir:Pass",
-        "//tensorflow/tsl/platform:cuda_libdevice_path",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/tsl/platform:cuda_libdevice_path",
+        "@org_tensorflow//tensorflow/core:lib",
     ] + if_cuda_is_configured([
         ":compute_intensive_fusion_deps",
     ]),
@@ -2037,12 +2040,12 @@ cc_library(
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
         "//tensorflow/compiler/mlir/disc/tools/disc-transform:DISCLinalgExtDialect",
-        "//tensorflow/tsl/platform:logging",
+        "@org_tensorflow//tensorflow/tsl/platform:logging",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AffineDialect",
         "@llvm-project//mlir:FuncDialect",
@@ -2073,9 +2076,7 @@ cc_library(
     hdrs = [
         "transforms/register_passes.h",
     ],
-    visibility = [
-        ":friends",
-    ],
+    visibility = ["//visibility:public"],
     deps = [
         ":MhloDiscPassIncGen",
         ":conv_rewriter",
@@ -2155,17 +2156,18 @@ cc_library(
 tf_cc_binary(
     name = "disc-opt",
     srcs = [
-        "tools/disc-opt/disc-opt.cc",
+        #"tools/disc-opt/disc-opt.cc",
+        "//tensorflow/compiler/mlir/disc/tools:disc-opt/disc-opt.cc"
     ],
     deps = [
         ":all_passes",
         ":disc_ral",
         ":mhlo_disc",
         ":lmhlo_disc",
-        "//tensorflow/compiler/xla/mlir_hlo:all_passes",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo_gpu",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:all_passes",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo_gpu",
         "@boringssl//:crypto",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AllPassesAndDialects",
@@ -2179,14 +2181,15 @@ tf_cc_binary(
 tf_cc_binary(
     name = "disc-pdll",
     srcs = [
-        "tools/disc-pdll/disc-pdll.cc",
+        #"tools/disc-pdll/disc-pdll.cc",
+        "//tensorflow/compiler/mlir/disc/tools:disc-pdll/disc-pdll.cc",
     ],
     deps = [
         ":disc_pdl_utils",
         ":mhlo_disc",
-        "//tensorflow/compiler/mlir/tensorflow:tensorflow",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AllPassesAndDialects",
         "@llvm-project//mlir:IR",
@@ -2198,7 +2201,7 @@ tf_cc_binary(
 tf_cc_binary(
     name = "disc-source-emitter",
     srcs = [
-        "tools/disc-source-emitter/disc-cuda-emitter.cc",
+        "//tensorflow/compiler/mlir/disc/tools:disc-source-emitter/disc-cuda-emitter.cc"
     ],
     deps = [
         ":source_emitter",
@@ -2244,7 +2247,7 @@ gentbl_cc_library(
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/hlo_disc_enums.td",
     deps = [
-        "//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
     ],
 )
 
@@ -2268,7 +2271,7 @@ gentbl_cc_library(
         ":mhlo_disc_enums_inc_gen",
     ] + if_torch_disc(
         ["@mlir-hlo//:hlo_ops_td_files"],
-        ["//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"]
+        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"]
     )
 )
 
@@ -2425,7 +2428,7 @@ gentbl_cc_library(
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/lhlo_disc_ops.td",
     deps = [
-        "//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
     ],
 )
 
@@ -2441,9 +2444,9 @@ cc_library(
     ],
     deps = [
         ":lmhlo_disc_ops_inc_gen",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo_ops_structs_inc_gen",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo_structured_interface",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo_ops_structs_inc_gen",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo_structured_interface",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Analysis",
         "@llvm-project//mlir:FuncDialect",
@@ -2473,12 +2476,12 @@ tf_cc_binary(
     ]),
     deps = [
         ":disc_compiler",
-        "//tensorflow/compiler/mlir:init_mlir",
-        "//tensorflow/compiler/mlir/tensorflow",
-        "//tensorflow/compiler/xla:util",
-        "//tensorflow/compiler/xla/service/gpu/llvm_gpu_backend",
-        "//tensorflow/compiler/xla/stream_executor/lib",
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/mlir:init_mlir",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow",
+        "@org_tensorflow//tensorflow/compiler/xla:util",
+        "@org_tensorflow//tensorflow/compiler/xla/service/gpu/llvm_gpu_backend",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/lib",
+        "@org_tensorflow//tensorflow/core:lib",
         "@com_google_absl//absl/strings",
         "@llvm-project//llvm:Analysis",
         "@llvm-project//llvm:ARMCodeGen",  # fixdeps: keep
@@ -2498,7 +2501,7 @@ tf_cc_binary(
         "@local_config_cuda//cuda:cuda_headers",
         "@local_config_cuda//cuda:cuda_driver",
     ]) + if_rocm_is_configured([
-	"//tensorflow/stream_executor/rocm:rocm_driver",
+	"@org_tensorflow//tensorflow/stream_executor/rocm:rocm_driver",
     ]),
 )
 
@@ -2539,13 +2542,13 @@ transitive_hdrs(
     deps = [
         ":disc_map_chlo_to_hlo_op",
         ":mhlo_disc",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//tensorflow/compiler/mlir/xla/ral:ral_base_cpu_context_impl",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:ral_base_cpu_context_impl",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:IR",
     ] + if_cuda_or_rocm([
-        "//tensorflow/compiler/mlir/xla/ral:ral_base_cuda_context_impl",
+        "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:ral_base_cuda_context_impl",
     ]),
     visibility = ["//visibility:public"],
 )
@@ -2592,7 +2595,7 @@ gentbl_cc_library(
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/disc_shape_ops.td",
     deps = [
-        "//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
     ],
 )
 
@@ -2645,7 +2648,7 @@ gentbl_cc_library(
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/disc_ral_ops.td",
     deps = [
-        "//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
     ],
 )
 
@@ -2681,10 +2684,23 @@ cc_library(
     alwayslink = 1,
 )
 
+td_library(
+    name = "disc_tf_additional_ops_files",
+    srcs = [
+        "IR/disc_tf_additional_ops.td",
+    ],
+    compatible_with = get_compatible_with_cloud(),
+    deps = [
+        "@llvm-project//mlir:OpBaseTdFiles",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
+    ],
+)
+
 gentbl_cc_library(
     name = "disc_tf_additional_ops_gen",
     compatible_with = get_compatible_with_cloud(),
     strip_include_prefix = "",
+    #includes = ["@org_tensorflow//tensorflow"],
     tbl_outs = [
         (
             ["-gen-op-decls"],
@@ -2697,12 +2713,12 @@ gentbl_cc_library(
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/disc_tf_additional_ops.td",
-    td_srcs = [
-        "//tensorflow/compiler/mlir/tensorflow:ir/tf_op_base.td",
-        "//tensorflow/compiler/mlir/tensorflow:ir/tf_op_interfaces.td",
-    ],
+    #td_srcs = [
+    #    "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:ir/tf_op_base.td",
+    #    "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:ir/tf_op_interfaces.td",
+    #],
     deps = [
-        "@llvm-project//mlir:OpBaseTdFiles",
+        ":disc_tf_additional_ops_files",
     ],
 )
 
@@ -2716,7 +2732,7 @@ cc_library(
     ],
     deps = [
         ":disc_tf_additional_ops_gen",
-        "//tensorflow/compiler/mlir/tensorflow",
+        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow",
     ],
     alwayslink = 1,
 )

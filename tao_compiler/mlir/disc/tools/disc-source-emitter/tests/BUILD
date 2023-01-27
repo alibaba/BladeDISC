@@ -1,4 +1,4 @@
-load("//tensorflow:tensorflow.bzl", "filegroup")
+load("@org_tensorflow//tensorflow:tensorflow.bzl", "filegroup")
 load("//tensorflow/compiler/mlir/disc:glob_lit_test.bzl", "glob_lit_tests")
 
 package(licenses = ["notice"])

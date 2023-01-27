@@ -279,8 +279,8 @@ def configure(root, args):
 
 @time_stage()
 def build_tao_compiler(root, args):
-    BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
-    TARGET_TAO_COMPILER_MAIN = "//tensorflow/compiler/decoupling:tao_compiler_main"
+    BAZEL_BUILD_CMD = "bazel build --verbose_failures --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
+    TARGET_TAO_COMPILER_MAIN = "//decoupling:tao_compiler_main"
     TARGET_DISC_OPT = "//tensorflow/compiler/mlir/disc:disc-opt"
     TARGET_DISC_REPLAY = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-main"
 
@@ -296,12 +296,12 @@ def build_tao_compiler(root, args):
         logger.info("Building bazel target: " + target)
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
 
-    with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
-        execute(
-            "cp -f -p {}/tao*.proto tensorflow/compiler/decoupling/".format(
-                tao_bridge_dir(root)
-            )
-        )
+    with cwd(os.path.join(root, "tao_compiler")), gcc_env(args.compiler_gcc):
+        #execute(
+        #    "cp -f -p {}/tao*.proto tensorflow/compiler/decoupling/".format(
+        #        tao_bridge_dir(root)
+        #    )
+        #)
 
         if args.cpu_only:
             if args.aarch64:
@@ -338,10 +338,10 @@ def build_tao_compiler(root, args):
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
         # TODO:(fl237079) Support disc_replay for rocm version
-        if not args.rocm and not args.dcu:
-            bazel_build(TARGET_DISC_REPLAY, flag=flag)
+        #if not args.rocm and not args.dcu:
+        #    bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
-            "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/tensorflow/compiler/decoupling/".format(
+            "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/decoupling/".format(
                 root
             )
         )
@@ -350,7 +350,7 @@ def build_tao_compiler(root, args):
 
 @time_stage()
 def test_tao_compiler(root, args):
-    BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
+    BAZEL_BUILD_CMD = "bazel build --verbose_failures --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
     BAZEL_TEST_CMD = "bazel test --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
     BAZEL_TEST_CMD += ci_build_flag()
     BAZEL_BUILD_CMD += ci_build_flag()
@@ -394,9 +394,9 @@ def test_tao_compiler(root, args):
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
         execute(" ".join([BAZEL_TEST_CMD, flag + ' --test_env=TF_CPP_VMODULE=disc_compiler=1,disc_transform_legalize_to_loop=1 --test_env=TF_ENABLE_ONEDNN_OPTS=0' , target]))
 
-    with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
+    with cwd(os.path.join(root, "tao_compiler")), gcc_env(args.compiler_gcc):
         execute(
-            "cp -f -p {}/tao*.proto tensorflow/compiler/decoupling/".format(
+            "cp -f -p {}/tao*.proto decoupling/".format(
                 tao_bridge_dir(root)
             )
         )
@@ -414,8 +414,8 @@ def test_tao_compiler(root, args):
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
             ] + TARGET_DISC_RAL_TESTS \
-              + TARGET_DISC_PDLL_TESTS \
-              + TARGET_DISC_TRANSFORM_DIALECT_TESTS
+              + TARGET_DISC_TRANSFORM_DIALECT_TESTS \
+              + TARGET_DISC_PDLL_TESTS 
             MLIR_TESTS = " ".join(mlir_test_list)
             bazel_test(MLIR_TESTS, flag=flag)
         else:
@@ -436,7 +436,7 @@ def test_tao_compiler(root, args):
                 TARGET_DISC_IR_TEST,
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
-                TARGET_DISC_REPLAY_TEST,
+                #TARGET_DISC_REPLAY_TEST,
             ] + TARGET_DISC_RAL_TESTS \
               + TARGET_DISC_PDLL_TESTS \
               + TARGET_DISC_CUDA_SOURCE_TESTS \

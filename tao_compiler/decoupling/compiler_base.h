@@ -12,8 +12,8 @@
 #ifndef TENSORFLOW_COMPILER_DECOUPLING_MLIR_COMPILER_BASE_H_
 #define TENSORFLOW_COMPILER_DECOUPLING_MLIR_COMPILER_BASE_H_
 
-#include "tensorflow/compiler/decoupling/tao_compilation_result.pb.h"
-#include "tensorflow/compiler/decoupling/tao_compiler_input.pb.h"
+#include "decoupling/tao_compilation_result.pb.h"
+#include "decoupling/tao_compiler_input.pb.h"
 #include "tensorflow/compiler/xla/statusor.h"
 #include "tensorflow/compiler/xla/util.h"
 #include "tensorflow/core/framework/types.h"

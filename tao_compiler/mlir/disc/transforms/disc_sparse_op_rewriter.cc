@@ -307,7 +307,7 @@ struct DiscSparseOpRewriterPass
 
 bool initSparseSegmentReductionRewrite() {
   const char* env = getenv("DISC_ENABLE_SPARSE_SEGMENT_REDUCTION_REWRITE");
-  if (!env) return false;
+  if (!env) return true;
   std::string envStr = env;
   std::transform(envStr.begin(), envStr.end(), envStr.begin(),
                  [](unsigned char c) { return std::tolower(c); });

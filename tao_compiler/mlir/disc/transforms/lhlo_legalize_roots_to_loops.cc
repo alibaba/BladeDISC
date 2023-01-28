@@ -4483,8 +4483,8 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
   {
     Value num_indices = b.create<memref::DimOp>(loc, indices, 0);
     auto for_op = b.create<scf::ParallelOp>(loc, /* lowerBound */ zero,
-                                       /* upperBound */ num_indices,
-                                       /* step */ one);
+                                            /* upperBound */ num_indices,
+                                            /* step */ one);
     for_op.getBody()->clear();
     b.setInsertionPointToStart(for_op.getBody());
     Value i = for_op.getInductionVars()[0];
@@ -4748,18 +4748,21 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
     ArrayRef<Operation*> root_ops, Operation* dominant_op,
     Block* parent = nullptr, bool non_fusion = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
-  if (!(root_ops.size() == 1 &&
-        isa<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(root_ops[0]))) {
-    return dominant_op->emitError()
-           << "root_ops[0] is not a "
-              "lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp";
+
+  if (non_fusion) {
+    if (!(root_ops.size() == 1 &&
+          isa<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(root_ops[0]))) {
+      return dominant_op->emitError()
+             << "root_ops[0] is not a "
+                "lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp";
+    }
   }
   auto sparse_segment_reduction_op =
-      dyn_cast<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(root_ops[0]);
+      dyn_cast<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(non_fusion ? root_ops[0] : dominant_op);
   if (!sparse_segment_reduction_op) {
     return dominant_op->emitError()
-           << "can not cast root_ops[0] to "
-              "lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp"
+           << "can not cast root_ops or dominant_op to "
+              "lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp "
               "or lmhlo_disc::SparseSegmentSumOp";
   }
 
@@ -4962,10 +4965,14 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
 
     b.setInsertionPointAfter(parallel_op);
   }
-  b.setInsertionPoint(operation);
+  b.setInsertionPointAfter(operation);
 
   // TODO: Support fusion
-  for (Operation* root_op : root_ops) root_op->erase();
+  if (non_fusion) {
+    for (Operation* root_op : root_ops) root_op->erase();
+  } else {
+    // TODO
+  }
   return success();
 }
 
@@ -5365,6 +5372,12 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion,
       break;
     case FusionType::kWhere:
       if (failed(lowerWithScheduleWhereOpCPU(root_ops, dominant_op, fused_block,
+                                             /*non_fusion*/ false))) {
+        return dominant_op->emitError() << "failed to lower to loops";
+      }
+      break;
+    case FusionType::kSparseReduction:
+      if (failed(lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(root_ops, dominant_op, fused_block,
                                              /*non_fusion*/ false))) {
         return dominant_op->emitError() << "failed to lower to loops";
       }

@@ -120,6 +120,8 @@ enum FusionType {
   kWhere,
   // transform dialect based codegen fusion pattern
   kTransform,
+  // sparse reduction op fusion
+  kSparseReduction,
 };
 
 FusionType getFusionType(Operation* op);
@@ -380,6 +382,9 @@ class FusionPattern : public FusionPatternBase {
 };
 
 void dumpFusionPattern(FusionPattern& pattern);
+
+// Returns true if the FusionPattern type is in {kWhere, kSparseReduction}.
+bool isSparseFusion(FusionPattern& fp);
 
 // The basic approch to init fusion pattern.
 bool initFusionPatternBase(ShapeAnalysis& shapeAnalysis,
@@ -778,7 +783,6 @@ class SparseOpCpuFusionStrategy : public FusionStrategy {
  public:
   SparseOpCpuFusionStrategy(const FusionOptions& options)
       : FusionStrategy(options) {
-    llvm::dbgs() << "xtm \n";
   }
 
   virtual bool isFusible(Operation* op) override;

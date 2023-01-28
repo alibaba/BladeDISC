@@ -193,6 +193,8 @@ StringRef fusionTypeToString(FusionType ft) {
       return "kWhere";
     case FusionType::kTransform:
       return "kTransform";
+    case FusionType::kSparseReduction:
+      return "kSparseReduction";
     default:
       assert(false && "unknown fusion type");
       return "";
@@ -221,6 +223,8 @@ FusionType fusionTypeFromString(StringRef ft) {
     return FusionType::kWhere;
   } else if (ft == "kTransform") {
     return FusionType::kTransform;
+  } else if (ft == "kSparseReduction") {
+    return FusionType::kSparseReduction;
   }
 
   assert(false && "unknown fusion type");
@@ -471,6 +475,11 @@ bool isFusible(Operation* op) {
   // clang-format on
 }
 
+bool isSparseFusion(FusionPattern& fp) {
+  return fp.getFusionType() == FusionType::kWhere ||
+         fp.getFusionType() == FusionType::kSparseReduction;
+}
+
 bool initFusionPatternBase(ShapeAnalysis& shapeAnalysis,
                            FusionPattern& fusion_pattern) {
   Operation* inferredDominantOp = nullptr;
@@ -691,7 +700,8 @@ FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
     strategyStr = "dot";
   } else if (fusionType == FusionType::kTransform) {
     strategyStr = "transform_based";
-  } else if (fusionType == FusionType::kWhere) {
+  } else if (fusionType == FusionType::kWhere ||
+             fusionType == FusionType::kSparseReduction) {
     strategyStr = "sparse_base";
   }
   FusionStrategy& strategy =
@@ -1101,8 +1111,7 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
     return true;
   }
 
-  if (rhs.getFusionType() != FusionType::kWhere &&
-      lhs.getFusionType() != FusionType::kWhere) {
+  if (!isSparseFusion(rhs) && !isSparseFusion(lhs)) {
     Value ref_shape = getEffectiveShape(target, results[0]);
     if (!llvm::all_of(results, [&](Value result) {
           Value shape = getEffectiveShape(target, result);
@@ -1113,7 +1122,7 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
       return false;
     }
   } else {
-    // Do not handle kWhere fusion here.
+    // Do not handle sparse fusion here.
     return false;
   }
 

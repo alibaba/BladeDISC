@@ -141,6 +141,12 @@ bool miscFuseHelper<lmhlo::DynamicReshapeOp>(
   return true;
 }
 
+bool isSparseFusion(Operation* op) {
+  return (isFusionType<FusionType::kWhere>(op) ||
+          isFusionType<FusionType::kSparseReduction>(op)
+          ) && !isOnGpu(op);
+}
+
 // Currently we do not actually need lower_config, just leave here for potential
 // future works.
 class OutputInlineFusionPattern : public RewritePattern {
@@ -153,8 +159,8 @@ class OutputInlineFusionPattern : public RewritePattern {
 
   LogicalResult matchAndRewrite(Operation* op,
                                 PatternRewriter& rewriter) const override {
-    // Currently only support cpu kWhere fusions.
-    if (!isFusionType<FusionType::kWhere>(op) || isOnGpu(op)) return failure();
+    // Currently only support cpu sparse fusions.
+    if (!isSparseFusion(op)) return failure();
 
     // skip if not the most outter ParallelOp
     auto fusion = cast<lmhlo::FusionOp>(op);
@@ -291,6 +297,8 @@ class OutputInlineFusionPattern : public RewritePattern {
     if (miscFuseHelper<lmhlo::DynamicReshapeOp>(rewriter, parallel_op, consumer,
                                                 store_op, store_ops) ||
         miscFuseHelper<lmhlo::DynamicGatherOp>(rewriter, parallel_op, consumer,
+                                               store_op, store_ops) ||
+        miscFuseHelper<lmhlo::DynamicBroadcastInDimOp>(rewriter, parallel_op, consumer,
                                                store_op, store_ops)) {
       return success();
     }

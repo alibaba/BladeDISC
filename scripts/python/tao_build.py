@@ -297,11 +297,11 @@ def build_tao_compiler(root, args):
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
 
     with cwd(os.path.join(root, "tao_compiler")), gcc_env(args.compiler_gcc):
-        #execute(
-        #    "cp -f -p {}/tao*.proto tensorflow/compiler/decoupling/".format(
-        #        tao_bridge_dir(root)
-        #    )
-        #)
+        execute(
+            "cp -f -p {}/tao*.proto decoupling/".format(
+                tao_bridge_dir(root)
+            )
+        )
 
         if args.cpu_only:
             if args.aarch64:

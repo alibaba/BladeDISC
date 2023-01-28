@@ -16,7 +16,7 @@
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 
 #include "llvm/Support/SourceMgr.h"
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
 
 #include "pytorch_blade/common_utils/logging.h"
 #include "pytorch_blade/common_utils/utils.h"

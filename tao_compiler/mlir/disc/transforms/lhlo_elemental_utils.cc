@@ -16,7 +16,7 @@ limitations under the License.
 // This file provides basic utilities for the elemental lowering of
 // each node
 
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
 
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
@@ -32,10 +32,10 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 using mlir::memref::DimOp;
 using mlir::memref::LoadOp;

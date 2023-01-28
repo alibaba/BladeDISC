@@ -15,12 +15,12 @@
 // limitations under the License.
 // =============================================================================
 
-#include "tensorflow/compiler/mlir/xla/ral/context/base/base_context.h"
+#include "mlir/xla/ral/context/base/base_context.h"
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
+#include "mlir/xla/ral/context/common_context_impl.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/ral_logging.h"
 #include "third_party/eigen3/Eigen/Core"
 
 namespace tao {

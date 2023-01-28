@@ -13,14 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/tests/mlir_feature_test.h"
-#include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
+#include "mlir/disc/tests/mlir_feature_test.h"
+#include "mlir/disc/tests/mlir_test.h"
 #include "tensorflow/core/platform/test.h"
 
 namespace mlir_test {
 
-const std::string c_ft_path =
-    "tensorflow/compiler/mlir/disc/tests/tensorflow_ops/data/";
+const std::string c_ft_path = "mlir/disc/tests/tensorflow_ops/data/";
 
 // TODO(disc): re-enable after we support general cases of dot_general op.
 // Currently tf2mhlo converter using tf2xla bridge to convert tf.MatMulV2Op

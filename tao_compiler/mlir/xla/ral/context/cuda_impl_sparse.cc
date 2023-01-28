@@ -15,10 +15,10 @@
 #include <sstream>
 #include <thread>
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
+#include "mlir/xla/ral/context/common_context_impl.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/context/stream_executor_based_impl.h"
+#include "mlir/xla/ral/device/gpu/gpu_driver.h"
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 #include "bladnn/bladnn.h"

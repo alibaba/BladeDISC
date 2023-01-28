@@ -9,13 +9,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/dynamic_sort_impl.h"
+#include "mlir/xla/ral/context/dynamic_sort_impl.h"
 
 #include <vector>
 
-#include "tensorflow/compiler/mlir/xla/ral/context/custom_library/dynamic_sort.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
+#include "mlir/xla/ral/context/custom_library/dynamic_sort.h"
+#include "mlir/xla/ral/device/gpu/gpu_driver.h"
+#include "mlir/xla/ral/ral_driver.h"
 
 using tao::ral::buffer_t;
 using tao::ral::Context;

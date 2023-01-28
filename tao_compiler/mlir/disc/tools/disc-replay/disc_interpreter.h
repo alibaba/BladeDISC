@@ -12,8 +12,8 @@
 #ifndef DISC_REPLAY_DISC_INTERPRETER_H_
 #define DISC_REPLAY_DISC_INTERPRETER_H_
 
+#include "mlir/disc/tools/disc-replay/record.h"
 #include "tensorflow/compiler/decoupling/mlir_compiler.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-replay/record.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_api.h"
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)

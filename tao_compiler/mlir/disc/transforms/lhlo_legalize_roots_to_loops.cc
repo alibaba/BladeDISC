@@ -35,15 +35,15 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/input_inline_fusion_pattern.h"
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/IR/disc_shape_ops.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/input_inline_fusion_pattern.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
@@ -228,7 +228,7 @@ LogicalResult lowerHelper(OpBuilder& b, Location loc, Operation* op,
                           LowerConfig* lower_config = nullptr) {
   if (succeeded(elemwiseLowerHelperOr<
 #define GET_SUPPORTED_OP_LIST
-#include "tensorflow/compiler/mlir/disc/transforms/disc_supported_list.h.inc"
+#include "mlir/disc/transforms/disc_supported_list.h.inc"
                 >(b, loc, op, output_linear_index, shape_analysis, vector_size,
                   lower_config)) ||
       // clang-format off

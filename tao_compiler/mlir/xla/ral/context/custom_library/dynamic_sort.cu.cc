@@ -9,8 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/custom_library/dynamic_sort.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/custom_library/tf_topk.cu.h"
+#include "mlir/xla/ral/context/custom_library/dynamic_sort.h"
+#include "mlir/xla/ral/context/custom_library/tf_topk.cu.h"
 
 // tensorflow top-k impl
 template <typename T>

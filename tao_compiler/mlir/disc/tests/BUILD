@@ -3,7 +3,7 @@ load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda_is_configured",)
 load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured",)
 load("@org_tensorflow//tensorflow/core/platform:build_config.bzl", "tf_proto_library",)
 load("@org_tensorflow//tensorflow/core/platform:build_config_root.bzl", "if_static")
-load("//tensorflow/compiler/mlir/util:util.bzl", "disc_cc_library")
+load("//mlir/util_library")
 
 # buildifier: disable=same-origin-load
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "get_compatible_with_cloud")

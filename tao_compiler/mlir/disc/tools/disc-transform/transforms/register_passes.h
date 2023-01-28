@@ -17,13 +17,13 @@ limitations under the License.
 #define DISC_TOOLS_DISC_TRANSFORM_TRANSFORMS_REGISTER_PASSES_H_
 
 #include "mlir/Pass/Pass.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/passes.h"
+#include "mlir/disc/tools/disc-transform/transforms/passes.h"
 
 namespace mlir {
 namespace disc_ral {
 
 #define GEN_PASS_REGISTRATION
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/transform_passes.h.inc"
+#include "mlir/disc/tools/disc-transform/transforms/transform_passes.h.inc"
 
 inline void registerAllDiscTransformPasses() { registerDISCTransformPasses(); }
 

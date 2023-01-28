@@ -46,6 +46,6 @@ class LmhloDiscDialect : public Dialect {
 }  // end namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h.inc"
+#include "mlir/disc/IR/lhlo_disc_ops.h.inc"
 
 #endif  //  MLIR_DISC_IR_LHLO_DISC_OPS_H_

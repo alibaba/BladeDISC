@@ -18,12 +18,13 @@ load("@org_tensorflow//tensorflow/core/platform:build_config_root.bzl", "if_stat
 load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library", "gentbl_filegroup", "td_library")
 load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda_is_configured")
 load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured")
-load("//tensorflow/compiler/mlir/util:util.bzl",
+load("//mlir/util:util.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
      "if_skip_compute_intensive_fusion",
 )
-load("//tensorflow/compiler/mlir/util:util.bzl", "if_torch_disc")
+load("//mlir/util:util.bzl", "if_torch_disc")
+
 
 package(
     default_visibility = ["//visibility:public"],
@@ -790,7 +791,7 @@ cc_library(
         ":disc_util",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/mlir/xla/ral:ral_metadata",
+        "//mlir/xla/ral:ral_metadata",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@org_tensorflow//tensorflow/core/platform:env",
         "@llvm-project//llvm:Core",
@@ -1202,6 +1203,7 @@ gentbl_cc_library(
         "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
         "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_optimize_td_files",
     ],
+    includes=["external/org_tensorflow"],
     deps = [
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
         "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
@@ -2043,8 +2045,8 @@ cc_library(
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
-        "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
-        "//tensorflow/compiler/mlir/disc/tools/disc-transform:DISCLinalgExtDialect",
+        "//mlir/disc/tools/disc-transform:all_passes",
+        "//mlir/disc/tools/disc-transform:DISCLinalgExtDialect",
         "@org_tensorflow//tensorflow/tsl/platform:logging",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AffineDialect",
@@ -2147,7 +2149,7 @@ cc_library(
         ":disc_function_dead_argument_elimination",
         ":disc_side_effect_loop_invariant_code_motion",
         ":disc_unhandled_atomic_rmw_converter",
-        "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
+        "//mlir/disc/tools/disc-transform:all_passes",
         "@llvm-project//mlir:Pass",
     ],
     alwayslink = 1,
@@ -2156,8 +2158,7 @@ cc_library(
 tf_cc_binary(
     name = "disc-opt",
     srcs = [
-        #"tools/disc-opt/disc-opt.cc",
-        "//tensorflow/compiler/mlir/disc/tools:disc-opt/disc-opt.cc"
+        "//mlir/disc/tools:disc-opt/disc-opt.cc"
     ],
     deps = [
         ":all_passes",
@@ -2182,7 +2183,7 @@ tf_cc_binary(
     name = "disc-pdll",
     srcs = [
         #"tools/disc-pdll/disc-pdll.cc",
-        "//tensorflow/compiler/mlir/disc/tools:disc-pdll/disc-pdll.cc",
+        "//mlir/disc/tools:disc-pdll/disc-pdll.cc",
     ],
     deps = [
         ":disc_pdl_utils",
@@ -2201,7 +2202,7 @@ tf_cc_binary(
 tf_cc_binary(
     name = "disc-source-emitter",
     srcs = [
-        "//tensorflow/compiler/mlir/disc/tools:disc-source-emitter/disc-cuda-emitter.cc"
+        "//mlir/disc/tools:disc-source-emitter/disc-cuda-emitter.cc"
     ],
     deps = [
         ":source_emitter",
@@ -2543,7 +2544,7 @@ transitive_hdrs(
         ":disc_map_chlo_to_hlo_op",
         ":mhlo_disc",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:ral_base_cpu_context_impl",
+        "//mlir/xla/ral:ral_base_cpu_context_impl",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:IR",

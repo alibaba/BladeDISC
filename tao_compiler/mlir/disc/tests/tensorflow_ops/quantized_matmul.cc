@@ -13,14 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/tests/mlir_feature_test.h"
-#include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
+#include "mlir/disc/tests/mlir_feature_test.h"
+#include "mlir/disc/tests/mlir_test.h"
 #include "tensorflow/core/platform/test.h"
 
 namespace mlir_test {
 
-const std::string c_ft_path =
-    "tensorflow/compiler/mlir/disc/tests/tensorflow_ops/data/";
+const std::string c_ft_path = "mlir/disc/tests/tensorflow_ops/data/";
 
 TEST(TFQuantziedMatMul, STATIC_SHAPE_I8_PER_CHANNEL) {
   std::vector<float> inputs(4 * 25, -0.6);

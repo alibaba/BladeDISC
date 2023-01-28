@@ -25,6 +25,7 @@ td_library(
     srcs = glob([
         "LinalgExt/*.td",
     ]),
+    includes=["external/org_tensorflow"],
     deps = [
         "@llvm-project//mlir:BuiltinDialectTdFiles",
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
@@ -336,7 +337,7 @@ cc_library(
     srcs = ["transforms/rewrite_payload_ir_for_ral.cc"],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/mlir/disc:placement_utils",
+        "//mlir/disc:placement_utils",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",

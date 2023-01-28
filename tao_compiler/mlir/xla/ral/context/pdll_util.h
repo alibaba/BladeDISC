@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
+#include "mlir/xla/ral/ral_context.h"
 
 namespace tao {
 namespace ral {

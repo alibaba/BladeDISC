@@ -12,7 +12,7 @@
 #ifndef DISC_DIALECT_LINALGEXT_INTERFACES
 #define DISC_DIALECT_LINALGEXT_INTERFACES
 
-include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtBase.td"
+include "external/org_tensorflow/tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtBase.td"
 
 // The interface is a subset of LinalgStructuredInterface.
 def LinalgExtInterface : OpInterface<"LinalgExtOp"> {

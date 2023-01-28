@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtInterfaces.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtInterfaces.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -42,7 +42,7 @@ LogicalResult verifyLinalgExtOpInterface(Operation* op) {
 
 }  // namespace detail
 
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOpInterfaces.cc.inc"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOpInterfaces.cc.inc"
 
 template <typename Ty, typename DimOpTy>
 static void getDimValues(OpBuilder& b, Location loc, Value v, Ty t,

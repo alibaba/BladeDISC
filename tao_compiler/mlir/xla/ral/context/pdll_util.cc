@@ -9,9 +9,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/pdll_util.h"
+#include "mlir/xla/ral/context/pdll_util.h"
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
+#include "mlir/xla/ral/ral_logging.h"
 
 namespace tao {
 namespace ral {

@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
+#include "mlir/disc/tests/mlir_test.h"
 
 #include <dlfcn.h>
 
@@ -221,7 +221,7 @@ MlirTest::MlirTest(const std::string& mlir_file_path,
       &tf_opt_path_);
 
   ReadStringFromEnvVar("DHLO_COMPILER_MAIN_PATH",
-                       "tensorflow/compiler/mlir/disc/disc_compiler_main",
+                       "mlir/disc/disc_compiler_main",
                        &dhlo_compiler_main_path_);
 
   ReadStringFromEnvVar(

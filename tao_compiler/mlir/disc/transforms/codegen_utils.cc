@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/codegen_utils.h"
 
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -22,8 +22,8 @@ limitations under the License.
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Dominance.h"
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
+#include "mlir/disc/IR/disc_shape_ops.h"
+#include "mlir/disc/disc_util.h"
 
 using mlir::memref::DimOp;
 

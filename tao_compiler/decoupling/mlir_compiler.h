@@ -14,7 +14,7 @@
 
 #include "decoupling/compiler_base.h"
 #include "mlir/IR/BuiltinOps.h"
-#include "tensorflow/compiler/mlir/disc/disc_compiler.h"
+#include "mlir/disc/disc_compiler.h"
 
 namespace llvm {
 class InitLLVM;

@@ -21,7 +21,7 @@ load(
     "@com_google_protobuf//:protobuf.bzl",
     "cc_proto_library",
 )
-load("//tensorflow/compiler/mlir/util:util.bzl",
+load("//mlir/util:util.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
      "if_platform_alibaba",
@@ -623,12 +623,12 @@ tf_cc_shared_object(
         "//conditions:default": [
             "-z defs",
             "-Wl,--version-script",  #  This line must be directly followed by the version_script.lds file
-            "$(location //tensorflow/compiler/mlir/xla/ral:context_version_scripts.lds)",
+            "$(location //mlir/xla/ral:context_version_scripts.lds)",
         ],
     }),
     deps = [
         ":ral_base_cpu_context_impl",
-        "//tensorflow/compiler/mlir/xla/ral:context_version_scripts.lds",
+        "//mlir/xla/ral:context_version_scripts.lds",
     ] + if_cuda_or_rocm([
         ":ral_base_cuda_context_impl",
     ]))

@@ -9,15 +9,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/transforms/input_inline_fusion_pattern.h"
+#include "mlir/disc/transforms/input_inline_fusion_pattern.h"
 
 #include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/codegen_utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -243,7 +243,7 @@ LogicalResult InputInlineFusionPattern::inlineFuseLhloOp(
     LowerConfig* lower_config) const {
   if (elemwiseFuseHelperOr<
 #define GET_SUPPORTED_OP_LIST
-#include "tensorflow/compiler/mlir/disc/transforms/disc_supported_list.h.inc"
+#include "mlir/disc/transforms/disc_supported_list.h.inc"
           >(b, user, producer, load_op, load_ops, lower_config) ||
       // TODO(disc): Upstream is on the way for more Ops
       miscFuseHelper<BroadcastInDimOp>(b, user, producer, load_op, load_ops,

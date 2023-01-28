@@ -20,11 +20,11 @@
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/Pass/Pass.h"       // TF:local_config_mlir
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/core/util/env_var.h"
 
 namespace mlir {

@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/transforms/disc_pdl_utils.h"
+#include "mlir/disc/transforms/disc_pdl_utils.h"
 
 #include <cstring>
 #include <unordered_map>
@@ -32,7 +32,7 @@ limitations under the License.
 #include "mlir/Tools/PDLL/CodeGen/MLIRGen.h"
 #include "mlir/Tools/PDLL/ODS/Context.h"
 #include "mlir/Tools/PDLL/Parser/Parser.h"
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/tsl/platform/default/logging.h"
 
 #define DEBUG_TYPE "disc-pdl-utils"

@@ -23,7 +23,7 @@ limitations under the License.
 #include "mlir/IR/Builders.h"           // from @llvm-project
 #include "mlir/IR/BuiltinAttributes.h"  // from @llvm-project
 #include "mlir/IR/BuiltinTypes.h"
-#include "tensorflow/compiler/mlir/disc/utils/cycle_detector.h"
+#include "mlir/disc/utils/cycle_detector.h"
 
 namespace mlir {
 namespace disc_ral {

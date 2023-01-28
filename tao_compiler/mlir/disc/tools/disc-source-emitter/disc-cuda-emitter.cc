@@ -18,7 +18,7 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
-#include "tensorflow/compiler/mlir/disc/utils/source_emitter.h"
+#include "mlir/disc/utils/source_emitter.h"
 
 using namespace mlir;
 

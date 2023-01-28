@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
+#include "mlir/disc/tests/mlir_test.h"
 
 namespace mlir_test {
 

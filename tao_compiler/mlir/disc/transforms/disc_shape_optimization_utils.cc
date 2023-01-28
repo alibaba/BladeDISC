@@ -16,7 +16,7 @@ limitations under the License.
 // This file implements the logic to do some shape optimizations on tensor
 // level.
 
-#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
+#include "mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 #include <algorithm>
 
@@ -30,9 +30,9 @@ limitations under the License.
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/IR/disc_shape_ops.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
 
 #define DEBUG_TYPE "disc-shape-optimization-utils"
 

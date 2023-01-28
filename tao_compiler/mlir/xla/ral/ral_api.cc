@@ -15,12 +15,12 @@
 // limitations under the License.
 // =============================================================================
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_api.h"
+#include "mlir/xla/ral/ral_api.h"
 
 #include <iostream>
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
+#include "mlir/xla/ral/ral_context.h"
+#include "mlir/xla/ral/ral_logging.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/tests/mlir_feature_test.h"
+#include "mlir/disc/tests/mlir_feature_test.h"
 
 #include <stdio.h>
 

@@ -15,7 +15,7 @@
 // limitations under the License.
 // ============================================================================
 
-#include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
+#include "mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -26,13 +26,13 @@
 #include <unordered_set>
 #include <vector>
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/init_stream_executor.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
+#include "mlir/xla/ral/context/common_context_impl.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/context/init_stream_executor.h"
+#include "mlir/xla/ral/context/stream_executor_based_impl.h"
+#include "mlir/xla/ral/ral_driver.h"
+#include "mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/ral_logging.h"
 #include "tensorflow/compiler/xla/stream_executor/gpu/gpu_types.h"
 
 #if TENSORFLOW_USE_ROCM

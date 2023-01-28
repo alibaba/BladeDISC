@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
+#include "mlir/disc/tools/disc-transform/utils.h"
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"

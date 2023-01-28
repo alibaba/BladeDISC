@@ -14,8 +14,8 @@
 
 #include <algorithm>
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
+#include "mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/ral_logging.h"
 
 namespace tao {
 namespace ral {

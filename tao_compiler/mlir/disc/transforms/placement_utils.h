@@ -18,7 +18,7 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/MLIRContext.h"            // TF:llvm-project
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
 
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_PLACEMENT_UTILS_H_
 #define TENSORFLOW_COMPILER_MLIR_XLA_PLACEMENT_UTILS_H_

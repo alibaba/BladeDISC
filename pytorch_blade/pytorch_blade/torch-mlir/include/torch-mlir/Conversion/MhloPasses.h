@@ -25,7 +25,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 
 namespace mlir {

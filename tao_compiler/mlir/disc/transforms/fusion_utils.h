@@ -25,8 +25,8 @@ limitations under the License.
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/transforms/shape_utils.h"
 
 #define DEBUG_TYPE "disc-fusion-utils"
 

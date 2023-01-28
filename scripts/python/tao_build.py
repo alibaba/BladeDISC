@@ -362,7 +362,7 @@ def test_tao_compiler(root, args):
         BAZEL_TEST_CMD += " --java_runtime_version=remotejdk_11"
         BAZEL_BUILD_CMD += " --java_runtime_version=remotejdk_11"
 
-    TARGET_DISC_IR_TEST = "//tensorflow/compiler/mlir/disc/IR/tests/..."
+    TARGET_DISC_IR_TEST = "//mlir/disc/IR/tests/..."
     TARGET_DISC_TRANSFORMS_TEST = "//tensorflow/compiler/mlir/disc/transforms/tests/..."
     TARGET_DISC_E2E_TEST = "//tensorflow/compiler/mlir/disc/tests/..."
     TARGET_DISC_RAL_TESTS = [
@@ -640,7 +640,7 @@ def make_package(root, args):
         generate_build_info(build_info_file)
 
         F_TAO_COMPILER_MAIN = (
-            "./tf_community/bazel-bin/tensorflow/compiler/decoupling/tao_compiler_main"
+            "./tao_compiler/bazel-bin/decoupling/tao_compiler_main"
         )
         F_TAO_OPS_SO = "./tao/bazel-bin/libtao_ops.so"
         F_PTXAS = "./tao/third_party/ptxas/10.2/ptxas"

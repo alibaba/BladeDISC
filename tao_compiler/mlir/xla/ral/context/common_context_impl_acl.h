@@ -30,12 +30,12 @@
 #include "arm_compute/runtime/NEON/NEFunctions.h"
 #include "arm_compute/runtime/NEON/functions/NEActivationLayer.h"
 #include "arm_compute/runtime/NEON/functions/NEPermute.h"
+#include "mlir/xla/ral/context/common_context_impl.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/ral_base.h"
+#include "mlir/xla/ral/ral_helper.h"
 #include "src/core/helpers/MemoryHelpers.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 
 namespace arm_compute {
 

@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
@@ -42,7 +42,7 @@
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Support/MathExtras.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -411,4 +411,4 @@ void DISCLinalgExtDialect::getCanonicalizationPatterns(
 }  // namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.cc.inc"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.cc.inc"

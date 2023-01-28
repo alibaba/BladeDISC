@@ -38,10 +38,10 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
+#include "mlir/disc/tools/disc-transform/transforms/PassDetail.h"
+#include "mlir/disc/tools/disc-transform/utils.h"
 
 #define DEBUG_TYPE "disc-transform-dialect-interpreter"
 

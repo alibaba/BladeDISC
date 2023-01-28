@@ -322,8 +322,9 @@ std::string getTorchPredefinedPDLPatterns() {
       };
     }
 
+    Pattern TorchDiffusersProjectionAttentionTransFP16CastGraph {
+        /// match phase: define the pattern
 
-    Pattern TorchAttentionTransFP16CastGraphTRT {
         // q projection
         let q_project = op<torch.aten.linear>(
             x: Value,
@@ -365,12 +366,12 @@ std::string getTorchPredefinedPDLPatterns() {
         );
         //
 
-        /// match phase: define the pattern
         let transpose_op = op<torch.aten.transpose.int>(
             k_permute_reshape.0,
             int1: Value,
             int2: Value
         );
+
         let matmul_qk_op = op<torch.aten.baddbmm>(
             empty: Value,
             q_permute_reshape.0,
@@ -428,7 +429,7 @@ std::string getTorchPredefinedPDLPatterns() {
             permute_o_list: Value
         );
 
-        let reshape_transpose_o_op = op <torch.aten.reshape>(
+        let reshape_transpose_o_op = op<torch.aten.reshape>(
             permute_o_op.0,
             reshape_transpose_o_list: Value
         );
@@ -439,22 +440,40 @@ std::string getTorchPredefinedPDLPatterns() {
 
         CheckTorchQkvWeightEqual(q_weight, k_weight, v_weight);
 
+        // CheckTorchQkvWeightShapeEqual(q_weight, k_weight, v_weight);
+
         /// rewrite phase
         rewrite reshape_transpose_o_op with {
 
+        let concat_dim = op<torch.constant.int> {value = attr<"-1">} -> (type<"!torch.int">);
+        let concat_input = PackValue_3(attr<"\"concat_input\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+
+        let concat_type = InferTorchAtenTensorCatType(concat_dim, concat_input);
+
+        let concat_operand_list = op<torch.prim.ListConstruct>(
+            q_reshape.0,
+            k_reshape.0,
+            v_reshape.0
+        ) -> (type<"!torch.list<vtensor>">);
+
+        let qkv_concat = op<torch.aten.cat>(
+            concat_operand_list.0,
+            concat_dim
+        ) -> (concat_type);
+
         /// 1. create custom call op
-        let inputs = PackValue_3(attr<"\"in\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+        let inputs = PackValue_1(attr<"\"in\"">, qkv_concat.0);
         let outputs = PackValue_1(attr<"\"out\"">, reshape_transpose_o_op.0);
         let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
 
         /// 2. set attrs that are used by bladedisc.
-        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha\"">);
-        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_no_pack\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
-        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*\"">);
         SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
-        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*\"">);
         SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
 
         let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
@@ -465,7 +484,9 @@ std::string getTorchPredefinedPDLPatterns() {
         };
     }
 
-    Pattern TorchAttentionTransFP16NoCastGraphTRT {
+    Pattern TorchDiffusersProjectionAttentionTransFP16NoCastGraph {
+        /// match phase: define the pattern
+
         // q projection
         let q_project = op<torch.aten.linear>(
             x: Value,
@@ -507,12 +528,12 @@ std::string getTorchPredefinedPDLPatterns() {
         );
         //
 
-        /// match phase: define the pattern
         let transpose_op = op<torch.aten.transpose.int>(
             k_permute_reshape.0,
             int1: Value,
             int2: Value
         );
+
         let matmul_qk_op = op<torch.aten.baddbmm>(
             empty: Value,
             q_permute_reshape.0,
@@ -561,7 +582,7 @@ std::string getTorchPredefinedPDLPatterns() {
             permute_o_list: Value
         );
 
-        let reshape_transpose_o_op = op <torch.aten.reshape>(
+        let reshape_transpose_o_op = op<torch.aten.reshape>(
             permute_o_op.0,
             reshape_transpose_o_list: Value
         );
@@ -572,22 +593,40 @@ std::string getTorchPredefinedPDLPatterns() {
 
         CheckTorchQkvWeightEqual(q_weight, k_weight, v_weight);
 
+        // CheckTorchQkvWeightShapeEqual(q_weight, k_weight, v_weight);
+
         /// rewrite phase
         rewrite reshape_transpose_o_op with {
 
+        let concat_dim = op<torch.constant.int> {value = attr<"-1">} -> (type<"!torch.int">);
+        let concat_input = PackValue_3(attr<"\"concat_input\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+
+        let concat_type = InferTorchAtenTensorCatType(concat_dim, concat_input);
+
+        let concat_operand_list = op<torch.prim.ListConstruct>(
+            q_reshape.0,
+            k_reshape.0,
+            v_reshape.0
+        ) -> (type<"!torch.list<vtensor>">);
+
+        let qkv_concat = op<torch.aten.cat>(
+            concat_operand_list.0,
+            concat_dim
+        ) -> (concat_type);
+
         /// 1. create custom call op
-        let inputs = PackValue_3(attr<"\"in\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+        let inputs = PackValue_1(attr<"\"in\"">, qkv_concat.0);
         let outputs = PackValue_1(attr<"\"out\"">, reshape_transpose_o_op.0);
         let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
 
         /// 2. set attrs that are used by bladedisc.
-        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha\"">);
-        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_no_pack\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
-        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*\"">);
         SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
-        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*\"">);
         SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
 
         let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
@@ -598,7 +637,7 @@ std::string getTorchPredefinedPDLPatterns() {
         };
     }
 
-    Pattern TorchDiffusers07AttentionTransFP16CastGraphTRT {
+    Pattern TorchDiffusers07ProjectionAttentionTransFP16CastGraph {
         /// match phase: define the pattern
 
         // q projection
@@ -705,7 +744,7 @@ std::string getTorchPredefinedPDLPatterns() {
             permute_o_list: Value
         );
 
-        let reshape_transpose_o_op = op <torch.aten.reshape>(
+        let reshape_transpose_o_op = op<torch.aten.reshape>(
             permute_o_op.0,
             reshape_transpose_o_list: Value
         );
@@ -716,22 +755,40 @@ std::string getTorchPredefinedPDLPatterns() {
 
         CheckTorchQkvWeightEqual(q_weight, k_weight, v_weight);
 
+        // CheckTorchQkvWeightShapeEqual(q_weight, k_weight, v_weight);
+
         /// rewrite phase
         rewrite reshape_transpose_o_op with {
 
+        let concat_dim = op<torch.constant.int> {value = attr<"-1">} -> (type<"!torch.int">);
+        let concat_input = PackValue_3(attr<"\"concat_input\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+
+        let concat_type = InferTorchAtenTensorCatType(concat_dim, concat_input);
+
+        let concat_operand_list = op<torch.prim.ListConstruct>(
+            q_reshape.0,
+            k_reshape.0,
+            v_reshape.0
+        ) -> (type<"!torch.list<vtensor>">);
+
+        let qkv_concat = op<torch.aten.cat>(
+            concat_operand_list.0,
+            concat_dim
+        ) -> (concat_type);
+
         /// 1. create custom call op
-        let inputs = PackValue_3(attr<"\"in\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+        let inputs = PackValue_1(attr<"\"in\"">, qkv_concat.0);
         let outputs = PackValue_1(attr<"\"out\"">, reshape_transpose_o_op.0);
         let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
 
         /// 2. set attrs that are used by bladedisc.
-        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha\"">);
-        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_no_pack\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
-        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*\"">);
         SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
-        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*\"">);
         SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
 
         let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);
@@ -743,7 +800,7 @@ std::string getTorchPredefinedPDLPatterns() {
     }
 
 
-    Pattern TorchDiffusers07AttentionTransFP16NoCastGraphTRT {
+    Pattern TorchDiffusers07ProjectionAttentionTransFP16NoCastGraph {
         /// match phase: define the pattern
 
         // q projection
@@ -841,7 +898,7 @@ std::string getTorchPredefinedPDLPatterns() {
             permute_o_list: Value
         );
 
-        let reshape_transpose_o_op = op <torch.aten.reshape>(
+        let reshape_transpose_o_op = op<torch.aten.reshape>(
             permute_o_op.0,
             reshape_transpose_o_list: Value
         );
@@ -852,22 +909,40 @@ std::string getTorchPredefinedPDLPatterns() {
 
         CheckTorchQkvWeightEqual(q_weight, k_weight, v_weight);
 
+        // CheckTorchQkvWeightShapeEqual(q_weight, k_weight, v_weight);
+
         /// rewrite phase
         rewrite reshape_transpose_o_op with {
 
+        let concat_dim = op<torch.constant.int> {value = attr<"-1">} -> (type<"!torch.int">);
+        let concat_input = PackValue_3(attr<"\"concat_input\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+
+        let concat_type = InferTorchAtenTensorCatType(concat_dim, concat_input);
+
+        let concat_operand_list = op<torch.prim.ListConstruct>(
+            q_reshape.0,
+            k_reshape.0,
+            v_reshape.0
+        ) -> (type<"!torch.list<vtensor>">);
+
+        let qkv_concat = op<torch.aten.cat>(
+            concat_operand_list.0,
+            concat_dim
+        ) -> (concat_type);
+
         /// 1. create custom call op
-        let inputs = PackValue_3(attr<"\"in\"">, q_reshape.0, k_reshape.0, v_reshape.0);
+        let inputs = PackValue_1(attr<"\"in\"">, qkv_concat.0);
         let outputs = PackValue_1(attr<"\"out\"">, reshape_transpose_o_op.0);
         let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
 
         /// 2. set attrs that are used by bladedisc.
-        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha\"">);
-        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_mha_no_pack\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
         SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
-        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*\"">);
         SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
-        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*\"">);
         SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
 
         let alpha_attr = ConvertTorchConstantFloatToFloatAttr(alpha);

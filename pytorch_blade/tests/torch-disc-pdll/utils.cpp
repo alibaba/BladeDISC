@@ -45,6 +45,7 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite GetTorchQuantizedTensorType(old_type: Type, num_bits: Value, is_signed: Value) -> Type;
   Rewrite ConvertTorchConstantFloat32ToFloat32Attr(cst: Value) -> Attr;
   Rewrite ConvertTorchConstantFloatToFloatAttr(cst: Value) -> Attr;
+  Rewrite InferTorchAtenTensorCatType(v: Value, inputs : ValueRange) -> Type;
 )pdll";
 
 static LogicalResult checkTorchNone(
@@ -283,6 +284,45 @@ static void convertTorchConstantIntToI64Attr(
   results.push_back(rewriter.getIntegerAttr(rewriter.getIntegerType(64), elem));
 }
 
+static void inferTorchAtenTensorCatType(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values){
+  int64_t concat_dim;
+  auto status =
+      matchPattern(values[0].cast<Value>(), Torch::m_TorchConstantInt(&concat_dim));
+  assert(status);
+
+  auto concat_tensors = values[1].cast<ValueRange>();
+  auto lead_tensor_type = concat_tensors[0].getType().cast<Torch::ValueTensorType>();
+  auto lead_tensor_shape = lead_tensor_type.getSizes();
+  SmallVector<int64_t> o_sizes;
+
+  if(concat_dim < 0){
+    concat_dim = lead_tensor_shape.size() + concat_dim;
+  }
+
+  for(int i = 0; i < lead_tensor_shape.size(); i += 1){
+    if(i == concat_dim){
+      concat_dim = 0;
+      for(int j = 0; j < concat_tensors.size(); j += 1){
+        auto tensor_shape = concat_tensors[j].getType().cast<Torch::ValueTensorType>().getSizes();
+        if(tensor_shape[i] == ShapedType::kDynamicSize){
+          concat_dim = ShapedType::kDynamicSize;
+          break;
+        }
+        concat_dim += tensor_shape[i];
+      }
+      o_sizes.push_back(concat_dim);
+    }else{
+      o_sizes.push_back(lead_tensor_shape[i]);
+    }
+  }
+  
+  Type OutputTy = lead_tensor_type.getWithSizesAndDtype(llvm::makeArrayRef(o_sizes), lead_tensor_type.getDtype());
+  results.push_back(Type(OutputTy));
+}
+
 Type mapStrToType(PatternRewriter& rewriter, std::string type_str) {
   std::unordered_map<std::string, Type> typeconvert_dict = {
       {"i1", rewriter.getI1Type()},
@@ -351,6 +391,8 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
       "ConvertTorchTensorElemType", convertTorchTensorElemType);
   pdlPatterns.registerRewriteFunction(
       "ConvertTorchConstantIntToI64Attr", convertTorchConstantIntToI64Attr);
+  pdlPatterns.registerRewriteFunction(
+      "InferTorchAtenTensorCatType", inferTorchAtenTensorCatType);
   pdlPatterns.registerRewriteFunction("GetTorchTensorType", getTorchTensorType);
   pdlPatterns.registerRewriteFunction(
       "GetTorchQuantizedTensorType", getTorchQuantizedTensorType);

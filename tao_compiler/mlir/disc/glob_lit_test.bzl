@@ -61,10 +61,10 @@ def _run_lit_test(name, data, size, tags, driver, features, exec_properties):
         srcs = ["@llvm-project//llvm:lit"],
         tags = tags + ["no_pip", "no_windows"],
         args = [
-            "tensorflow/compiler/mlir/disc/" + paths.basename(data[-1]) + " --config-prefix=runlit -v",
+            "mlir/disc/" + paths.basename(data[-1]) + " --config-prefix=runlit -v",
         ] + features,
         data = data + [
-            "//tensorflow/compiler/mlir/disc:litfiles",
+            "//mlir/disc:litfiles",
             "@llvm-project//llvm:FileCheck",
             "@llvm-project//llvm:count",
             "@llvm-project//llvm:not",

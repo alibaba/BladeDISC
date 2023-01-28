@@ -21,7 +21,7 @@ disc_cc_library(
         "disc_interpreter.h"
     ],
     deps = [
-        "//tensorflow/compiler/mlir/disc:all_passes",
+        "//mlir/disc:all_passes",
         "//decoupling:tao_compiler_input",
         "//decoupling:tao_compiler",
         "//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",
@@ -59,7 +59,7 @@ tf_cc_test(
         "@com_google_googletest//:gtest",
     ],
     data = [
-        "//tensorflow/compiler/mlir/disc/tools/disc-replay/test_data:data.tar",
-        "//tensorflow/compiler/mlir/disc/tools/disc-replay/test_data:program.pb"
+        "//mlir/disc/tools/disc-replay/test_data:data.tar",
+        "//mlir/disc/tools/disc-replay/test_data:program.pb"
     ]
 )

@@ -62,13 +62,13 @@ def _run_lit_test(name, test_file, data, size, tags, driver, features, exec_prop
 	srcs = test_file,
 	size = size,
 	deps = [
-		"//tensorflow/compiler/mlir/disc/tests:mlir_feature_test",
+		"//mlir/disc/tests:mlir_feature_test",
 		"@org_tensorflow//tensorflow/core:test",
 		"@org_tensorflow//tensorflow/core:test_main",
 		"@org_tensorflow//tensorflow/core:testlib",
 	],
 	data = [":" + local_test_files] + data  + [
-		"//tensorflow/compiler/mlir/disc:disc_compiler_main",
+		"//mlir/disc:disc_compiler_main",
 		"@org_tensorflow//tensorflow/compiler/mlir:tf-mlir-translate",
 		"@org_tensorflow//tensorflow/compiler/mlir:tf-opt",
 	],

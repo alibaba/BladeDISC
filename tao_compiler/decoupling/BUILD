@@ -151,8 +151,8 @@ cc_library(
     ]) + [
         "@llvm-project//mlir:IR",
         "@llvm-project//llvm:Support",
-        "//tensorflow/compiler/mlir/disc:disc_util",
-        "//tensorflow/compiler/mlir/disc:disc_compiler",
+        "//mlir/disc:disc_util",
+        "//mlir/disc:disc_compiler",
     ],
     alwayslink = True,
 )

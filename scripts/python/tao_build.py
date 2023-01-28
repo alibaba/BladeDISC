@@ -281,8 +281,8 @@ def configure(root, args):
 def build_tao_compiler(root, args):
     BAZEL_BUILD_CMD = "bazel build --verbose_failures --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
     TARGET_TAO_COMPILER_MAIN = "//decoupling:tao_compiler_main"
-    TARGET_DISC_OPT = "//tensorflow/compiler/mlir/disc:disc-opt"
-    TARGET_DISC_REPLAY = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-main"
+    TARGET_DISC_OPT = "//mlir/disc:disc-opt"
+    TARGET_DISC_REPLAY = "//mlir/disc/tools/disc-replay:disc-replay-main"
 
     targets = None
     if args.bazel_target is not None:
@@ -363,23 +363,23 @@ def test_tao_compiler(root, args):
         BAZEL_BUILD_CMD += " --java_runtime_version=remotejdk_11"
 
     TARGET_DISC_IR_TEST = "//mlir/disc/IR/tests/..."
-    TARGET_DISC_TRANSFORMS_TEST = "//tensorflow/compiler/mlir/disc/transforms/tests/..."
-    TARGET_DISC_E2E_TEST = "//tensorflow/compiler/mlir/disc/tests/..."
+    TARGET_DISC_TRANSFORMS_TEST = "//mlir/disc/transforms/tests/..."
+    TARGET_DISC_E2E_TEST = "//mlir/disc/tests/..."
     TARGET_DISC_RAL_TESTS = [
         "//tensorflow/compiler/mlir/xla/ral:ral_metadata_test"
     ]
     TARGET_DISC_PDLL_TESTS = [
-        "//tensorflow/compiler/mlir/disc/tools/disc-pdll/tests/..."
+        "//mlir/disc/tools/disc-pdll/tests/..."
     ]
     TARGET_DISC_CUDA_SOURCE_TESTS = [
-        "//tensorflow/compiler/mlir/disc/tools/disc-source-emitter/tests/..."
+        "//mlir/disc/tools/disc-source-emitter/tests/..."
     ]
     TARGET_DISC_TRANSFORM_DIALECT_TESTS = [
-        "//tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/tests/...",
-        "//tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/tests/...",
+        "//mlir/disc/tools/disc-transform/transforms/tests/...",
+        "//mlir/disc/tools/disc-transform/LinalgExt/tests/...",
     ]
 
-    TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-test"
+    TARGET_DISC_REPLAY_TEST = "//mlir/disc/tools/disc-replay:disc-replay-test"
 
     targets = None
     if args.bazel_target is not None:

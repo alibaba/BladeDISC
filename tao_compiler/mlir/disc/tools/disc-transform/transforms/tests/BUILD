@@ -1,5 +1,5 @@
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "filegroup")
-load("//tensorflow/compiler/mlir/disc:glob_lit_test.bzl", "glob_lit_tests")
+load("//mlir/disc:glob_lit_test.bzl", "glob_lit_tests")
 
 package(licenses = ["notice"])
 
@@ -17,7 +17,7 @@ filegroup(
         "metadata-only*.mlir",
     ]),
     data = [
-        "//tensorflow/compiler/mlir/disc:disc-opt",
+        "//mlir/disc:disc-opt",
         "@llvm-project//llvm:FileCheck",
     ],
 )

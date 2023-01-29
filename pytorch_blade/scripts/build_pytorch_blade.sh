@@ -54,6 +54,7 @@ function ci_build() {
     fi
     TORCH_LIB=$(python -c 'import torch; import os; print(os.path.dirname(os.path.abspath(torch.__file__)) + "/lib/")') \
     export LD_LIBRARY_PATH=$TORCH_LIB:$LD_LIBRARY_PATH \
+    rm -f ../tf_community/.tf_configure.bazelrc
 
     # DEBUG=1 will trigger debug mode compilation
     DEBUG=1 python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;

@@ -3,7 +3,7 @@ load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda_is_configured",)
 load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured",)
 load("@org_tensorflow//tensorflow/core/platform:build_config.bzl", "tf_proto_library",)
 load("@org_tensorflow//tensorflow/core/platform:build_config_root.bzl", "if_static")
-load("//mlir/util_library")
+load("//mlir/util:util.bzl", "disc_cc_library")
 
 # buildifier: disable=same-origin-load
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "get_compatible_with_cloud")
@@ -13,6 +13,7 @@ load(
     "@com_google_protobuf//:protobuf.bzl",
     "cc_proto_library",
 )
+
 
 package(
     default_visibility = [":friends"],
@@ -27,7 +28,7 @@ package_group(
         "//learning/brain/experimental/swift_mlir/...",
         "//learning/brain/google/xla/kernels/...",
         "//learning/brain/swift/swift_mlir/...",
-        "//tensorflow/compiler/mlir/...",
+        "//mlir/...",
         #"@org_tensorflow//tensorflow/compiler/tf2xla/...",
         #"@org_tensorflow//tensorflow/compiler/xla/...",
         #"@org_tensorflow//tensorflow/compiler/...",
@@ -47,7 +48,7 @@ disc_cc_library(
         "@org_tensorflow//tensorflow/core:tensorflow",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",
+        "//mlir/xla/ral:ral_base_context_lib",
     ] + if_cuda_is_configured([
         "@local_config_cuda//cuda:cuda_headers",
         "@local_config_cuda//cuda:cuda_driver",

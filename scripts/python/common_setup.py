@@ -611,10 +611,10 @@ def symlink_disc_files(args):
                 os.makedirs(dst_folder)
             execute("rm -rf {0} && ln -s {1} {0}".format(link_in_tf, src_file))
 
-    logger.info("linking ./tao to tf_community/tao")
+    logger.info("linking ./tao to tao_compiler/tao")
     execute(
         "rm -rf {0} && ln -s {1} {0}".format(
-            os.path.join(get_source_root_dir(), "tf_community", "tao"),
+            os.path.join(get_source_root_dir(), "tao_compiler", "tao"),
             os.path.join(get_source_root_dir(), "tao")
         )
     )

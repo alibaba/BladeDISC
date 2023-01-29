@@ -42,7 +42,7 @@ fi
 
 # copy libtao_ops.so and tao_compiler_main to blade-disc-tf
 cp tao/bazel-bin/libtao_ops.so ${BLADE_DISC_DIR}
-cp tf_community/bazel-bin/tensorflow/compiler/decoupling/tao_compiler_main ${BLADE_DISC_DIR}
+cp tao_compiler/bazel-bin/decoupling/tao_compiler_main ${BLADE_DISC_DIR}
 
 if [[ -n "$ROCM" ]] || [[ -n "$DCU" ]]; then
   # TODO: skip the following stages if rocm build

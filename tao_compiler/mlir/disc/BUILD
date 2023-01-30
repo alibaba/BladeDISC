@@ -39,10 +39,6 @@ package_group(
         "//learning/brain/experimental/swift_mlir/...",
         "//learning/brain/google/xla/kernels/...",
         "//learning/brain/swift/swift_mlir/...",
-        #"@org_tensorflow//tensorflow/compiler/mlir/...",
-        #"@org_tensorflow//tensorflow/compiler/tf2xla/...",
-        #"@org_tensorflow//tensorflow/compiler/xla/...",
-        #"@org_tensorflow//tensorflow/compiler/...",
         "//third_party/iree/...",
         "//third_party/mlir_edge/...",
         "//third_party/tf_runtime/tools/tf_kernel_gen/...",
@@ -2714,10 +2710,6 @@ gentbl_cc_library(
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/disc_tf_additional_ops.td",
-    #td_srcs = [
-    #    "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:ir/tf_op_base.td",
-    #    "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:ir/tf_op_interfaces.td",
-    #],
     deps = [
         ":disc_tf_additional_ops_files",
     ],

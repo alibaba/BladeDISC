@@ -15,7 +15,7 @@ cc_library(
             "lib/libtorch_cpu.so",
             "lib/libtorch_global_deps.so",
         ] + glob(
-            ["lib/libtorch_cuda_cu.so", "lib/libtorch_cuda_cpp.so", "lib/libgomp-a34b3233.so.1"]),
+            ["lib/libtorch_cuda_cu.so", "lib/libtorch_cuda_cpp.so", "lib/libgomp*.so.1"]),
     hdrs = glob(
         [
             "include/torch/**/*.h",

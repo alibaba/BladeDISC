@@ -758,72 +758,27 @@ MemRefType<Eigen::half, 3> ral_pdll_mha(
   return result;
 }
 
-MemRefType<Eigen::half, 3> ral_pdll_mha_no_pack(
-    ExecutionContext* ctx, void* stream_handle,
-    MemRefType<Eigen::half, 4> qkv_packed, void* customAttrs) {
-  auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_pdll_mem_eff_attention_output_transpose");
-  if (!attr) {
-    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
-  }
-  auto& dictAttr = attr->as<DictPDLAttr>();
-  double alpha_softmax_double =
-      dictAttr.get("alpha").template as<FloatPDLAttr>().getValue();
-  float alpha_softmax = float(alpha_softmax_double);
+struct CuSeqLenStoreKey{
+    int bs_;
+    int seq_len_;
 
-  auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
-  auto stream =
-      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
-  void* s = stream->implementation()->GpuStreamHack();
-  Eigen::half* qkv_packed_data = qkv_packed.data;
+    bool operator==(const CuSeqLenStoreKey& rhs) const {
+        return bs_ == rhs.bs_ && seq_len_ == rhs.seq_len_;
+    }
+};
 
-  int64_t batch_size = int64_t(qkv_packed.sizes[0]);
-  int seq_len = qkv_packed.sizes[1];
-  int num_heads = qkv_packed.sizes[2];
-  int head_dim = qkv_packed.sizes[3] / 3;
+struct CuSeqLenStoreHasher{
+    std::size_t operator()(const CuSeqLenStoreKey& key) const{
+        std::size_t seed = std::hash<int>()(key.bs_);
+        seed ^= std::hash<int>()(key.seq_len_) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
 
-  int64_t resultSizes[3] = {batch_size, seq_len, head_dim * num_heads};
-
-  if (isEmptyMemref(qkv_packed)) {
-    TAO_VLOG(0) << "ral_pdll_mha_no_pack: early return for empty tensor";
-    return assignMemRef<Eigen::half, 3>(nullptr, resultSizes);
-  }
-
-  auto data = static_cast<Eigen::half*>(gpu_driver->alloc(
-      ctx, batch_size * num_heads * seq_len * head_dim * sizeof(Eigen::half)));
-  auto result = assignMemRef<Eigen::half, 3>(data, resultSizes);
-
-  // pack memory alloc
-  int32_t cu_seqlens_d_size = (batch_size + 1) * sizeof(int32_t);
-  int32_t qkv_size = batch_size * seq_len * num_heads * head_dim * 3 * sizeof(Eigen::half);
-  
-  int32_t cuseqlen_host[batch_size+1];
-  for(int i = 0; i <= batch_size; i += 1){
-    cuseqlen_host[i] = i * seq_len;
-  }
-  
-  auto cu_seqlens_device = static_cast<int32_t*>(gpu_driver->alloc(ctx, cu_seqlens_d_size));
-
-  gpu_driver->h2d(ctx, stream_handle, cuseqlen_host, cu_seqlens_device, cu_seqlens_d_size);
-  // gpu_driver->syncOnStream(ctx, stream_handle);
-
-  bool ret = bladnn::fmha_no_pack(
-      result.data, qkv_packed.data, cu_seqlens_device, &batch_size,
-      seq_len, seq_len, num_heads, head_dim, head_dim, 0.0f, alpha_softmax,
-      false, s, true);
-
-  if (!ret) {
-    ctx->signalError(Context::FAILURE, "bladnn fmha_no_pack fail");
-  }
-  gpu_driver->dealloc(ctx, cu_seqlens_device);
-  return result;
-}
-
-
-/*
 class CuSeqLenStore{
   public:
     CuSeqLenStore(ExecutionContext* ctx, void* stream_handle, int bs, int seq_len);
-    ~CuSeqLenStore();
+    ~CuSeqLenStore(){};
 
     int32_t* get_cuseqlen() const { return cu_seqlens_device; }
 
@@ -853,19 +808,20 @@ CuSeqLenStore::CuSeqLenStore(ExecutionContext* ctx, void* stream_handle, int bs,
   driver_->syncOnStream(ctx, stream_handle);
 }
 
+/* 
 CuSeqLenStore::~CuSeqLenStore(){
   driver_->dealloc(ctx_, cu_seqlens_device);
 }
+*/
 
 struct CuSeqLenState : public Context::Resource {
   std::mutex mu;
-  std::map<int, CuSeqLenStore> cache;
+  std::unordered_map<CuSeqLenStoreKey, CuSeqLenStore, CuSeqLenStoreHasher> cache;
 };
 
 MemRefType<Eigen::half, 3> ral_pdll_mha_no_pack(
     ExecutionContext* ctx, void* stream_handle ,
     MemRefType<Eigen::half, 4> qkv_packed, void* customAttrs) {
-  printf("get into mha\n");
   auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_pdll_mem_eff_attention_output_transpose");
   if (!attr) {
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
@@ -886,8 +842,6 @@ MemRefType<Eigen::half, 3> ral_pdll_mha_no_pack(
   int num_heads = qkv_packed.sizes[2];
   int head_dim = qkv_packed.sizes[3] / 3;
 
-  printf("batch_size: %d, seq_len: %d, num_heads: %d, head_dim: %d\n", batch_size, seq_len, num_heads, head_dim);
-
   int64_t resultSizes[3] = {batch_size, seq_len, head_dim * num_heads};
 
   if (isEmptyMemref(qkv_packed)) {
@@ -906,7 +860,7 @@ MemRefType<Eigen::half, 3> ral_pdll_mha_no_pack(
   int32_t* cu_seqlens_d;
   
   {
-    int key = batch_size;
+    CuSeqLenStoreKey key{batch_size, seq_len};
     std::string unique_name = "mha_no_pack" + tao::ral::TaoTypeNameHelper<int8_t>::Invoke();
     auto state = ctx->getOrCreateResource<CuSeqLenState>(
         unique_name, []() { return new CuSeqLenState; });
@@ -915,25 +869,22 @@ MemRefType<Eigen::half, 3> ral_pdll_mha_no_pack(
     auto it = cache.find(key);
     if (it == cache.end()) {
       CuSeqLenStore cuseqlen_store(ctx, stream_handle, batch_size, seq_len);
-      it = cache.insert(std::make_pair(batch_size, cuseqlen_store))
+      it = cache.insert(std::make_pair(key, cuseqlen_store))
                .first;
     }
     cu_seqlens_d = (int32_t*)(it->second.get_cuseqlen());
   }
-  printf("start fmha_no_pack\n");
   bool ret = bladnn::fmha_no_pack(
       result.data, qkv_packed.data, cu_seqlens_d, &batch_size,
       seq_len, seq_len, num_heads, head_dim, head_dim, 0.0f, alpha_softmax,
       false, s, true);
-  printf("end fmha_no_pack\n");
 
   if (!ret) {
     ctx->signalError(Context::FAILURE, "bladnn fmha_no_pack fail");
   }
-  printf("get out of mha\n");
   return result;
 }
-*/
+
 #endif
 
 template <typename T, int N>

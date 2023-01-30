@@ -436,7 +436,7 @@ def test_tao_compiler(root, args):
                 TARGET_DISC_IR_TEST,
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
-                #TARGET_DISC_REPLAY_TEST,
+                TARGET_DISC_REPLAY_TEST,
             ] + TARGET_DISC_RAL_TESTS \
               + TARGET_DISC_PDLL_TESTS \
               + TARGET_DISC_CUDA_SOURCE_TESTS \

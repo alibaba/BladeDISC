@@ -4,5 +4,4 @@ try-import ../tf_community/.bazelrc
 try-import ../tf_community/.tf_configure.bazelrc
 try-import %workspace%/.bazelrc.user
 
-build --disk_cache=~/.cache
 build --experimental_ui_max_stdouterr_bytes=-1

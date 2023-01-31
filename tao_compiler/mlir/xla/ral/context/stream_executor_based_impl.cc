@@ -819,6 +819,74 @@ struct CuSeqLenState : public Context::Resource {
   std::unordered_map<CuSeqLenStoreKey, CuSeqLenStore, CuSeqLenStoreHasher> cache;
 };
 
+MemRefType<Eigen::half, 3> ral_pdll_mha_projection(
+    ExecutionContext* ctx, void* stream_handle ,
+    MemRefType<Eigen::half, 3> qkv_packed, void* customAttrs) {
+  auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_pdll_mem_eff_attention_output_transpose");
+  if (!attr) {
+    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
+  }
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  double alpha_softmax_double =
+      dictAttr.get("alpha").template as<FloatPDLAttr>().getValue();
+  float alpha_softmax = float(alpha_softmax_double);
+  int64_t num_head =
+      dictAttr.get("num_head").template as<IntPDLAttr>().getValue();
+
+  auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+  auto stream =
+      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+  void* s = stream->implementation()->GpuStreamHack();
+  Eigen::half* qkv_packed_data = qkv_packed.data;
+
+  int64_t batch_size = int64_t(qkv_packed.sizes[0]);
+  int seq_len = qkv_packed.sizes[1];
+  int num_heads = int(num_head);
+  int head_dim = qkv_packed.sizes[2] / (3 * num_heads);
+
+  int64_t resultSizes[3] = {batch_size, seq_len, head_dim * num_heads};
+
+  if (isEmptyMemref(qkv_packed)) {
+    TAO_VLOG(0) << "ral_pdll_mha_no_pack: early return for empty tensor";
+    return assignMemRef<Eigen::half, 3>(nullptr, resultSizes);
+  }
+
+  auto data = static_cast<Eigen::half*>(gpu_driver->alloc(
+      ctx, batch_size * num_heads * seq_len * head_dim * sizeof(Eigen::half)));
+  auto result = assignMemRef<Eigen::half, 3>(data, resultSizes);
+
+  // pack memory alloc
+  int32_t cu_seqlens_d_size = (batch_size + 1) * sizeof(int32_t);
+  int32_t qkv_size = batch_size * seq_len * num_heads * head_dim * 3 * sizeof(Eigen::half);
+
+  int32_t* cu_seqlens_d;
+  
+  {
+    CuSeqLenStoreKey key{batch_size, seq_len};
+    std::string unique_name = "mha_no_pack" + tao::ral::TaoTypeNameHelper<int8_t>::Invoke();
+    auto state = ctx->getOrCreateResource<CuSeqLenState>(
+        unique_name, []() { return new CuSeqLenState; });
+    std::lock_guard<std::mutex> l(state->mu);
+    auto& cache = state->cache;
+    auto it = cache.find(key);
+    if (it == cache.end()) {
+      CuSeqLenStore cuseqlen_store(ctx, stream_handle, batch_size, seq_len);
+      it = cache.insert(std::make_pair(key, cuseqlen_store))
+               .first;
+    }
+    cu_seqlens_d = (int32_t*)(it->second.get_cuseqlen());
+  }
+  bool ret = bladnn::fmha_no_pack(
+      result.data, qkv_packed.data, cu_seqlens_d, &batch_size,
+      seq_len, seq_len, num_heads, head_dim, head_dim, 0.0f, alpha_softmax,
+      false, s, true);
+
+  if (!ret) {
+    ctx->signalError(Context::FAILURE, "bladnn fmha_no_pack fail");
+  }
+  return result;
+}
+
 MemRefType<Eigen::half, 3> ral_pdll_mha_no_pack(
     ExecutionContext* ctx, void* stream_handle ,
     MemRefType<Eigen::half, 4> qkv_packed, void* customAttrs) {
@@ -2482,6 +2550,8 @@ TAO_RAL_API("ral_pdll_mha", "gpu",
             gpu::se_impl::ral_pdll_mha);
 TAO_RAL_API("ral_pdll_mha_no_pack", "gpu",
             gpu::se_impl::ral_pdll_mha_no_pack);
+TAO_RAL_API("ral_pdll_mha_projection", "gpu",
+            gpu::se_impl::ral_pdll_mha_projection);
 TAO_RAL_API("ral_pdll_group_norm", "gpu",
             gpu::se_impl::groupnorm_impl::bladnn_groupnorm<Eigen::half>);
 TAO_RAL_API("ral_pdll_layer_norm", "gpu",

@@ -367,4 +367,118 @@ def DecomposeVectorsOp : Op<Transform_Dialect, "disc.decompose_vectors",
   }];
 }
 
+def LinalgFuseOperandOp : Op<Transform_Dialect, "disc.linalg.fuse_operand",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Given a linalg op, try to fuse its specified operand linalg op into it.
+
+    Returns the fused linalg.
+
+    Example use:
+     convert
+    ```
+      %3 = linalg.generic {indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]} ins(%0, %1 : tensor<?x768xf32>, tensor<?x768xf32>) outs(%2 : tensor<?x768xf32>) attrs =  {disc.device = "cpu", disc.transform.name = "subtract"} {
+      ^bb0(%in: f32, %in_0: f32, %out: f32):
+        %6 = arith.subf %in, %in_0 : f32
+        linalg.yield %6 : f32
+      } -> tensor<?x768xf32>
+      %6 = linalg.generic {indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]} ins(%3, %4 : tensor<?x768xf32>, tensor<?x768xf32>) outs(%5 : tensor<?x768xf32>) attrs =  {disc.device = "cpu", disc.transform.name = "multiply"} {
+      ^bb0(%in: f32, %in_0: f32, %out: f32):
+        %6 = arith.mulf %in, %in_0 : f32
+        linalg.yield %6 : f32
+      } -> tensor<?x768xf32>
+    ```
+     to
+    ```
+     %6 = linalg.generic {indexing_maps = [#map1, #map1, #map1, #map1], iterator_types = ["parallel", "parallel"]} ins(%0, %1, %3 : tensor<?x768xf32>, tensor<?x768xf32>, tensor<?x768xf32>) outs(%5 : tensor<?x768xf32>) attrs =  {disc.device = "cpu", disc.transform.name = "multiply"} {
+     ^bb0(%in: f32, %in_0: f32, %in_1: f32, %out: f32):
+       %6 = arith.subf %in, %in_0 : f32
+       %7 = arith.mulf %6, %in_1 : f32
+       linalg.yield %7 : f32
+     } -> tensor<?x768xf32>
+    ```
+
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       I64Attr:$operand_idx);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let builders = [
+    OpBuilder<(ins "Value":$target, "int64_t":$operand_idx)>
+  ];
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def LinalgFuseProducersOp : Op<Transform_Dialect, "disc.linalg.fuse_producers",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Given a linalg op, try to recursively and greedily fuse its operands if they are
+    produced by the given op set.
+
+    Returns the fused linalg.
+
+    Example use. Suppose we have the following payload IR:
+    ```
+      %3 = linalg.generic {indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]} ins(%0, %1 : tensor<?x768xf32>, tensor<?x768xf32>) outs(%2 : tensor<?x768xf32>) attrs =  {disc.device = "cpu", disc.transform.name = "subtract"} {
+      ^bb0(%in: f32, %in_0: f32, %out: f32):
+        %6 = arith.subf %in, %in_0 : f32
+        linalg.yield %6 : f32
+      } -> tensor<?x768xf32>
+      %6 = linalg.generic {indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]} ins(%3, %4 : tensor<?x768xf32>, tensor<?x768xf32>) outs(%5 : tensor<?x768xf32>) attrs =  {disc.device = "cpu", disc.transform.name = "multiply"} {
+      ^bb0(%in: f32, %in_0: f32, %out: f32):
+        %6 = arith.mulf %in, %in_0 : f32
+        linalg.yield %6 : f32
+      } -> tensor<?x768xf32>
+      %8 = linalg.generic {indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]} ins(%6, %6 : tensor<?x768xf32>, tensor<?x768xf32>) outs(%7 : tensor<?x768xf32>) attrs =  {disc.device = "cpu", disc.transform.name = "add"} {
+      ^bb0(%in: f32, %in_0: f32, %out: f32):
+        %6 = arith.addf %in, %in_0 : f32
+        linalg.yield %6 : f32
+      } -> tensor<?x768xf32>
+    ```
+     and following transform IR:
+    ```
+     %0 = transform.structured.match attributes {disc.transform.name = "subtract"} in %arg0
+     %1 = transform.structured.match attributes {disc.transform.name = "multiply"} in %arg0
+     %2 = transform.structured.match attributes {disc.transform.name = "add"} in %arg0
+     %3 = transform.disc.fuse_producers %0, %1 into %2
+    ```
+     finally we'll get the following transformed IR:
+    ```
+     %6 = linalg.generic {indexing_maps = [#map1, #map1, #map1, #map1], iterator_types = ["parallel", "parallel"]} ins(%0, %1, %3 : tensor<?x768xf32>, tensor<?x768xf32>, tensor<?x768xf32>) outs(%5 : tensor<?x768xf32>) attrs =  {disc.device = "cpu", disc.transform.name = "multiply"} {
+     ^bb0(%in: f32, %in_0: f32, %in_1: f32, %out: f32):
+       %6 = arith.subf %in, %in_0 : f32
+       %7 = arith.mulf %6, %in_1 : f32
+       %8 = arith.addf %7, %7 : f32
+       linalg.yield %8 : f32
+     } -> tensor<?x768xf32>
+    ```
+
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       Variadic<PDL_Operation>:$producers);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = [{
+    attr-dict
+    $producers `into` $target
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

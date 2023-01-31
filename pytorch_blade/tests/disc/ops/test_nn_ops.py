@@ -15,14 +15,14 @@ import unittest
 from torch_blade import utils
 from torch_blade.version import cuda_available
 from tests.disc.testing_base import \
-        DiscTestCase, skipTorchGE, isTorchMlirEnable
+    DiscTestCase, skipTorchGE, isTorchMlirEnable
 
 
 class TestDiscNNOps(DiscTestCase):
 
     def _test_nn_ops(self, nn_ops_func, x=None):
         test_data = torch.randn([2, 3, 224, 224], device=self.device) \
-                if x is None else x
+            if x is None else x
         if (isinstance(test_data, torch.Tensor)):
             test_data = (test_data.to(self.device),)
         self._test_cvt_to_disc(nn_ops_func, test_data)
@@ -127,6 +127,19 @@ class TestDiscNNOps(DiscTestCase):
         input = torch.ones(3, 4, device=self.device)
         hx = torch.ones(3, 8, device=self.device)
         self._test_nn_ops(rnn, (input, hx))
+
+    def test_constant_pad(self):
+        @torch.jit.script
+        def constant_pad(t4d):
+            # pad by (0, 1), (2, 1), and (3, 3)
+            p3d = (0, 1, 2, 1, 3, 3)
+            return t4d.pad(p3d, "constant", 3.0)
+
+        x = torch.randn([2, 3, 4, 5], device=self.device)
+        self._test_nn_ops(constant_pad, x=(x,))
+
+        x = torch.randn([2, 3, 224, 224], device=self.device)
+        self._test_nn_ops(constant_pad, x=(x,))
 
 
 if __name__ == "__main__":

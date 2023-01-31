@@ -801,8 +801,14 @@ class ShapePropagator : public PropertyPropBase {
         "aten::sub.float(float a, float b) -> float",
     };
 
-    if (scalar_schemas.hasMember(*node)) {
-      // dtype already known
+    SchemaSet no_shape_infer{
+        "aten::split.Tensor(Tensor(a -> *) self, SymInt split_size, int dim=0) -> Tensor(a)[]",
+        "aten::chunk(Tensor(a) self, int chunks, int dim=0) -> Tensor(a)[]",
+        "aten::unbind.int(Tensor(a) self, int dim=0) -> Tensor(a)[]",
+    };
+
+    if (scalar_schemas.hasMember(*node) or no_shape_infer.hasMember(*node)) {
+      // dtype already known or shape inference skipped
       return;
     }
 
@@ -1414,6 +1420,26 @@ class ShapePropagator : public PropertyPropBase {
               return {TensorType::create(
                           type->scalarType(),
                           device,
+                          type->dim(),
+                          /*requires_grad=*/c10::nullopt)
+                          ->withSymbolicShapes(type->symbolic_sizes())};
+            }
+          }
+          return {};
+        }};
+
+    // Requirements:
+    //   device         : cuda
+    //   tensor inputs  : 1
+    //   tensor outputs : 1
+    static const register_formula_for aten_cuda{
+        {"aten::cuda(Tensor(a) self) -> Tensor(a|b)"},
+        [](Node* node) -> type_vec_t {
+          if (auto type = node->input(0)->type()->cast<TensorType>()) {
+            if (type->dim()) {
+              return {TensorType::create(
+                          type->scalarType(),
+                          at::kCUDA,
                           type->dim(),
                           /*requires_grad=*/c10::nullopt)
                           ->withSymbolicShapes(type->symbolic_sizes())};
@@ -2148,6 +2174,19 @@ class ShapePropagator : public PropertyPropBase {
       auto list_node = node->input(0)->node();
       if (list_node->kind() == aten::size)
         return true;
+      if (list_node->kind() == aten::split ||
+          list_node->kind() == aten::chunk) {
+        auto original_type = list_node->input(0)->type()->cast<TensorType>();
+        node->output()->setType(original_type->dimensionedOnly());
+        return true;
+      }
+      if (list_node->kind() == aten::unbind) {
+        auto original_type = list_node->input(0)->type()->cast<TensorType>();
+        node->output()->setType(
+            original_type->withDim(*original_type->dim() - 1));
+        return true;
+      }
+
       if (list_node->kind() != prim::ListConstruct)
         return false;
       auto tensors = list_node->inputs();

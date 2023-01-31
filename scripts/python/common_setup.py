@@ -753,10 +753,15 @@ def test_tao_compiler_add_flags_platform_alibaba_cached(root, flag):
     restore_args_from_cache(root, args)
     return test_tao_compiler_add_flags_platform_alibaba(root, args, flag)
 
+def cleanup_building_env(root):
+    with cwd(root):
+        execute("rm -rf tf_community/.tf_configure.bazelrc")
+
 if __name__ == "__main__":
     args = parse_args()
 
     root = get_source_root_dir()
+    cleanup_building_env(root)
     symlink_disc_files(args)
 
     if args.enable_mkldnn:

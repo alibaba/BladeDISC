@@ -44,9 +44,12 @@ struct UnhandledAtomicRMWConverter
 
   LogicalResult matchAndRewrite(memref::AtomicRMWOp op,
                                 PatternRewriter& rewriter) const override {
+    Type elemTy = op.getType();
+    bool isLowBits = elemTy.getIntOrFloatBitWidth() < 32;
+
     // Currently, we only deal with atomic mulf operation. More operations can
     // be supported easily here.
-    if (op.getKind() != arith::AtomicRMWKind::mulf) {
+    if (op.getKind() != arith::AtomicRMWKind::mulf and not isLowBits) {
       return failure();
     }
 
@@ -62,7 +65,6 @@ struct UnhandledAtomicRMWConverter
     Value reductionOp =
         getReductionOp(op.getKind(), bodyBuilder, loc, lhs, rhs);
     bodyBuilder.create<memref::AtomicYieldOp>(loc, reductionOp);
-
     rewriter.replaceOp(op, genericOp.getResult());
     return success();
   }

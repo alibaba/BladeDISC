@@ -1040,6 +1040,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::transpose(Tensor self, int dim0, int dim1) -> Tensor",
 #if PYTORCH_VERSION_GE(1, 11)
             "aten::constant_pad_nd(Tensor self, SymInt[] pad, Scalar value=0) -> Tensor",
+            "aten::pad(Tensor self, SymInt[] pad, str mode, float? value=None) -> Tensor",
 #else
             "aten::constant_pad_nd(Tensor self, int[] pad, Scalar value=0) -> Tensor",
 #endif

@@ -15,7 +15,7 @@ import unittest
 from torch_blade import utils
 from torch_blade.version import cuda_available
 from tests.disc.testing_base import \
-    DiscTestCase, skipTorchGE, isTorchMlirEnable
+    DiscTestCase, skipTorchGE, skipTorchLT, isTorchMlirEnable
 
 
 class TestDiscNNOps(DiscTestCase):
@@ -128,6 +128,7 @@ class TestDiscNNOps(DiscTestCase):
         hx = torch.ones(3, 8, device=self.device)
         self._test_nn_ops(rnn, (input, hx))
 
+    @skipTorchLT("1.12.0")
     def test_constant_pad(self):
         @torch.jit.script
         def constant_pad(t4d):

@@ -18,8 +18,8 @@ limitations under the License.
 
 #include <type_traits>
 
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
 
 namespace mlir {
 namespace mhlo_disc {

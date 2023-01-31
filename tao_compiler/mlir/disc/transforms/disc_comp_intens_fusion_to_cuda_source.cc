@@ -16,10 +16,10 @@
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/utils/source_emitter.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/utils/source_emitter.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -430,11 +430,11 @@ bool DiscCompIntensFusionToCUDASourcePass::
   std::string cuda_code;
   if (cc_major_ < 8) {
     cuda_code =
-#include "tensorflow/compiler/mlir/disc/utils/gemm_fusion_linear_base_template_sm75.hpp"
+#include "mlir/disc/utils/gemm_fusion_linear_base_template_sm75.hpp"
         ;
   } else {
     cuda_code =
-#include "tensorflow/compiler/mlir/disc/utils/gemm_fusion_linear_base_template_sm80.hpp"
+#include "mlir/disc/utils/gemm_fusion_linear_base_template_sm80.hpp"
         ;
   }
 

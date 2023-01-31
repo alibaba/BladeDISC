@@ -9,14 +9,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/pdll_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/context/pdll_util.h"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/ral_base.h"
+#include "mlir/xla/ral/ral_helper.h"
 
 #if defined(TAO_CPU_ONLY)
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_quantization.h"
+#include "mlir/xla/ral/context/common_context_impl_quantization.h"
 #endif
 
 //===----------------------------------------------------------------------===//

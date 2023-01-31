@@ -15,13 +15,13 @@
 // limitations under the License.
 // =============================================================================
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/ral_helper.h"
 
 #include <iostream>
 #include <mutex>
 #include <unordered_map>
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
+#include "mlir/xla/ral/ral_logging.h"
 
 namespace tao {
 namespace ral {

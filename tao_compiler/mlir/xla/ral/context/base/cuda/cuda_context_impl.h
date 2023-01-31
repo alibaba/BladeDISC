@@ -27,10 +27,10 @@
 #include "rocm/include/hip/hip_runtime.h"
 #endif
 
-#include "tensorflow/compiler/mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
+#include "mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/device/gpu/gpu_driver.h"
+#include "mlir/xla/ral/ral_context.h"
 
 // Raw cuda ral implementation.
 

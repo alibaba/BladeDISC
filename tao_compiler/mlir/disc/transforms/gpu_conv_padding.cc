@@ -29,9 +29,9 @@ limitations under the License.
 #include "mlir/IR/Matchers.h"               // TF:llvm-project
 #include "mlir/IR/Operation.h"              // TF:llvm-project
 #include "mlir/Pass/Pass.h"                 // TF:local_config_mlir
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/placement_utils.h"
 
 namespace mlir {
 namespace disc_ral {

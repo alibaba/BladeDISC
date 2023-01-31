@@ -47,7 +47,7 @@ documentation and/or software.
 
 /* interface header */
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_md5.h"
+#include "mlir/xla/ral/ral_md5.h"
 
 /* system implementation headers */
 #include <cstdio>

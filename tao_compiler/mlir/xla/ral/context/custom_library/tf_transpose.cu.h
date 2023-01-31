@@ -15,7 +15,7 @@
 #include <cassert>
 #include <vector>
 
-#include "tensorflow/compiler/mlir/xla/ral/context/custom_library/dimensions.h"
+#include "mlir/xla/ral/context/custom_library/dimensions.h"
 
 #if GOOGLE_CUDA
 #include <cuda_runtime.h>

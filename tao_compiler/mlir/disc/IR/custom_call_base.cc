@@ -12,7 +12,7 @@ limitations under the License.
 
 // This file defines the basic macros for custom call.
 
-#include "tensorflow/compiler/mlir/disc/IR/custom_call_base.h"
+#include "mlir/disc/IR/custom_call_base.h"
 
 #include <unordered_map>
 

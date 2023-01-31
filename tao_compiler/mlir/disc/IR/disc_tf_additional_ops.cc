@@ -10,7 +10,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/IR/disc_tf_additional_ops.h"
+#include "mlir/disc/IR/disc_tf_additional_ops.h"
 
 namespace mlir {
 namespace TF {
@@ -51,7 +51,7 @@ namespace {
 void DiscTFOpsRegisterHook(TensorFlowDialect& dialect) {
   dialect.addOperations<
 #define GET_OP_LIST
-#include "tensorflow/compiler/mlir/disc/IR/disc_tf_additional_ops.cc.inc"
+#include "mlir/disc/IR/disc_tf_additional_ops.cc.inc"
       >();
 }
 
@@ -67,4 +67,4 @@ auto register_once = RegisterOnce();
 }  // namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/IR/disc_tf_additional_ops.cc.inc"
+#include "mlir/disc/IR/disc_tf_additional_ops.cc.inc"

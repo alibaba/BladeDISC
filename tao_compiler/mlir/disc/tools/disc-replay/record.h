@@ -12,7 +12,7 @@
 #ifndef DISC_REPLAY_RECORD_H_
 #define DISC_REPLAY_RECORD_H_
 
-#include "tensorflow/compiler/decoupling/tao_compiler_input.pb.h"
+#include "decoupling/tao_compiler_input.pb.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor.pb.h"
 #include "tensorflow/core/framework/tensor_shape.h"

@@ -20,10 +20,10 @@
 #include <chrono>
 #include <map>
 
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_metadata.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/ral_context.h"
+#include "mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/ral_metadata.h"
 
 namespace tao {
 namespace ral {

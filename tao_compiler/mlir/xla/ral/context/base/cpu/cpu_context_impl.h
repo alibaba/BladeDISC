@@ -18,9 +18,9 @@
 #ifndef RAL_CONTEXT_BASE_CPU_CPU_CONTEXT_IMPL_H_
 #define RAL_CONTEXT_BASE_CPU_CPU_CONTEXT_IMPL_H_
 
-#include "tensorflow/compiler/mlir/xla/ral/context/base/base_context.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
+#include "mlir/xla/ral/context/base/base_context.h"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/ral_context.h"
 
 namespace tao {
 namespace ral {

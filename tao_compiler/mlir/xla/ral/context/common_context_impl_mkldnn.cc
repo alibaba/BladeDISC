@@ -21,8 +21,8 @@
 #include "arm_compute/runtime/Scheduler.h"
 #endif
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/mkldnn/ideep/ideep_pin_singletons.hpp"
+#include "mlir/xla/ral/context/common_context_impl_mkldnn.h"
+#include "mlir/xla/ral/context/mkldnn/ideep/ideep_pin_singletons.hpp"
 
 namespace tao {
 namespace ral {

@@ -15,7 +15,7 @@
 // limitations under the License.
 // ============================================================================
 
-#include "tensorflow/compiler/mlir/xla/ral/context/tensorflow/tf_context_impl.h"
+#include "mlir/xla/ral/context/tensorflow/tf_context_impl.h"
 
 #include <array>
 #include <cstdlib>
@@ -23,10 +23,10 @@
 #include <string>
 #include <unordered_map>
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/context/common_context_impl.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/ral_driver.h"
+#include "mlir/xla/ral/ral_helper.h"
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/stream_executor/device_description.h"
 

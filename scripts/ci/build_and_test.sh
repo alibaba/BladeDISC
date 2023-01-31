@@ -42,7 +42,7 @@ fi
 
 # copy libtao_ops.so and tao_compiler_main to blade-disc-tf
 cp tao/bazel-bin/libtao_ops.so ${BLADE_DISC_DIR}
-cp tf_community/bazel-bin/tensorflow/compiler/decoupling/tao_compiler_main ${BLADE_DISC_DIR}
+cp tao_compiler/bazel-bin/decoupling/tao_compiler_main ${BLADE_DISC_DIR}
 
 if [[ -n "$ROCM" ]] || [[ -n "$DCU" ]]; then
   # TODO: skip the following stages if rocm build
@@ -56,7 +56,7 @@ fi
 # copy Python wheel package to build folder
 mkdir -p build && \
 cp tao/dist/blade_disc*.whl ./build
-cp tf_community/bazel-bin/tensorflow/compiler/mlir/disc/tools/disc-replay/disc-replay-main ./build/
+#cp tao_compiler/bazel-bin/mlir/disc/tools/disc-replay/disc-replay-main ./build/
 
 # test example models
 if [[ -z "$ROCM" ]] && [[ -z "$DCU" ]]; then

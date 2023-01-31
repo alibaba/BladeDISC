@@ -17,8 +17,8 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
+#include "mlir/disc/tools/disc-transform/transforms/PassDetail.h"
+#include "mlir/disc/tools/disc-transform/utils.h"
 
 #define DEBUG_TYPE "disc-memref-copy-to-linalg"
 

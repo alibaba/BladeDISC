@@ -1,7 +1,7 @@
 licenses(["notice"])  # Apache 2.0
 
-load("//tensorflow:tensorflow.bzl", "tf_cc_binary", "tf_cc_test")
-load("//tensorflow/compiler/mlir/util:util.bzl", "if_platform_alibaba")
+load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_binary", "tf_cc_test")
+load("//mlir/util:util.bzl", "if_platform_alibaba")
 
 package_group(
     name = "internal",
@@ -25,7 +25,7 @@ package(
 
 load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda_is_configured")
 load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured")
-load("//tensorflow/compiler/mlir/util:util.bzl", "if_cuda_or_rocm")
+load("//mlir/util:util.bzl", "if_cuda_or_rocm")
 load(
     "@com_google_protobuf//:protobuf.bzl",
     "cc_proto_library",
@@ -36,7 +36,7 @@ cc_proto_library(
     srcs = ["tao_compiler_input.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//tensorflow/core:protos_all_cc",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
     ],
 )
 
@@ -45,7 +45,7 @@ cc_proto_library(
     srcs = ["tao_compilation_result.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//tensorflow/core:protos_all_cc",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
     ],
 )
 
@@ -54,7 +54,7 @@ cc_library(
     srcs = ["tao_compiler_trace.cc"],
     hdrs = ["tao_compiler_trace.h"],
     deps = [
-        "//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -65,9 +65,9 @@ tf_cc_test(
     linkstatic = 1,
     deps = [
         "tao_compiler_trace",
-        "//tensorflow/core:lib",
-        "//tensorflow/core:test",
-        "//tensorflow/core:test_main",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
+        "@org_tensorflow//tensorflow/core:test_main",
     ],
 )
 
@@ -75,7 +75,7 @@ cc_library(
     name = "disc_custom_ops",
     srcs = ["fake_quant_op.cc"],
     deps = [
-        "//tensorflow/core:framework"
+        "@org_tensorflow//tensorflow/core:framework"
     ],
     alwayslink = 1,
 )
@@ -88,10 +88,10 @@ cc_library(
     deps = [
         "tao_compiler_input",
         "tao_compilation_result",
-        "//tensorflow/core:framework",
-        "//tensorflow/core:lib",
-        "//tensorflow/compiler/xla:statusor",
-        "//tensorflow/compiler/xla:literal",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/compiler/xla:statusor",
+        "@org_tensorflow//tensorflow/compiler/xla:literal",
     ]
 )
 
@@ -118,41 +118,41 @@ cc_library(
         ":compiler_base",
         ":disc_custom_ops",
         ":tao_compiler_trace",
-        "//tensorflow/cc:cc_ops",
-        "//tensorflow/cc:ops",
-        "//tensorflow/cc:resource_variable_ops",
-        "//tensorflow/cc:function_ops",
-        "//tensorflow/compiler/jit:jit",
-        "//tensorflow/compiler/tf2xla:tf2xla",
-        "//tensorflow/compiler/xla:error_spec",
-        "//tensorflow/compiler/xla:literal",
-        "//tensorflow/compiler/xla:literal_comparison",
-        "//tensorflow/compiler/xla:shape_util",
-        "//tensorflow/compiler/xla:statusor",
-        "//tensorflow/compiler/xla:status_macros",
-        "//tensorflow/compiler/xla/client:client_library",
-        "//tensorflow/compiler/xla/client:local_client",
-        "//tensorflow/compiler/xla/client:xla_builder",
-        "//tensorflow/compiler/xla/service:hlo",
-        "//tensorflow/compiler/xla/service:hlo_proto_cc",
-        "//tensorflow/compiler/xla/service:hlo_runner",
-        "//tensorflow/core:core_cpu",
-        "//tensorflow/core:core_cpu_internal",
-        "//tensorflow/core:framework",
-        "//tensorflow/core:framework_internal",
-        "//tensorflow/core:lib",
-        "//tensorflow/core:lib_internal",
-        "//tensorflow/core:protos_all_cc",
+        "@org_tensorflow//tensorflow/cc:cc_ops",
+        "@org_tensorflow//tensorflow/cc:ops",
+        "@org_tensorflow//tensorflow/cc:resource_variable_ops",
+        "@org_tensorflow//tensorflow/cc:function_ops",
+        "@org_tensorflow//tensorflow/compiler/jit:jit",
+        "@org_tensorflow//tensorflow/compiler/tf2xla:tf2xla",
+        "@org_tensorflow//tensorflow/compiler/xla:error_spec",
+        "@org_tensorflow//tensorflow/compiler/xla:literal",
+        "@org_tensorflow//tensorflow/compiler/xla:literal_comparison",
+        "@org_tensorflow//tensorflow/compiler/xla:shape_util",
+        "@org_tensorflow//tensorflow/compiler/xla:statusor",
+        "@org_tensorflow//tensorflow/compiler/xla:status_macros",
+        "@org_tensorflow//tensorflow/compiler/xla/client:client_library",
+        "@org_tensorflow//tensorflow/compiler/xla/client:local_client",
+        "@org_tensorflow//tensorflow/compiler/xla/client:xla_builder",
+        "@org_tensorflow//tensorflow/compiler/xla/service:hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/service:hlo_proto_cc",
+        "@org_tensorflow//tensorflow/compiler/xla/service:hlo_runner",
+        "@org_tensorflow//tensorflow/core:core_cpu",
+        "@org_tensorflow//tensorflow/core:core_cpu_internal",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:framework_internal",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:lib_internal",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
         "@com_google_absl//absl/strings",
     ] + if_cuda_or_rocm([
-        "//tensorflow/compiler/xla/service/gpu:gpu_transfer_manager",
+        "@org_tensorflow//tensorflow/compiler/xla/service/gpu:gpu_transfer_manager",
     ]) + if_rocm_is_configured([
-        "//tensorflow/stream_executor/rocm:rocm_driver",
+        "@org_tensorflow//tensorflow/stream_executor/rocm:rocm_driver",
     ]) + [
         "@llvm-project//mlir:IR",
         "@llvm-project//llvm:Support",
-        "//tensorflow/compiler/mlir/disc:disc_util",
-        "//tensorflow/compiler/mlir/disc:disc_compiler",
+        "//mlir/disc:disc_util",
+        "//mlir/disc:disc_compiler",
     ],
     alwayslink = True,
 )

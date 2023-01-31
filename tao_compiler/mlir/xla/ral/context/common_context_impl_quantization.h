@@ -17,9 +17,9 @@
 
 #include <thread>
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/pdll_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/context/common_context_impl_mkldnn.h"
+#include "mlir/xla/ral/context/pdll_util.h"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
 
 namespace tao {
 namespace ral {

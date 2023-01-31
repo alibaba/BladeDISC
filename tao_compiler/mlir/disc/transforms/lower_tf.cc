@@ -32,14 +32,14 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"                  // from @llvm-project
 #include "mlir/Transforms/DialectConversion.h"           // from @llvm-project
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
+#include "mlir/disc/IR/disc_tf_additional_ops.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/IR/rng_uniform_custom_call_op.h"
+#include "mlir/disc/IR/topk_custom_call_op.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/disc_pdl_utils.h"
 #include "stablehlo/dialect/ChloOps.h"
-#include "tensorflow/compiler/mlir/disc/IR/disc_tf_additional_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/rng_uniform_custom_call_op.h"
-#include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_pdl_utils.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_types.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/convert_tensor.h"
@@ -1457,7 +1457,7 @@ class ConvertWhereOp : public OpRewritePattern<TF::WhereOp> {
   }
 };
 
-#include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
+#include "mlir/disc/transforms/lower_tf.inc"
 
 // add pre-defined pdll patterns here.
 std::string getPredefinedPDLPatterns() {

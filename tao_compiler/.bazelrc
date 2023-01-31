@@ -1,0 +1,7 @@
+startup --host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=
+
+try-import ../tf_community/.bazelrc
+try-import ../tf_community/.tf_configure.bazelrc
+try-import %workspace%/.bazelrc.user
+
+build --experimental_ui_max_stdouterr_bytes=-1

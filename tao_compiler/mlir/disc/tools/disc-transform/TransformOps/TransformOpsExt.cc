@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
+#include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
 
 #include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/SimplePatternRewriter.h"
@@ -37,9 +37,9 @@
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/MathExtras.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
+#include "mlir/disc/tools/disc-transform/utils.h"
 #include "mlir/include/mlir/Dialect/Utils/IndexingUtils.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -48,7 +48,7 @@ namespace transform_dialect {
 CommonExtensions::CommonExtensions() {
   registerTransformOps<
 #define GET_OP_LIST
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.cc.inc"
+#include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.cc.inc"
       >();
 }
 
@@ -1522,4 +1522,4 @@ void registerTransformDialectCommonExtension(DialectRegistry& registry) {
 }  // namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.cc.inc"
+#include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.cc.inc"

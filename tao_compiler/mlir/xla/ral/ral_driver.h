@@ -18,7 +18,7 @@
 #ifndef RAL_RAL_DRIVER_H_
 #define RAL_RAL_DRIVER_H_
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
+#include "mlir/xla/ral/ral_base.h"
 
 namespace tao {
 namespace ral {

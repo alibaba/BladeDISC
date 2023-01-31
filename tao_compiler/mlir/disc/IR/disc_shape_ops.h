@@ -43,6 +43,6 @@ class DISCShapeDialect : public Dialect {
 }  // end namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h.inc"
+#include "mlir/disc/IR/disc_shape_ops.h.inc"
 
 #endif  //  TENSORFLOW_COMPILER_MLIR_DISC_IR_DISC_SHAPE_OPS_H_

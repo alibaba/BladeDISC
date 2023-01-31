@@ -30,7 +30,7 @@ limitations under the License.
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_enums.h.inc"
+#include "mlir/disc/IR/hlo_disc_enums.h.inc"
 
 namespace mlir {
 class OpBuilder;
@@ -59,6 +59,6 @@ class MhloDiscDialect : public Dialect {
 }  // end namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h.inc"
+#include "mlir/disc/IR/hlo_disc_ops.h.inc"
 
 #endif  //  TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_IR_HLO_DISC_OPS_H_

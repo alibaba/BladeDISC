@@ -19,6 +19,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
+#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
 
 namespace mlir {
 namespace torch {
@@ -46,6 +47,10 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite ConvertTorchConstantFloat32ToFloat32Attr(cst: Value) -> Attr;
   Rewrite ConvertTorchConstantFloatToFloatAttr(cst: Value) -> Attr;
   Rewrite InferTorchAtenTensorCatType(v: Value, inputs : ValueRange) -> Type;
+  Rewrite GetTorchSizeFromTensor(v1: Value, v2 : Value) -> Value;
+  Rewrite GetTorchTensorTypeFromList(v1: Value, v2 : Value) -> Type;
+  Rewrite GetTorchCombineWeightTypeForQKV(old_type: Type) -> Type;
+  Rewrite GetTorchIntFromIntList(v1: Value, v2: Value) -> Value;
 )pdll";
 
 static LogicalResult checkTorchNone(
@@ -323,6 +328,95 @@ static void inferTorchAtenTensorCatType(
   results.push_back(Type(OutputTy));
 }
 
+static void getTorchIntFromIntList(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values){
+    SmallVector<int64_t> elems;
+    
+    int64_t select_dim;
+    auto status = matchPattern(values[1].cast<Value>(), Torch::m_TorchConstantInt(&select_dim));
+    assert(status);
+
+    SmallVector<Value> value_elems;
+    Torch::getListConstructElements(values[0].cast<Value>(), value_elems);
+
+    for (Value value : value_elems) {
+      int64_t num;
+      if (matchPattern(value, Torch::m_TorchConstantInt(&num)))
+        elems.push_back(num);
+      else
+        elems.push_back(ShapedType::kDynamicSize);
+    }
+
+    int64_t select_value = elems[select_dim];
+    
+    auto output = rewriter.create<Torch::ConstantIntOp>(values[1].cast<Value>().getLoc(), rewriter.getI64IntegerAttr(select_value));
+    results.push_back(Value(output));
+}
+
+static void getTorchSizeFromTensor(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values){
+      auto tensor_shape = values[0].cast<Value>().getType().cast<Torch::ValueTensorType>().getSizes();
+      int64_t select_dim;
+      auto status = matchPattern(values[1].cast<Value>(), Torch::m_TorchConstantInt(&select_dim));
+      assert(status);
+
+      int64_t select_value = tensor_shape[select_dim];
+    
+      auto output = rewriter.create<Torch::ConstantIntOp>(values[1].cast<Value>().getLoc(), rewriter.getI64IntegerAttr(select_value));
+      results.push_back(Value(output));
+}
+
+static void getTorchTensorTypeFromList(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values){
+    SmallVector<int64_t> elems;
+    SmallVector<Value> value_elems;
+    Torch::getListConstructElements(values[1].cast<Value>(), value_elems);
+
+    for (Value value : value_elems) {
+      int64_t num;
+      if (matchPattern(value, Torch::m_TorchConstantInt(&num)))
+        elems.push_back(num);
+      else
+        elems.push_back(ShapedType::kDynamicSize);
+    }
+    // auto lead_tensor_type = values[0].cast<Value>().getType().cast<Torch::ValueTensorType>();
+    // auto status = matchPattern(values[1].cast<Value>(), Torch::m_TorchConstantIntList(elems));
+    // assert(status);
+    
+    auto OutputTy = Torch::ValueTensorType::get(
+      rewriter.getContext(),
+      llvm::makeArrayRef(elems),
+      rewriter.getF16Type());
+    
+    
+    //Type OutputTy = lead_tensor_type.getWithSizesAndDtype(llvm::makeArrayRef(elems), lead_tensor_type.getDtype());
+    results.push_back(Type(OutputTy));
+}
+
+static void getTorchCombineWeightTypeForQKV(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values){
+      auto old_type = values[0].cast<Type>().cast<Torch::ValueTensorType>();
+      auto tensor_shape = old_type.getSizes();
+      SmallVector<int64_t> new_shape;
+      new_shape.push_back(tensor_shape[0] * tensor_shape[1]);
+      new_shape.push_back(tensor_shape[2]);
+
+      auto new_type = Torch::ValueTensorType::get(
+        old_type.getContext(),
+        llvm::makeArrayRef(new_shape),
+        old_type.getDtype());
+
+      results.push_back(Type(new_type));
+}
+
 Type mapStrToType(PatternRewriter& rewriter, std::string type_str) {
   std::unordered_map<std::string, Type> typeconvert_dict = {
       {"i1", rewriter.getI1Type()},
@@ -393,6 +487,14 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
       "ConvertTorchConstantIntToI64Attr", convertTorchConstantIntToI64Attr);
   pdlPatterns.registerRewriteFunction(
       "InferTorchAtenTensorCatType", inferTorchAtenTensorCatType);
+  pdlPatterns.registerRewriteFunction(
+      "GetTorchTensorTypeFromList", getTorchTensorTypeFromList);
+  pdlPatterns.registerRewriteFunction(
+      "GetTorchCombineWeightTypeForQKV", getTorchCombineWeightTypeForQKV);
+  pdlPatterns.registerRewriteFunction(
+      "GetTorchSizeFromTensor", getTorchSizeFromTensor);
+  pdlPatterns.registerRewriteFunction(
+      "GetTorchIntFromIntList", getTorchIntFromIntList);
   pdlPatterns.registerRewriteFunction("GetTorchTensorType", getTorchTensorType);
   pdlPatterns.registerRewriteFunction(
       "GetTorchQuantizedTensorType", getTorchQuantizedTensorType);

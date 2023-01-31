@@ -104,7 +104,17 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
   LLVM::LLVMStructType mayCastedPairType = pairType;
   Value mayCastedLoopArgument = loopArgument;
   Value mayCastedResult = result;
-  if (valueType.isF32()) {
+  if (valueType.isF16()) {
+    mayCastedType = rewriter.getI16Type();
+    mayCastedDataPtr = rewriter.create<LLVM::BitcastOp>(
+        loc, LLVM::LLVMPointerType::get(mayCastedType), dataPtr);
+    mayCastedPairType = LLVM::LLVMStructType::getLiteral(
+        rewriter.getContext(), {mayCastedType, boolType});
+    mayCastedLoopArgument =
+        rewriter.create<LLVM::BitcastOp>(loc, mayCastedType, loopArgument);
+    mayCastedResult =
+        rewriter.create<LLVM::BitcastOp>(loc, mayCastedType, result);
+  } else if (valueType.isF32()) {
     mayCastedType = rewriter.getI32Type();
     mayCastedDataPtr = rewriter.create<LLVM::BitcastOp>(
         loc, LLVM::LLVMPointerType::get(mayCastedType), dataPtr);

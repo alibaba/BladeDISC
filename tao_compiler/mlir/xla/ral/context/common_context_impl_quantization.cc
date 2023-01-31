@@ -1334,20 +1334,15 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
   std::vector<float> output_scales({resultScales.data[0]});
   std::vector<int32_t> output_zero_point({resultZeroPoints.data[0]});
 
-  input_t.set_zero_point(input_zero_point);
-  weight_t.set_zero_point(weight_zero_point);
-  output_t.set_zero_point(output_zero_point);
+  ideep::matmul_forward_params param;
+  ideep::matmul_forward::prepare(
+      param, input_t, weight_t, bias_t, output_t, input_scales, weight_scales,
+      output_scales, input_zero_point, output_zero_point, 1.0f, 1.0f,
+      ideep::attr_t(), ideep::data_type::s8, ideep::lowp_kind::s8s8,
+      ideep::engine::cpu_engine());
+  ideep::matmul_forward::compute<true, true>(param, input_t, weight_t, bias_t,
+                                             output_t);
 
-  ideep::matmul_forward::compute(input_t, weight_t, bias_t, output_t,
-                                 1.0f,                    // dst_coeff
-                                 1.0f,                    // sum_coeff
-                                 input_scales,            // input_scales
-                                 weight_scales,           // weight_scales,
-                                 output_scales,           // dst_scales
-                                 ideep::attr_t(),         // attr_t
-                                 ideep::data_type::s8,    // dst_type
-                                 ideep::lowp_kind::s8s8,  // input-weight type
-                                 ideep::engine::cpu_engine());
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(result); ++i) {
       TAO_VLOG(0) << "output[" << i
@@ -1422,20 +1417,15 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
   std::vector<float> output_scales({resultScales.data[0]});
   std::vector<int32_t> output_zero_point({resultZeroPoints.data[0]});
 
-  input_t.set_zero_point(input_zero_point);
-  weight_t.set_zero_point(weight_zero_point);
-  output_t.set_zero_point(output_zero_point);
+  ideep::matmul_forward_params param;
+  ideep::matmul_forward::prepare(
+      param, input_t, weight_t, output_t, input_scales, weight_scales,
+      output_scales, input_zero_point, output_zero_point, 1.0f, 1.0f,
+      ideep::attr_t(), ideep::data_type::s8, ideep::lowp_kind::s8s8,
+      ideep::engine::cpu_engine());
+  ideep::matmul_forward::compute<true, true>(param, input_t, weight_t,
+                                             output_t);
 
-  ideep::matmul_forward::compute(input_t, weight_t, output_t,
-                                 1.0f,                    // dst_coeff
-                                 1.0f,                    // sum_coeff
-                                 input_scales,            // input_scales
-                                 weight_scales,           // weight_scales,
-                                 output_scales,           // dst_scales
-                                 ideep::attr_t(),         // attr_t
-                                 ideep::data_type::s8,    // dst_type
-                                 ideep::lowp_kind::s8s8,  // input-weight type
-                                 ideep::engine::cpu_engine());
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(result); ++i) {
       TAO_VLOG(0) << "output[" << i

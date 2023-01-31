@@ -802,7 +802,7 @@ class ShapePropagator : public PropertyPropBase {
     };
 
     SchemaSet no_shape_infer{
-        "aten::split.Tensor(Tensor(a -> *) self, SymInt split_size, int dim=0) -> Tensor(a)[]",
+        "aten::split.Tensor(Tensor(a -> *) self, int split_size, int dim=0) -> Tensor(a)[]",
         "aten::chunk(Tensor(a) self, int chunks, int dim=0) -> Tensor(a)[]",
         "aten::unbind.int(Tensor(a) self, int dim=0) -> Tensor(a)[]",
     };

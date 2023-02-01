@@ -213,3 +213,28 @@ func.func @rsqrt_on_constant_bcast(%arg0 : tensor<?x?xf16>, %arg1 : tensor<2xind
   // MEM_OPT_EXPERIMENTAL: return %[[T1]]
   return %2 : tensor<?x?xf16>
 }
+
+// ----
+
+// CHECK-LABEL: @trunci_simp
+// CHECK-SAME: (%[[ARG0:.*]]: index)
+func.func @trunci_simp(%arg0: index) -> i32 {
+  // CHECK-NOT: arith.trunci
+  // CHECK: %[[T0:.*]] = arith.index_cast %[[ARG0]]
+  // CHECK: return %[[T0]]
+  %0 = arith.index_cast %arg0 : index to i64
+  %1 = arith.trunci %0 : i64 to i32
+  return %1 : i32
+}
+
+// ----
+
+// CHECK-LABEL: @index_cast_simp
+// CHECK-SAME: (%[[ARG0:.*]]: index)
+func.func @index_cast_simp(%arg0: index) -> index {
+  // CHECK-NOT: arith.index_cast
+  // CHECK: return %[[ARG0]]
+  %0 = arith.index_cast %arg0 : index to i64
+  %1 = arith.index_cast %0 : i64 to index
+  return %1 : index
+}

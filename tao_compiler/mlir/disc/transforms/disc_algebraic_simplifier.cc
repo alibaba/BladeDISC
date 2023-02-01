@@ -13,6 +13,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/MLIRContext.h"
@@ -391,6 +392,69 @@ struct SimplifierFromElementsPattern
   }
 };
 
+// Simplifier index_cast and trunci op pattern, an example as following:
+//  %0 = arith.index_cast %arg0 : index to i64
+//  %1 = arith.trunci %0 : i64 to i32
+//
+// this pattern will be converted to:
+//  %0 = arith.index_cast %arg0 : index to i32
+struct TrunciSimplifierPattern : public OpRewritePattern<arith::TruncIOp> {
+  using OpRewritePattern<arith::TruncIOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(arith::TruncIOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op->getLoc();
+    Value input = op->getOperand(0);
+    Value result = op->getResult(0);
+    auto indexCastOp = input.getDefiningOp<arith::IndexCastOp>();
+    if (!indexCastOp) {
+      return failure();
+    }
+    Value source = indexCastOp->getOperand(0);
+    int numInputUsers =
+        std::distance(input.getUsers().begin(), input.getUsers().end());
+    if (source.getType().isIndex() && input.getType().isInteger(64) &&
+        result.getType().isInteger(32) && (numInputUsers == 1)) {
+      rewriter.replaceOpWithNewOp<arith::IndexCastOp>(op, op.getType(), source);
+      return success();
+    }
+    return failure();
+  }
+};
+
+// Simplify index_cast pattern. An examples as following:
+//  %0 = arith.index_cast %arg0 : index to i32
+//  %1 = arith.index_cast %0 : i32 to index
+//  %2 = some-op(%1, ...)
+//
+// this pattern will be removed:
+//  %0 = some-op(%arg0, ...)
+struct IndexCastSimplifierPattern
+    : public OpRewritePattern<arith::IndexCastOp> {
+  using OpRewritePattern<arith::IndexCastOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(arith::IndexCastOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op->getLoc();
+    Value input = op->getOperand(0);
+    Value result = op->getResult(0);
+    auto inputOp = input.getDefiningOp<arith::IndexCastOp>();
+    if (!inputOp) {
+      return failure();
+    }
+    Value source = inputOp->getOperand(0);
+    int numInputUsers =
+        std::distance(input.getUsers().begin(), input.getUsers().end());
+    if ((source.getType() == result.getType()) && (numInputUsers == 1)) {
+      for (Operation* user : result.getUsers()) {
+        user->replaceUsesOfWith(result, source);
+      }
+      return success();
+    }
+    return failure();
+  }
+};
+
 // Consant folding the broadcasted constant, for patterns like:
 //   %0 = mhlo.constant // Scalar or splat constant
 //   %1 = mhlo.dynamic_broadcast_in_dim(%0, ...)
@@ -485,7 +549,9 @@ void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>,
-    SimplifierFromElementsPattern
+    SimplifierFromElementsPattern,
+    TrunciSimplifierPattern,
+    IndexCastSimplifierPattern
   >(patterns.getContext());
 
   if (isMemIntensiveOptExperimentalEnabled()) {

@@ -56,7 +56,7 @@ fi
 # copy Python wheel package to build folder
 mkdir -p build && \
 cp tao/dist/blade_disc*.whl ./build
-#cp tao_compiler/bazel-bin/mlir/disc/tools/disc-replay/disc-replay-main ./build/
+cp tao_compiler/bazel-bin/mlir/disc/tools/disc-replay/disc-replay-main ./build/
 
 # test example models
 if [[ -z "$ROCM" ]] && [[ -z "$DCU" ]]; then

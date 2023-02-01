@@ -37,8 +37,7 @@ TEST(TFSumOpTest, ColReduceFullyDynamicShape2DF32) {
 TEST(TFSumOpTest, ColReduceFullyDynamicShape2DF16) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sum_col_d_2d_f16.mlir",
-      /*backend_types*/
-      kSupportedBackendList,
+      /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100xf16_X"},

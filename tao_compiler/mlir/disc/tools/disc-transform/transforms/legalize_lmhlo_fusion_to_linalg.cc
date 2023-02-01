@@ -25,6 +25,7 @@
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/transforms/PassDetail.h"
 #include "mlir/disc/tools/disc-transform/utils.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
 
 #define DEBUG_TYPE "disc-legalize-lmhlo-fusion-to-linalg"
 
@@ -203,6 +204,128 @@ LogicalResult emitConstOp(lmhlo::ConstantOp op, OpBuilder& b,
   return success();
 }
 
+LogicalResult emitBcastOp(Operation* op, OpBuilder& b,
+                          BlockAndValueMapping& mapping,
+                          const std::string& name) {
+  SmallVector<NamedAttribute> prunedAttrs;
+  if (auto dynBcastInDim = dyn_cast<lmhlo::DynamicBroadcastInDimOp>(op)) {
+    prunedAttrs = linalg::getPrunedAttributeList(dynBcastInDim);
+  } else if (auto bcastInDim = dyn_cast<lmhlo::BroadcastInDimOp>(op)) {
+    prunedAttrs = linalg::getPrunedAttributeList(bcastInDim);
+  } else if (auto bcast = dyn_cast<lmhlo::BroadcastOp>(op)) {
+    prunedAttrs = linalg::getPrunedAttributeList(bcast);
+  } else {
+    return op->emitError() << "not support bcast op\n";
+  }
+  Value in = op->getOperand(0);
+  auto inType = in.getType().cast<MemRefType>();
+  Value out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
+  auto outType = out.getType().cast<MemRefType>();
+  auto dimAttr = op->getAttrOfType<DenseElementsAttr>("broadcast_dimensions");
+  if (!dimAttr)
+    return op->emitError() << "no broadcast_dimensions attr found\n";
+  auto dimensions = dimAttr.getValues<int64_t>();
+
+  // Determine dimension expressions based on whether the dimension is
+  // expanding (0) or non-expanding (identity).
+  // Our fusion pass will make sure there are only supported bcast ops in the
+  // fusion Patterns, thus we can always decide if it's one of the above two
+  // cases in the compile-time.
+  SmallVector<AffineExpr> dimExprs(inType.getRank(), nullptr);
+  if (inType.getRank() != dimensions.size())
+    return op->emitError()
+           << "size of broadcast_dimensions not equal rank of input\n";
+  for (auto [inDimIdx, inDimSize] : llvm::enumerate(inType.getShape())) {
+    int64_t outDimIdx = dimensions[inDimIdx];
+    int64_t outDimSize = outType.getShape()[outDimIdx];
+    bool isExpanding = (inDimSize == 1 && outDimSize != 1);
+    dimExprs[inDimIdx] = isExpanding ? b.getAffineConstantExpr(0)
+                                     : b.getAffineDimExpr(outDimIdx);
+  }
+
+  Location loc = op->getLoc();
+  int64_t nloops = outType.getRank();
+  Value newIn = mapping.lookup(in);
+  Value newOut = mapping.lookup(out);
+  auto newOp = b.create<linalg::GenericOp>(
+      loc, TypeRange{newOut.getType()}, ValueRange{newIn}, ValueRange{newOut},
+      llvm::ArrayRef({AffineMap::get(/*dimCount=*/nloops, /*symbolCount=*/0,
+                                     dimExprs, b.getContext()),
+                      b.getMultiDimIdentityMap(nloops)}),
+      mhlo::getParallelAndReductionIterators(
+          /*nLoops=*/nloops,
+          /*nReduction=*/0),
+      [&](OpBuilder& nestedBuilder, Location /*nested_loc*/, ValueRange args) {
+        nestedBuilder.create<linalg::YieldOp>(loc, *args.begin());
+      },
+      prunedAttrs);
+  newOp->setAttr(kDISCLinalgTransformName, b.getStringAttr(name));
+  mapping.erase(out);
+  mapping.map(out, newOp->getResult(0));
+  return success();
+}
+
+template <typename OpTy>
+LogicalResult emitElemOp(OpTy op, OpBuilder& b, BlockAndValueMapping& mapping,
+                         const std::string& name) {
+  if (!isa<lmhlo::LmhloOp>(op.getOperation()) || op->getNumOperands() < 2)
+    return op->emitError() << "not support lmhlo op\n";
+
+  auto loc = op.getLoc();
+  // Find maximum rank / number of loops.
+  auto getRank = [](Value v) {
+    return v.getType().cast<ShapedType>().getRank();
+  };
+  auto isScalar = [&](Value v) { return getRank(v) == 0; };
+  auto ins = op->getOperands().drop_back();
+  auto it = llvm::find_if_not(ins, isScalar);
+  Value maxRankArg = it != ins.end() ? *it : ins.front();
+  int64_t nloops = getRank(maxRankArg);
+  if (nloops == 0) return op->emitError() << "not support 0d elem ops a.t.m.\n";
+
+  // Apply only if all operands are scalar or have the same rank. Some ops,
+  // like `mhlo.select`, support implicit broadcasting of scalars.
+  if (!llvm::all_of(op->getOperands(), [&](Value v) {
+        int64_t r = getRank(v);
+        return r == 0 || r == nloops;
+      })) {
+    return op->emitError() << "Operands must be os same rank or scalar.\n";
+  }
+
+  Value out = op->getOperands().back();
+  if (getRank(out) != nloops)
+    return op->emitError() << "output of op should have the max rank\n";
+  Value newOut = mapping.lookup(out);
+  SmallVector<Value> newIns;
+  AffineMap scalarMap = AffineMap::get(nloops, 0, b.getContext());
+  AffineMap idMap = b.getMultiDimIdentityMap(nloops);
+  SmallVector<AffineMap, 4> maps;
+  for (Value in : ins) {
+    newIns.push_back(mapping.lookup(in));
+    maps.push_back(isScalar(in) ? scalarMap : idMap);
+  }
+  maps.push_back(b.getMultiDimIdentityMap(nloops));
+
+  auto newOp = b.create<linalg::GenericOp>(
+      loc, TypeRange{newOut.getType()}, newIns, newOut, maps,
+      mhlo::getParallelAndReductionIterators(
+          /*nLoops=*/nloops,
+          /*nReduction=*/0),
+      [&](OpBuilder& nestedBuilder, Location /*nested_loc*/, ValueRange args) {
+        Type innerResultTy = getElementTypeOrSelf(newOut);
+        auto argvec = llvm::to_vector<2>(args.take_front(newIns.size()));
+        auto innerResult = LhloOpToStdScalarOp::map<OpTy>(
+            op, innerResultTy, argvec, &nestedBuilder);
+        nestedBuilder.create<linalg::YieldOp>(loc, innerResult);
+      },
+      linalg::getPrunedAttributeList(op));
+
+  newOp->setAttr(kDISCLinalgTransformName, b.getStringAttr(name));
+  mapping.erase(out);
+  mapping.map(out, newOp->getResult(0));
+  return success();
+}
+
 LogicalResult emitLmhloOp(Operation* op, OpBuilder& b,
                           BlockAndValueMapping& mapping,
                           const std::string& name) {
@@ -210,7 +333,57 @@ LogicalResult emitLmhloOp(Operation* op, OpBuilder& b,
     return emitDotGeneralOp(dotGeneralOp, b, mapping, name);
   } else if (auto constOp = dyn_cast<lmhlo::ConstantOp>(op)) {
     return emitConstOp(constOp, b, mapping, name);
+  } else if (isa<lmhlo::BroadcastInDimOp, lmhlo::BroadcastOp,
+                 lmhlo::DynamicBroadcastInDimOp>(op)) {
+    return emitBcastOp(op, b, mapping, name);
   }
+
+  // clang-format off
+
+  #define ELEM_OP_HANDLER(opType) \
+    else if (auto t##opType = dyn_cast<lmhlo::opType>(op)) { \
+      return emitElemOp(t##opType, b, mapping, name); \
+    }
+  ELEM_OP_HANDLER(AddOp)
+  ELEM_OP_HANDLER(SubtractOp)
+  ELEM_OP_HANDLER(AbsOp)
+  ELEM_OP_HANDLER(CeilOp)
+  ELEM_OP_HANDLER(ConvertOp)
+  ELEM_OP_HANDLER(CopyOp)
+  ELEM_OP_HANDLER(CosineOp)
+  ELEM_OP_HANDLER(ExpOp)
+  ELEM_OP_HANDLER(FloorOp)
+  ELEM_OP_HANDLER(IsFiniteOp)
+  ELEM_OP_HANDLER(LogOp)
+  ELEM_OP_HANDLER(Log1pOp)
+  ELEM_OP_HANDLER(LogisticOp)
+  ELEM_OP_HANDLER(NegOp)
+  ELEM_OP_HANDLER(NotOp)
+  ELEM_OP_HANDLER(RsqrtOp)
+  ELEM_OP_HANDLER(SignOp)
+  ELEM_OP_HANDLER(SineOp)
+  ELEM_OP_HANDLER(SqrtOp)
+  ELEM_OP_HANDLER(TanhOp)
+  ELEM_OP_HANDLER(RoundOp)
+  ELEM_OP_HANDLER(RoundNearestEvenOp)
+  ELEM_OP_HANDLER(AddOp)
+  ELEM_OP_HANDLER(AndOp)
+  ELEM_OP_HANDLER(CompareOp)
+  ELEM_OP_HANDLER(DivOp)
+  ELEM_OP_HANDLER(MaxOp)
+  ELEM_OP_HANDLER(MinOp)
+  ELEM_OP_HANDLER(MulOp)
+  ELEM_OP_HANDLER(OrOp)
+  ELEM_OP_HANDLER(PowOp)
+  ELEM_OP_HANDLER(RemOp)
+  ELEM_OP_HANDLER(SubtractOp)
+  ELEM_OP_HANDLER(SelectOp)
+  ELEM_OP_HANDLER(ClampOp)
+
+  #undef ELEM_OP_HANDLER
+
+  // clang-format on
+
   // TODO(wyzero): support other lmhlo ops.
   return failure();
 }

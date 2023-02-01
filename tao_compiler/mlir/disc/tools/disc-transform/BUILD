@@ -286,6 +286,7 @@ cc_library(
         ":DISCLinalgExtDialect",
         ":disc_transform_utils",
         ":pass_details",
+        "//mlir/disc:disc_lhlo_elemental_utils",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:legalize_to_linalg_utils",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",

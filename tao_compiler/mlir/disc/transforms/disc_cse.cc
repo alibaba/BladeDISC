@@ -43,6 +43,7 @@ struct KeyHash {
   }
 };
 
+// Many codes are copy from llvm-project/mlir/lib/Transforms/CSE.cpp
 struct KeyEqual {
   bool isEquivalentTo(Operation* lhs, Operation* rhs,
                       function_ref<LogicalResult(Value, Value)> mapOperands,
@@ -107,7 +108,7 @@ struct KeyEqual {
                                rhsBody.front().getOperations())) {
         auto& lhsOp = std::get<0>(it);
         auto& rhsOp = std::get<1>(it);
-        // we currently do not compare equality of nested regions
+        // We currently do not compare equality of nested regions
         if (lhsOp.getNumRegions() != 0 or rhsOp.getNumRegions() != 0)
           return false;
 
@@ -140,6 +141,11 @@ struct KeyEqual {
 }  // namespace
 
 namespace {
+// The original CSE provided in LLVM will not work on operations with
+// body regions such as mhlo::ReduceOp.
+//
+// The pass add CSE for mhlo::ReduceOp and creates the place to add
+// more other mhlo operations in the future.
 struct DiscMhloCSEPass : public DiscMhloCSEPassBase<DiscMhloCSEPass> {
   using ScopedMapTy = std::unordered_set<Operation*, KeyHash, KeyEqual>;
 

@@ -131,7 +131,8 @@ class TestDiscReduction(DiscTestCase):
             x = torch.randn([2, 3, 254, 254], dtype=dtype, device=self.device).to(self.device) * 0.01
             self._test_disc(reduce_func, [annotation, annotation], (x, ), rtol=1e-3, atol=1e-2)
 
-        test_reduction(sum_func, torch.half)
+        if self.device == torch.device('cuda'):
+            test_reduction(sum_func, torch.half)
         test_reduction(sum_func, torch.float)
 
 

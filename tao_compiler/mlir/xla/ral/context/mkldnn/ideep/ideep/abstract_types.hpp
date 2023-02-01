@@ -37,6 +37,7 @@ using algorithm = dnnl::algorithm;
 using batch_normalization_flag = dnnl::normalization_flags;
 using query = dnnl::query;
 using scale_t = std::vector<float>;
+using zero_point_t = std::vector<int32_t>;
 using exec_args = std::unordered_map<int, memory>;
 
 // for computation cache
@@ -53,6 +54,7 @@ using key_t = std::string;
 #endif
 
 const scale_t IDEEP_DEF_SCALE{1.0f};
+const zero_point_t IDEEP_DEF_ZP{0};
 
 enum lowp_kind {
   u8s8 = 0,

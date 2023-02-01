@@ -21,6 +21,7 @@
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -104,8 +105,11 @@ struct KeyEqual {
       auto& rhsBody = rhsReduceOp.getBody();
       if (not(lhsBody.hasOneBlock() && rhsBody.hasOneBlock())) return false;
 
-      for (auto it : llvm::zip(lhsBody.front().getOperations(),
-                               rhsBody.front().getOperations())) {
+      auto& lhsOperations = lhsBody.front().getOperations();
+      auto& rhsOperations = rhsBody.front().getOperations();
+      if (lhsOperations.size() != rhsOperations.size()) return false;
+
+      for (auto it : llvm::zip(lhsOperations, rhsOperations)) {
         auto& lhsOp = std::get<0>(it);
         auto& rhsOp = std::get<1>(it);
         // We currently do not compare equality of nested regions

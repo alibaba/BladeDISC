@@ -383,14 +383,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(disc_ral::createTransposeSimplifierPass());
 
-  if (gpu_enabled) {
-    pm.addNestedPass<FuncOp>(mhlo::createHloCanonicalizeReductionPass());
-    if (enable_shape_constraint_ir) {
-      // shape-related optimization
-      pm.addPass(disc_ral::createDiscShapeOptimizationPass());
-    }
-  }
-
   if (enable_sparse) {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscSparseGemmTransposeSimplifierPass());

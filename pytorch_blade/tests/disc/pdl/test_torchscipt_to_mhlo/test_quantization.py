@@ -89,8 +89,8 @@ module {
     # CHECK-NOT: mhlo_disc.dequantize
     # CHECK: mhlo_disc.custom_call_v2
     # CHECK-SAME: call_target_name = "ral_pdll_qgemm"
-    # CHECK-SAME: custom_attrs = {transpose_a = false, transpose_b = false, weight_is_const = true}
-    %9 = "mhlo_disc.custom_call_v2"(%7, %0, %6, %3, %2, %4, %5, %1, %2) {call_target_name = "ral_pdll_qgemm", custom_attrs = {transpose_a = false, transpose_b = false}, device = "h", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xf32>, tensor<f32>, tensor<i32>, tensor<128xf32>, tensor<128xi32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
+    # CHECK-SAME: custom_attrs = {bias_is_const = true, transpose_a = false, transpose_b = false, weight_is_const = true}
+    %9 = "mhlo_disc.custom_call_v2"(%7, %0, %6, %3, %2, %4, %5, %1, %2) {call_target_name = "ral_pdll_qgemm", custom_attrs = {bias_is_const = true, transpose_a = false, transpose_b = false, weight_is_const = true}, device = "h", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xf32>, tensor<f32>, tensor<i32>, tensor<128xf32>, tensor<128xi32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
     # CHECK-NOT: mhlo_disc.quantize
     # CHECK: mhlo_disc.dequantize
     # CHECK-SAME: use_symmetric = true

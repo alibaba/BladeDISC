@@ -671,11 +671,6 @@ void mkl_ral_gemm(ExecutionContext* ctx, void* stream_handle,
 #endif
 }
 
-struct OnednnGemmState : public Context::Resource {
-  std::mutex mu;
-  std::unordered_map<opaque_t, std::vector<ideep::tensor>> packed_weight_cache;
-};
-
 using MatmulPrimitive = ideep::matmul_forward::super;
 using OnednnAclGemmCache =
     ideep::utils::lru_cache<GEMMParamsKey, std::shared_ptr<MatmulPrimitive>,

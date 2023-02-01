@@ -88,6 +88,12 @@ inline void hash_combine(std::size_t& seed, const T& v) {
 
 extern const std::thread::id kDiscCpuDefaultThreadId;
 
+struct OnednnGemmState : public Context::Resource {
+  std::mutex mu;
+  std::unordered_map<opaque_t, std::vector<ideep::tensor>> packed_weight_cache;
+  std::unordered_map<opaque_t, std::vector<ideep::tensor>> packed_bias_cache;
+};
+
 struct GEMMParamsKeyHasher;
 
 struct GEMMParamsKey {

@@ -33,6 +33,29 @@ TEST(TFSumOpTest, ColReduceFullyDynamicShape2DF32) {
       /*output_descriptors*/ {"f32_X"}));
 }
 
+// dynamic shape 2D column reduction test case
+TEST(TFSumOpTest, ColReduceFullyDynamicShape2DF16) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "sum_col_d_2d_f16.mlir",
+      /*backend_types*/ {BackendType::kCuda},
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"110x100xf16_X"},
+      /*output_descriptors*/ {"f16_X"}));
+}
+
+// dynamic shape 2D column reduction test case
+TEST(TFSumOpTest, ColReduceFullyDynamicShape2DI8) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "sum_col_d_2d_i8.mlir",
+      /*backend_types*/
+      kSupportedBackendList,
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"110x100xi8_X"},
+      /*output_descriptors*/ {"i8_X"}));
+}
+
 // dynamic shape 3D column reduction test case
 TEST(TFSumOpTest, ColReduceFullyDynamicShape3DF32) {
   EXPECT_TRUE(feature_test_main(

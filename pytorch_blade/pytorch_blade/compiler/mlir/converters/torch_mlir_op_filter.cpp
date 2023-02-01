@@ -110,6 +110,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       //"aten::native_dropout",
       "aten::ones",
       "aten::ones_like",
+      "aten::pad",
       "aten::permute",
       "aten::pow",
       "aten::relu",

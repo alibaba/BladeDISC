@@ -135,10 +135,10 @@ new_local_repository(
 
 blade_http_archive(
   name = "mlir-hlo",
-  sha256 = "c7d9b8667bdcc2865701571e7cdef2ba21762b619bb5505cdec3af6f8b36fbb6",
-  strip_prefix = "mlir-hlo-36238f16441cd1a884af988d4400d2ebb0c75bbc",
+  sha256 = "0c587e7a2a19977d713a597376fc3d5eb835ef1989ad112a6b56b6d823492b7a",
+  strip_prefix = "mlir-hlo-c2a6f4064d426567b9ef7b0d29d5ab86dc7b2b02",
   urls = [
-    "https://github.com/tensorflow/mlir-hlo/archive/36238f16441cd1a884af988d4400d2ebb0c75bbc.zip",
+    "https://github.com/tensorflow/mlir-hlo/archive/c2a6f4064d426567b9ef7b0d29d5ab86dc7b2b02.zip",
   ],
   patch_file = [
     "//bazel/torch_mlir:disable-simplify-dynamic-gather-to-gather.patch",

@@ -47,15 +47,15 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const {
     Location loc = op.getLoc();
-    auto name = op.name();
-    auto operands = adaptor.operands();
+    auto name = op.getName();
+    auto operands = adaptor.getOperands();
     auto input = operands[0];
     auto scale = operands[1];
     auto zeroPoint = operands[2];
 
 #define I64_VAR_FROM_CONST_OPERAND(var, idx)                         \
   int64_t var;                                                       \
-  if (!matchPattern(op.operands()[idx], m_TorchConstantInt(&var))) { \
+  if (!matchPattern(op.getOperands()[idx], m_TorchConstantInt(&var))) { \
     return op.emitError(#var " must be a scalar constant int");      \
   }
     I64_VAR_FROM_CONST_OPERAND(qmin, 3);
@@ -64,13 +64,13 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
 #undef I64_VAR_FROM_CONST_OPERAND
 
     SmallVector<int64_t, 4> axis;
-    if (!matchPattern(op.operands()[6], m_TorchConstantIntList(axis))) {
+    if (!matchPattern(op.getOperands()[6], m_TorchListOfConstantInts(axis))) {
       return op.emitError("only constant dims are supported a.t.m");
     }
 
 #define BOOL_VAR_FROM_CONST_OPERAND(var, idx)                         \
   bool var;                                                           \
-  if (!matchPattern(op.operands()[idx], m_TorchConstantBool(&var))) { \
+  if (!matchPattern(op.getOperands()[idx], m_TorchConstantBool(&var))) { \
     return op.emitError(#var " must be a scalar constant boolean");   \
   }
 
@@ -166,7 +166,7 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       ConversionPatternRewriter& rewriter) const {
     auto ctx = rewriter.getContext();
     Location loc = op.getLoc();
-    auto operands = adaptor.operands();
+    auto operands = adaptor.getOperands();
     SmallVector<Type> resultTypes;
     for (const auto& result : op.getResults()) {
       auto torchMlirResultTy = result.getType().dyn_cast<ValueTensorType>();
@@ -244,7 +244,7 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
-    auto name = op.name();
+    auto name = op.getName();
     if (std::find(
             std::begin(quantizationOpList),
             std::end(quantizationOpList),

@@ -76,6 +76,11 @@ def DotRewriterPass : Pass<"disc-dot-rewriter", "mlir::func::FuncOp"> {
   let constructor = "createDiscDotRewriterPass()";
 }
 
+def ReductionRewriterPass : Pass<"disc-reduction-rewriter", "mlir::func::FuncOp"> {
+  let summary = "Rewrite mhlo::ReduceOp";
+  let constructor = "createDiscReductionRewriterPass()";
+}
+
 def DiscMhloCSEPass : Pass<"disc-mhlo-cse", "mlir::func::FuncOp"> {
   let summary = "disc mhlo cse pass";
   let constructor = "createDiscMhloCSEPass()";

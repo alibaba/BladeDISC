@@ -457,6 +457,25 @@ cc_library(
 )
 
 cc_library(
+    name = "reduction_rewriters",
+    srcs = ["transforms/reduction_rewriters.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = [
+        "tensorflow/compiler/xla/mlir_hlo/include",
+        "."
+    ],
+    deps = [
+        ":pass_details",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "mhlo_decomp_rewriters",
     srcs = ["transforms/mhlo_decomp_rewriters.cc"],
     hdrs = ["transforms/passes.h"],
@@ -2154,6 +2173,7 @@ cc_library(
         ":mhlo_mark_shape_calc",
         ":mhlo_placer",
         ":ral_inject_execution_context",
+	":reduction_rewriters",
         ":revise_args_for_static_rank",
         ":revise_gpu_kernel_outlining",
         ":split_large_ops",

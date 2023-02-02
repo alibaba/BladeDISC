@@ -55,7 +55,7 @@ LogicalResult UpgradeAtenOp<AtenGeluOp>::matchAndRewrite(
     Value cstStrNone =
         rewriter.create<Torch::ConstantStrOp>(op.getLoc(), "none");
     rewriter.replaceOpWithNewOp<AtenGeluOp>(
-        op, op.getType(), op.self(), cstStrNone);
+        op, op.getType(), op.getSelf(), cstStrNone);
     return success();
   }
   return failure();

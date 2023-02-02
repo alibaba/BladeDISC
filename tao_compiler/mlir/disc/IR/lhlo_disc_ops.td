@@ -21,14 +21,14 @@ limitations under the License.
 include "mlir/Dialect/MemRef/IR/MemRefBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
-include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_base.td"
-include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_structs.td"
-include "mlir-hlo/Dialect/lhlo/IR/lhlo_structured_interface.td"
+include "lhlo/IR/lhlo_ops_base.td"
+include "lhlo/IR/lhlo_ops_structs.td"
+include "lhlo/IR/lhlo_structured_interface.td"
 
 def LHLODISC_Dialect : Dialect {
   let name = "lmhlo_disc";
   let cppNamespace = "::mlir::lmhlo_disc";
-  let emitAccessorPrefix = kEmitAccessorPrefix_Prefixed;
+  let useFoldAPI = kEmitFoldAdaptorFolder;
 }
 
 def LHLO_I32Tensor : MemRefOf<[SignlessIntOfWidths<[32]>]>;
@@ -137,7 +137,7 @@ def LHLODISC_QuantizedDotGeneralOp: LHLODISC_Op<"quantized_dot_general", []> {
     Arg<LHLO_FpBuffer, "", [MemRead]>:$result_scale,
     Arg<LHLO_I32Tensor, "", [MemRead]>:$result_zero_point,
     Arg<LHLO_IntBuffer, "", [MemWrite]>:$result,
-    DotDimensionNumbers:$dot_dimension_numbers,
+    MHLO_DotDimensionNumbers:$dot_dimension_numbers,
     DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
     DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
     DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
@@ -169,8 +169,8 @@ def LHLODISC_QuantizedDynamicConvOp: LHLODISC_Op<"quantized_dynamic_conv", []> {
     // Default value: one for each of the spatial dimension.
     OptionalAttr<I64ElementsAttr>:$rhs_dilation,
     // Default value: false for each of the spatial dimension.
-    OptionalAttr<BoolElementsAttr>:$window_reversal,
-    ConvDimensionNumbers:$dimension_numbers,
+    OptionalAttr<MHLO_BoolElementsAttr>:$window_reversal,
+    MHLO_ConvDimensionNumbers:$dimension_numbers,
     I64Attr:$feature_group_count,
     I64Attr:$batch_group_count,
     DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,

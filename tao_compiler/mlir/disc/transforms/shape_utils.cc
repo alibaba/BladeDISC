@@ -16,11 +16,11 @@
 #include <unordered_set>
 #include <utility>
 
+#include "lhlo/IR/lhlo_ops.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
@@ -568,7 +568,7 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
       mayCreateOrMapConstInt(result);
     } else if (isa<mhlo::DynamicReshapeOp, mhlo::DynamicBroadcastInDimOp>(op)) {
       auto dimValues = getTensorDimValues(op->getOperand(1));
-      if (!dimValues.hasValue()) {
+      if (!dimValues.has_value()) {
         return WalkResult::advance();
       }
       Value result = op->getResult(0);
@@ -585,7 +585,7 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
       auto strides = getTensorDimValues(dynSlice.getStrides());
       Value result = op->getResult(0);
       auto out_ty = result.getType().dyn_cast_or_null<RankedTensorType>();
-      if (!starts.hasValue() || !limits.hasValue() || !strides.hasValue() ||
+      if (!starts.has_value() || !limits.has_value() || !strides.has_value() ||
           !out_ty) {
         return WalkResult::advance();
       }
@@ -2003,7 +2003,7 @@ bool ShapeConstraintIRAnalysis::isProductEqual(Value lhs,
     if (!ty || !ty.hasRank()) return false;
 
     for (int idx : dimIdxs) {
-      if (ty.getShape()[idx] == ShapedType::kDynamicSize) {
+      if (ty.getShape()[idx] == ShapedType::kDynamic) {
         if (it == memrefValue2SymDims_.end() || it->second.size() <= idx)
           return false;
         prod.symbols.push_back(it->second[idx]);

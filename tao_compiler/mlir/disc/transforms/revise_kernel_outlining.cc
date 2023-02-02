@@ -27,8 +27,8 @@
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/GPU/Transforms/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
 #include "mlir/Pass/Pass.h"
@@ -131,7 +131,7 @@ int64_t getFirstOperandIndex(Operation* op, Value value) {
   return -1;
 }
 
-// Operation *Operation::clone(BlockAndValueMapping &mapper) {
+// Operation *Operation::clone(IRMapping &mapper) {
 //   auto *newOp = cloneWithoutRegions(mapper);
 //
 //   // Clone the regions.
@@ -143,10 +143,9 @@ int64_t getFirstOperandIndex(Operation* op, Value value) {
 
 // This method is revised from Region::cloneinto()
 // TODO: any easier ways?
-void cloneRegionAndRemapLoad(Region* src, Region* dest,
-                             BlockAndValueMapping& mapper, int64_t memref_idx,
-                             Value memref_arg, Block& new_entry_block,
-                             bool is_entry) {
+void cloneRegionAndRemapLoad(Region* src, Region* dest, IRMapping& mapper,
+                             int64_t memref_idx, Value memref_arg,
+                             Block& new_entry_block, bool is_entry) {
   assert(dest && "expected valid region to clone into");
   assert(src != dest && "cannot clone region into itself");
   Region::iterator destPos = dest->end();
@@ -321,7 +320,7 @@ gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
                            b.getUnitAttr());
 
   // clone the Ops in the body of the gpu.FuncOp
-  BlockAndValueMapping map;
+  IRMapping map;
   Region& new_gpu_func_body = new_gpu_func_op.getBody();
   Block& new_gpu_func_entry_block = new_gpu_func_body.front();
   for (auto operand :
@@ -429,7 +428,9 @@ class ReviseGpuKernelOutliningPass
       assert(gpu_func_op && "gpu_func_op is empty");
       gpu_func_op.walk([&](AllocOp alloc) {
         auto memref_type = alloc.getResult().getType().cast<MemRefType>();
-        assert(memref_type.getMemorySpaceAsInt() ==
+        assert(memref_type.getMemorySpace()
+                       .dyn_cast<gpu::AddressSpaceAttr>()
+                       .getValue() ==
                    gpu::GPUDialect::getWorkgroupAddressSpace() &&
                "unexpected alloc op in gpu_func_op");
         convertWorkgroupBuffer(gpu_func_op, alloc);

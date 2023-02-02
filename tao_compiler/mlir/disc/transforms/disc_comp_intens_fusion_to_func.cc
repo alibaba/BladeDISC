@@ -9,9 +9,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/disc/disc_util.h"
 #include "mlir/disc/transforms/PassDetail.h"
@@ -77,7 +77,7 @@ void DiscCompIntensFusionToFuncPass::convertKCompIntensFusionToFunc(
 
   // Create func op and clone instructions.
   auto fusion_func = builder.create<func::FuncOp>(loc, getFusionName(op), type);
-  BlockAndValueMapping mapper;
+  IRMapping mapper;
   builder.setInsertionPointToEnd(fusion_func.addEntryBlock());
   for (const auto& arg : enumerate(fusion_func.getArguments())) {
     if (arg.index() < operands.size()) {

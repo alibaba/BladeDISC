@@ -21,14 +21,14 @@ limitations under the License.
 include "mlir/IR/EnumAttr.td"
 
 
-// The round mode enum for HLO_FakeQuantOp, HLO_QuantizeOp and HLO_DequantizeOp
-def HLO_RoundHalfAwayFromZero: I64EnumAttrCase<"RoundHalfAwayFromZero", 0>; // tf default mode
-def HLO_RoundHalfToEven: I64EnumAttrCase<"RoundHalfToEven", 1>; // PyTorch default mode
-def HLO_RoundModeEnum: I64EnumAttr<"RoundModeEnum",
+// The round mode enum for MHLO_FakeQuantOp, MHLO_QuantizeOp and MHLO_DequantizeOp
+def MHLO_RoundHalfAwayFromZero: I64EnumAttrCase<"RoundHalfAwayFromZero", 0>; // tf default mode
+def MHLO_RoundHalfToEven: I64EnumAttrCase<"RoundHalfToEven", 1>; // PyTorch default mode
+def MHLO_RoundModeEnum: I64EnumAttr<"RoundModeEnum",
     "Round mode in quantization related op",
     [
-        HLO_RoundHalfAwayFromZero,
-        HLO_RoundHalfToEven
+        MHLO_RoundHalfAwayFromZero,
+        MHLO_RoundHalfToEven
     ]> {
   let summary = "Round mode in quantization related op";
   let cppNamespace = "::mlir::mhlo_disc";

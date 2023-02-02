@@ -13,14 +13,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 // This file provides mapping from chlo ops to mhlo ops, should be merged into
-//     mlir-hlo/Dialect/mhlo/transforms/map_chlo_to_hlo_op.h
+//     /mhlo/transforms/map_chlo_to_hlo_op.h
 
 #ifndef MLIR_DISC_TRANSFORMS_DISC_MAP_CHLO_TO_HLO_OP_H_
 #define MLIR_DISC_TRANSFORMS_DISC_MAP_CHLO_TO_HLO_OP_H_
 
 #include <type_traits>
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "stablehlo/dialect/ChloOps.h"
 
 namespace mlir {

@@ -235,7 +235,7 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
       int64_t staticDim = std::get<0>(en.value());
       Value dynamicDim = std::get<1>(en.value());
       // Skip static known dimension.
-      if (staticDim != ShapedType::kDynamicSize) continue;
+      if (staticDim != ShapedType::kDynamic) continue;
 
       auto dimOp = dyn_cast_or_null<tensor::DimOp>(dynamicDim.getDefiningOp());
       if (!dimOp || dimOp.getSource() != operand) {
@@ -313,7 +313,7 @@ LogicalResult SymbolicDimOp::verify() { return Verify(*this); }
 int64_t SymbolicDimOp::getDimSize() {
   if (auto attr = (*this)->getAttrOfType<IntegerAttr>("value"))
     return attr.getInt();
-  return ShapedType::kDynamicSize;
+  return ShapedType::kDynamic;
 }
 
 void SymbolicDimOp::setDimSize(int64_t val) {
@@ -328,9 +328,7 @@ void SymbolicDimOp::setDimSize(int64_t val) {
   }
 }
 
-bool SymbolicDimOp::isDynamic() {
-  return getDimSize() == ShapedType::kDynamicSize;
-}
+bool SymbolicDimOp::isDynamic() { return getDimSize() == ShapedType::kDynamic; }
 
 void SymbolicDimOp::updateKnownNonNegative(bool flag) {
   OpBuilder b(*this);

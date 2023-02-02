@@ -666,7 +666,7 @@ SymbolicDimMgr::getOrCreateSymbolicDimsForRankedValue(Value value) {
     assert(ty.getRank() == symbols.size());
   } else {
     for (int64_t dim : ty.getShape()) {
-      symbols.push_back(dim == ShapedType::kDynamicSize
+      symbols.push_back(dim == ShapedType::kDynamic
                             ? newSymbolicDim()
                             : newConstantSymbolicDim(dim));
     }

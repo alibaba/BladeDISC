@@ -349,7 +349,6 @@ cc_library(
 	"@org_tensorflow//tensorflow/core/platform:status",
         "@org_tensorflow//tensorflow/core/platform:statusor",
     ] + if_cuda_is_configured([
-        #"@org_tensorflow//tensorflow/stream_executor:cuda_platform",
         "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:all_runtime",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
@@ -448,7 +447,6 @@ cc_library(
         "@org_tensorflow//tensorflow/core:stream_executor_headers_lib",
         "@com_google_absl//absl/strings",
     ] + if_cuda_is_configured([
-        #"@org_tensorflow//tensorflow/stream_executor:cuda_platform",
         "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:all_runtime",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
@@ -504,7 +502,6 @@ cc_library(
         "@org_tensorflow//tensorflow/core:stream_executor_headers_lib",
         "@com_google_absl//absl/strings",
     ] + if_cuda_is_configured([
-        #"@org_tensorflow//tensorflow/stream_executor:cuda_platform",
         "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:all_runtime",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
@@ -538,7 +535,6 @@ cc_library(
         "@org_tensorflow//tensorflow/core:lib",
         "@com_google_absl//absl/strings",
     ] + if_cuda_is_configured([
-        #"@org_tensorflow//tensorflow/stream_executor:cuda_platform",
         "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:all_runtime",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
@@ -608,10 +604,10 @@ disc_cc_library(
         "@com_google_absl//absl/strings",
         "@curl",
     ] + if_rocm_is_configured([
-        "@org_tensorflow//tensorflow/stream_executor/rocm:rocm_platform",
-        "@org_tensorflow//tensorflow/stream_executor/rocm:rocm_driver",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/rocm:rocm_platform",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/rocm:rocm_driver",
     ]) + if_cuda_is_configured([
-        "@org_tensorflow//tensorflow/stream_executor/cuda:cuda_platform",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:cuda_platform",
         "@local_config_cuda//cuda:cuda_driver",
     ]),
     alwayslink = 1,

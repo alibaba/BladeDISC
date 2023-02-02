@@ -18,6 +18,9 @@ limitations under the License.
 #include <vector>
 
 #include "absl/strings/string_view.h"
+#include "lhlo/IR/lhlo_ops.h"
+#include "lhlo/transforms/passes.h"
+#include "lhlo_gpu/IR/lhlo_gpu_ops.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/IR/LLVMContext.h"
@@ -29,11 +32,8 @@ limitations under the License.
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/passes.h"
-#include "mlir-hlo/Dialect/lhlo_gpu/IR/lhlo_gpu_ops.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir-hlo/Dialect/mhlo/transforms/passes.h"
+#include "mhlo/IR/hlo_ops.h"
+#include "mhlo/transforms/passes.h"
 #include "mlir/ExecutionEngine/OptUtils.h"  // from @llvm-project
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -55,7 +55,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/init_mlir.h"
 #include "tensorflow/compiler/mlir/tensorflow/dialect_registration.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
-#include "tensorflow/compiler/xla/stream_executor/lib/statusor.h"
 #include "tensorflow/compiler/xla/util.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/logging.h"

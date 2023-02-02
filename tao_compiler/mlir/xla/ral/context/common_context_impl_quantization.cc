@@ -1352,7 +1352,6 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
     ideep::matmul_forward::compute<true, true>(param, input_t, weight_t, bias_t,
                                                output_t);
   } else {
-    TAO_VLOG(0) << "enable weight prepacking!!!\n";
     ideep::tensor packed_weight;
     ideep::tensor packed_bias;
     std::string unique_name =

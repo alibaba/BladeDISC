@@ -105,10 +105,19 @@ struct KeyEqual {
       auto& rhsBody = rhsReduceOp.getBody();
       if (not(lhsBody.hasOneBlock() && rhsBody.hasOneBlock())) return false;
 
-      auto& lhsOperations = lhsBody.front().getOperations();
-      auto& rhsOperations = rhsBody.front().getOperations();
+      auto& lhsBlock = lhsBody.front();
+      auto& rhsBlock = rhsBody.front();
+      auto& lhsOperations = lhsBlock.getOperations();
+      auto& rhsOperations = rhsBlock.getOperations();
       if (lhsOperations.size() != rhsOperations.size()) return false;
 
+      auto ignoreValueEquivalenceIfSameBlock = [&](Value lhs, Value rhs) {
+        if (lhs.getParentBlock() != &lhsBlock or
+            rhs.getParentBlock() != &rhsBlock) {
+          return failure();
+        }
+        return success();
+      };
       for (auto it : llvm::zip(lhsOperations, rhsOperations)) {
         auto& lhsOp = std::get<0>(it);
         auto& rhsOp = std::get<1>(it);
@@ -118,7 +127,7 @@ struct KeyEqual {
 
         auto innerOpMatch = OperationEquivalence::isEquivalentTo(
             &lhsOp, &rhsOp,
-            /*mapOperands=*/OperationEquivalence::ignoreValueEquivalence,
+            /*mapOperands=*/ignoreValueEquivalenceIfSameBlock,
             /*mapResults=*/OperationEquivalence::ignoreValueEquivalence,
             OperationEquivalence::IgnoreLocations);
         if (not innerOpMatch) return false;

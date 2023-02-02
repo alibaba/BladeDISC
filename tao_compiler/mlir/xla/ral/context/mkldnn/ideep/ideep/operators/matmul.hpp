@@ -148,6 +148,8 @@ struct matmul_forward : public dnnl::matmul,
   }
 
   // Prepare for int8 op without bias.
+  // Static: int8 * int8 -> int8. Dynamic: fp32 * int8 -> fp32
+  template <bool is_dynamic = false>
   static void prepare(
       matmul_forward_params& param, const tensor& src, const tensor& weights,
       tensor& dst, const scale_t& src_scales, const scale_t& weights_scales,
@@ -158,13 +160,21 @@ struct matmul_forward : public dnnl::matmul,
       const lowp_kind alowp_kind = u8s8,
       const engine& aengine = engine::cpu_engine()) {
     static tensor dummy_bias;
-    do_prepare_static_quant</*with_bias=*/false>(
-        param, src, weights, dummy_bias, dst, src_scales, weights_scales,
-        dst_scales, src_zero_points, dst_zero_points, dst_coeff, sum_coeff,
-        attr, dst_type, alowp_kind, aengine);
+    if (is_dynamic) {
+      do_prepare_dynamic_quant</*with_bias=*/false>(
+          param, src, weights, dummy_bias, dst, weights_scales, sum_coeff, attr,
+          data_type::f32, aengine);
+    } else {
+      do_prepare_static_quant</*with_bias=*/false>(
+          param, src, weights, dummy_bias, dst, src_scales, weights_scales,
+          dst_scales, src_zero_points, dst_zero_points, dst_coeff, sum_coeff,
+          attr, dst_type, alowp_kind, aengine);
+    }
   }
 
   // Prepare for int8 op with bias.
+  // Static: int8 * int8 -> int8. Dynamic: fp32 * int8 -> fp32
+  template <bool is_dynamic = false>
   static void prepare(
       matmul_forward_params& param, const tensor& src, const tensor& weights,
       const tensor& bias, tensor& dst, const scale_t& src_scales,
@@ -174,10 +184,16 @@ struct matmul_forward : public dnnl::matmul,
       const attr_t& attr = attr_t(), const data_type dst_type = data_type::u8,
       const lowp_kind alowp_kind = u8s8,
       const engine& aengine = engine::cpu_engine()) {
-    do_prepare_static_quant</*with_bias=*/true>(
-        param, src, weights, bias, dst, src_scales, weights_scales, dst_scales,
-        src_zero_points, dst_zero_points, dst_coeff, sum_coeff, attr, dst_type,
-        alowp_kind, aengine);
+    if (is_dynamic) {
+      do_prepare_dynamic_quant</*with_bias=*/true>(
+          param, src, weights, bias, dst, weights_scales, sum_coeff, attr,
+          data_type::f32, aengine);
+    } else {
+      do_prepare_static_quant</*with_bias=*/true>(
+          param, src, weights, bias, dst, src_scales, weights_scales,
+          dst_scales, src_zero_points, dst_zero_points, dst_coeff, sum_coeff,
+          attr, dst_type, alowp_kind, aengine);
+    }
   }
 
   // Compute for fp32 and static int8 (int8 * int8 -> int8)
@@ -191,6 +207,48 @@ struct matmul_forward : public dnnl::matmul,
     static tensor dummy_bias;
     do_compute</*with_bias=*/false, reorder_src, reorder_weight>(
         param, src, weights, dummy_bias, dst);
+  }
+
+  // Compute for dynamic int8 (fp32 * int8 -> fp32)
+  // Without bias.
+  // Set reorder flags to false if you are sure the memory layout aligns
+  // with primitive descriptor. Otherwise, checks are made and reorder
+  // may be needed.
+  template <bool reorder_weight = true>
+  static inline void compute(const matmul_forward_params& param,
+                             const tensor& src, const tensor& weights,
+                             tensor& dst, const scale_t& src_scales,
+                             const zero_point_t& src_zero_points,
+                             const float dst_coeff = 1.0f,
+                             const engine& aengine = engine::cpu_engine()) {
+    static tensor dummy_bias;
+    do_compute_dynamic_quant</*with_bias=*/false, reorder_weight>(
+        param, src, weights, dummy_bias, dst, src_scales, src_zero_points,
+        dst_coeff, aengine);
+  }
+
+  // Compute for dynamic int8 (fp32 * int8 -> fp32)
+  // With bias. Bias is not used if it is empty.
+  // Set reorder flags to false if you are sure the memory layout aligns
+  // with primitive descriptor. Otherwise, checks are made and reorder
+  // may be needed.
+  template <bool reorder_weight = true>
+  static inline void compute(const matmul_forward_params& param,
+                             const tensor& src, const tensor& weights,
+                             const tensor& bias, tensor& dst,
+                             const scale_t& src_scales,
+                             const zero_point_t& src_zero_points,
+                             const float dst_coeff = 1.0f,
+                             const engine& aengine = engine::cpu_engine()) {
+    if (bias.is_empty()) {
+      do_compute_dynamic_quant</*with_bias=*/false, reorder_weight>(
+          param, src, weights, bias, dst, src_scales, src_zero_points,
+          dst_coeff, aengine);
+    } else {
+      do_compute_dynamic_quant</*with_bias=*/true, reorder_weight>(
+          param, src, weights, bias, dst, src_scales, src_zero_points,
+          dst_coeff, aengine);
+    }
   }
 
   // Compute for fp32 and static int8 (int8 * int8 -> int8)
@@ -264,6 +322,122 @@ struct matmul_forward : public dnnl::matmul,
                                                    {DNNL_ARG_WEIGHTS, weights},
                                                    {DNNL_ARG_DST, dst}});
     }
+  }
+
+  // For dynamic int8 op (fp32 * int8 -> fp32)
+  template <bool with_bias>
+  static inline void do_prepare_dynamic_quant(
+      matmul_forward_params& param, const tensor& src, const tensor& weights,
+      const tensor& bias, tensor& dst, const scale_t& weights_scales,
+      const float sum_coeff = 1.0f,  // for post-op sum
+      const attr_t& attr = attr_t(), const data_type dst_type = data_type::f32,
+      const engine& aengine = engine::cpu_engine()) {
+    /* This function does the following things:
+     * - Determine expected descs of src/weight/dst
+     * - Use runtime values for op attributes
+     * - Create matmul primitive desc and primitive
+     * - Create reorder primitive for src (fp32 -> int8)
+     */
+
+    IDEEP_ENFORCE(src.ndims() == weights.ndims(),
+                  "Invalid dims in src or weights");
+    if (!param.dq_param_ptr) {
+      param.dq_param_ptr = std::make_shared<matmul_forward_dyn_quant_params>();
+    }
+    IDEEP_ENFORCE(param.dq_param_ptr,
+                  "Failed to allocate memory for parameters");
+
+    tensor::desc& src_desc = param.dq_param_ptr->src_desc;
+    attr_t& op_attr = param.op_attr;
+    attr_t src_attr;
+
+    tensor::dims src_dims = src.get_dims();
+    tensor::dims dst_dims = {src_dims[0], weights.get_dim(1)};
+    auto ndims = weights.ndims();
+    if (ndims == 3)
+      dst_dims = {src_dims[0], src.get_dim(1), weights.get_dim(2)};
+
+    auto& weights_scales_in =
+        weights.has_scale() ? weights.get_scale() : weights_scales;
+
+    auto src_data_type = data_type::u8;
+    std::vector<int64_t> src_strides =
+        (ndims == 3)
+            ? std::vector<int64_t>({src_dims[1] * src_dims[2], src_dims[1], 1})
+            : std::vector<int64_t>({src_dims[1], 1});
+    src_desc = tensor::desc(src_dims, src_data_type, src_strides);
+
+    // Prepare tensor of weight zero point
+    static auto wei_zero_point = zero_point_t(1);
+    const dim wei_zero_point_size = 1;
+    const dim wei_zero_point_stride = 1;
+    tensor::desc wei_zero_point_desc = {
+        {wei_zero_point_size}, data_type::s32, {wei_zero_point_stride}};
+    tensor wei_zero_point_m(wei_zero_point_desc,
+                            reinterpret_cast<int*>(wei_zero_point.data()),
+                            aengine);
+
+    // Post-ops
+    // For dynamic quantization, bias is applied by post-op add
+    // so that overhead of bias reorder is avoided.
+    // Need to 'prepend' post-op add to post op list.
+    auto pops = attr.get_post_ops();
+    dnnl::post_ops new_pops;
+    if (with_bias) {
+      new_pops.append_binary(dnnl::algorithm::binary_add, bias.get_desc());
+    }
+    for (int i = 0; i < pops.len(); ++i) {
+      // Only sum and eltwise is supported now
+      if (kind::sum == pops.kind(i)) {
+        // The parameter sum_coeff is passed in explicitly now due to legacy
+        // code. TO-DO: Remove the argument 'sum_coeff'. User should prepare all
+        // post-ops in argument 'attr'.
+        new_pops.append_sum(sum_coeff);
+      } else if (kind::eltwise == pops.kind(i)) {
+        float scale = 1.0, alpha = 1.0, beta = 0.0;
+        dnnl::algorithm alg;
+        pops.get_params_eltwise(i, scale, alg, alpha, beta);
+        new_pops.append_eltwise(scale, alg, alpha, beta);
+      }
+    }
+    op_attr.set_post_ops(new_pops);
+
+    // fill primitive attr
+    op_attr.set_output_scales(utils::op_scale_mask(1 /* scale_size */),
+                              {DNNL_RUNTIME_F32_VAL});
+    op_attr.set_zero_points(DNNL_ARG_SRC, utils::tensor_zp_mask(1),
+                            {DNNL_RUNTIME_S32_VAL});
+    op_attr.set_zero_points(DNNL_ARG_WEIGHTS, utils::tensor_zp_mask(1),
+                            {DNNL_RUNTIME_S32_VAL});
+    op_attr.set_scratchpad_mode(dnnl::scratchpad_mode::user);
+
+    // Src attr for reorder
+    src_attr.set_output_scales(utils::op_scale_mask(1), {DNNL_RUNTIME_F32_VAL});
+    src_attr.set_zero_points(DNNL_ARG_DST, utils::tensor_zp_mask(1),
+                             {DNNL_RUNTIME_S32_VAL});
+
+    // Dst desc
+    std::vector<int64_t> dst_strides =
+        (ndims == 3)
+            ? std::vector<int64_t>({dst_dims[2] * dst_dims[1], dst_dims[1], 1})
+            : std::vector<int64_t>({dst_dims[1], 1});
+    tensor::desc dst_desc = tensor::desc(dst_dims, dst_type, dst_strides);
+    if (!dst.is_empty()) {
+      dst_desc = dst.get_desc().to_type(dst_type);
+    }
+
+    // Create pd and primitive
+    param.pd = primitive_desc({src_desc, weights.get_desc(), dst_desc}, op_attr,
+                              aengine);
+    param.primitive = super(param.pd);
+
+    // Create src reorder primitive with runtime scales/zero point
+    auto src_reorder_pd = dnnl::reorder::primitive_desc(
+        aengine, src.get_desc(), aengine, src_desc, src_attr);
+    param.dq_param_ptr->src_reorder = dnnl::reorder(src_reorder_pd);
+
+    param.dq_param_ptr->weight_scales = std::move(weights_scales_in);
+    param.dq_param_ptr->wei_zero_point_m = std::move(wei_zero_point_m);
   }
 
   template <bool with_bias>
@@ -484,6 +658,116 @@ struct matmul_forward : public dnnl::matmul,
     } else {
       args.insert({DNNL_ARG_DST, dst});
       primitive.execute(stream::default_stream(), args);
+    }
+  }
+
+  // For dynamic int8 op (fp32 * int8 -> fp32)
+  // Set reorder flags to false if you are sure the memory layout aligns
+  // with primitive descriptor. Otherwise, checks are made and reorder
+  // may be needed.
+  template <bool with_bias, bool reorder_weight = true>
+  static inline void do_compute_dynamic_quant(
+      const matmul_forward_params& param, const tensor& src,
+      const tensor& weights, const tensor& bias, tensor& dst,
+      const scale_t& src_scales, const zero_point_t& src_zero_points,
+      const float dst_coeff = 1.0f,
+      const engine& aengine = engine::cpu_engine()) {
+    /* Compute for dynamic quantized linear. This function does the following
+     * things:
+     * - Get matmul primitive from param
+     * - Get reorder primitive for src from param.dq_param_ptr
+     * - Prepare tensors of output scales and zero points.
+     * - Compute by executing matmul primitive
+     */
+
+    // Get primitive, etc. from param
+    IDEEP_ENFORCE(param.dq_param_ptr,
+                  "Parameters for dynamic quantization not found");
+    auto& pd = param.pd;
+    auto& primitive = param.primitive;
+    auto& weights_attr = param.weights_attr;
+    auto& weights_scales_in = param.dq_param_ptr->weight_scales;
+    auto& expected_src_desc = param.dq_param_ptr->src_desc;
+    auto& wei_zero_point_m = param.dq_param_ptr->wei_zero_point_m;
+    auto& src_reorder = param.dq_param_ptr->src_reorder;
+
+    // Prepare tensor of output scales
+    int scale_size = (weights_scales_in.size() > 1) ? weights.get_dim(1) : 1;
+    auto src_scales_in =
+        src.has_scale() ? src.get_scale()
+                        : (src_scales.empty() ? IDEEP_DEF_SCALE : src_scales);
+    auto& dst_scales_in = IDEEP_DEF_SCALE;
+
+    const dim scale_zp_stride = 1;
+    tensor::desc scales_desc = {
+        {scale_size}, data_type::f32, {scale_zp_stride}};
+    tensor scales_m(scales_desc, aengine);
+    auto s = reinterpret_cast<float*>(scales_m.get_data_handle());
+    for (memory::dim i = 0; i < scale_size; ++i) {
+      s[i] = dst_coeff * dst_scales_in[0] /
+             (src_scales_in[0] * weights_scales_in[i]);
+    }
+
+    // Prepare tensor of src scales
+    int src_scale_size = src_scales_in.size();
+    tensor::desc src_scales_desc = {
+        {src_scale_size}, data_type::f32, {scale_zp_stride}};
+    tensor src_scales_m(src_scales_desc,
+                        reinterpret_cast<float*>(src_scales_in.data()),
+                        aengine);
+
+    // Prepare tensor of src zero point
+    auto src_zero_point =
+        src.has_zero_point()
+            ? src.get_zero_point()
+            : src_zero_points.empty() ? IDEEP_DEF_ZP : src_zero_points;
+    const auto src_zero_point_size = static_cast<dim>(src_zero_point.size());
+    IDEEP_ENFORCE(src_zero_point_size == 1,
+                  "DNNL only support 1-dim zero_point");
+    tensor::desc src_zero_point_desc = {
+        {src_zero_point_size}, data_type::s32, {scale_zp_stride}};
+    tensor src_zero_point_m(src_zero_point_desc,
+                            reinterpret_cast<int32_t*>(src_zero_point.data()),
+                            aengine);
+
+    // Reroder src (f32 -> u8)
+    tensor expected_src(expected_src_desc);
+    src_reorder.execute(
+        stream::default_stream(),
+        {{DNNL_ARG_FROM, src},
+         {DNNL_ARG_TO, expected_src},
+         {DNNL_ARG_ATTR_OUTPUT_SCALES, src_scales_m},
+         {DNNL_ARG_ATTR_ZERO_POINTS | DNNL_ARG_DST, src_zero_point_m}});
+
+    // Check weight desc
+    auto& expected_weights =
+        reorder_weight
+            ? weights.reorder_if_differ_in(pd.weights_desc(), weights_attr)
+            : weights;
+    tensor& expected_dst = dst;
+
+    tensor scratchpad(pd.scratchpad_desc());
+    if (with_bias) {
+      primitive.execute(
+          stream::default_stream(),
+          {{DNNL_ARG_SRC, expected_src},
+           {DNNL_ARG_WEIGHTS, expected_weights},
+           {DNNL_ARG_ATTR_MULTIPLE_POST_OP(0) | DNNL_ARG_SRC_1, bias},
+           {DNNL_ARG_DST, expected_dst},
+           {DNNL_ARG_ATTR_OUTPUT_SCALES, scales_m},
+           {DNNL_ARG_ATTR_ZERO_POINTS | DNNL_ARG_SRC, src_zero_point_m},
+           {DNNL_ARG_ATTR_ZERO_POINTS | DNNL_ARG_WEIGHTS, wei_zero_point_m},
+           {DNNL_ARG_SCRATCHPAD, scratchpad}});
+    } else {
+      primitive.execute(
+          stream::default_stream(),
+          {{DNNL_ARG_SRC, expected_src},
+           {DNNL_ARG_WEIGHTS, expected_weights},
+           {DNNL_ARG_DST, expected_dst},
+           {DNNL_ARG_ATTR_OUTPUT_SCALES, scales_m},
+           {DNNL_ARG_ATTR_ZERO_POINTS | DNNL_ARG_SRC, src_zero_point_m},
+           {DNNL_ARG_ATTR_ZERO_POINTS | DNNL_ARG_WEIGHTS, wei_zero_point_m},
+           {DNNL_ARG_SCRATCHPAD, scratchpad}});
     }
   }
 

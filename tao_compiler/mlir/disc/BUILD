@@ -2116,7 +2116,6 @@ cc_library(
     deps = [
         ":MhloDiscPassIncGen",
         ":conv_rewriter",
-	":common_rewriters",
         ":quantized_dot_rewriter",
         ":disc_dot_merge",
         ":disc_quantized_dot_merge",
@@ -2174,6 +2173,7 @@ cc_library(
         ":mhlo_mark_shape_calc",
         ":mhlo_placer",
         ":ral_inject_execution_context",
+	":reduction_rewriters",
         ":revise_args_for_static_rank",
         ":revise_gpu_kernel_outlining",
         ":split_large_ops",

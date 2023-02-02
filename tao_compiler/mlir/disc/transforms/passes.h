@@ -68,7 +68,7 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscQuantizedDotRewriter();
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscMhloDecompositionRewriterPass();
 
-// Rewrite common mhlo ops
+// Rewrite mhlo::ReduceOp
 std::unique_ptr<OperationPass<FuncOp>> createDiscReductionRewriterPass();
 
 // Mhlo cse pass for some special cases such as mhlo::reduce

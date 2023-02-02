@@ -109,6 +109,7 @@ LogicalResult elemwiseLowerHelper(OpBuilder& b, Location loc, Operation* op,
     }
   }
   SmallVector<Value, 4> results(vector_size);
+
   for (int64_t i = 0; i < vector_size; i++) {
     auto operand_values = operand_values_vector[i];
     auto res = LhloOpToStdScalarOp::map<LHLO_OpTy>(
@@ -3687,7 +3688,7 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
   for (auto op : shm_cached_ops) {
     auto output = op->getOperand(op->getNumOperands() - 1);
     if (tile_plan.find(output) == tile_plan.end()) {
-      LLVM_DEBUG(llvm::dbgs() << "Tile info error for: " << *skeleton << "\n");
+      LLVM_DEBUG(llvm::dbgs() << "Tile info error for: " << *op << "\n");
       return failure();
     }
 
@@ -3906,8 +3907,9 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
   //   func_name operand m dims: x, y
   //   func_name result n dims: p, q
   bool print_params_enabled = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_DEBUG_PRINT_FUSION_PARAMS",
-                                 print_params_enabled, &print_params_enabled);
+  (void)tensorflow::ReadBoolFromEnvVar("DISC_DEBUG_PRINT_FUSION_PARAMS",
+                                       print_params_enabled,
+                                       &print_params_enabled);
   if (print_params_enabled) {
     createPrintFusionParams(fusion_op, fusion_pattern);
   }

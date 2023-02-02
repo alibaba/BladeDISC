@@ -730,7 +730,7 @@ FusionPattern::FusionPattern(Operation* op) : FusionPatternBase(op) {
 // Create a new fusion pattern from the ops inside the lmhlo fusion op.
 FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
     : FusionPatternBase(op) {
-  assert(shape_analysis != nullptr & "shape_analysis should not be nullptr.");
+  assert(shape_analysis != nullptr && "shape_analysis should not be nullptr.");
 
   FusionType fusionType = FusionType::kNone;
   auto deviceAttr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);

@@ -363,9 +363,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   }
 
   auto& gpu_options = options.gpu_info;
+
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter(
       gpu_options.cc_major, gpu_options.cc_minor));
-
   // quantize-related optimization
   pm.addNestedPass<FuncOp>(disc_ral::createDiscQuantizedConvRewriter(
       gpu_options.cc_major, gpu_options.cc_minor));
@@ -376,8 +376,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
   }
-  // Run CSE after conv rewriter pass to eliminate some redundant transpose ops.
+  // Run CSE after rewriter pass to eliminate some redundant ops.
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscMhloCSEPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(disc_ral::createTransposeSimplifierPass());

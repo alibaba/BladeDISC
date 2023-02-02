@@ -183,7 +183,7 @@ def which(cmd):
 def extra_link_flags():
     from distutils.spawn import find_executable
     if find_executable("ld.lld"):
-        return " --linkopt=-fuse-ld=lld"
+        return " --linkopt='-fuse-ld=lld -Xlinker -lm'"
     else:
         return " --linkopt='-fuse-ld=gold -Xlinker --stub-group-size -Xlinker 10000000'"
 

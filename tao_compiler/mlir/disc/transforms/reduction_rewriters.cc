@@ -21,9 +21,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
-#include "mlir/disc/disc_util.h"
 #include "mlir/disc/transforms/PassDetail.h"
-#include "mlir/disc/transforms/placement_utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -56,42 +54,6 @@ bool isColOrRowReduction(Operation* op) {
   }
 
   return isRowReduction or isColReduction;
-}
-
-RankedTensorType GetTransposeOutputType(
-    Value value, const SmallVectorImpl<int64_t>& transpose_permutation,
-    OpBuilder& b) {
-  // Compute the resulting shape.
-  llvm::SmallVector<int64_t, 4> transposed_shape;
-  ShapedType input_type = value.getType().cast<ShapedType>();
-  auto input_shape = input_type.getShape();
-  for (int64_t val : transpose_permutation) {
-    transposed_shape.push_back(input_shape[val]);
-  }
-  return RankedTensorType::get(transposed_shape, input_type.getElementType());
-}
-
-Operation* InsertTranspose(
-    Operation* op, Value value,
-    const SmallVectorImpl<int64_t>& transpose_permutation, OpBuilder& b) {
-  auto transpose_permutation_attr =
-      GetI64ElementsAttr(transpose_permutation, &b);
-
-  // Compute the resulting shape.
-  llvm::SmallVector<int64_t, 4> transposed_shape;
-  ShapedType input_type = value.getType().cast<ShapedType>();
-  auto input_shape = input_type.getShape();
-  for (auto val : transpose_permutation) {
-    transposed_shape.push_back(input_shape[val]);
-  }
-  auto transpose_type = GetTransposeOutputType(value, transpose_permutation, b);
-  auto transpose_op = b.create<mhlo::TransposeOp>(
-      op->getLoc(), transpose_type, value, transpose_permutation_attr);
-
-  if (auto attr = op->getAttr(placement_utils::kDiscPlaceAssignment))
-    transpose_op->setAttr(placement_utils::kDiscPlaceAssignment, attr);
-
-  return transpose_op;
 }
 
 struct ReduceOpConvert : public OpRewritePattern<mhlo::ReduceOp> {
@@ -154,7 +116,8 @@ LogicalResult ReduceOpConvert::matchAndRewrite(
 }
 }  // namespace
 
-struct CommonRewriterPass : public CommonRewriterPassBase<CommonRewriterPass> {
+struct ReductionRewriterPass
+    : public ReductionRewriterPassBase<ReductionRewriterPass> {
   void runOnOperation() override {
     func::FuncOp func = getOperation();
     MLIRContext* ctx = func.getContext();
@@ -167,8 +130,8 @@ struct CommonRewriterPass : public CommonRewriterPassBase<CommonRewriterPass> {
   }
 };
 
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscCommonRewriterPass() {
-  return std::make_unique<CommonRewriterPass>();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscReductionRewriterPass() {
+  return std::make_unique<ReductionRewriterPass>();
 }
 
 }  // namespace disc_ral

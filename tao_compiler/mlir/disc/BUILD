@@ -457,17 +457,15 @@ cc_library(
 )
 
 cc_library(
-    name = "common_rewriters",
-    srcs = ["transforms/common_rewriters.cc"],
+    name = "reduction_rewriters",
+    srcs = ["transforms/reduction_rewriters.cc"],
     hdrs = ["transforms/passes.h"],
     includes = [
         "tensorflow/compiler/xla/mlir_hlo/include",
         "."
     ],
     deps = [
-        ":disc_util",
         ":pass_details",
-        ":placement_utils",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",

@@ -69,7 +69,7 @@ std::unique_ptr<OperationPass<FuncOp>>
 createDiscMhloDecompositionRewriterPass();
 
 // Rewrite common mhlo ops
-std::unique_ptr<OperationPass<FuncOp>> createDiscCommonRewriterPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscReductionRewriterPass();
 
 // Mhlo cse pass for some special cases such as mhlo::reduce
 std::unique_ptr<OperationPass<FuncOp>> createDiscMhloCSEPass();

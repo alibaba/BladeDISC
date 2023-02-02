@@ -201,28 +201,30 @@ MemRefType<T, N> simple_test_fused_add_mul_kernel(ExecutionContext* ctx,
   }
 
   // generate input with shape: [4, 16, 16, 25] in "NHWC" format
-  // and weight with shape: [3, 3, 25, 8]
+  // and weight with shape: [8, 3, 3, 25] in "OHWI" format
   MemRefType<int8_t, 4> input;
   auto inputSizes = std::initializer_list<int64_t>({4, 16, 16, 25});
   std::copy(inputSizes.begin(), inputSizes.end(), input.sizes);
   MemRefType<int8_t, 4> weight;
-  auto weightSizes = std::initializer_list<int64_t>({3, 3, 25, 8});
+  auto weightSizes = std::initializer_list<int64_t>({8, 3, 3, 25});
   std::copy(weightSizes.begin(), weightSizes.end(), weight.sizes);
 
   MemRefType<int32_t, 1> metadata;
   metadata.sizes[0] = 17;  // 4 * 3 + (4 - 2) * 2 + 1
   int32_t metadataData[metadata.sizes[0]] = {0};
   metadata.data = metadataData;
+  // input: NHWC
+  // kernel: OHWI
   int32_t metadataResultsData[9][17] = {
-      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 1, 1, 1, 1, 1},
-      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 1, 1, 2, 2, 1},
-      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 1, 1, 2, 3, 1},
-      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 2, 1, 1, 1},
-      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 2, 2, 2, 1},
-      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 2, 2, 3, 1},
-      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 3, 1, 1, 1},
-      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 3, 2, 2, 1},
-      {0, 3, 1, 2, 2, 3, 0, 1, 0, 3, 1, 2, 2, 3, 2, 3, 1}};
+      {0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2, 1, 1, 1, 1, 1},
+      {0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2, 1, 1, 2, 2, 1},
+      {0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2, 1, 1, 2, 3, 1},
+      {0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2, 2, 2, 1, 1, 1},
+      {0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2, 2, 2, 2, 2, 1},
+      {0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2, 2, 2, 2, 3, 1},
+      {0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2, 2, 3, 1, 1, 1},
+      {0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2, 2, 3, 2, 2, 1},
+      {0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2, 2, 3, 2, 3, 1}};
   std::vector<MemRefType<int32_t, 1>> metadataResults(9);
   for (int i = 0; i < 9; ++i)
     metadataResults[i].data = &metadataResultsData[i][0];
@@ -236,10 +238,9 @@ MemRefType<T, N> simple_test_fused_add_mul_kernel(ExecutionContext* ctx,
       index++;
     }
   }
-
   // check output shape with following variable:
-  // input: 4x16x16x25
-  // kernel: 3x3x25x8
+  // input: 4x16x16x25 (NHWC)
+  // kernel: 8x3x3x25 (OHWI)
   // padding: "same" and "valid"
   // strides: [1, 1], [2, 2], [2, 3]
   // dilations: [1, 1], [2, 2], [2, 3]

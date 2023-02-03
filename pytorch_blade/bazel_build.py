@@ -21,7 +21,6 @@ from common_setup import (
     running_on_ci,
     remote_cache_token,
     which,
-    extra_link_flags,
     num_make_jobs,
     is_aarch64,
     build_tao_compiler_add_flags_platform_alibaba_cached,
@@ -153,7 +152,7 @@ class BazelBuild(TorchBladeBuild):
         if running_on_ci():
             self.configs += ["--config=ci_build"]
 
-        self.configs += [extra_link_flags()]
+        self.configs += [" --linkopt='-fuse-ld=gold -Xlinker --stub-group-size -Xlinker 10000000'"]
 
         root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
         self.configs += [

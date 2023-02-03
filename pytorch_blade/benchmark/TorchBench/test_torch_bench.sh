@@ -89,7 +89,7 @@ do
     cat ${result}/summary.csv
     curl ${oss_link}/TorchBench/baseline/${result}_${bench_target}.csv -o $result.csv
     tar -zcf $result.tar.gz $resdult
-    /disc/scripts/ci/$OSSUTIL cp -r ${script_dir}/${result}.tar.gz ${oss_dir}
+    /disc/scripts/ci/$OSSUTIL cp -r ${script_dir}/${result}.tar.gz ${oss_dir}/
     /disc/scripts/ci/$OSSUTIL cp -r ${script_dir}/${result} ${oss_dir}/${result}
 done
 

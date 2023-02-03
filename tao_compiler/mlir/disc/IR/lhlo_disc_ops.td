@@ -21,14 +21,14 @@ limitations under the License.
 include "mlir/Dialect/MemRef/IR/MemRefBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
-include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_base.td"
-include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_structs.td"
-include "mlir-hlo/Dialect/lhlo/IR/lhlo_structured_interface.td"
+include "lhlo/IR/lhlo_ops_base.td"
+include "lhlo/IR/lhlo_ops_structs.td"
+include "lhlo/IR/lhlo_structured_interface.td"
 
 def LHLODISC_Dialect : Dialect {
   let name = "lmhlo_disc";
   let cppNamespace = "::mlir::lmhlo_disc";
-  let emitAccessorPrefix = kEmitAccessorPrefix_Prefixed;
+  let useFoldAPI = kEmitFoldAdaptorFolder;
 }
 
 def LHLO_I32Tensor : MemRefOf<[SignlessIntOfWidths<[32]>]>;

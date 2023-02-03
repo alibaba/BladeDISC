@@ -16,7 +16,7 @@ limitations under the License.
 
 #include <numeric>
 
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
@@ -378,7 +378,7 @@ Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
 
   SmallVector<OpFoldResult> foldSizes;
   for (int i = 0; i < rank; ++i) {
-    if (memrefTy.getDimSize(i) == ShapedType::kDynamicSize) {
+    if (memrefTy.getDimSize(i) == ShapedType::kDynamic) {
       foldSizes.push_back(toShape[i]);
     } else {
       foldSizes.push_back(getIntAttr(memrefTy.getDimSize(i)));
@@ -389,11 +389,11 @@ Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
   int64_t staticStride = 1;
   SmallVector<OpFoldResult> foldStrides;
   for (int i = rank - 1; i >= 0; --i) {
-    if (staticStride != ShapedType::kDynamicSize) {
+    if (staticStride != ShapedType::kDynamic) {
       foldStrides.push_back(getIntAttr(staticStride));
-      if (memrefTy.getDimSize(i) == ShapedType::kDynamicSize) {
+      if (memrefTy.getDimSize(i) == ShapedType::kDynamic) {
         dynamicStride = b.create<arith::ConstantIndexOp>(loc, staticStride);
-        staticStride = ShapedType::kDynamicSize;
+        staticStride = ShapedType::kDynamic;
       } else {
         staticStride *= memrefTy.getDimSize(i);
       }
@@ -429,7 +429,7 @@ SmallVector<Value> getShapeValues(OpBuilder* b, Value memref) {
 
   SmallVector<Value> result;
   for (int i = 0; i < rank; ++i) {
-    if (shape[i] == ShapedType::kDynamicSize) {
+    if (shape[i] == ShapedType::kDynamic) {
       result.push_back(b->create<memref::DimOp>(loc, memref, i));
     } else {
       result.push_back(b->create<arith::ConstantIndexOp>(loc, shape[i]));

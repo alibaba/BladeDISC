@@ -22,7 +22,7 @@ limitations under the License.
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
@@ -1428,7 +1428,7 @@ Type ShapeComputationIRAnalysis::getRefinedType(Value value) {
   for (SymbolicDimOp sym : rankedTensor2SymDims_[value]) {
     auto root = mgr_.getRootSymbolicDim(sym);
     newShape.push_back(root.getDimSize());
-    if (newShape.back() == ShapedType::kDynamicSize) noDynamicDim = false;
+    if (newShape.back() == ShapedType::kDynamic) noDynamicDim = false;
     refAttrs.push_back(SymbolRefAttr::get(value.getContext(), root.getName()));
   }
 

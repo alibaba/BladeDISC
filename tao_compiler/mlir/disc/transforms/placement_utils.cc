@@ -13,7 +13,7 @@
 
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/map_hlo_to_lhlo_op.h"
+#include "lhlo/transforms/map_hlo_to_lhlo_op.h"
 #include "mlir/disc/IR/hlo_disc_ops.h"
 #include "mlir/disc/IR/lhlo_disc_ops.h"
 #include "mlir/disc/transforms/disc_map_hlo_to_lhlo_op.h"

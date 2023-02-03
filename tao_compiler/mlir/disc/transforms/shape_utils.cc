@@ -20,7 +20,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
@@ -2003,7 +2003,7 @@ bool ShapeConstraintIRAnalysis::isProductEqual(Value lhs,
     if (!ty || !ty.hasRank()) return false;
 
     for (int idx : dimIdxs) {
-      if (ty.getShape()[idx] == ShapedType::kDynamicSize) {
+      if (ty.getShape()[idx] == ShapedType::kDynamic) {
         if (it == memrefValue2SymDims_.end() || it->second.size() <= idx)
           return false;
         prod.symbols.push_back(it->second[idx]);

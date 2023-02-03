@@ -17,7 +17,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"                 // from @llvm-project
 #include "mlir/Dialect/Func/IR/FuncOps.h"                // from @llvm-project
 #include "mlir/Dialect/Tensor/IR/Tensor.h"               // from @llvm-project
@@ -714,14 +714,14 @@ Value EinsumToDotGeneralPattern::processOperand(
       int64_t size_static = 1;
       Value size_value = rewriter.create<arith::ConstantIndexOp>(loc, 1);
       for (auto dim : dims) {
-        if (size_static == ShapedType::kDynamicSize ||
-            transposed_shape[dim] == ShapedType::kDynamicSize) {
-          size_static = ShapedType::kDynamicSize;
+        if (size_static == ShapedType::kDynamic ||
+            transposed_shape[dim] == ShapedType::kDynamic) {
+          size_static = ShapedType::kDynamic;
         } else {
           size_static *= transposed_shape[dim];
         }
         Value orig_dim_val =
-            transposed_shape[dim] == ShapedType::kDynamicSize
+            transposed_shape[dim] == ShapedType::kDynamic
                 ? rewriter.create<tensor::DimOp>(loc, result, dim).getResult()
                 : rewriter
                       .create<arith::ConstantIndexOp>(loc,
@@ -779,7 +779,7 @@ Value EinsumToDotGeneralPattern::processResult(
         int64_t lhs_idx = find_index(lhs_original_tokens, t);
         reshaped_dims.push_back(orig_lhs_shape[lhs_idx]);
         Value orig_dim_val =
-            orig_lhs_shape[lhs_idx] == ShapedType::kDynamicSize
+            orig_lhs_shape[lhs_idx] == ShapedType::kDynamic
                 ? rewriter.create<tensor::DimOp>(loc, orig_lhs, lhs_idx)
                       .getResult()
                 : rewriter
@@ -791,7 +791,7 @@ Value EinsumToDotGeneralPattern::processResult(
         int64_t rhs_idx = find_index(rhs_original_tokens, t);
         reshaped_dims.push_back(orig_rhs_shape[rhs_idx]);
         Value orig_dim_val =
-            orig_rhs_shape[rhs_idx] == ShapedType::kDynamicSize
+            orig_rhs_shape[rhs_idx] == ShapedType::kDynamic
                 ? rewriter.create<tensor::DimOp>(loc, orig_rhs, rhs_idx)
                       .getResult()
                 : rewriter

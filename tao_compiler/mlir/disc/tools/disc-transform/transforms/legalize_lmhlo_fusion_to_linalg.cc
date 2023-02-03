@@ -10,14 +10,14 @@
 // limitations under the License.
 
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/mhlo/transforms/legalize_to_linalg_utils.h"
+#include "lhlo/IR/lhlo_ops.h"
+#include "mhlo/transforms/legalize_to_linalg_utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
@@ -75,10 +75,10 @@ SmallVector<Type> convertMemRefToTensorType(TypeRange range) {
 
 // forward decalration.
 LogicalResult emitOp(Operation* op, OpBuilder& b,
-                     BlockAndValueMapping& mapping);
+                     IRMapping& mapping);
 
 LogicalResult emitReturnOp(func::ReturnOp op, OpBuilder& b,
-                           BlockAndValueMapping& mapping) {
+                           IRMapping& mapping) {
   SmallVector<Value> newOperands;
   for (Value v : op->getOperands()) newOperands.push_back(mapping.lookup(v));
   b.create<func::ReturnOp>(op.getLoc(), newOperands);
@@ -86,7 +86,7 @@ LogicalResult emitReturnOp(func::ReturnOp op, OpBuilder& b,
 }
 
 LogicalResult emitDotGeneralOp(lmhlo::DotGeneralOp op, OpBuilder& b,
-                               BlockAndValueMapping& mapping,
+                               IRMapping& mapping,
                                const std::string& name) {
   Value A = op->getOperand(0);
   Value B = op->getOperand(1);
@@ -192,7 +192,7 @@ LogicalResult emitDotGeneralOp(lmhlo::DotGeneralOp op, OpBuilder& b,
 }
 
 LogicalResult emitConstOp(lmhlo::ConstantOp op, OpBuilder& b,
-                          BlockAndValueMapping& mapping,
+                          IRMapping& mapping,
                           const std::string& name) {
   auto resultTy = convertMemRefToTensorType(op->getOperand(0).getType());
   Location loc = op->getLoc();
@@ -205,7 +205,7 @@ LogicalResult emitConstOp(lmhlo::ConstantOp op, OpBuilder& b,
 }
 
 LogicalResult emitBcastOp(Operation* op, OpBuilder& b,
-                          BlockAndValueMapping& mapping,
+                          IRMapping& mapping,
                           const std::string& name) {
   SmallVector<NamedAttribute> prunedAttrs;
   if (auto dynBcastInDim = dyn_cast<lmhlo::DynamicBroadcastInDimOp>(op)) {
@@ -266,7 +266,7 @@ LogicalResult emitBcastOp(Operation* op, OpBuilder& b,
 }
 
 template <typename OpTy>
-LogicalResult emitElemOp(OpTy op, OpBuilder& b, BlockAndValueMapping& mapping,
+LogicalResult emitElemOp(OpTy op, OpBuilder& b, IRMapping& mapping,
                          const std::string& name) {
   if (!isa<lmhlo::LmhloOp>(op.getOperation()) || op->getNumOperands() < 2)
     return op->emitError() << "not support lmhlo op\n";
@@ -327,7 +327,7 @@ LogicalResult emitElemOp(OpTy op, OpBuilder& b, BlockAndValueMapping& mapping,
 }
 
 LogicalResult emitLmhloOp(Operation* op, OpBuilder& b,
-                          BlockAndValueMapping& mapping,
+                          IRMapping& mapping,
                           const std::string& name) {
   if (auto dotGeneralOp = dyn_cast<lmhlo::DotGeneralOp>(op)) {
     return emitDotGeneralOp(dotGeneralOp, b, mapping, name);
@@ -389,7 +389,7 @@ LogicalResult emitLmhloOp(Operation* op, OpBuilder& b,
 }
 
 LogicalResult emitLmhloFusionOp(lmhlo::FusionOp op, OpBuilder& b,
-                                BlockAndValueMapping& mapping) {
+                                IRMapping& mapping) {
   TransformNameAssigner assigner;
   for (Operation& op : op.getRegion().getBlocks().front()) {
     if (isa<lmhlo::TerminatorOp>(&op)) continue;
@@ -400,7 +400,7 @@ LogicalResult emitLmhloFusionOp(lmhlo::FusionOp op, OpBuilder& b,
 }
 
 LogicalResult emitOp(Operation* op, OpBuilder& b,
-                     BlockAndValueMapping& mapping) {
+                     IRMapping& mapping) {
   if (auto returnOp = dyn_cast<func::ReturnOp>(op)) {
     return emitReturnOp(returnOp, b, mapping);
   } else if (auto fusionOp = dyn_cast<lmhlo::FusionOp>(op)) {
@@ -423,7 +423,7 @@ LogicalResult rewriteFuncOp(FuncOp func, FuncOp& newFunc) {
       FunctionType::get(func->getContext(), newArgumentTypes, newResultTypes);
   newFunc = b.create<FuncOp>(func.getLoc(), func.getName(), newFuncType);
   Block* entryBlock = newFunc.addEntryBlock();
-  BlockAndValueMapping mapping;
+  IRMapping mapping;
   for (const auto& z :
        llvm::zip(func.getArguments(), entryBlock->getArguments()))
     mapping.map(std::get<0>(z), std::get<1>(z));

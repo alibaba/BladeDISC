@@ -130,7 +130,7 @@ void MultiLevelPackOp::build(OpBuilder& builder, OperationState& state,
     ShapedType inputType, ArrayRef<int64_t> tileLevels,
     ArrayRef<int64_t> tileSizes, ArrayRef<int64_t> permutation) {
   int expectedResultRank = MultiLevelPackOp::getExpectedResultRank(tileLevels);
-  SmallVector<int64_t> tiledShape(expectedResultRank, ShapedType::kDynamicSize);
+  SmallVector<int64_t> tiledShape(expectedResultRank, ShapedType::kDynamic);
   int tileSizeIdx = 0;
   int tiledDimIdx = 0;
   for (int dimIdx = 0; dimIdx < inputType.getRank(); ++dimIdx) {
@@ -144,7 +144,7 @@ void MultiLevelPackOp::build(OpBuilder& builder, OperationState& state,
           ceilDiv(tileSize, lastTileSize);
       lastTileSize = tileSize;
     }
-    if (dimSize != ShapedType::kDynamicSize)
+    if (dimSize != ShapedType::kDynamic)
       tiledShape[tiledDimIdx] = ceilDiv(dimSize, lastTileSize);
     tileSizeIdx += level;
     tiledDimIdx += 1 + level;

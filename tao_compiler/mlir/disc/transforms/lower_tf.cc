@@ -18,7 +18,7 @@ limitations under the License.
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"                 // from @llvm-project
 #include "mlir/Dialect/Tensor/IR/Tensor.h"               // from @llvm-project
 #include "mlir/IR/Attributes.h"                          // from @llvm-project
@@ -128,7 +128,7 @@ class ConvertSqueezeOpDynamic : public OpRewritePattern<TF::SqueezeOp> {
           continue;
         }
         auto dim_size = input_ty.getDimSize(i);
-        if (dim_size == ShapedType::kDynamicSize) {
+        if (dim_size == ShapedType::kDynamic) {
           shape_values.push_back(rewriter.create<tensor::DimOp>(loc, input, i));
         } else {
           shape_values.push_back(
@@ -1224,10 +1224,10 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
     SmallVector<Value, 4> broadcast_to_shape;
     broadcast_to_shape.reserve(input_rank + 1);
     SmallVector<int64_t, 4> broadcast_shape(input_rank + 1,
-                                            ShapedType::kDynamicSize);
+                                            ShapedType::kDynamic);
     for (int i = 0; i < input_rank; ++i) {
       int64_t dim_size = input_type.getDimSize(i);
-      if (dim_size != ShapedType::kDynamicSize) {
+      if (dim_size != ShapedType::kDynamic) {
         broadcast_shape[i] = dim_size;
       }
       broadcast_to_shape.push_back(rewriter.create<arith::IndexCastOp>(

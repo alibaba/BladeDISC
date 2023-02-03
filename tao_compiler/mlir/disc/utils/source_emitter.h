@@ -14,7 +14,7 @@
 
 #include <string>
 
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
 #include "mlir/IR/Value.h"
 #include "mlir/Support/LLVM.h"
 

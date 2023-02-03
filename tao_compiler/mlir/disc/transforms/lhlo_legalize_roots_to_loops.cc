@@ -17,8 +17,8 @@ limitations under the License.
 // ParallelOp loop logics.
 
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
+#include "lhlo/IR/lhlo_ops.h"
+#include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir-hlo/utils/placement_utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
@@ -26,7 +26,7 @@ limitations under the License.
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Attributes.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -2778,7 +2778,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
     auto shape = ty.getShape();
     SmallVector<Value> dims;
     for (int d = 0; d < ty.getRank(); ++d) {
-      if (shape[d] == ShapedType::kDynamicSize) {
+      if (shape[d] == ShapedType::kDynamic) {
         dims.push_back(b.create<memref::DimOp>(loc, val, d));
       }
     }
@@ -2799,7 +2799,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
     auto skeletons = skeleton_group.skeletons;
     SmallVector<Operation*>& group_ops_inorder_old =
         skeleton_group_ops_old[skeletons[0]];
-    BlockAndValueMapping cloning_map;
+    IRMapping cloning_map;
     for (auto shm_cached_op : shm_cached_ops_and_view) {
       auto op = shm_cached_op.first;
       auto view = shm_cached_op.second;

@@ -14,7 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -26,7 +26,7 @@ limitations under the License.
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Attributes.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -76,11 +76,11 @@ bypassCodegenPatternNameMap() {
   return m;
 }
 
-BlockAndValueMapping buildValueMapping(FusionPattern& fusionPattern,
+IRMapping buildValueMapping(FusionPattern& fusionPattern,
                                        func::FuncOp funcOp,
                                        bool reverse = false) {
   int argPosition = 0;
-  BlockAndValueMapping mapping;
+  IRMapping mapping;
   auto addMapping = [&](Value v) {
     if (reverse)
       mapping.map(funcOp.getArgument(argPosition++), v);

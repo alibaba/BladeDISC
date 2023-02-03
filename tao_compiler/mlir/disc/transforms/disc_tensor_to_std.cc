@@ -18,7 +18,7 @@ limitations under the License.
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -77,7 +77,7 @@ LogicalResult GenerateOpConverter::matchAndRewrite(
   SmallVector<Value, 4> extentValues;
   for (int64_t i = 0; i < numElems; ++i) {
     Value idx = lb.create<arith::ConstantIndexOp>(i);
-    BlockAndValueMapping mapping;
+    IRMapping mapping;
     mapping.map(block.getArgument(0), idx);
     for (Operation& op : block.without_terminator()) {
       lb.clone(op, mapping);

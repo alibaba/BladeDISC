@@ -16,26 +16,26 @@ namespace mlir {
 namespace TF {
 
 LogicalResult DiscFakeQuantOp::verify() {
-  auto q_min = static_cast<int64_t>(quant_min());
-  auto q_max = static_cast<int64_t>(quant_max());
+  auto q_min = static_cast<int64_t>(getQuantMin());
+  auto q_max = static_cast<int64_t>(getQuantMax());
   if (q_min >= q_max) {
     return emitOpError("quant_min (")
            << q_min << ") must be less than quant_max (" << q_max << ")";
   }
 
-  int64_t expect_min = use_signed() ? (1 << (num_bits() - 1)) * -1 : 0;
+  int64_t expect_min = getUseSigned() ? (1 << (getNumBits() - 1)) * -1 : 0;
   int64_t expect_max =
-      use_signed() ? (1 << (num_bits() - 1)) - 1 : (1 << num_bits()) - 1;
+      getUseSigned() ? (1 << (getNumBits() - 1)) - 1 : (1 << getNumBits()) - 1;
 
   if (q_min < expect_min) {
     return emitOpError("quant_min must not be less than ")
-           << expect_min << " under " << num_bits()
-           << " bits and signed=" << use_signed() << ", but got: " << q_min;
+           << expect_min << " under " << getNumBits()
+           << " bits and signed=" << getUseSigned() << ", but got: " << q_min;
   }
   if (q_max > expect_max) {
     return emitOpError("quant_max must not be greater than ")
-           << expect_max << " under " << num_bits()
-           << " bits and signed=" << use_signed() << ", but got: " << q_max;
+           << expect_max << " under " << getNumBits()
+           << " bits and signed=" << getUseSigned() << ", but got: " << q_max;
   }
   if (axis().size() > 1) {
     return emitOpError(

@@ -439,7 +439,7 @@ struct TransferWriteOfFillOpPattern
 
     auto type = op.getVector().getType().cast<VectorType>();
     for (const auto& z : llvm::zip(sliceOp.getMixedSizes(), type.getShape())) {
-      if (std::get<1>(z) == ShapedType::kDynamicSize) return failure();
+      if (std::get<1>(z) == ShapedType::kDynamic) return failure();
       if (auto attr = std::get<0>(z).dyn_cast<Attribute>()) {
         if (attr.cast<IntegerAttr>().getInt() > std::get<1>(z))
           return failure();
@@ -1090,14 +1090,14 @@ DiagnosedSilenceableFailure LowerMultiLevelPackToLoopOp::applyToOne(
     Value iv = forOp.getInductionVar();
     srcOffsets[srcIdx] = b.create<arith::AddIOp>(loc, srcOffsets[srcIdx], iv);
     if (staticStep == 1 ||
-        staticSrcDimUppers[srcIdx] != ShapedType::kDynamicSize &&
+        staticSrcDimUppers[srcIdx] != ShapedType::kDynamic &&
             staticSrcDimUppers[srcIdx] % staticStep == 0) {
       srcDimUppers[srcIdx] = step;
       staticSrcDimUppers[srcIdx] = staticStep;
     } else {
       Value remaining = b.create<arith::SubIOp>(loc, upper, iv);
       srcDimUppers[srcIdx] = buildMin(b, loc, remaining, step);
-      staticSrcDimUppers[srcIdx] = ShapedType::kDynamicSize;
+      staticSrcDimUppers[srcIdx] = ShapedType::kDynamic;
     }
     dstOffsets[dstIdx] = b.create<arith::DivSIOp>(loc, iv, step);
     dstSizes[dstIdx] = one;
@@ -1185,7 +1185,7 @@ MemRefType getCastCompatibleMemRefType(MemRefType aT, MemRefType bT) {
       resStrides(bT.getRank(), 0);
   for (int64_t idx = 0, e = aT.getRank(); idx < e; ++idx) {
     resShape[idx] =
-        (aShape[idx] == bShape[idx]) ? aShape[idx] : ShapedType::kDynamicSize;
+        (aShape[idx] == bShape[idx]) ? aShape[idx] : ShapedType::kDynamic;
     resStrides[idx] = (aStrides[idx] == bStrides[idx])
                           ? aStrides[idx]
                           : ShapedType::kDynamicStrideOrOffset;

@@ -12,7 +12,7 @@
 #ifndef DISC_TOOLS_DISC_TRANSFORM_LINALGEXT_INTERFACES_EXT_
 #define DISC_TOOLS_DISC_TRANSFORM_LINALGEXT_INTERFACES_EXT_
 
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/OpDefinition.h"

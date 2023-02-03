@@ -18,7 +18,7 @@ limitations under the License.
 // This pass can be regarded as a restricted version of the FusionMerger pass
 // of XLA, dealing with splat const as producer only.
 
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"

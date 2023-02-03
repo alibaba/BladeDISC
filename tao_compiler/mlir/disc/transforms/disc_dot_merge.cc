@@ -12,7 +12,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
@@ -321,9 +321,9 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
     auto to_concat = (share_type == LEFT) ? dot.getRhs() : dot.getLhs();
     auto concat_op_type = to_concat.getType().dyn_cast<RankedTensorType>();
     auto concat_dim_size = concat_op_type.getDimSize(concat_dim);
-    if (concat_dim_size == ShapedType::kDynamicSize) {
+    if (concat_dim_size == ShapedType::kDynamic) {
       is_dynamic_shape = true;
-      concat_dim_sum = ShapedType::kDynamicSize;
+      concat_dim_sum = ShapedType::kDynamic;
     } else if (!is_dynamic_shape) {
       concat_dim_sum += concat_dim_size;
     }
@@ -331,7 +331,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
   }
 
   // Build concat op.
-  SmallVector<int64_t, 4> concat_op_shapes(rank, ShapedType::kDynamicSize);
+  SmallVector<int64_t, 4> concat_op_shapes(rank, ShapedType::kDynamic);
   for (int64_t i = 0; i < rank; i++) {
     if (i != concat_dim) {
       concat_op_shapes[i] = orig_concat_op_type.getDimSize(i);
@@ -350,7 +350,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
   auto concat_dim_in_result = (share_type == LEFT) ? (rank - 1) : (rank - 2);
 
   // Build result type.
-  SmallVector<int64_t, 4> result_shapes(rank, ShapedType::kDynamicSize);
+  SmallVector<int64_t, 4> result_shapes(rank, ShapedType::kDynamic);
   for (int64_t i = 0; i < rank; i++) {
     if (i != concat_dim_in_result) {
       result_shapes[i] = orig_result_type.getDimSize(i);
@@ -450,7 +450,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
           RankedTensorType::get({static_cast<int64_t>(strides_values.size())},
                                 index_ty),
           strides_values);
-      SmallVector<int64_t, 4> slice_shapes(rank, ShapedType::kDynamicSize);
+      SmallVector<int64_t, 4> slice_shapes(rank, ShapedType::kDynamic);
       for (int64_t j = 0; j < rank; j++) {
         slice_shapes[j] = orig_dot_type.getDimSize(j);
       }
@@ -683,7 +683,7 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
   auto concat_dim = builder.getI64IntegerAttr(0);
   // Concat lhs.
   auto lhs_rank = orig_lhs_type.getRank() + 1;
-  SmallVector<int64_t, 4> lhs_shapes(lhs_rank, ShapedType::kDynamicSize);
+  SmallVector<int64_t, 4> lhs_shapes(lhs_rank, ShapedType::kDynamic);
   lhs_shapes[0] = ops.size();
   for (int64_t i = 1; i < lhs_rank; i++) {
     lhs_shapes[i] = orig_lhs_type.getDimSize(i - 1);
@@ -694,7 +694,7 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
                                                   concat_dim);
   // Concat rhs.
   auto rhs_rank = orig_rhs_type.getRank() + 1;
-  SmallVector<int64_t, 4> rhs_shapes(rhs_rank, ShapedType::kDynamicSize);
+  SmallVector<int64_t, 4> rhs_shapes(rhs_rank, ShapedType::kDynamic);
   rhs_shapes[0] = ops.size();
   for (int64_t i = 1; i < rhs_rank; i++) {
     rhs_shapes[i] = orig_rhs_type.getDimSize(i - 1);
@@ -705,7 +705,7 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
                                                   concat_dim);
   // Result type.
   auto result_rank = orig_dot_type.getRank() + 1;
-  SmallVector<int64_t, 4> result_shapes(result_rank, ShapedType::kDynamicSize);
+  SmallVector<int64_t, 4> result_shapes(result_rank, ShapedType::kDynamic);
   result_shapes[0] = ops.size();
   for (int64_t i = 1; i < result_rank; i++) {
     result_shapes[i] = orig_dot_type.getDimSize(i - 1);
@@ -799,7 +799,7 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
                                 index_ty),
           strides_values);
       SmallVector<int64_t, 4> slice_shapes(result_rank,
-                                           ShapedType::kDynamicSize);
+                                           ShapedType::kDynamic);
       slice_shapes[0] = 1;
       for (int64_t i = 1; i < result_rank; i++) {
         slice_shapes[i] = orig_dot_type.getDimSize(i - 1);
@@ -846,7 +846,7 @@ Value DotBatchMergeConverter::expandDim0(OpBuilder& builder, Location& loc,
   bool is_static = true;
   for (int64_t i = 0; i < type.getRank(); i++) {
     int64_t dim = type.getDimSize(i);
-    is_static &= (dim != ShapedType::kDynamicSize);
+    is_static &= (dim != ShapedType::kDynamic);
     result_dims.push_back(dim);
   }
   auto result_type = RankedTensorType::get(result_dims, type.getElementType());

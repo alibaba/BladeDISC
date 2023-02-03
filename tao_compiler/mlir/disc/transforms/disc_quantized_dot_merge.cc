@@ -12,7 +12,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
@@ -55,7 +55,7 @@ struct QuantizedDotCluster {
     // Since layout of weight is nxk, contract dimension would always be 1.
     // TODO: support more general case if necessary.
     auto contract_dim_size_ = rhs_op_type.getDimSize(1);
-    if (contract_dim_size == ShapedType::kDynamicSize) {
+    if (contract_dim_size == ShapedType::kDynamic) {
       contract_dim_size = 0;
     } else {
       contract_dim_size = contract_dim_size_;
@@ -223,8 +223,8 @@ void QuantizedDotShareOperandMergeConverter::applyMerging(
 
     // qgemm layout is n x k
     auto concat_dim_size = concat_op_type.getDimSize(0);
-    if (concat_dim_size == ShapedType::kDynamicSize) {
-      concat_dim_sum = ShapedType::kDynamicSize;
+    if (concat_dim_size == ShapedType::kDynamic) {
+      concat_dim_sum = ShapedType::kDynamic;
     } else {
       concat_dim_sum += concat_dim_size;
     }
@@ -265,7 +265,7 @@ void QuantizedDotShareOperandMergeConverter::applyMerging(
 
   int64_t lead_contract_dim = lead_concat_type.getDimSize(1);
 
-  SmallVector<int64_t, 4> concat_op_shapes(2, ShapedType::kDynamicSize);
+  SmallVector<int64_t, 4> concat_op_shapes(2, ShapedType::kDynamic);
 
   concat_op_shapes[0] = concat_dim_sum;
   concat_op_shapes[1] = lead_contract_dim;
@@ -285,7 +285,7 @@ void QuantizedDotShareOperandMergeConverter::applyMerging(
   auto origin_result_type =
       lead_custom_op.getResults()[0].getType().dyn_cast<RankedTensorType>();
   auto result_rank = origin_result_type.getRank();
-  SmallVector<int64_t, 4> result_shapes(result_rank, ShapedType::kDynamicSize);
+  SmallVector<int64_t, 4> result_shapes(result_rank, ShapedType::kDynamic);
 
   for (int i = 0; i < result_rank; i += 1) {
     if (i == result_rank - 1) {
@@ -445,7 +445,7 @@ void QuantizedDotShareOperandMergeConverter::applyMerging(
                                 index_ty),
           strides_values);
       SmallVector<int64_t, 4> slice_shapes(result_rank,
-                                           ShapedType::kDynamicSize);
+                                           ShapedType::kDynamic);
       for (int64_t j = 0; j < result_rank; j++) {
         slice_shapes[j] = orig_customop_type.getDimSize(j);
       }

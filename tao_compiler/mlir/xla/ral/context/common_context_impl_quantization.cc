@@ -1360,31 +1360,11 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
         unique_name, []() { return new OnednnGemmState; });
     {
       std::lock_guard<std::mutex> l(state->mu);
-      auto& packed_weights = state->packed_weight_cache[weight.data];
-      auto& packed_biases = state->packed_bias_cache[bias.data];
-      auto weights_desc = param.pd.weights_desc();
-      auto bias_desc = param.pd.bias_desc();
-      for (auto& tensor : packed_weights) {
-        if (weights_desc == tensor.get_desc()) {
-          packed_weight = tensor;
-          break;
-        }
-      }
-      for (auto& tensor : packed_biases) {
-        if (bias_desc == tensor.get_desc()) {
-          packed_bias = tensor;
-          break;
-        }
-      }
-      if (packed_weight.is_empty()) {
-        packed_weight =
-            weight_t.reorder_if_differ_in(weights_desc, param.weights_attr);
-        packed_weights.push_back(packed_weight);
-      }
-      if (packed_bias.is_empty()) {
-        packed_bias = bias_t.reorder_if_differ_in(bias_desc, param.bias_attr);
-        packed_biases.push_back(packed_bias);
-      }
+      packed_weight = state->get_or_create_packed_weight(
+          weight.data, weight_t, param.pd.weights_desc(), param.weights_attr);
+      packed_bias = state->get_or_create_packed_bias(
+          bias.data, bias_t, param.pd.bias_desc(), param.bias_attr);
+
       ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
                                                   packed_bias, output_t);
     }
@@ -1484,19 +1464,8 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
         unique_name, []() { return new OnednnGemmState; });
     {
       std::lock_guard<std::mutex> l(state->mu);
-      auto& packed_weights = state->packed_weight_cache[weight.data];
-      auto weights_desc = param.pd.weights_desc();
-      for (auto& tensor : packed_weights) {
-        if (weights_desc == tensor.get_desc()) {
-          packed_weight = tensor;
-          break;
-        }
-      }
-      if (packed_weight.is_empty()) {
-        packed_weight =
-            weight_t.reorder_if_differ_in(weights_desc, param.weights_attr);
-        packed_weights.push_back(packed_weight);
-      }
+      packed_weight = state->get_or_create_packed_weight(
+          weight.data, weight_t, param.pd.weights_desc(), param.weights_attr);
       ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
                                                   output_t);
     }

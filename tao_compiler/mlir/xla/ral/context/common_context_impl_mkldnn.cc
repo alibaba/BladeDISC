@@ -755,17 +755,8 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
       unique_name, []() { return new OnednnGemmState; });
   {
     std::lock_guard<std::mutex> l(state->mu);
-    auto& packed_weights = state->packed_weight_cache[B.data];
-    for (auto& tensor : packed_weights) {
-      if (weights_desc == tensor.get_desc()) {
-        packed_weight = tensor;
-        break;
-      }
-    }
-    if (packed_weight.is_empty()) {
-      packed_weight = weight.reorder_if_differ_in(weights_desc);
-      packed_weights.push_back(packed_weight);
-    }
+    packed_weight =
+        state->get_or_create_packed_weight(B.data, weight, weights_desc);
   }
   ideep::matmul_forward::compute</* keep_format */ true,
                                  /* weight_format_any */ true>(

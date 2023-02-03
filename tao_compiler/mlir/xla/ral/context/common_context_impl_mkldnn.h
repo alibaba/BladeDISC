@@ -89,9 +89,47 @@ inline void hash_combine(std::size_t& seed, const T& v) {
 extern const std::thread::id kDiscCpuDefaultThreadId;
 
 struct OnednnGemmState : public Context::Resource {
+  using cache_type = std::unordered_map<opaque_t, std::vector<ideep::tensor>>;
   std::mutex mu;
-  std::unordered_map<opaque_t, std::vector<ideep::tensor>> packed_weight_cache;
-  std::unordered_map<opaque_t, std::vector<ideep::tensor>> packed_bias_cache;
+
+  ideep::tensor get_or_create_packed_bias(
+      opaque_t bias_ptr, const ideep::tensor& bias_t,
+      const dnnl::memory::desc& target_desc,
+      const ideep::attr_t& target_attr = ideep::attr_t()) {
+    return get_or_create_packed_data(packed_bias_cache, bias_ptr, bias_t,
+                                     target_desc, target_attr);
+  }
+
+  ideep::tensor get_or_create_packed_weight(
+      opaque_t weight_ptr, const ideep::tensor& weight_t,
+      const dnnl::memory::desc& target_desc,
+      const ideep::attr_t& target_attr = ideep::attr_t()) {
+    return get_or_create_packed_data(packed_weight_cache, weight_ptr, weight_t,
+                                     target_desc, target_attr);
+  }
+
+ private:
+  ideep::tensor get_or_create_packed_data(
+      cache_type& cache_tensor, opaque_t data_ptr, const ideep::tensor& data_t,
+      const dnnl::memory::desc& target_desc,
+      const ideep::attr_t& target_attr = ideep::attr_t()) {
+    ideep::tensor packed_tensor;
+    auto& packed_tensors = cache_tensor[data_ptr];
+    for (auto& tensor : packed_tensors) {
+      if (target_desc == tensor.get_desc()) {
+        packed_tensor = tensor;
+        break;
+      }
+    }
+    if (packed_tensor.is_empty()) {
+      packed_tensor = data_t.reorder_if_differ_in(target_desc, target_attr);
+      packed_tensors.push_back(packed_tensor);
+    }
+    return packed_tensor;
+  }
+
+  cache_type packed_weight_cache;
+  cache_type packed_bias_cache;
 };
 
 struct GEMMParamsKeyHasher;

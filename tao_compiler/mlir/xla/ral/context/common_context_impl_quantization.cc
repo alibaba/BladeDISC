@@ -1358,16 +1358,13 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
         "disc.ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel";
     auto state = ctx->getOrCreateResource<OnednnGemmState>(
         unique_name, []() { return new OnednnGemmState; });
-    {
-      std::lock_guard<std::mutex> l(state->mu);
-      packed_weight = state->get_or_create_packed_weight(
-          weight.data, weight_t, param.pd.weights_desc(), param.weights_attr);
-      packed_bias = state->get_or_create_packed_bias(
-          bias.data, bias_t, param.pd.bias_desc(), param.bias_attr);
+    packed_weight = state->get_or_create_packed_weight(
+        weight.data, weight_t, param.pd.weights_desc(), param.weights_attr);
+    packed_bias = state->get_or_create_packed_bias(
+        bias.data, bias_t, param.pd.bias_desc(), param.bias_attr);
 
-      ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
-                                                  packed_bias, output_t);
-    }
+    ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
+                                                packed_bias, output_t);
   }
 
   if (TAO_VLOG_IS_ON(1)) {
@@ -1462,13 +1459,11 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
     std::string unique_name = "disc.ral_pdll_qgemm_onednn_s8_s8_s8_per_channel";
     auto state = ctx->getOrCreateResource<OnednnGemmState>(
         unique_name, []() { return new OnednnGemmState; });
-    {
-      std::lock_guard<std::mutex> l(state->mu);
-      packed_weight = state->get_or_create_packed_weight(
-          weight.data, weight_t, param.pd.weights_desc(), param.weights_attr);
-      ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
-                                                  output_t);
-    }
+    packed_weight = state->get_or_create_packed_weight(
+        weight.data, weight_t, param.pd.weights_desc(), param.weights_attr);
+
+    ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
+                                                output_t);
   }
 
   if (TAO_VLOG_IS_ON(1)) {

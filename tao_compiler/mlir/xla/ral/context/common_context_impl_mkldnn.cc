@@ -753,11 +753,8 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
                             tao::ral::TaoTypeNameHelper<Tinput>::Invoke();
   auto state = ctx->getOrCreateResource<OnednnGemmState>(
       unique_name, []() { return new OnednnGemmState; });
-  {
-    std::lock_guard<std::mutex> l(state->mu);
-    packed_weight =
-        state->get_or_create_packed_weight(B.data, weight, weights_desc);
-  }
+  packed_weight =
+      state->get_or_create_packed_weight(B.data, weight, weights_desc);
   ideep::matmul_forward::compute</* keep_format */ true,
                                  /* weight_format_any */ true>(
       src, packed_weight, output);

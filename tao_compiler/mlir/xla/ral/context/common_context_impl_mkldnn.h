@@ -90,7 +90,6 @@ extern const std::thread::id kDiscCpuDefaultThreadId;
 
 struct OnednnGemmState : public Context::Resource {
   using cache_type = std::unordered_map<opaque_t, std::vector<ideep::tensor>>;
-  std::mutex mu;
 
   ideep::tensor get_or_create_packed_bias(
       opaque_t bias_ptr, const ideep::tensor& bias_t,
@@ -113,6 +112,7 @@ struct OnednnGemmState : public Context::Resource {
       cache_type& cache_tensor, opaque_t data_ptr, const ideep::tensor& data_t,
       const dnnl::memory::desc& target_desc,
       const ideep::attr_t& target_attr = ideep::attr_t()) {
+    std::lock_guard<std::mutex> l(mu);
     ideep::tensor packed_tensor;
     auto& packed_tensors = cache_tensor[data_ptr];
     for (auto& tensor : packed_tensors) {
@@ -127,7 +127,7 @@ struct OnednnGemmState : public Context::Resource {
     }
     return packed_tensor;
   }
-
+  std::mutex mu;
   cache_type packed_weight_cache;
   cache_type packed_bias_cache;
 };

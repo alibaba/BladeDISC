@@ -11,7 +11,6 @@ on:
 
 jobs:
   TorchBenchCudaFull:
-    if: github.event.schedule == '30 15 * * 5'
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
@@ -27,7 +26,6 @@ jobs:
     secrets: inherit
 
   TorchBenchCpuFull:
-    if: github.event.schedule == '30 15 * * 5'
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
@@ -42,7 +40,6 @@ jobs:
     secrets: inherit
 
   TorchBenchAArch64Full:
-    if: github.event.schedule == '30 15 * * 5'
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark

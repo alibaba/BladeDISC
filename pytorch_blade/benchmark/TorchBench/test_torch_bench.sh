@@ -10,6 +10,7 @@
 # limitations under the License.
 
 # !/bin/bash
+date_str=$(date '+%Y%m%d-%H')
 if [ -f $HOME/.cache/proxy_config ]; then
   source $HOME/.cache/proxy_config
 fi
@@ -36,7 +37,8 @@ python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
 # install dependencies
 python3 -m pip install -q -r $script_dir/requirements_$HARDWARE.txt
 git pull && git checkout main  && git submodule update --init --recursive --depth 1 && python3 install.py --continue_on_fail
-
+# uninstall torch in virtualvenv which is unexpected
+pip uninstall torch -y
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
 ln -s $benchmark_repo_dir torchbenchmark
 
@@ -73,7 +75,6 @@ else
 fi
 
 # results
-date_str=$(date '+%Y%m%d-%H')
 oss_link=https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com
 oss_dir=oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}
 OSSUTIL=ossutil
@@ -87,6 +88,8 @@ for result in ${results[@]}
 do
     cat ${result}/summary.csv
     curl ${oss_link}/TorchBench/baseline/${result}_${bench_target}.csv -o $result.csv
+    tar -zcf $result.tar.gz $resdult
+    /disc/scripts/ci/$OSSUTIL cp -r ${script_dir}/${result}.tar.gz ${oss_dir}
     /disc/scripts/ci/$OSSUTIL cp -r ${script_dir}/${result} ${oss_dir}/${result}
 done
 

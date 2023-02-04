@@ -539,7 +539,7 @@ bool DiscCompIntensFusionToCUDASourcePass::
     } else if (!isa<func::ReturnOp>(&op)) {
       assert(source_emitter.isSupportedOp(&op) && "Encounter unsupported op.");
       auto instruction = source_emitter.EmitOp(&op, binding);
-      if (!instruction.hasValue()) {
+      if (!instruction.has_value()) {
         return false;
       } else {
         appendLineToEpilogue(instruction.value());

@@ -98,43 +98,43 @@ struct KeyEqual {
                                 mapResults))
       return false;
 
-    // auto lhsReduceOp = dyn_cast<mhlo::ReduceOp>(lhs);
-    // auto rhsReduceOp = dyn_cast<mhlo::ReduceOp>(rhs);
-    // if (lhsReduceOp && rhsReduceOp) {
-    //   auto& lhsBody = lhsReduceOp.getBody();
-    //   auto& rhsBody = rhsReduceOp.getBody();
-    //   if (not(lhsBody.hasOneBlock() && rhsBody.hasOneBlock())) return false;
+    auto lhsReduceOp = dyn_cast<mhlo::ReduceOp>(lhs);
+    auto rhsReduceOp = dyn_cast<mhlo::ReduceOp>(rhs);
+    if (lhsReduceOp && rhsReduceOp) {
+      auto& lhsBody = lhsReduceOp.getBody();
+      auto& rhsBody = rhsReduceOp.getBody();
+      if (not(lhsBody.hasOneBlock() && rhsBody.hasOneBlock())) return false;
 
-    //   auto& lhsBlock = lhsBody.front();
-    //   auto& rhsBlock = rhsBody.front();
-    //   auto& lhsOperations = lhsBlock.getOperations();
-    //   auto& rhsOperations = rhsBlock.getOperations();
-    //   if (lhsOperations.size() != rhsOperations.size()) return false;
+      auto& lhsBlock = lhsBody.front();
+      auto& rhsBlock = rhsBody.front();
+      auto& lhsOperations = lhsBlock.getOperations();
+      auto& rhsOperations = rhsBlock.getOperations();
+      if (lhsOperations.size() != rhsOperations.size()) return false;
 
-    //   auto ignoreValueEquivalenceIfSameBlock = [&](Value lhs, Value rhs) {
-    //     if (lhs.getParentBlock() != &lhsBlock or
-    //         rhs.getParentBlock() != &rhsBlock) {
-    //       return failure();
-    //     }
-    //     return success();
-    //   };
-    //   for (auto it : llvm::zip(lhsOperations, rhsOperations)) {
-    //     auto& lhsOp = std::get<0>(it);
-    //     auto& rhsOp = std::get<1>(it);
-    //     // We currently do not compare equality of nested regions
-    //     if (lhsOp.getNumRegions() != 0 or rhsOp.getNumRegions() != 0)
-    //       return false;
+      auto ignoreValueEquivalenceIfSameBlock = [&](Value lhs, Value rhs) {
+        if (lhs.getParentBlock() != &lhsBlock or
+            rhs.getParentBlock() != &rhsBlock) {
+          return failure();
+        }
+        return success();
+      };
+      for (auto it : llvm::zip(lhsOperations, rhsOperations)) {
+        auto& lhsOp = std::get<0>(it);
+        auto& rhsOp = std::get<1>(it);
+        // We currently do not compare equality of nested regions
+        if (lhsOp.getNumRegions() != 0 or rhsOp.getNumRegions() != 0)
+          return false;
 
-    //     auto innerOpMatch = OperationEquivalence::isEquivalentTo(
-    //         &lhsOp, &rhsOp,
-    //         /*mapOperands=*/ignoreValueEquivalenceIfSameBlock,
-    //         /*mapResults=*/OperationEquivalence::ignoreValueEquivalence,
-    //         OperationEquivalence::IgnoreLocations);
-    //     if (not innerOpMatch) return false;
-    //   }
-    //   return true;
-    // }
-    // if (lhs->getNumRegions() != 0 or rhs->getNumRegions() != 0) return false;
+        auto innerOpMatch = OperationEquivalence::isEquivalentTo(
+            &lhsOp, &rhsOp,
+            /*mapOperands=*/ignoreValueEquivalenceIfSameBlock,
+            /*mapResults=*/OperationEquivalence::ignoreValueEquivalence,
+            OperationEquivalence::IgnoreLocations);
+        if (not innerOpMatch) return false;
+      }
+      return true;
+    }
+    if (lhs->getNumRegions() != 0 or rhs->getNumRegions() != 0) return false;
 
     return true;
   }

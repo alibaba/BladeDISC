@@ -19,7 +19,7 @@ limitations under the License.
 #include "iree-dialects/Dialect/LinalgExt/TransformOps/LinalgExtTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/LinalgTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
-#include "iree-dialects/Dialect/LinalgTransform/TransformInterpreterUtils.h"
+#include "iree-dialects/Dialect/LinalgTransform/TransformInterpreterPassBase.h"
 #include "llvm/Support/Debug.h"
 #include "lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -27,6 +27,7 @@ limitations under the License.
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
+#include "mlir/Dialect/Vector/TransformOps/VectorTransformOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/TransformOps/SCFTransformOps.h"
@@ -114,12 +115,7 @@ TileToForeachThreadOp buildTileToForEachThreadOp(OpBuilder& b, Location& loc,
                                                  ArrayRef<int64_t> numThreads) {
   auto pdlType = pdl::OperationType::get(b.getContext());
   return b.create<TileToForeachThreadOp>(
-      loc, TypeRange{pdlType, pdlType}, target,
-      /* num_threads */ ValueRange{},
-      /* tile_sizes */ ValueRange{},
-      /* static_num_threads */ b.getI64ArrayAttr(numThreads),
-      /* static_num_threads */ ArrayAttr{},
-      /* thread_dim_mapping */ ArrayAttr{});
+      loc, target, numThreads, transform::NumThreadsSpec(), ArrayAttr{});
 }
 
 FuseIntoContainingOp buildFuseIntoContainingOp(OpBuilder& b, Location& loc,
@@ -146,8 +142,8 @@ TileOp buildTileOp(OpBuilder& b, Location& loc, Value target,
   for (int64_t tileSize : tileSizes)
     if (tileSize) loopTypes.push_back(pdlType);
   return b.create<TileOp>(loc, pdlType, loopTypes, target, ValueRange{},
-                          b.getI64ArrayAttr(tileSizes),
-                          b.getI64ArrayAttr(interchange));
+                          tileSizes,
+                          interchange);
 }
 
 transform_dialect::ApplyPatternsOp buildRunCanonicalizer(OpBuilder& b,
@@ -219,15 +215,9 @@ transform_dialect::DISCBufferizeOp buildDISCBufferize(OpBuilder& b,
 }
 
 void buildLowerVectors(OpBuilder& b, Location& loc, ArrayRef<int64_t> stages,
-                       StringRef contractionLowering,
-                       StringRef multireductionLowering,
-                       StringRef splitTransfers, bool unrollVectorTransfers,
-                       StringRef transposeLowering,
-                       bool transposeAvx2Lowering) {
-  b.create<transform_ext::LowerVectorsOp>(
-      loc, b.getI64ArrayAttr(stages), contractionLowering,
-      multireductionLowering, splitTransfers, unrollVectorTransfers,
-      transposeLowering, transposeAvx2Lowering);
+		::mlir::vector::LowerVectorsOptions &options) {
+  // b.create<transform::LowerVectorsOp>(
+  //     loc, b.getI64ArrayAttr(stages), options);
 }
 
 SplitHandlesOp buildSplitHandlesOp(OpBuilder& b, Location& loc, Value target,
@@ -504,10 +494,16 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
   variant = buildRunCanonicalizer(b, loc, variant);
   variant = buildDISCBufferize(b, loc, variant);
 
-  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
-                    "linalg-copy", true, "eltwise", false);
-  buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
-                    "linalg-copy", true, "eltwise", false);
+  ::mlir::vector::LowerVectorsOptions options;
+  options.setVectorTransformsOptions(::mlir::vector::VectorContractLowering::OuterProduct);
+  options.setVectorMultiReductionLowering(
+        ::mlir::vector::VectorMultiReductionLowering::InnerParallel);
+  options.setVectorTransposeLowering(::mlir::vector::VectorTransposeLowering::EltWise);
+  options.setVectorTransferSplit(::mlir::vector::VectorTransferSplit::LinalgCopy);
+  options.setTransposeAVX2Lowering(false);
+  options.setUnrollVectorTransfers(true);
+  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, options);
+  buildLowerVectors(b, loc, {5, 6, 7}, options);
   b.create<transform::YieldOp>(loc);
   return success();
 }
@@ -998,10 +994,17 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
                                       splitedReaders->getResult(0));
   }
 
-  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
-                    "linalg-copy", true, "eltwise", false);
-  buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
-                    "linalg-copy", true, "eltwise", false);
+  ::mlir::vector::LowerVectorsOptions options;
+  options.setVectorTransformsOptions(::mlir::vector::VectorContractLowering::OuterProduct);
+  options.setVectorMultiReductionLowering(
+        ::mlir::vector::VectorMultiReductionLowering::InnerParallel);
+  options.setVectorTransposeLowering(::mlir::vector::VectorTransposeLowering::EltWise);
+  options.setVectorTransferSplit(::mlir::vector::VectorTransferSplit::LinalgCopy);
+  options.setTransposeAVX2Lowering(false);
+  options.setUnrollVectorTransfers(true);
+  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, options);
+  buildLowerVectors(b, loc, {5, 6, 7}, options);
+
   variant = buildDecomposeVectors(b, loc, variant, hardwareVectorSizeInBytes);
   b.create<transform::YieldOp>(loc);
   return success();

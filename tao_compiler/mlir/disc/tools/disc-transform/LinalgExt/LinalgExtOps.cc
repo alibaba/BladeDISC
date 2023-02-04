@@ -946,8 +946,7 @@ struct FoldTensorCastOp : public OpInterfaceRewritePattern<LinalgExtOp> {
     }
     // Clone op.
     Operation* newOp =
-        cast<DestinationStyleOpInterface>(op.getOperation())
-            .clone(rewriter, op->getLoc(), newResultTypes, newOperands);
+        mlir::clone(rewriter, op.getOperation(), newResultTypes, newOperands);
     SmallVector<Value, 4> replacements;
     replacements.reserve(newOp->getNumResults());
     for (auto result : llvm::zip(op->getResults(), newOp->getResults())) {

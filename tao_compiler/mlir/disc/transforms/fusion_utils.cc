@@ -19,7 +19,7 @@ limitations under the License.
 #include <mutex>
 
 #include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
-#include "mlir-hlo/utils/placement_utils.h"
+#include "utils/placement_utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"  // TF:llvm-project
@@ -1036,7 +1036,7 @@ bool mergeSkeletonGroupsInOrder(
 
       auto optional_merged_id =
           TryMergeNode(&cycle_detector, merged.first, to_merge.first);
-      if (!optional_merged_id.hasValue()) {
+      if (!optional_merged_id.has_value()) {
         // It forms a cycle.
         continue;
       }

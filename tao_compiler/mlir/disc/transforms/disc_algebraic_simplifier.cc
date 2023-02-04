@@ -583,7 +583,7 @@ void DiscAlgebraicSimplifierPass::runOnOperation() {
   populateDiscAlgebraicSimplifierPatterns(patterns);
 
   GreedyRewriteConfig config = GreedyRewriteConfig();
-  config.maxIterations = GreedyRewriteConfig::kNoIterationLimit;
+  config.maxIterations = GreedyRewriteConfig::kNoLimit;
   if (failed(applyPatternsAndFoldGreedily(getOperation(), std::move(patterns),
                                           config))) {
     signalPassFailure();

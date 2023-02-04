@@ -568,7 +568,7 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
       mayCreateOrMapConstInt(result);
     } else if (isa<mhlo::DynamicReshapeOp, mhlo::DynamicBroadcastInDimOp>(op)) {
       auto dimValues = getTensorDimValues(op->getOperand(1));
-      if (!dimValues.hasValue()) {
+      if (!dimValues.has_value()) {
         return WalkResult::advance();
       }
       Value result = op->getResult(0);
@@ -585,7 +585,7 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
       auto strides = getTensorDimValues(dynSlice.getStrides());
       Value result = op->getResult(0);
       auto out_ty = result.getType().dyn_cast_or_null<RankedTensorType>();
-      if (!starts.hasValue() || !limits.hasValue() || !strides.hasValue() ||
+      if (!starts.has_value() || !limits.has_value() || !strides.has_value() ||
           !out_ty) {
         return WalkResult::advance();
       }

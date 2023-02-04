@@ -11,7 +11,7 @@
 
 #include "llvm/Support/Debug.h"
 #include "lhlo/IR/lhlo_ops.h"
-#include "mhlo/transforms/legalize_to_linalg_utils.h"
+#include "mhlo/utils/legalize_to_linalg_utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"

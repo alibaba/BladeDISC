@@ -37,11 +37,11 @@ LogicalResult DiscFakeQuantOp::verify() {
            << expect_max << " under " << getNumBits()
            << " bits and signed=" << getUseSigned() << ", but got: " << q_max;
   }
-  if (axis().size() > 1) {
+  if (getAxis().size() > 1) {
     return emitOpError(
                "axis must be empty (per-tensor) or a single element array "
                "(per-channel), but got: ")
-           << axis();
+           << getAxis();
   }
   return success();
 }

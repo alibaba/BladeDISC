@@ -86,7 +86,7 @@ void TryMergeQuantizedDotClusters(
   int64_t dst_id = dst.leader_op_id;
   int64_t src_id = src.leader_op_id;
   auto optional_merged_id = TryMergeNode(cycle_detector.get(), dst_id, src_id);
-  if (!optional_merged_id.hasValue()) {
+  if (!optional_merged_id.has_value()) {
     // It forms a cycle.
     return;
   }

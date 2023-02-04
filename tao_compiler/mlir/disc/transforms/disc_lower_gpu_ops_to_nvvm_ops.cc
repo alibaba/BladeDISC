@@ -85,8 +85,8 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     /// converter drops the private memory space to support the use case above.
     LLVMTypeConverter converter(m.getContext(), options);
     converter.addConversion([&](MemRefType type) -> Optional<Type> {
-      if (!type.getMemorySpace().isa<IntegerAttr>() ||
-          type.getMemorySpaceAsInt() !=
+      if (!type.getMemorySpace().isa<gpu::AddressSpaceAttr>() ||
+          type.getMemorySpace().dyn_cast<gpu::AddressSpaceAttr>().getValue() !=
               gpu::GPUDialect::getPrivateAddressSpace())
         return llvm::None;
       return converter.convertType(MemRefType::Builder(type).setMemorySpace(0));
@@ -169,7 +169,7 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     llvmPatterns.add<RemoveUselessUnrealizedConversionCastOp>(converter);
     mlir::arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);
     populateMathToLLVMConversionPatterns(converter, patterns);
-    populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
+    populateFinalizeMemRefToLLVMConversionPatterns(converter, llvmPatterns);
     populateFuncToLLVMConversionPatterns(converter, patterns);
     cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
     populateGpuToNVVMConversionPatterns(converter, llvmPatterns);

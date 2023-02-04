@@ -13,7 +13,7 @@
 // speculation.
 
 #include "lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/utils/codegen_utils.h"
+#include "utils/codegen_utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"

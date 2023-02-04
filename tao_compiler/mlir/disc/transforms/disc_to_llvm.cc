@@ -122,11 +122,11 @@ LogicalResult getDispatchOpSignatureEncoding(DispatchOp dispatch_op,
                                              StrT& out) {
   const char* separator = "___";
   // append signature prefix
-  out.append(dispatch_op.call_target_name());
+  out.append(dispatch_op.getCallTargetName());
   out.append(separator);
 
   // encode backend (device) info
-  out.append(dispatch_op.device());
+  out.append(dispatch_op.getDevice());
   out.append(separator);
 
   // encode input types
@@ -136,7 +136,7 @@ LogicalResult getDispatchOpSignatureEncoding(DispatchOp dispatch_op,
     if (failed(getTypeEncoding(op->getContext(), en.value(), out)))
       return failure();
   }
-  if (!dispatch_op.backend_config().empty()) {
+  if (!dispatch_op.getBackendConfig().empty()) {
     // `const char*` for the serialized custom attrs
     if (op->getOperandTypes().size() > 0) out.append("_");
     out.append("pvoid");
@@ -303,11 +303,11 @@ Value DispatchOpToLLVMPattern::rewriteInsOutsOfDispatchOp(
 
   SmallVector<Value, 4> arguments = getTypeConverter()->promoteOperands(
       loc, dispatch_op.getOperands(), operands, rewriter);
-  if (!dispatch_op.backend_config().empty()) {
+  if (!dispatch_op.getBackendConfig().empty()) {
     StrT name, value;
     getDispatchOpSignatureEncoding(dispatch_op, name);
     name.append("__attrs");
-    value.append(dispatch_op.backend_config());
+    value.append(dispatch_op.getBackendConfig());
     value.push_back('\0');
     // Not re-use the custom_attrs for different instance of the same custom
     // call.
@@ -372,7 +372,7 @@ LogicalResult DispatchOpToLLVMPattern::matchAndRewrite(
       dispatch_op, adaptor.getOperands(), rewriter, resultPtrs);
 
   // the first argument is ral_context
-  callOpOperands.push_back(adaptor.ctx());
+  callOpOperands.push_back(adaptor.getCtx());
   // the second argument is the target name
   callOpOperands.push_back(loadOrCreateGlobalString(
       rewriter, symbol_table_, op, target_name.str().drop_back(),
@@ -866,7 +866,7 @@ LLVMFuncOp ConvertCpuLaunchOpToDispatchOpPattern::generatePackedKernel(
   Location loc = launchOp->getLoc();
   MLIRContext* ctx = rewriter.getContext();
 
-  StringRef kernelName = launchOp.callee();
+  StringRef kernelName = launchOp.getCallee();
   auto packedKernelName = (llvm::Twine("packed_") + kernelName).str();
   int numIvs =
       launchOp->getOperand(1).getType().cast<RankedTensorType>().getDimSize(0);
@@ -1015,22 +1015,22 @@ LogicalResult ConvertCpuLaunchOpToDispatchOpPattern::matchAndRewrite(
   // Create a name for each cpu kernel.
   StrT kernelNameVarName, kernelNameVarContent;
   kernelNameVarName.append("_cpu_kernel_");
-  kernelNameVarName.append(launchOp.callee());
-  kernelNameVarContent.append(launchOp.callee());
+  kernelNameVarName.append(launchOp.getCallee());
+  kernelNameVarContent.append(launchOp.getCallee());
   kernelNameVarContent.push_back('\0');
   Value kernelNameValue = loadOrCreateGlobalString(
       rewriter, symbol_table_, launchOp, kernelNameVarName.str(),
       kernelNameVarContent.str());
   ralDispatchOpArgs.push_back(kernelNameValue);
-  ralDispatchOpArgs.push_back(launchOp.lowerBound());
-  ralDispatchOpArgs.push_back(launchOp.upperBound());
-  ralDispatchOpArgs.push_back(launchOp.step());
-  ralDispatchOpArgs.push_back(launchOp.unitWorkloadSizeHint());
+  ralDispatchOpArgs.push_back(launchOp.getLowerBound());
+  ralDispatchOpArgs.push_back(launchOp.getUpperBound());
+  ralDispatchOpArgs.push_back(launchOp.getStep());
+  ralDispatchOpArgs.push_back(launchOp.getUnitWorkloadSizeHint());
   ralDispatchOpArgs.push_back(untypedFuncPtr);
   ralDispatchOpArgs.push_back(packedArgs);
 
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
-      launchOp, llvm::None, adaptor.ctx(), ralDispatchOpArgs, kRalCpuLaunch,
+      launchOp, llvm::None, adaptor.getCtx(), ralDispatchOpArgs, kRalCpuLaunch,
       false, "cpu");
 
   return success();
@@ -1204,7 +1204,7 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
     mlir::arith::populateArithToLLVMConversionPatterns(type_converter,
                                                        patterns);
     arith::populateArithExpandOpsPatterns(patterns);
-    populateMemRefToLLVMConversionPatterns(type_converter, patterns);
+    populateFinalizeMemRefToLLVMConversionPatterns(type_converter, patterns);
     populateMathToLLVMConversionPatterns(type_converter, patterns);
     populateFuncToLLVMConversionPatterns(type_converter, patterns);
     cf::populateControlFlowToLLVMConversionPatterns(type_converter, patterns);

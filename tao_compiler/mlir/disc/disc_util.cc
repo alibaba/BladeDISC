@@ -179,7 +179,7 @@ llvm::Optional<int32_t> TryMergeNode(GraphCycles* graph_cycles, int32_t a,
   int32_t from = graph_cycles->HasEdge(a, b) ? a : b;
   int32_t to = (from == a) ? b : a;
   auto result = graph_cycles->ContractEdge(from, to);
-  if (!result.hasValue() && has_edge_inserted_a2b) {
+  if (!result.has_value() && has_edge_inserted_a2b) {
     // Restore the graph.
     graph_cycles->RemoveEdge(a, b);
   }

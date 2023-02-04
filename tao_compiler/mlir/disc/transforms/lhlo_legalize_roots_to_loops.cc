@@ -19,7 +19,7 @@ limitations under the License.
 #include "llvm/Support/Debug.h"
 #include "lhlo/IR/lhlo_ops.h"
 #include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
-#include "mlir-hlo/utils/placement_utils.h"
+#include "utils/placement_utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -973,8 +973,10 @@ Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
 
 Value createSharedMemory(OpBuilder& b, Location loc, int64_t size,
                          Type elem_type) {
+  auto workgroupMemoryAddressSpace = gpu::AddressSpaceAttr::get(
+        b.getContext(), gpu::GPUDialect::getWorkgroupAddressSpace());
   auto bufferType = MemRefType::get(
-      {size}, elem_type, {}, gpu::GPUDialect::getWorkgroupAddressSpace());
+      ArrayRef<int64_t>{size}, elem_type, MemRefLayoutAttrInterface{}, workgroupMemoryAddressSpace);
   auto alloc = b.create<memref::AllocOp>(loc, bufferType);
   return alloc.getResult();
 }
@@ -5430,7 +5432,7 @@ struct DiscLhloLegalizeRootsToParallelLoops
         });
         fusion.getRegion().walk([&](memref::AssumeAlignmentOp op) {
           auto memref_type = op.getMemref().getType().cast<MemRefType>();
-          if (memref_type.getMemorySpaceAsInt() ==
+          if (memref_type.getMemorySpace().dyn_cast<gpu::AddressSpaceAttr>().getValue() ==
               gpu::GPUDialect::getWorkgroupAddressSpace()) {
             to_be_removed.push_back(op);
           }

@@ -178,7 +178,7 @@ struct TileInfo {
   bool merge(TileInfo& other);
 
   // Returns false if failed to merge.
-  bool merge(int axis, int tileSize = ShapedType::kDynamic);
+  bool merge(int axis, int tileSize = -1);
 
   // return true if updated.
   bool updateIfNotEqual(TileInfo& other);

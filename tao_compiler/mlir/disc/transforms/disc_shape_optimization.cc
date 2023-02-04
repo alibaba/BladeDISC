@@ -248,7 +248,7 @@ LogicalResult materializeShapeComputation(ModuleOp m, FuncOp main) {
   // clang-format on
 
   if (failed(
-          applyPatternsAndFoldGreedily(m->getRegions(), std::move(patterns)))) {
+          applyPatternsAndFoldGreedily(m, std::move(patterns)))) {
     return m.emitError() << "fail to materialize shape computation\n";
   }
   return success();
@@ -662,7 +662,7 @@ LogicalResult runCanonicalizer(ModuleOp m, PassPipelineRunner runner) {
       "mlir::disc_shape::{anonymous}::IdentityTieShapeOp"};
   FrozenRewritePatternSet frozenSet(std::move(patterns), disablePatterns);
 
-  if (failed(applyPatternsAndFoldGreedily(m->getRegions(),
+  if (failed(applyPatternsAndFoldGreedily(m,
                                           std::move(frozenSet)))) {
     return m.emitError() << "fail to run canonicalizer\n";
   }
@@ -1894,7 +1894,7 @@ LogicalResult cleanUp(ModuleOp m, bool keep_tie_shape) {
     RewritePatternSet patterns(m.getContext());
     patterns.add<ForwardTieShapeOperandToItsConsumers>(patterns.getContext());
 
-    if (failed(applyPatternsAndFoldGreedily(m->getRegions(),
+    if (failed(applyPatternsAndFoldGreedily(m,
                                             std::move(patterns)))) {
       return m.emitError() << "fail to do cleanup\n";
     }

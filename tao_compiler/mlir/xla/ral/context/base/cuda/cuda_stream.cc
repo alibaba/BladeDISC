@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_stream.h"
+#include "mlir/xla/ral/context/base/cuda/cuda_stream.h"
 
 namespace tao {
 namespace ral {

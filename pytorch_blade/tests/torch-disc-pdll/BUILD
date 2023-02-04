@@ -14,7 +14,7 @@ cc_library(
         "@mlir-hlo//:mlir_hlo",
         "@llvm-project//mlir:IR",
         "@llvm-project//llvm:Support",
-        "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_pdl_utils",
+        "@org_disc_compiler//mlir/disc:disc_pdl_utils",
         "@torch-mlir//:TorchMLIRTorchDialect",
     ]
 )

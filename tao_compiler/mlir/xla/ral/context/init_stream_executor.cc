@@ -9,9 +9,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/init_stream_executor.h"
+#include "mlir/xla/ral/context/init_stream_executor.h"
 
-#include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_stream.h"
+#include "mlir/xla/ral/context/base/cuda/cuda_stream.h"
 #include "tensorflow/compiler/xla/stream_executor/gpu/gpu_executor.h"
 #include "tensorflow/compiler/xla/stream_executor/stream.h"
 #include "tensorflow/core/util/env_var.h"

@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/decoupling/mlir_compiler_impl_cpu.h"
+#include "decoupling/mlir_compiler_impl_cpu.h"
 
 namespace tensorflow {
 namespace tao {

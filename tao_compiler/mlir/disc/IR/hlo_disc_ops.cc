@@ -12,7 +12,7 @@ limitations under the License.
 
 // This file defines the operations used in the DISC RAL dialect.
 
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
 
 #include <cfenv>
 #include <cmath>
@@ -23,8 +23,8 @@ limitations under the License.
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "tensorflow/compiler/mlir/disc/IR/custom_call_base.h"
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_enums.cc.inc"
+#include "mlir/disc/IR/custom_call_base.h"
+#include "mlir/disc/IR/hlo_disc_enums.cc.inc"
 
 namespace mlir {
 namespace mhlo_disc {
@@ -61,7 +61,7 @@ MhloDiscDialect::MhloDiscDialect(MLIRContext* context)
     : Dialect(getDialectNamespace(), context, TypeID::get<MhloDiscDialect>()) {
   addOperations<
 #define GET_OP_LIST
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.cc.inc"
+#include "mlir/disc/IR/hlo_disc_ops.cc.inc"
 
       >();
   context->loadDialect<tensor::TensorDialect>();
@@ -168,8 +168,10 @@ OpFoldResult QuantizeOp::fold(ArrayRef<Attribute> operands) {
     return {};
   }
 
-  DenseElementsAttr scale = operands[1].dyn_cast<DenseElementsAttr>();
-  DenseElementsAttr zeroPoint = operands[2].dyn_cast<DenseElementsAttr>();
+  DenseElementsAttr scale = operands[1].dyn_cast_or_null<DenseElementsAttr>();
+  DenseElementsAttr zeroPoint =
+      operands[2].dyn_cast_or_null<DenseElementsAttr>();
+  if (!scale || !zeroPoint) return {};
   ArrayRef<int64_t> scaleShape = scale.getType().getShape();
   ArrayRef<int64_t> zeroPointShape = zeroPoint.getType().getShape();
   // scale & zero_point must have the same shape
@@ -1019,4 +1021,4 @@ LogicalResult WhereOp::verify() {
 }  // namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.cc.inc"
+#include "mlir/disc/IR/hlo_disc_ops.cc.inc"

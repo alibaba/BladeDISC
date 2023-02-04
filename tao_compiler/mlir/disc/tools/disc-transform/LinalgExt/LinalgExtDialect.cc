@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -19,8 +19,8 @@
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.cc.inc"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.cc.inc"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -29,7 +29,7 @@ namespace disc_linalg_ext {
 void DISCLinalgExtDialect::initialize() {
 #define GET_OP_LIST
   addOperations<
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.cc.inc"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.cc.inc"
       >();
 }
 

@@ -14,7 +14,7 @@
 
 #include "absl/base/casts.h"
 #include "absl/types/optional.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/custom_library/gpu_helper.h"
+#include "mlir/xla/ral/context/custom_library/gpu_helper.h"
 
 #if GOOGLE_CUDA
 #include <cuda_runtime.h>

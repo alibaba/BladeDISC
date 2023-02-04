@@ -19,8 +19,8 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/tools/disc-transform/transforms/PassDetail.h"
+#include "mlir/disc/transforms/placement_utils.h"
 
 #define DEBUG_TYPE "disc-rewrite-payload-ir-for-ral"
 

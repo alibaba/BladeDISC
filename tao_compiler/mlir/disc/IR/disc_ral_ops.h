@@ -60,6 +60,6 @@ class RalExecutionContextType
 }  // end namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h.inc"
+#include "mlir/disc/IR/disc_ral_ops.h.inc"
 
 #endif  //  TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_DISC_RAL_IR_DISC_RAL_OPS_H_

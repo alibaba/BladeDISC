@@ -31,9 +31,9 @@ Pattern TFQuantizedConv2dI8 {
     SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
     SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h,s,s,s,s,s,s\"">);
     SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h\"">);
-    SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*,*,*,*,*,*\"">);
+    SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,HWIO,*,*,*,*,*,*\"">);
     SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
-    SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*,*,*,*,*,*\"">);
+    SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,OHWI,*,*,*,*,*,*\"">);
     SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
 
     /// 3. set attrs that are directly passed to the custom call kernel.

@@ -15,7 +15,7 @@
 // limitations under the License.
 // =============================================================================
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
+#include "mlir/xla/ral/ral_logging.h"
 
 #include <stdlib.h>
 #include <string.h>

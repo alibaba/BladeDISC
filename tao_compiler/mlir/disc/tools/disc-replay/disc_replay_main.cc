@@ -14,7 +14,7 @@
 #endif
 
 #include "llvm/Support/CommandLine.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-replay/disc_interpreter.h"
+#include "mlir/disc/tools/disc-replay/disc_interpreter.h"
 #include "tensorflow/core/platform/errors.h"
 
 tensorflow::Status RealMain(int argc, char** argv) {

@@ -611,17 +611,14 @@ def symlink_disc_files(args):
                 os.makedirs(dst_folder)
             execute("rm -rf {0} && ln -s {1} {0}".format(link_in_tf, src_file))
 
-    logger.info("linking ./tao to tf_community/tao")
+    logger.info("linking ./tao to tao_compiler/tao")
     execute(
         "rm -rf {0} && ln -s {1} {0}".format(
-            os.path.join(get_source_root_dir(), "tf_community", "tao"),
+            os.path.join(get_source_root_dir(), "tao_compiler", "tao"),
             os.path.join(get_source_root_dir(), "tao")
         )
     )
 
-    logger.info("linking PatineClient")
-    link_dirs(os.path.join(dir_tf_community, 'tao', 'third_party', 'PatineClient'),
-            os.path.join(dir_platform_alibaba, 'third_party', 'PatineClient'))
     logger.info("linking blade_gemm")
     link_dirs(os.path.join(get_source_root_dir(), 'tf_community', 'tao', 'blade_gemm'),
             os.path.join(dir_platform_alibaba, 'blade_gemm'))
@@ -756,10 +753,15 @@ def test_tao_compiler_add_flags_platform_alibaba_cached(root, flag):
     restore_args_from_cache(root, args)
     return test_tao_compiler_add_flags_platform_alibaba(root, args, flag)
 
+def cleanup_building_env(root):
+    with cwd(root):
+        execute("rm -rf tf_community/.tf_configure.bazelrc")
+
 if __name__ == "__main__":
     args = parse_args()
 
     root = get_source_root_dir()
+    cleanup_building_env(root)
     symlink_disc_files(args)
 
     if args.enable_mkldnn:

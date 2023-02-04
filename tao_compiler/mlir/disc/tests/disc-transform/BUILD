@@ -1,4 +1,4 @@
-load("//tensorflow/compiler/mlir/disc/tests:glob_op_test.bzl", "glob_op_tests")
+load("//mlir/disc/tests:glob_op_test.bzl", "glob_op_tests")
 
 glob_op_tests(
     data = [],

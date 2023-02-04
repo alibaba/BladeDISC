@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
+#include "mlir/xla/ral/context/common_context_impl.h"
 
 #include <fcntl.h>
 #include <omp.h>
@@ -20,10 +20,10 @@
 #include <numeric>
 
 #include "absl/strings/str_split.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/ral_base.h"
+#include "mlir/xla/ral/ral_helper.h"
 
 // If we're on gcc 4.8 or older, there's a known bug that prevents the use of
 // intrinsics when the architecture is not defined in the flags. See
@@ -986,7 +986,7 @@ TAO_RAL_API(cpu::kRalCpuLaunch, "cpu", ompLaunchKernel);
 }  // namespace tao
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
-#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
+#include "mlir/xla/ral/context/stream_executor_based_impl.h"
 namespace tao {
 namespace ral {
 RAL_REGISTER_CONST_HOST_FUNC_0D(Eigen::half);

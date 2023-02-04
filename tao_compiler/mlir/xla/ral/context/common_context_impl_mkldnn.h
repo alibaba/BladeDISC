@@ -18,17 +18,17 @@
 #include <thread>
 
 #include "dnnl_threadpool_iface.hpp"
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/mkldnn/ideep/ideep.hpp"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/context/common_context_impl.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/context/mkldnn/ideep/ideep.hpp"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/ral_base.h"
+#include "mlir/xla/ral/ral_helper.h"
 
 #if defined(TAO_AARCH64)
 #include "arm_compute/core/Types.h"
 #include "arm_compute/runtime/NEON/NEFunctions.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_acl.h"
+#include "mlir/xla/ral/context/common_context_impl_acl.h"
 #endif
 
 namespace tao {

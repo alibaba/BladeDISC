@@ -17,9 +17,9 @@
 
 #include <thread>
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/pdll_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/context/common_context_impl_mkldnn.h"
+#include "mlir/xla/ral/context/pdll_util.h"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
 
 namespace tao {
 namespace ral {
@@ -107,7 +107,7 @@ inline bool generatePadding(MemRefType<int8_t, NDims> input,
     int inputSize = 0, weightSize = 0, newWeightSize = 0;
     for (int i = 0; i < NDims - 2; ++i) {
       inputSize = input.sizes[reorderDims[i]];
-      weightSize = weight.sizes[i];
+      weightSize = weight.sizes[i + 1];
       newWeightSize = (weightSize - 1) * dilations[i] + 1;
       if (inputSize % strides[i] == 0)
         padding_along = std::max(int(newWeightSize - strides[i]), 0);
@@ -163,9 +163,9 @@ inline bool generateMetadata(std::vector<int32_t> strides,
   metadata.data[idx++] = channelRank;
   for (int i = 0; i < NDims - 2; ++i) metadata.data[idx++] = reorderDims[i];
   // kernel layout
-  metadata.data[idx++] = NDims - 2;  // kernel input features
-  metadata.data[idx++] = NDims - 1;  // kernel output features
-  for (int i = 0; i < NDims - 2; ++i) metadata.data[idx++] = i;
+  metadata.data[idx++] = NDims - 1;  // kernel input features
+  metadata.data[idx++] = 0;          // kernel output features
+  for (int i = 1; i < NDims - 1; ++i) metadata.data[idx++] = i;
   // output layout
   metadata.data[idx++] = batchRank;
   metadata.data[idx++] = channelRank;
@@ -192,7 +192,7 @@ inline void generateResultShape(MemRefType<int8_t, NDims> input,
   for (int i = 0; i < NDims - 2; ++i) {
     int rank = reorderDims[i];
     int ori = input.sizes[rank];   // input spatial dims
-    int k = weight.sizes[i];       // kernel spatial dims
+    int k = weight.sizes[i + 1];   // kernel spatial dims
     int s = strides[i];            // stride
     int d = dilations[i];          // dilation
     int p1 = padding.data[2 * i];  // padding
@@ -202,7 +202,7 @@ inline void generateResultShape(MemRefType<int8_t, NDims> input,
   int batchRank = reorderDims[NDims - 2];
   int channelRank = reorderDims[NDims - 1];
   resultSizes[batchRank] = input.sizes[batchRank];
-  resultSizes[channelRank] = weight.sizes[NDims - 1];
+  resultSizes[channelRank] = weight.sizes[0];
 }
 
 }  // namespace ral

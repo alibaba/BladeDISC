@@ -22,7 +22,7 @@ limitations under the License.
 #include <string>
 #include <unordered_map>
 
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/fusion_utils.h"
 
 namespace mlir {
 namespace disc_ral {

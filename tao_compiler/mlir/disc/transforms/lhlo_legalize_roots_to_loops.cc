@@ -35,15 +35,15 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/input_inline_fusion_pattern.h"
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/IR/disc_shape_ops.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/input_inline_fusion_pattern.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
@@ -109,6 +109,7 @@ LogicalResult elemwiseLowerHelper(OpBuilder& b, Location loc, Operation* op,
     }
   }
   SmallVector<Value, 4> results(vector_size);
+
   for (int64_t i = 0; i < vector_size; i++) {
     auto operand_values = operand_values_vector[i];
     auto res = LhloOpToStdScalarOp::map<LHLO_OpTy>(
@@ -228,7 +229,7 @@ LogicalResult lowerHelper(OpBuilder& b, Location loc, Operation* op,
                           LowerConfig* lower_config = nullptr) {
   if (succeeded(elemwiseLowerHelperOr<
 #define GET_SUPPORTED_OP_LIST
-#include "tensorflow/compiler/mlir/disc/transforms/disc_supported_list.h.inc"
+#include "mlir/disc/transforms/disc_supported_list.h.inc"
                 >(b, loc, op, output_linear_index, shape_analysis, vector_size,
                   lower_config)) ||
       // clang-format off
@@ -3687,7 +3688,7 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
   for (auto op : shm_cached_ops) {
     auto output = op->getOperand(op->getNumOperands() - 1);
     if (tile_plan.find(output) == tile_plan.end()) {
-      LLVM_DEBUG(llvm::dbgs() << "Tile info error for: " << *skeleton << "\n");
+      LLVM_DEBUG(llvm::dbgs() << "Tile info error for: " << *op << "\n");
       return failure();
     }
 
@@ -3906,8 +3907,9 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
   //   func_name operand m dims: x, y
   //   func_name result n dims: p, q
   bool print_params_enabled = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_DEBUG_PRINT_FUSION_PARAMS",
-                                 print_params_enabled, &print_params_enabled);
+  (void)tensorflow::ReadBoolFromEnvVar("DISC_DEBUG_PRINT_FUSION_PARAMS",
+                                       print_params_enabled,
+                                       &print_params_enabled);
   if (print_params_enabled) {
     createPrintFusionParams(fusion_op, fusion_pattern);
   }
@@ -4370,6 +4372,7 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
     ArrayRef<Operation*> root_ops, Operation* dominant_op,
     Block* parent = nullptr, bool non_fusion = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
+  llvm::dbgs() << "come in lowerWithScheduleSparseFillEmptyRowsOpCPU\n";
   if (!(root_ops.size() == 1 &&
         isa<lmhlo_disc::SparseFillEmptyRowsOp>(root_ops[0]))) {
     return dominant_op->emitError()
@@ -4998,9 +5001,11 @@ LogicalResult lowerWithScheduleLoopCPU(
     Block* parent = nullptr, bool non_fusion = false, bool parallel_loop = true,
     bool multi_dim_loop = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
+  llvm::dbgs() << "parallel_loop: " << parallel_loop << "\n";
   Value result = cast<lmhlo::LmhloOp>(dominant_op).getResultBuffer();
   int64_t rank = result.getType().cast<MemRefType>().getRank();
   if (!multi_dim_loop || !rank || !parallel_loop) {
+    llvm::dbgs() << "lower with lowerWithScheduleLoop\n";
     return lowerWithScheduleLoop(root_ops, dominant_op, parent, non_fusion,
                                  parallel_loop, shape_analysis);
   }
@@ -5330,6 +5335,8 @@ struct DiscLhloLegalizeRootsToParallelLoops
       // should be sufficient for performance.
       // TODO(disc): Revisit this when the backend is cpu and the calculation is
       // for data.
+      llvm::dbgs() << "cpu-no-fusion-op: \n";
+      op->dump();
       if (failed(lowerWithScheduleLoopCPU({op}, op, nullptr,
                                           /*non_fusion=*/true,
 #ifdef TAO_CPU_ONLY

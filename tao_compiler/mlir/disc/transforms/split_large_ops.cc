@@ -28,7 +28,7 @@ limitations under the License.
 #include "mlir/Pass/Pass.h"                              // TF:llvm-project
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // TF:llvm-project
 #include "mlir/Transforms/Passes.h"                      // TF:llvm-project
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/PassDetail.h"
 
 namespace mlir {
 namespace disc_ral {

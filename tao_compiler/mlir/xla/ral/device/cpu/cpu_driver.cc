@@ -15,12 +15,12 @@
 // limitations under the License.
 // ===========================================================================
 
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
 
 #include <functional>
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/ral_context.h"
+#include "mlir/xla/ral/ral_helper.h"
 
 namespace tao {
 namespace ral {

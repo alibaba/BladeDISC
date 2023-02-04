@@ -20,12 +20,14 @@ def _tf_configure_impl(repository_ctx):
     with_tf = repository_ctx.os.environ[_BLADE_WITH_TF].lower()
     if with_tf not in ["1", "true", "on"]:
         # nothing to do with BUILD since it is empty
+        repository_ctx.symlink(Label("//bazel/tf:BUILD.tpl"), "BUILD")
         _tpl(repository_ctx, "build_defs.bzl", {
-            "%{IS_PAI_TF}": "True",
+            "%{IS_PAI_TF}": "False",
             "%{TF_COPTS}": "[]",
             "%{TF_LIB_DIR}": "",
             "%{IS_TF2}": "False",
-            "%{TF_VERSION}": "{}.{}".format(tf_major, tf_minor)
+            "%{TF_VERSION}": "Unknown",
+            "%{TF_MAJOR_VERSION}": "",
         })
         return
 

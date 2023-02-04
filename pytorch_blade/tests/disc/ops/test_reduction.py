@@ -117,6 +117,24 @@ class TestDiscReduction(DiscTestCase):
 
         self._test_reduction(sum_func)
 
+    def test_cvt_to_disc_multi_reduce(self):
+        @torch.jit.script
+        def sum_func(x):
+            a = torch.mean(x, [0, 2, 3])
+            b = torch.sum(x, [0, 2, 3])
+            return a * b
+
+        def test_reduction(reduce_func, dtype=None):
+            annotation = ([-1, -1, -1, -1], dtype)
+            x = torch.randn([2, 3, 25, 25], dtype=dtype, device=self.device).to(self.device) * 0.1
+            self._test_disc(reduce_func, [annotation, annotation], (x, ), rtol=1e-3, atol=1e-2)
+            x = torch.randn([2, 3, 254, 254], dtype=dtype, device=self.device).to(self.device) * 0.01
+            self._test_disc(reduce_func, [annotation, annotation], (x, ), rtol=1e-3, atol=1e-2)
+
+        if self.device == torch.device('cuda'):
+            test_reduction(sum_func, torch.half)
+        test_reduction(sum_func, torch.float)
+
 
 if __name__ == "__main__":
     unittest.main()

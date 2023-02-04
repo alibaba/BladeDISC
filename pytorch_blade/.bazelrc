@@ -1,11 +1,21 @@
 startup --host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=
 
-try-import ../tf_community/.bazelrc
-try-import ../tf_community/.bazelrc.user
+try-import ../tao_compiler/.bazelrc
+try-import ../tao_compiler/.bazelrc.user
 
 build --disk_cache=~/.cache
 build --define is_torch_disc=true
 build --experimental_ui_max_stdouterr_bytes=-1
+
+build:disc_test --experimental_multi_threaded_digest --define framework_shared_object=false --define is_torch_disc=false
+# The config opt disc_test_debug is not rational but without it we will run into the following issue:
+# In file included from /usr/include/stdint.h:25,
+#                  from /opt/rh/devtoolset-9/root/usr/lib/gcc/x86_64-redhat-linux/9/include/stdint.h:9,
+#                  from external/boringssl/src/include/openssl/base.h:60,
+#                  from external/boringssl/err_data.c:17:
+# /usr/include/features.h:330:4: error: #warning _FORTIFY_SOURCE requires compiling with optimization (-O) [-Werror=cpp]
+build:disc_test_debug --copt=-O
+
 build:torch_debug --copt=-O0 --compilation_mode=dbg --strip=never
 build:torch_cuda --config=cuda --config=disc_cuda --define enable_cuda=true
 build:torch_dcu_rocm --config=dcu --config=disc_dcu --define enable_rocm=true --action_env TORCH_BLADE_DISABLE_PATCHELF_CUDA_SONAMES=0 

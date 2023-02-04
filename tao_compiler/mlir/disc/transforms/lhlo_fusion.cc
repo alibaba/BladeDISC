@@ -18,14 +18,14 @@ limitations under the License.
 #include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"               // TF:local_config_mlir
 #include "mlir/Transforms/RegionUtils.h"  // TF:llvm-project
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
-#include "tensorflow/compiler/mlir/disc/utils/cycle_detector.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/disc_shape_optimization_utils.h"
+#include "mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/transforms/shape_utils.h"
+#include "mlir/disc/utils/cycle_detector.h"
 #include "tensorflow/core/util/env_var.h"
 
 // This pass has similar functionality of the fusion pass in XLA stack.

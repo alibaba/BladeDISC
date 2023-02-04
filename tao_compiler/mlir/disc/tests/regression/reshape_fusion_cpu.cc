@@ -9,15 +9,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/tests/mlir_feature_test.h"
-#include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
+#include "mlir/disc/tests/mlir_feature_test.h"
+#include "mlir/disc/tests/mlir_test.h"
 #include "tensorflow/core/platform/test.h"
 #include "tensorflow/core/util/env_var.h"
 
 namespace mlir_test {
 
-const std::string c_ft_path =
-    "tensorflow/compiler/mlir/disc/tests/regression/data/";
+const std::string c_ft_path = "mlir/disc/tests/regression/data/";
 
 TEST(ReshapeFusionCPUTest, kLoopTest) {
   setenv("DISC_ENABLE_STITCH", "true", 1);

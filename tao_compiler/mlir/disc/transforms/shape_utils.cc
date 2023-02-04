@@ -11,7 +11,7 @@
 
 #define DEBUG_TYPE "disc-shape-utils"
 
-#include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
+#include "mlir/disc/transforms/shape_utils.h"
 
 #include <unordered_set>
 #include <utility>
@@ -27,9 +27,9 @@
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/IR/OpDefinition.h"
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
+#include "mlir/disc/IR/disc_shape_ops.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
 
 namespace mlir {
 namespace disc_ral {

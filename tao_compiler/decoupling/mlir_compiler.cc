@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/decoupling/mlir_compiler.h"
+#include "decoupling/mlir_compiler.h"
 
 #include <vector>
 
@@ -23,8 +23,8 @@
 #include "mlir/IR/Attributes.h"  // from @llvm-project
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
-#include "tensorflow/compiler/mlir/disc/disc_compiler.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
+#include "mlir/disc/disc_compiler.h"
+#include "mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/bridge.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/translate/import_model.h"

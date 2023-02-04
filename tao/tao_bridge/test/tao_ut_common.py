@@ -36,9 +36,8 @@ class TaoTestCase(unittest.TestCase):
         """
         if 'TAO_COMPILER_PATH' not in os.environ:
             file_dir = os.path.abspath(os.path.dirname(__file__))
-            compiler = os.path.join(file_dir, os.pardir, os.pardir, os.pardir, "tf_community",
-                                    "bazel-bin", "tensorflow", "compiler", "decoupling",
-                                    "tao_compiler_main")
+            compiler = os.path.join(file_dir, os.pardir, os.pardir, os.pardir, "tao_compiler",
+                                    "bazel-bin", "decoupling", "tao_compiler_main")
             compiler = os.path.abspath(compiler)
             assert os.path.exists(compiler), \
                 "Tao compiler not found at: " + compiler

@@ -279,10 +279,10 @@ def configure(root, args):
 
 @time_stage()
 def build_tao_compiler(root, args):
-    BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
-    TARGET_TAO_COMPILER_MAIN = "//tensorflow/compiler/decoupling:tao_compiler_main"
-    TARGET_DISC_OPT = "//tensorflow/compiler/mlir/disc:disc-opt"
-    TARGET_DISC_REPLAY = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-main"
+    BAZEL_BUILD_CMD = "bazel build --verbose_failures --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
+    TARGET_TAO_COMPILER_MAIN = "//decoupling:tao_compiler_main"
+    TARGET_DISC_OPT = "//mlir/disc:disc-opt"
+    TARGET_DISC_REPLAY = "//mlir/disc/tools/disc-replay:disc-replay-main"
 
     targets = None
     if args.bazel_target is not None:
@@ -296,9 +296,9 @@ def build_tao_compiler(root, args):
         logger.info("Building bazel target: " + target)
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
 
-    with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
+    with cwd(os.path.join(root, "tao_compiler")), gcc_env(args.compiler_gcc):
         execute(
-            "cp -f -p {}/tao*.proto tensorflow/compiler/decoupling/".format(
+            "cp -f -p {}/tao*.proto decoupling/".format(
                 tao_bridge_dir(root)
             )
         )
@@ -341,7 +341,7 @@ def build_tao_compiler(root, args):
         if not args.rocm and not args.dcu:
             bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
-            "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/tensorflow/compiler/decoupling/".format(
+            "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/decoupling/".format(
                 root
             )
         )
@@ -350,7 +350,7 @@ def build_tao_compiler(root, args):
 
 @time_stage()
 def test_tao_compiler(root, args):
-    BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
+    BAZEL_BUILD_CMD = "bazel build --verbose_failures --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
     BAZEL_TEST_CMD = "bazel test --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
     BAZEL_TEST_CMD += ci_build_flag()
     BAZEL_BUILD_CMD += ci_build_flag()
@@ -362,24 +362,24 @@ def test_tao_compiler(root, args):
         BAZEL_TEST_CMD += " --java_runtime_version=remotejdk_11"
         BAZEL_BUILD_CMD += " --java_runtime_version=remotejdk_11"
 
-    TARGET_DISC_IR_TEST = "//tensorflow/compiler/mlir/disc/IR/tests/..."
-    TARGET_DISC_TRANSFORMS_TEST = "//tensorflow/compiler/mlir/disc/transforms/tests/..."
-    TARGET_DISC_E2E_TEST = "//tensorflow/compiler/mlir/disc/tests/..."
+    TARGET_DISC_IR_TEST = "//mlir/disc/IR/tests/..."
+    TARGET_DISC_TRANSFORMS_TEST = "//mlir/disc/transforms/tests/..."
+    TARGET_DISC_E2E_TEST = "//mlir/disc/tests/..."
     TARGET_DISC_RAL_TESTS = [
-        "//tensorflow/compiler/mlir/xla/ral:ral_metadata_test"
+        "//mlir/xla/ral:ral_metadata_test"
     ]
     TARGET_DISC_PDLL_TESTS = [
-        "//tensorflow/compiler/mlir/disc/tools/disc-pdll/tests/..."
+        "//mlir/disc/tools/disc-pdll/tests/..."
     ]
     TARGET_DISC_CUDA_SOURCE_TESTS = [
-        "//tensorflow/compiler/mlir/disc/tools/disc-source-emitter/tests/..."
+        "//mlir/disc/tools/disc-source-emitter/tests/..."
     ]
     TARGET_DISC_TRANSFORM_DIALECT_TESTS = [
-        "//tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/tests/...",
-        "//tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/tests/...",
+        "//mlir/disc/tools/disc-transform/transforms/tests/...",
+        "//mlir/disc/tools/disc-transform/LinalgExt/tests/...",
     ]
 
-    TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-test"
+    TARGET_DISC_REPLAY_TEST = "//mlir/disc/tools/disc-replay:disc-replay-test"
 
     targets = None
     if args.bazel_target is not None:
@@ -394,9 +394,9 @@ def test_tao_compiler(root, args):
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
         execute(" ".join([BAZEL_TEST_CMD, flag + ' --test_env=TF_CPP_VMODULE=disc_compiler=1,disc_transform_legalize_to_loop=1 --test_env=TF_ENABLE_ONEDNN_OPTS=0' , target]))
 
-    with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
+    with cwd(os.path.join(root, "tao_compiler")), gcc_env(args.compiler_gcc):
         execute(
-            "cp -f -p {}/tao*.proto tensorflow/compiler/decoupling/".format(
+            "cp -f -p {}/tao*.proto decoupling/".format(
                 tao_bridge_dir(root)
             )
         )
@@ -414,8 +414,8 @@ def test_tao_compiler(root, args):
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
             ] + TARGET_DISC_RAL_TESTS \
-              + TARGET_DISC_PDLL_TESTS \
-              + TARGET_DISC_TRANSFORM_DIALECT_TESTS
+              + TARGET_DISC_TRANSFORM_DIALECT_TESTS \
+              + TARGET_DISC_PDLL_TESTS 
             MLIR_TESTS = " ".join(mlir_test_list)
             bazel_test(MLIR_TESTS, flag=flag)
         else:
@@ -640,7 +640,7 @@ def make_package(root, args):
         generate_build_info(build_info_file)
 
         F_TAO_COMPILER_MAIN = (
-            "./tf_community/bazel-bin/tensorflow/compiler/decoupling/tao_compiler_main"
+            "./tao_compiler/bazel-bin/decoupling/tao_compiler_main"
         )
         F_TAO_OPS_SO = "./tao/bazel-bin/libtao_ops.so"
         F_PTXAS = "./tao/third_party/ptxas/10.2/ptxas"

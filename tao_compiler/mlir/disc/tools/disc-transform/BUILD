@@ -6,7 +6,7 @@ load(
 load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library", "gentbl_filegroup", "td_library")
 
 package(
-    default_visibility = [":friends"],
+    default_visibility = ["//visibility:public"],
     licenses = ["notice"],  # Apache 2.0
 )
 
@@ -25,6 +25,7 @@ td_library(
     srcs = glob([
         "LinalgExt/*.td",
     ]),
+    includes=["external/org_tensorflow"],
     deps = [
         "@llvm-project//mlir:BuiltinDialectTdFiles",
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
@@ -285,8 +286,9 @@ cc_library(
         ":DISCLinalgExtDialect",
         ":disc_transform_utils",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:legalize_to_linalg_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "//mlir/disc:disc_lhlo_elemental_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:legalize_to_linalg_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -336,7 +338,7 @@ cc_library(
     srcs = ["transforms/rewrite_payload_ir_for_ral.cc"],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/mlir/disc:placement_utils",
+        "//mlir/disc:placement_utils",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -394,9 +396,7 @@ cc_library(
         "transforms/passes.h",
         "transforms/register_passes.h",
     ],
-    visibility = [
-        ":friends",
-    ],
+    visibility = ["//visibility:public"],
     deps = [
         ":convert-foreach-thread-op-to-parallel-op",
         ":legalize_lmhlo_fusion_to_linalg",

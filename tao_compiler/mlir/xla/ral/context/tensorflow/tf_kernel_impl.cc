@@ -20,10 +20,10 @@
 #include <unordered_map>
 
 #include "absl/types/optional.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/tensorflow/tf_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/context/tensorflow/tf_context_impl.h"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/device/gpu/gpu_driver.h"
+#include "mlir/xla/ral/ral_driver.h"
+#include "mlir/xla/ral/ral_helper.h"
 
 // Placeholder for tf-context-specific custom call impl.

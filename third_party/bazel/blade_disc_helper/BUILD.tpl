@@ -29,3 +29,8 @@ config_setting(
     name = "is_cxx11_abi",
     define_values = {"is_cxx11_abi": "true"},
 )
+
+config_setting(
+    name = "is_internal_serving",
+    define_values = {"is_internal_serving": "true"},
+)

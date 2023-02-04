@@ -17,8 +17,8 @@
 #include "mlir/IR/MLIRContext.h"     // TF:llvm-project
 #include "mlir/Pass/Pass.h"          // TF:local_config_mlir
 #include "mlir/Transforms/Passes.h"  // TF:llvm-project
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/placement_utils.h"
 
 namespace mlir {
 

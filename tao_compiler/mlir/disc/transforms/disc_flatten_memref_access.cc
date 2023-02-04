@@ -22,10 +22,10 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/IR/disc_shape_ops.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
 
 namespace mlir {
 namespace disc_ral {

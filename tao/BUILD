@@ -10,6 +10,7 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "disc_build_ip",
     "disc_build_time",
     "if_platform_alibaba",
+    "if_internal_serving",
 )
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
 load("@local_config_rocm//rocm:build_defs.bzl", "if_dcu", "if_rocm")
@@ -102,12 +103,22 @@ cc_library(
     ),
     deps = [
         ":version_header",
-        "@local_config_tf//:tf_header_lib",
-        "@local_config_tf//:libtensorflow_framework",
-        "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
+        "@org_tao_compiler//mlir/xla/ral:ral_bridge",
     ] + if_platform_alibaba([
         "@blade_service_common//blade_service_common:blade_service_common_deps",
-    ]),
+    ]) + if_internal_serving(
+        [
+            "@org_tensorflow//tensorflow/core:lib",
+            "@org_tensorflow//tensorflow/core:framework",
+            "@org_tensorflow//tensorflow/core:core_cpu",
+            "@org_tensorflow//tensorflow/core:stream_executor_no_cuda",
+            "@org_tensorflow//tensorflow/stream_executor:stream_executor_impl",
+        ],
+        [
+            "@local_config_tf//:tf_header_lib",
+            "@local_config_tf//:libtensorflow_framework",
+        ]
+    ),
     copts = if_cuda([
         "-DGOOGLE_CUDA=1"
     ]) + if_dcu([
@@ -115,7 +126,10 @@ cc_library(
     ]) + if_rocm([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
-    ])+ tf_copts(),
+    ]) + if_internal_serving([
+        "-DTF_1_12",
+        "-DIS_PAI_TF",
+    ]) + tf_copts(),
     linkopts = [
         "-lm",
     ],

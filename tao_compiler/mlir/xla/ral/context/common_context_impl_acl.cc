@@ -11,7 +11,7 @@
 
 #if defined(TAO_CPU_ONLY) && defined(TAO_AARCH64)
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_acl.h"
+#include "mlir/xla/ral/context/common_context_impl_acl.h"
 
 #include <unordered_map>
 
@@ -22,11 +22,11 @@
 #include "arm_compute/core/utils/quantization/AsymmHelpers.h"
 #include "arm_compute/runtime/NEON/NEScheduler.h"
 #include "arm_compute/runtime/NEON/functions/NEFFTConvolutionLayer.h"
+#include "mlir/xla/ral/ral_md5.h"
 #include "src/common/utils/Log.h"
 #include "src/cpu/operators/CpuConv2d.h"
 #include "src/cpu/operators/CpuDepthwiseConv2d.h"
 #include "src/cpu/operators/CpuGemmLowpMatrixMultiplyCore.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_md5.h"
 
 namespace arm_compute {
 using namespace arm_compute::experimental;

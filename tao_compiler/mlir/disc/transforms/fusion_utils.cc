@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/fusion_utils.h"
 
 #include <algorithm>
 #include <mutex>
@@ -27,12 +27,12 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/disc_shape_optimization_utils.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/transforms/placement_utils.h"
 
 // This file implements some helper functions and classes used to do fusion
 // & code generation.
@@ -730,7 +730,7 @@ FusionPattern::FusionPattern(Operation* op) : FusionPatternBase(op) {
 // Create a new fusion pattern from the ops inside the lmhlo fusion op.
 FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
     : FusionPatternBase(op) {
-  assert(shape_analysis != nullptr & "shape_analysis should not be nullptr.");
+  assert(shape_analysis != nullptr && "shape_analysis should not be nullptr.");
 
   FusionType fusionType = FusionType::kNone;
   auto deviceAttr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);

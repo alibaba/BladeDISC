@@ -27,12 +27,12 @@ limitations under the License.
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LogicalResult.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/transforms/placement_utils.h"
 
 namespace mlir {
 namespace disc_ral {

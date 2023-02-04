@@ -1,0 +1,28 @@
+workspace(name = "disc_compiler")
+
+local_repository(
+    name = "org_tensorflow",
+    path = "../tf_community",
+)
+
+# Initialize the TensorFlow repository and all dependencies.
+#
+# The cascade of load() statements and tf_workspace?() calls works around the
+# restriction that load() statements need to be at the top of .bzl files.
+# E.g. we can not retrieve a new repository with http_archive and then load()
+# a macro from that repository in the same file.
+load("@org_tensorflow//tensorflow:workspace3.bzl", "tf_workspace3")
+
+tf_workspace3()
+
+load("@org_tensorflow//tensorflow:workspace2.bzl", "tf_workspace2")
+
+tf_workspace2()
+
+load("@org_tensorflow//tensorflow:workspace1.bzl", "tf_workspace1")
+
+tf_workspace1()
+
+load("@org_tensorflow//tensorflow:workspace0.bzl", "tf_workspace0")
+
+tf_workspace0()

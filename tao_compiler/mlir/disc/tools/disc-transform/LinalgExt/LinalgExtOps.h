@@ -20,10 +20,10 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Interfaces/TilingInterface.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtInterfaces.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtInterfaces.h"
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h.inc"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h.inc"
 
 namespace mlir {
 namespace disc_ral {

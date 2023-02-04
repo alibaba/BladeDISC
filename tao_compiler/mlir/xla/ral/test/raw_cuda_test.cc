@@ -19,7 +19,7 @@
 
 #include "absl/strings/str_split.h"
 #include "cuda.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
+#include "mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
 
 using namespace tao::ral;
 
@@ -28,22 +28,22 @@ using namespace tao::ral;
 //   bazel build //tensorflow/compiler/mlir:dhlo_compiler_main
 // step 2:
 //   TAO_ENABLE_RAL=true bazel-bin/tensorflow/compiler/mlir/dhlo_compiler_main
-//   tensorflow/compiler/mlir/xla/ral/test/test.mlir
+//   mlir/xla/raltest/test.mlir
 // step 3:
 //   bazel build //tensorflow/compiler/mlir/xla/ral:raw_cuda_test
 // step 4:
 //   bazel build //tensorflow/compiler/mlir/xla/ral:libral_base_context.so
 // step 5: h/d for host/device
-//   bazel-bin/tensorflow/compiler/mlir/xla/ral/raw_cuda_test
-//   bazel-bin/tensorflow/compiler/mlir/xla/ral/libral_base_context.so ./out.so
+//   bazel-bin/mlir/xla/ralraw_cuda_test
+//   bazel-bin/mlir/xla/rallibral_base_context.so ./out.so
 //   -o1 -i2 2x3xf32_h 2x3xf32_d [f32_d]
 
 // In case you may need to debug llvm generated code:
 // (here tmp.ll refers to the generated llvm ir after the last pass during
 // step 2.) llvm-as tmp.ll llc --debugger-tune=gdb --relocation-model=pic
 // --filetype=obj tmp.bc gcc tmp.o -shared -o out.so gdb
-// bazel-bin/tensorflow/compiler/mlir/xla/ral/raw_cuda_test
-//   r bazel-bin/tensorflow/compiler/mlir/xla/ral/libral_base_context.so
+// bazel-bin/mlir/xla/ralraw_cuda_test
+//   r bazel-bin/mlir/xla/rallibral_base_context.so
 //   ./out.so
 
 static int32_t reportErrorIfAny(CUresult result, const char* where) {

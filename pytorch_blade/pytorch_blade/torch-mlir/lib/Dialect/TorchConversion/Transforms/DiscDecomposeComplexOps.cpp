@@ -192,6 +192,8 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
         op, outTy, op.getOperand(0), op.getOperand(1));
     return success();
   } else if ("aten.split.Tensor" == name) {
+    auto chunkSize = op.getOperand(1);
+    auto dim = op.getOperand(2);
     int64_t chunksInt = -1;
     for (Operation* user : op.getResult(0).getUsers()) {
       if (mlir::isa<PrimListUnpackOp>(user)) {
@@ -199,8 +201,26 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
         break;
       }
     }
-    return decomposeSplits(
-        rewriter, op, op.getOperand(1), op.getOperand(2), chunksInt);
+    if (chunksInt < 0) {
+      int64_t chunkSizeInt = -1;
+      int64_t dimInt = -1;
+      if (!matchPattern(chunkSize, m_TorchConstantInt(&chunkSizeInt))) {
+        return failure();
+      }
+      if (!matchPattern(dim, m_TorchConstantInt(&dimInt))) {
+        return failure();
+      }
+
+      auto self = op.getOperand(0);
+      auto selfTy = self.getType().dyn_cast<BaseTensorType>();
+      ArrayRef<int64_t> inputShape = selfTy.getSizes();
+      auto rank = inputShape.size();
+      dimInt = toPositiveDim(dimInt, rank);
+      if (inputShape[dimInt] != ShapedType::kDynamicSize && chunkSizeInt > 0) {
+        chunksInt = inputShape[dimInt] / chunkSizeInt;
+      }
+    }
+    return decomposeSplits(rewriter, op, chunkSize, dim, chunksInt);
   } else if ("aten.chunk" == name) {
     int64_t chunksInt = -1;
     auto chunks = op.getOperand(1);

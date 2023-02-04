@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/utils/cycle_detector.h"
+#include "mlir/disc/utils/cycle_detector.h"
 
 #include <algorithm>
 

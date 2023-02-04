@@ -65,7 +65,7 @@ class DISCLinalgExtDialect;
 }
 
 #define GEN_PASS_CLASSES
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/transform_passes.h.inc"
+#include "mlir/disc/tools/disc-transform/transforms/transform_passes.h.inc"
 
 }  // namespace disc_ral
 }  // namespace mlir

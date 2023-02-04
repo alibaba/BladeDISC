@@ -14,7 +14,7 @@
 
 #include <memory>
 
-#include "tensorflow/compiler/decoupling/mlir_compiler.h"
+#include "decoupling/mlir_compiler.h"
 
 namespace tensorflow {
 

@@ -29,11 +29,11 @@ limitations under the License.
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/input_inline_fusion_pattern.h"
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/input_inline_fusion_pattern.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
 
 using mlir::memref::LoadOp;
 

@@ -12,7 +12,7 @@
 #ifndef TORCH_DISC_PDLL_UTILS_H_
 #define TORCH_DISC_PDLL_UTILS_H_
 
-#include "tensorflow/compiler/mlir/disc/transforms/disc_pdl_utils.h"
+#include "mlir/disc/transforms/disc_pdl_utils.h"
 
 namespace mlir {
 class PDLPatternModule;

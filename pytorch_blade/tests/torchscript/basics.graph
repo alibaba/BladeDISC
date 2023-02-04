@@ -127,3 +127,62 @@ graph(%p1 : Float(*, *, *, device=cuda:0),
 // CHECK: Float(*, *, *, device=cuda:0) = aten::gru_cell(%p1, %p2, %p3, %p4, %p5, %p6)
   %1 :  Float(32, 32, 10, device=cuda:0) = aten::gru_cell(%p1, %p2, %p3, %p4, %p5, %p6)
   return (%1)
+
+// aten::split, aten::getitem
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, 1536, device=cuda:0)):
+  %16 : int = prim::Constant[value=512]()
+  %17 : int = prim::Constant[value=-1]()
+  %19 : int = prim::Constant[value=0]()
+  %21 : int = prim::Constant[value=1]()
+  %23 : int = prim::Constant[value=2]()
+  %split : Tensor[] = aten::split(%p1, %16, %17)
+// CHECK:  Float(*, *, *, device=cuda:0) = aten::__getitem__
+// CHECK:  Float(*, *, *, device=cuda:0) = aten::__getitem__
+// CHECK:  Float(*, *, *, device=cuda:0) = aten::__getitem__
+  %getitem_1 : Tensor = aten::__getitem__(%split, %19)
+  %getitem_2 : Tensor = aten::__getitem__(%split, %21)
+  %getitem_3 : Tensor = aten::__getitem__(%split, %23)
+  return (%getitem_1, %getitem_2, %getitem_3)
+
+// aten::chunk, aten::getitem
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, 1536, device=cuda:0)):
+  %16 : int = prim::Constant[value=3]()
+  %17 : int = prim::Constant[value=-1]()
+  %19 : int = prim::Constant[value=0]()
+  %21 : int = prim::Constant[value=1]()
+  %23 : int = prim::Constant[value=2]()
+  %split : Tensor[] = aten::chunk(%p1, %16, %17)
+// CHECK:  Float(*, *, *, device=cuda:0) = aten::__getitem__
+// CHECK:  Float(*, *, *, device=cuda:0) = aten::__getitem__
+// CHECK:  Float(*, *, *, device=cuda:0) = aten::__getitem__
+  %getitem_1 : Tensor = aten::__getitem__(%split, %19)
+  %getitem_2 : Tensor = aten::__getitem__(%split, %21)
+  %getitem_3 : Tensor = aten::__getitem__(%split, %23)
+  return (%getitem_1, %getitem_2, %getitem_3)
+
+// aten::unbind, aten::getitem
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, device=cuda:0)):
+  %17 : int = prim::Constant[value=-1]()
+  %19 : int = prim::Constant[value=0]()
+  %21 : int = prim::Constant[value=1]()
+  %23 : int = prim::Constant[value=2]()
+  %split : Tensor[] = aten::unbind(%p1, %17)
+// CHECK:  Float(*, *, device=cuda:0) = aten::__getitem__
+// CHECK:  Float(*, *, device=cuda:0) = aten::__getitem__
+// CHECK:  Float(*, *, device=cuda:0) = aten::__getitem__
+  %getitem_1 : Tensor = aten::__getitem__(%split, %19)
+  %getitem_2 : Tensor = aten::__getitem__(%split, %21)
+  %getitem_3 : Tensor = aten::__getitem__(%split, %23)
+  return (%getitem_1, %getitem_2, %getitem_3)
+
+// aten::cuda
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, device=cpu)):
+// CHECK: Float(*, *, *, device=cuda) = aten::cuda(%p1)
+  %2 : Tensor = aten::cuda(%p1)
+  return (%2)
+
+

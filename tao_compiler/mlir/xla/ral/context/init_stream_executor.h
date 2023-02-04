@@ -12,7 +12,7 @@
 #ifndef RAL_CONTEXT_INIT_STREAM_EXECUTOR_H_
 #define RAL_CONTEXT_INIT_STREAM_EXECUTOR_H_
 
-#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
+#include "mlir/xla/ral/context/stream_executor_based_impl.h"
 #include "tensorflow/compiler/xla/stream_executor/gpu/gpu_types.h"
 #include "tensorflow/compiler/xla/stream_executor/stream.h"
 

@@ -13,13 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/tests/mlir_feature_test.h"
-#include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
+#include "mlir/disc/tests/mlir_feature_test.h"
+#include "mlir/disc/tests/mlir_test.h"
 #include "tensorflow/core/platform/test.h"
 
 namespace mlir_test {
 
-const std::string c_ft_path = "tensorflow/compiler/mlir/disc/tests/pdll/data/";
+const std::string c_ft_path = "mlir/disc/tests/pdll/data/";
 
 TEST(TFQuantziedConv2d, STATIC_SHAPE_NHWC_I8_PER_CHANNEL_1) {
   EnvSetting setting = {
@@ -97,6 +97,37 @@ TEST(TFQuantziedConv2d, STATIC_SHAPE_NHWC_I8_PER_CHANNEL_4) {
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"16x8x8x25xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {inputs},
+      /*expect_output_vals*/ {output}));
+}
+
+TEST(TFQuantziedConv2d, STATIC_SHAPE_NHWC_I8_PER_CHANNEL_5) {
+  EnvSetting setting = {
+      {"DISC_TF_PDLL_FILES", {c_ft_path + "quantized_conv2d_i8.pdll", false}},
+      {"DISC_FAKE_QUANT_TO_QUANT_AND_DEQUANT", {"true", "false"}}};
+  // input: NHWC
+  //   [0,0,2,0,4, 0]
+  //   [6,0,8,0,10,0]
+  // kernel
+  //   [0,1]
+  //   [0,1]
+  // stride = 2
+  // output
+  //   [0,0,0]
+  std::vector<float> inputs(1 * 6 * 1 * 2);
+  for (unsigned i = 0; i < 12; ++i) inputs[i] = (float)(i);
+  for (unsigned i = 1; i < 12; i += 2) inputs[i] = 0.0;
+  tensorflow::Tensor output(tensorflow::DataType::DT_FLOAT, {1, 3, 1, 1});
+  auto datas = output.flat<float>();
+  for (int i = 0; i < output.NumElements(); ++i) datas(i) = 0.0;
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path +
+          "quantized_conv2d_s_nhwc_i8_per_channel_5.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"2x5x5x3xf32_X"},
       /*output_descriptors*/ {"f32_X"},
       /*input_vals*/ {inputs},
       /*expect_output_vals*/ {output}));

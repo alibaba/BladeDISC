@@ -6,9 +6,9 @@
 """Lit runner globbing test
 """
 
-load("//tensorflow:tensorflow.bzl", "filegroup")
+load("@org_tensorflow//tensorflow:tensorflow.bzl", "filegroup")
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//tensorflow:tensorflow.bzl", "tf_cc_test", "tf_native_cc_binary",  "tf_copts")
+load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_test", "tf_native_cc_binary",  "tf_copts")
 
 # Default values used by the test runner.
 _default_test_file_exts = ["mlir", ".pbtxt", ".td"]
@@ -62,15 +62,15 @@ def _run_lit_test(name, test_file, data, size, tags, driver, features, exec_prop
 	srcs = test_file,
 	size = size,
 	deps = [
-		"//tensorflow/compiler/mlir/disc/tests:mlir_feature_test",
-		"//tensorflow/core:test",
-		"//tensorflow/core:test_main",
-		"//tensorflow/core:testlib",
+		"//mlir/disc/tests:mlir_feature_test",
+		"@org_tensorflow//tensorflow/core:test",
+		"@org_tensorflow//tensorflow/core:test_main",
+		"@org_tensorflow//tensorflow/core:testlib",
 	],
 	data = [":" + local_test_files] + data  + [
-		"//tensorflow/compiler/mlir/disc:disc_compiler_main",
-		"//tensorflow/compiler/mlir:tf-mlir-translate",
-		"//tensorflow/compiler/mlir:tf-opt",
+		"//mlir/disc:disc_compiler_main",
+		"@org_tensorflow//tensorflow/compiler/mlir:tf-mlir-translate",
+		"@org_tensorflow//tensorflow/compiler/mlir:tf-opt",
 	],
     )
 

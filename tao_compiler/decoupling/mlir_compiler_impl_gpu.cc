@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/decoupling/mlir_compiler_impl_gpu.h"
+#include "decoupling/mlir_compiler_impl_gpu.h"
 
 #include "cuda.h"
 

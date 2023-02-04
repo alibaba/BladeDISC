@@ -40,6 +40,6 @@ class CommonExtensions
 }  // namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h.inc"
+#include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h.inc"
 
 #endif  // DISC_TOOLS_DISC_TRANSFORM_TRANSFORM_OPS_TRANSFORM_OPS_EXT_

@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
+#include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
 
 #include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/SimplePatternRewriter.h"
@@ -37,9 +37,9 @@
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/MathExtras.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
+#include "mlir/disc/tools/disc-transform/utils.h"
 #include "mlir/include/mlir/Dialect/Utils/IndexingUtils.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -48,7 +48,7 @@ namespace transform_dialect {
 CommonExtensions::CommonExtensions() {
   registerTransformOps<
 #define GET_OP_LIST
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.cc.inc"
+#include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.cc.inc"
       >();
 }
 
@@ -1511,6 +1511,137 @@ DiagnosedSilenceableFailure DecomposeVectorsOp::applyToOne(
   return DiagnosedSilenceableFailure(success());
 }
 
+//===---------------------------------------------------------------------===//
+// LinalgFuseOperandOp
+//===---------------------------------------------------------------------===//
+
+void LinalgFuseOperandOp::build(OpBuilder& builder, OperationState& result,
+                                Value target, int64_t operandIdx) {
+  MLIRContext* ctx = builder.getContext();
+  result.addOperands(target);
+  result.addAttribute(
+      LinalgFuseOperandOp::getOperandIdxAttrName(result.name),
+      builder.getIntegerAttr(builder.getIntegerType(64), operandIdx));
+  result.addTypes({pdl::OperationType::get(ctx)});
+}
+
+DiagnosedSilenceableFailure LinalgFuseOperandOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto linalgOp = dyn_cast<linalg::GenericOp>(target);
+  if (!linalgOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to linalg::GenericOp");
+  }
+  if (getOperandIdx() >= linalgOp->getNumOperands()) {
+    return mlir::emitDefiniteFailure(target, "illegal operand_idx\n");
+  }
+  OpOperand& opOperand = linalgOp->getOpOperand(getOperandIdx());
+  if (!linalg::areElementwiseOpsFusable(&opOperand)) {
+    return mlir::emitDefiniteFailure(
+        target, "operand of linalg::GenericOp is not fusible");
+  }
+  SimplePatternRewriter rewriter(target->getContext());
+  rewriter.setInsertionPoint(target);
+  FailureOr<Operation*> fusedOp =
+      linalg::fuseElementwiseOps(rewriter, &opOperand);
+  if (!succeeded(fusedOp)) {
+    return mlir::emitDefiniteFailure(
+        target, "failed to fuse operand into linalg::GenericOp");
+  }
+  // copy custom attributes.
+  for (const auto& namedAttr : linalg::getPrunedAttributeList(linalgOp)) {
+    (*fusedOp)->setAttr(namedAttr.getName(), namedAttr.getValue());
+  }
+
+  auto replacements =
+      (*fusedOp)->getResults().take_back(linalgOp.getNumResults());
+  rewriter.replaceOp(linalgOp, replacements);
+
+  results.push_back(*fusedOp);
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// LinalgFuseProducersOp
+//===---------------------------------------------------------------------===//
+
+void LinalgFuseProducersOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::consumesHandle({this->getOperation()->getOperand(0)}, effects);
+  transform::onlyReadsHandle(this->getOperands().drop_front(), effects);
+  transform::producesHandle(this->getOperation()->getResults(), effects);
+  transform::modifiesPayload(effects);
+}
+
+DiagnosedSilenceableFailure LinalgFuseProducersOp::apply(
+    transform::TransformResults& results, transform::TransformState& state) {
+  ArrayRef<Operation*> targetOps = state.getPayloadOps(getTarget());
+  if (targetOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one target op but got ")
+           << targetOps.size();
+  Operation* targetOp = targetOps[0];
+  auto linalgOp = dyn_cast<linalg::GenericOp>(targetOp);
+  if (!linalgOp) {
+    return mlir::emitDefiniteFailure(targetOp,
+                                     "applies only to linalg::GenericOp");
+  }
+
+  // collect producers and assign an id for each producer.
+  // The id system will help to get a deterministic fused result.
+  DenseMap<Operation*, int> producerMap;
+  for (Value producerHandle : getProducers()) {
+    for (auto producer : state.getPayloadOps(producerHandle))
+      if (producerMap.find(producer) == producerMap.end()) {
+        producerMap[producer] = producerMap.size();
+      }
+  }
+
+  bool stop = false;
+  Operation* fusedOp = targetOp;
+  SimplePatternRewriter rewriter(targetOp->getContext());
+  rewriter.setInsertionPoint(targetOp);
+  do {
+    stop = true;
+    int currentMaxIdx = -1;
+    OpOperand* targetOpOperand = nullptr;
+    for (auto& opOperand : fusedOp->getOpOperands()) {
+      auto definingOp = opOperand.get().getDefiningOp();
+      auto it = producerMap.find(definingOp);
+      if (it == producerMap.end() ||
+          !linalg::areElementwiseOpsFusable(&opOperand))
+        continue;
+      if (it->second > currentMaxIdx) {
+        currentMaxIdx = it->second;
+        targetOpOperand = &opOperand;
+      }
+    }
+
+    if (!targetOpOperand) continue;
+    FailureOr<Operation*> newFusedOp =
+        linalg::fuseElementwiseOps(rewriter, targetOpOperand);
+    if (!succeeded(newFusedOp)) {
+      return mlir::emitDefiniteFailure(
+          targetOp, "failed to fuse producer into linalg::GenericOp");
+    }
+    for (const auto& namedAttr : linalg::getPrunedAttributeList(linalgOp)) {
+      (*newFusedOp)->setAttr(namedAttr.getName(), namedAttr.getValue());
+    }
+    fusedOp = *newFusedOp;
+    stop = false;
+  } while (!stop);
+
+  if (fusedOp != targetOp) {
+    auto replacements =
+        fusedOp->getResults().take_back(linalgOp.getNumResults());
+    rewriter.replaceOp(linalgOp, replacements);
+  }
+
+  results.set(getResult().cast<OpResult>(), {fusedOp});
+  return DiagnosedSilenceableFailure(success());
+}
+
 }  // namespace transform_dialect
 
 void registerTransformDialectCommonExtension(DialectRegistry& registry) {
@@ -1522,4 +1653,4 @@ void registerTransformDialectCommonExtension(DialectRegistry& registry) {
 }  // namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.cc.inc"
+#include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.cc.inc"

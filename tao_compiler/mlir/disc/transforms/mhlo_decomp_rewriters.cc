@@ -26,8 +26,8 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -84,6 +84,32 @@ LogicalResult BatchNormInferenceOpConvert::matchAndRewrite(
   rewriter.replaceOpWithNewOp<mhlo::AddOp>(op, op.getType(), comp1, offset);
   return success();
 }
+}  // namespace
+
+namespace {
+struct PadOpConvert : public OpRewritePattern<mhlo::PadOp> {
+  explicit PadOpConvert(MLIRContext* context) : OpRewritePattern(context) {}
+  LogicalResult matchAndRewrite(mhlo::PadOp op,
+                                PatternRewriter& rewriter) const override;
+};
+
+LogicalResult PadOpConvert::matchAndRewrite(mhlo::PadOp op,
+                                            PatternRewriter& rewriter) const {
+  auto loc = op.getLoc();
+  Value paddingLowTensor =
+      rewriter.create<mhlo::ConstantOp>(loc, op.getEdgePaddingLow());
+  Value paddingHighTensor =
+      rewriter.create<mhlo::ConstantOp>(loc, op.getEdgePaddingHigh());
+  Value paddingIterTensor =
+      rewriter.create<mhlo::ConstantOp>(loc, op.getInteriorPadding());
+  auto operand = op.getOperand();
+  auto padVal = op.getPaddingValue();
+  rewriter.replaceOpWithNewOp<mhlo::DynamicPadOp>(
+      op, op.getType(), operand, padVal, paddingLowTensor, paddingHighTensor,
+      paddingIterTensor);
+  return success();
+}
+}  // namespace
 
 struct MhloDecompositionRewriterPass
     : public MhloDecompositionRewriterPassBase<MhloDecompositionRewriterPass> {
@@ -92,14 +118,13 @@ struct MhloDecompositionRewriterPass
     MLIRContext* ctx = func.getContext();
     RewritePatternSet patterns(ctx);
     patterns.insert<BatchNormInferenceOpConvert>(ctx);
+    patterns.insert<PadOpConvert>(ctx);
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");
       signalPassFailure();
     }
   }
 };
-
-}  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscMhloDecompositionRewriterPass() {

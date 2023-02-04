@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/disc_compiler.h"
+#include "mlir/disc/disc_compiler.h"
 
 #include <fstream>
 
@@ -62,13 +62,13 @@ limitations under the License.
 #include "mlir/Target/LLVMIR/Dialect/ROCDL/ROCDLToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Export.h"  // from @llvm-project
 #include "mlir/Transforms/Passes.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/passes.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/passes.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/tools/disc-transform/transforms/passes.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/passes.h"
+#include "mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/transforms/rewriters.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/compile_mlir_util.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/error_util.h"
@@ -363,9 +363,12 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   }
 
   auto& gpu_options = options.gpu_info;
+
+  if (gpu_enabled) {
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscReductionRewriterPass());
+  }
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter(
       gpu_options.cc_major, gpu_options.cc_minor));
-
   // quantize-related optimization
   pm.addNestedPass<FuncOp>(disc_ral::createDiscQuantizedConvRewriter(
       gpu_options.cc_major, gpu_options.cc_minor));
@@ -376,8 +379,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
   }
-  // Run CSE after conv rewriter pass to eliminate some redundant transpose ops.
+  // Run CSE after rewriter pass to eliminate some redundant ops.
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscMhloCSEPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(disc_ral::createTransposeSimplifierPass());

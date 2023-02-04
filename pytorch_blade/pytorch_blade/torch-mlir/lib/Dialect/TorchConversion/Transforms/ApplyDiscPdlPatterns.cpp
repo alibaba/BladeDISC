@@ -14,7 +14,7 @@
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_pdl_utils.h"
+#include "mlir/disc/transforms/disc_pdl_utils.h"
 #include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"

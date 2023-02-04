@@ -14,4 +14,4 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/IR/disc_tf_additional_ops.h.inc"
+#include "mlir/disc/IR/disc_tf_additional_ops.h.inc"

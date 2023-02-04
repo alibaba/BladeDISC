@@ -53,10 +53,10 @@ function ci_build() {
       python3 ../scripts/python/common_setup.py --cpu_only $COMMON_SETUP_ARGS
     fi
     TORCH_LIB=$(python -c 'import torch; import os; print(os.path.dirname(os.path.abspath(torch.__file__)) + "/lib/")') \
-    export LD_LIBRARY_PATH=$TORCH_LIB:$LD_LIBRARY_PATH \
+    export LD_LIBRARY_PATH=$TORCH_LIB:$LD_LIBRARY_PATH
 
     # DEBUG=1 will trigger debug mode compilation
-    DEBUG=1 python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
+    DEBUG=1 python3 setup.py cpp_test 2>&1 | tee cpp_test.out;
 
     export TORCH_BLADE_SKIP_DISC_CMD_BUILD=OFF
     rm -rf build && python3 setup.py develop;

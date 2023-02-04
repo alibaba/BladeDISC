@@ -24,9 +24,9 @@ limitations under the License.
 #include "mlir/IR/Operation.h"                           // TF:llvm-project
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
 #include "mlir/Transforms/Passes.h"                      // TF:llvm-project
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/core/util/env_var.h"
 
 #define DEBUG_TYPE "conv-rewriter"
@@ -268,9 +268,10 @@ struct DiscConvRewriterPass
       TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("NVIDIA_TF32_OVERRIDE",
                                                  /*default_val=*/use_tf32,
                                                  &use_tf32));
+#if !defined(TENSORFLOW_USE_ROCM)
       if (cc_major >= 8 && (!is_fp32 || use_tf32) ||
           inputTy.getElementType().isF16() &&
-              filterTy.getElementType().isF16() && (!TENSORFLOW_USE_ROCM)) {
+              filterTy.getElementType().isF16()) {
         // TensorCore prefers NHWC layouts
         fillNHWC(inputLayout, num_spatial_dims);
         fillNHWC(outputLayout, num_spatial_dims);
@@ -281,6 +282,11 @@ struct DiscConvRewriterPass
         fillNCHW(outputLayout, num_spatial_dims);
         fillOIHW(filterLayout, num_spatial_dims);
       }
+#else
+      fillNCHW(inputLayout, num_spatial_dims);
+      fillNCHW(outputLayout, num_spatial_dims);
+      fillOIHW(filterLayout, num_spatial_dims);
+#endif
     } else {
 #if defined(TAO_AARCH64)
       if (isDepthwiseConv(params)) {

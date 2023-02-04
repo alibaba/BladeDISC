@@ -17,13 +17,13 @@
 #include "absl/strings/str_split.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/context/common_context_impl.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/context/stream_executor_based_impl.h"
+#include "mlir/xla/ral/device/cpu/cpu_driver.h"
+#include "mlir/xla/ral/device/gpu/gpu_driver.h"
+#include "mlir/xla/ral/ral_base.h"
+#include "mlir/xla/ral/ral_helper.h"
 
 namespace tao {
 namespace ral {

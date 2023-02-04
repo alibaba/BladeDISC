@@ -21,7 +21,7 @@ limitations under the License.
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BuiltinOps.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_to_llvm_common.h"
+#include "mlir/disc/transforms/disc_to_llvm_common.h"
 
 namespace mlir {
 

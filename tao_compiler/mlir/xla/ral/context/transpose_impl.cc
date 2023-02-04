@@ -13,14 +13,14 @@
 #include <cuda_runtime.h>
 #endif
 
-#include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/custom_library/transpose.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
-#include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
+#include "mlir/xla/ral/context/context_util.h"
+#include "mlir/xla/ral/context/custom_library/transpose.h"
+#include "mlir/xla/ral/context/stream_executor_based_impl.h"
+#include "mlir/xla/ral/device/gpu/gpu_driver.h"
+#include "mlir/xla/ral/ral_context.h"
+#include "mlir/xla/ral/ral_driver.h"
+#include "mlir/xla/ral/ral_helper.h"
+#include "mlir/xla/ral/ral_logging.h"
 
 using tao::ral::buffer_t;
 using tao::ral::Context;

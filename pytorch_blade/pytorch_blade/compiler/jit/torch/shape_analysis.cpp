@@ -1285,7 +1285,7 @@ class ShapePropagator : public PropertyPropBase {
             if (maybe_dtype_option && !maybe_dtype_option->isNone()) {
               return {ret->withScalarType(maybe_dtype_option->toScalarType())};
             } else {
-              return {ret};
+              return {};
             }
           }
           return {};
@@ -1305,17 +1305,18 @@ class ShapePropagator : public PropertyPropBase {
             auto ret = type;
             if (maybe_device_option && !maybe_device_option->isNone()) {
               auto device = maybe_device_option->toDevice();
-#if PYTORCH_VERSION_GE(1, 10)
-              return {ret->withDevice(device)};
-#else
+              auto scalarType = type->scalarType();
+              at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
+              if (maybe_dtype_option && !maybe_dtype_option->isNone()) {
+                scalarType = maybe_dtype_option->toScalarType();
+              }
               return {TensorType::create(
-                  ret->scalarType(),
+                  scalarType,
                   device,
                   ret->dim(),
                   /*requires_grad=*/c10::nullopt)};
-#endif
             } else {
-              return {ret};
+              return {};
             }
           }
           return {};

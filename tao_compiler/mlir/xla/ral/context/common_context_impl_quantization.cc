@@ -19,6 +19,7 @@
 
 // x86 related
 #if defined(TAO_X86)
+#include "mlir/xla/ral/context/common_context_impl_mkldnn.h"
 #include "mlir/xla/ral/context/mkldnn/ideep/ideep/abstract_types.hpp"
 #include "mlir/xla/ral/context/mkldnn/ideep/ideep/attributes.hpp"
 #endif
@@ -1334,13 +1335,36 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
   std::vector<int32_t> output_zero_point({resultZeroPoints.data[0]});
 
   ideep::matmul_forward_params param;
+  // TODO: Only calculate the scale & zero_point once.
   ideep::matmul_forward::prepare(
       param, input_t, weight_t, bias_t, output_t, input_scales, weight_scales,
       output_scales, input_zero_point, output_zero_point, 1.0f, 1.0f,
       ideep::attr_t(), ideep::data_type::s8, ideep::lowp_kind::s8s8,
       ideep::engine::cpu_engine());
-  ideep::matmul_forward::compute<true, true>(param, input_t, weight_t, bias_t,
-                                             output_t);
+
+  bool weight_is_const =
+      dictAttr.get("weight_is_const").as<BoolPDLAttr>().getValue();
+  bool bias_is_const =
+      dictAttr.get("bias_is_const").as<BoolPDLAttr>().getValue();
+  if (!isWeightPrePackingEnabled() || !weight_is_const || !bias_is_const) {
+    // TODO: add a template to control whether bias shoule be reordered
+    ideep::matmul_forward::compute<true, true>(param, input_t, weight_t, bias_t,
+                                               output_t);
+  } else {
+    ideep::tensor packed_weight;
+    ideep::tensor packed_bias;
+    std::string unique_name =
+        "disc.ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel";
+    auto state = ctx->getOrCreateResource<OnednnGemmState>(
+        unique_name, []() { return new OnednnGemmState; });
+    packed_weight = state->get_or_create_packed_weight(
+        weight.data, weight_t, param.pd.weights_desc(), param.weights_attr);
+    packed_bias = state->get_or_create_packed_bias(
+        bias.data, bias_t, param.pd.bias_desc(), param.bias_attr);
+
+    ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
+                                                packed_bias, output_t);
+  }
 
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(result); ++i) {
@@ -1417,13 +1441,29 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
   std::vector<int32_t> output_zero_point({resultZeroPoints.data[0]});
 
   ideep::matmul_forward_params param;
+  // TODO: Only calculate the scale & zero_point once.
   ideep::matmul_forward::prepare(
       param, input_t, weight_t, output_t, input_scales, weight_scales,
       output_scales, input_zero_point, output_zero_point, 1.0f, 1.0f,
       ideep::attr_t(), ideep::data_type::s8, ideep::lowp_kind::s8s8,
       ideep::engine::cpu_engine());
-  ideep::matmul_forward::compute<true, true>(param, input_t, weight_t,
-                                             output_t);
+
+  bool weight_is_const =
+      dictAttr.get("weight_is_const").as<BoolPDLAttr>().getValue();
+  if (!isWeightPrePackingEnabled() || !weight_is_const) {
+    ideep::matmul_forward::compute<true, true>(param, input_t, weight_t,
+                                               output_t);
+  } else {
+    ideep::tensor packed_weight;
+    std::string unique_name = "disc.ral_pdll_qgemm_onednn_s8_s8_s8_per_channel";
+    auto state = ctx->getOrCreateResource<OnednnGemmState>(
+        unique_name, []() { return new OnednnGemmState; });
+    packed_weight = state->get_or_create_packed_weight(
+        weight.data, weight_t, param.pd.weights_desc(), param.weights_attr);
+
+    ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
+                                                output_t);
+  }
 
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(result); ++i) {

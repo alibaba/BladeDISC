@@ -20,7 +20,7 @@ RUN apt-get update -y && apt-get install -y git curl vim libssl-dev wget unzip o
 RUN bash /install/scripts/install-cmake.sh
 RUN bash /install/scripts/install-bazel.sh
 RUN bash /install/scripts/install-python.sh
-RUN bash /install/scripts/install-lld.sh
+RUN bash /install/scripts/install-llvm_toolchain.sh
 
 ARG DEVICE=cu110
 RUN bash /install/scripts/install-tensorrt.sh

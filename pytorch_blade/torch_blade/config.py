@@ -189,6 +189,7 @@ class Config(ConfigContext):
         # TODO(tanyo): merge dynamic_tuning_shapes and annotate_args
         self._annotate_args: List[Optional[ArgAnnotation]] = []
         self._experimental_subgraph_conversion_parallelism = 1
+        self._force_gpu_constants_to_device = ''
 
     @property
     def optimization_pipeline(self):
@@ -601,3 +602,15 @@ class Config(ConfigContext):
         assert isinstance(val, int), \
             "experimental_subgraph_conversion_parallelism should be int, got {}".format(type(val))
         self._experimental_subgraph_conversion_parallelism = val
+
+    @property
+    def force_gpu_constants_to_device(self):
+        """Force to move all prim::Constant on multiple CUDA devices in the model to this device.
+        """
+        return self._force_gpu_constants_to_device
+
+    @force_gpu_constants_to_device.setter
+    def force_gpu_constants_to_device(self, val):
+        assert isinstance(val, str), "device should be str, got {}".format(type(val))
+        assert val.startswith('cuda:') or val == "cuda", "device should be cuda device, got {}".format(val)
+        self._force_gpu_constants_to_device = val

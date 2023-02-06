@@ -128,6 +128,12 @@ Status TaoOptimizationPass::Run(const GraphOptimizationPassOptions& options) {
     TF_RETURN_IF_ERROR(defuse_pass.Run(options));
   }
 
+  DumpGraph(options, "before_tao_clone_pass");
+  // Add Clone Constants Pass for fakequant
+  TaoCloneConstantsForBetterClusteringPass clone_pass(false, true);
+  clone_pass.set_name("TaoCloneConstantsForFakeQuantPass");
+  TF_RETURN_IF_ERROR(clone_pass.Run(options));
+
   DumpGraph(options, "before_tao_mark_pass");
 
   TaoMarkForCompilationPass mark_pass;

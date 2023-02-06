@@ -1,0 +1,6 @@
+alexnet
+hf_Bart
+pyhpc_equation_of_state
+resnet50
+mobilenet_v3_large
+timm_efficientnet

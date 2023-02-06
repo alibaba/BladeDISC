@@ -26,6 +26,7 @@ from transformers.utils.fx import HFTracer
 
 logging.basicConfig(level=logging.DEBUG)
 
+# TODO(litan.ls): use a smaller demo model
 MODEL_ID = 'bert-base-cased-finetuned-mrpc'
 
 

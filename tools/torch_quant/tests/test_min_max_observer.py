@@ -16,6 +16,7 @@ from torch_quant.observer import MinMaxObserver
 
 
 class MinMaxObserverTest(unittest.TestCase):
+    # TODO(litan.ls): more tests for different dtype/qscheme
     def test_basic(self):
         ob = MinMaxObserver(dtype=torch.qint8)
         self.assertEqual(ob.qparams.scale, 1)

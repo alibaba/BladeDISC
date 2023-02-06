@@ -170,7 +170,7 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
     Replace quantizable modules with observed version.
 
     For quantizable modules (e.g. Conv2D, Linear), weight is stored and used
-    internally, instead of as a sperated node in fx graph. So we need to
+    internally, instead of as a separated node in fx graph. So we need to
     replace quantizable modules with observed version, to insert an observer
     after weight. 
 

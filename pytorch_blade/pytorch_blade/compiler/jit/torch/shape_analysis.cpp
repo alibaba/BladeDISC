@@ -1431,13 +1431,46 @@ class ShapePropagator : public PropertyPropBase {
 #endif
         },
         [](Node* node) -> type_vec_t {
+          at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
             auto ret = type;
             auto dtype = getScalarTypeFromValue(node->namedInput(attr::dtype));
             if (dtype) {
               return {ret->withScalarType(dtype)};
+            if (maybe_dtype_option && !maybe_dtype_option->isNone()) {
+              return {ret->withScalarType(maybe_dtype_option->toScalarType())};
             } else {
-              return {ret};
+              return {};
+            }
+          }
+          return {};
+        }};
+
+    // Requirements:
+    //   device         : Device
+    //   tensor inputs  : 1
+    //   tensor outputs : 1
+    // Additionally:
+    //   - First input should be the only tensor input
+    static const register_formula_for aten_to_device{
+        {"aten::to.device(Tensor self, Device device, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor"},
+        [](Node* node) -> type_vec_t {
+          at::optional<IValue> maybe_device_option = node->get(attr::device);
+          if (auto type = node->input(0)->type()->cast<TensorType>()) {
+            auto ret = type;
+            if (maybe_device_option && !maybe_device_option->isNone()) {
+              auto device = maybe_device_option->toDevice();
+#if PYTORCH_VERSION_GE(1, 10)
+              return {ret->withDevice(device)};
+#else
+              return {TensorType::create(
+                  ret->scalarType(),
+                  device,
+                  ret->dim(),
+                  /*requires_grad=*/c10::nullopt)};
+#endif
+            } else {
+              return {};
             }
           }
           return {};

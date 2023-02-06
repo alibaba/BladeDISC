@@ -1398,7 +1398,7 @@ class ShapePropagator : public PropertyPropBase {
             if (maybe_dtype_option && !maybe_dtype_option->isNone()) {
               return {ret->withScalarType(maybe_dtype_option->toScalarType())};
             } else {
-              return {ret};
+              return {};
             }
           }
           return {};
@@ -1417,8 +1417,13 @@ class ShapePropagator : public PropertyPropBase {
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
             auto device = getDeviceFromValue(node->namedInput(attr::device));
             if (type->dim()) {
+              auto scalarType = type->scalarType();
+              at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
+              if (maybe_dtype_option && !maybe_dtype_option->isNone()) {
+                scalarType = maybe_dtype_option->toScalarType();
+              }
               return {TensorType::create(
-                          type->scalarType(),
+                          scalarType,
                           device,
                           type->dim(),
                           /*requires_grad=*/c10::nullopt)

@@ -29,9 +29,6 @@ FIELDS=("$@")
 # setup for torchbenchmark
 pushd $benchmark_repo_dir
 # cache venv in benchmark dir
-if [ $HARDWARE == "aarch64" ]; then
-    cp -r /opt/venv_disc ./venv
-fi
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
 
 # install dependencies
@@ -48,39 +45,16 @@ export DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE=true \
 
 bench_target=$JOB
 
-if [[ $HARDWARE == "cpu" ]] || [[ $HARDWARE == "aarch64" ]]
-then
-    binding_cores=0
-    config_file=blade_cpu_$JOB.yaml
-    results=()
-    declare -A threads2cores
-    threads2cores=([1]="0" [2]="0-1" [4]="0-3" [8]="0-7")
-    for threads in $(echo ${!threads2cores[*]})
-    do
-        cores=${threads2cores[$threads]}
-        result=eval-$HARDWARE-fp32_$threads
-        results[${#results[*]}]=$result
-        export OMP_NUM_THREADS=$threads GOMP_CPU_AFFINITY=$cores
-        taskset -c $cores python3 torchbenchmark/.github/scripts/run-config.py \
-                -c $config_file -b ./torchbenchmark/ --output-dir .
-	mv eval-cpu-fp32 $result
-    done
-else
-    config_file=blade_cuda_$JOB.yaml
-    results=(eval-cuda-fp32 eval-cuda-fp16)
-    python3 torchbenchmark/.github/scripts/run-config.py \
-            -c $config_file -b ./torchbenchmark/ --output-dir .
-fi
+config_file=blade_cuda_$JOB.yaml
+results=(eval-cuda-fp32 eval-cuda-fp16)
+python3 torchbenchmark/.github/scripts/run-config.py \
+        -c $config_file -b ./torchbenchmark/ --output-dir .
 
 # results
 oss_link=https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com
-oss_dir=oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}
+oss_dir=oss://bladedisc-ci/TorchBench/gpu/${bench_target}/${date_str}
 OSSUTIL=ossutil
 GH=gh
-if [ $HARDWARE == "aarch64" ]; then
-    OSSUTIL=ossutil-arm64
-    GH=gh_arm64
-fi
 
 for result in ${results[@]}
 do
@@ -94,11 +68,7 @@ done
 
 # Default compare fields
 if [ ${#FIELDS[@]} -eq 0 ]; then
-    if [ $HARDWARE == "cuda" ]; then
-        FIELDS=("disc (latency)" "blade (latency)" "dynamo-blade (latency)" "dynamo-disc (latency)")
-    else
-        FIELDS=("disc (latency)" "dynamo-disc (latency)")
-    fi
+    FIELDS=("disc (latency)" "blade (latency)" "dynamo-blade (latency)" "dynamo-disc (latency)")
 fi
 
 # performance anaysis

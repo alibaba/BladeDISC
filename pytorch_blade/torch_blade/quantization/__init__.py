@@ -9,7 +9,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from torch_blade.config import Config
+from torch_blade.config import Config, QuantizationType
 
 try:
     import torch_blade._torch_blade._quantization as _quantization
@@ -33,6 +33,10 @@ def _jit_pass_remove_all_placeholder(c_module):
 
 def _jit_replace_aten_fake_quant_with_custom_version(c_module):
     _quantization.replace_aten_fake_quant_with_custom_version(c_module)
+
+
+def _jit_add_fake_quant_for_weight(c_module):
+    _quantization.add_fake_quant_for_weight(c_module)
 
 
 def _process_aten_fake_quant(c_module):
@@ -71,8 +75,10 @@ def _jit_pass_quantization_preprocess(c_module):
 
     cfg = Config.get_current_context_or_new()
     is_enabled_quantization = cfg.enable_int8
+    quantization_type = cfg.quantization_type
     if is_enabled_quantization:
-        _process_aten_fake_quant(c_module)
+        if quantization_type == QuantizationType.static:
+            _process_aten_fake_quant(c_module)
 
 
 def _jit_pass_quantization_postprocess(c_module):
@@ -81,8 +87,13 @@ def _jit_pass_quantization_postprocess(c_module):
 
     cfg = Config.get_current_context_or_new()
     is_enabled_quantization = cfg.enable_int8
-    if _is_available and is_enabled_quantization:
-        _jit_pass_remove_all_placeholder(c_module)
+    quantization_type = cfg.quantization_type
+    if is_enabled_quantization:
+        if quantization_type == QuantizationType.static:
+            _jit_pass_remove_all_placeholder(c_module)
+        else:
+            # dynamic quantization
+            _jit_add_fake_quant_for_weight(c_module)
 
 
 def is_fake_quant_op(inp_node_kind):

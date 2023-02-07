@@ -9,8 +9,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -47,7 +45,8 @@ class ModelWithFakeQuant(nn.Module):
         weight = torch.fake_quantize_per_channel_affine(
             self.weight.data, self.weight_scale.data,
             self.weight_zero_point.data.to(zero_point_dtype),
-            axis=self.weight_axis, quant_min=self.weight_quant_min, quant_max=self.weight_quant_max
+            axis=self.weight_axis, quant_min=self.weight_quant_min,
+            quant_max=self.weight_quant_max
         )
         y = F.conv2d(x, weight, bias=None)
         return y
@@ -92,3 +91,38 @@ class QuantizationTestCase(TestCase):
         self.is_quantization_available = is_quantization_available()
         if not is_quantization_available():
             self.skipTest("Quantization support was not built")
+
+    def _test_fake_quant_params(self, fake_quant_node, target_val):
+        # The order of the constant nodes should not be fixed. So it
+        # is not easy to use the FileCheck system to check each attributes
+        # of the fake_quant node. We extract all attributes and compare
+        # them with the target value one-by-one.
+        input_list = fake_quant_node.input_list()
+        scale = input_list[1].node().t("value")
+        self.assertTrue(torch.equal(scale, target_val['scale']))
+
+        zero_point = input_list[2].node().t("value")
+        self.assertTrue(torch.equal(zero_point, target_val['zero_point']))
+
+        quant_min = input_list[3].node().i("value")
+        self.assertEqual(quant_min, target_val["quant_min"])
+
+        quant_max = input_list[4].node().i("value")
+        self.assertEqual(quant_max, target_val["quant_max"])
+
+        num_bits = input_list[5].node().i("value")
+        self.assertEqual(num_bits, target_val["num_bits"])
+
+        # TODO: find a way to check axis
+
+        use_signed = bool(input_list[7].node().i("value"))
+        self.assertEqual(use_signed, target_val["use_signed"])
+
+        use_symmetric = bool(input_list[8].node().i("value"))
+        self.assertEqual(use_symmetric, target_val["use_symmetric"])
+
+        use_dynamic = bool(input_list[9].node().i("value"))
+        self.assertEqual(use_dynamic, target_val["use_dynamic"])
+
+        use_per_channel = bool(input_list[10].node().i("value"))
+        self.assertEqual(use_per_channel, target_val["use_per_channel"])

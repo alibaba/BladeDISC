@@ -13,6 +13,7 @@ import copy
 import threading
 from collections import defaultdict
 from contextlib import ContextDecorator
+from enum import Enum
 from typing import List, Optional, Tuple
 
 import torch
@@ -27,6 +28,17 @@ class OptPipelines:
     def register_pipeline(cls, name, func):
         assert name not in cls.pipelines, f"The pipeline {name} had already registered"
         cls.pipelines[name] = func
+
+
+class QuantizationType(Enum):
+    static = 'static'
+    dynamic = 'dynamic'
+
+    @classmethod
+    def _missing_(cls, value):
+        supported_types = [e.value for e in cls]
+        raise ValueError(f"Unsupported quantization type. Support list: "
+                         f"{supported_types}. Got: '{value}'")
 
 
 def _check_dynamic_ranges(val):
@@ -142,6 +154,9 @@ class Config(ConfigContext):
         self._enable_fp16 = False
         # determine whether quantization is enabled
         self._enable_int8 = False
+        # determine the kind of quantization, only static/dynamic dynamic quantization
+        # is supported.
+        self._quantization_type = QuantizationType.static
         # Controls the extent that BladeDISC is allowed to use fast math for
         # acceleration. Higher number usually means faster speed while it may
         # lead to some accuracy loss in some cases.
@@ -306,6 +321,14 @@ class Config(ConfigContext):
     def enable_int8(self, val):
         assert isinstance(val, bool), "enable_int8 should be bool, got {}".format(type(val))
         self._enable_int8 = val
+
+    @property
+    def quantization_type(self):
+        return self._quantization_type
+
+    @quantization_type.setter
+    def quantization_type(self, val):
+        self._quantization_type = QuantizationType(val)
 
     @property
     def disc_cpu_fast_math_level(self):
@@ -475,7 +498,7 @@ class Config(ConfigContext):
             from torch.onnx._constants import onnx_main_opset as _onnx_master_opset
             from torch.onnx._constants import onnx_stable_opsets as _onnx_stable_opsets
         else:
-            from torch.onnx._constants import ONNX_MIN_OPSET, ONNX_MAX_OPSET, ONNX_DEFAULT_OPSET
+            from torch.onnx._constants import ONNX_DEFAULT_OPSET, ONNX_MAX_OPSET, ONNX_MIN_OPSET
             _default_onnx_opset_version = ONNX_DEFAULT_OPSET
             _onnx_stable_opsets = range(ONNX_MIN_OPSET, ONNX_MAX_OPSET)
             _onnx_master_opset = ONNX_MAX_OPSET

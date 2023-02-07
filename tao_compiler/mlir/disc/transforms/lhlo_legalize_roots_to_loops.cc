@@ -4767,6 +4767,8 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
               "or lmhlo_disc::SparseSegmentSumOp";
   }
 
+  llvm::dbgs() << "Dump op\n";
+  dominant_op->dump();
   auto loc = sparse_segment_reduction_op.getLoc();
 
   OpBuilder b(root_ops.back());
@@ -4838,22 +4840,21 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
   };
 
   Value row_value_count;
-  if (sparse_segment_reduction_op.getIsMean()) {
-    // int* row_value_count = new int[dense_rows];
-    // memset(row_value_count, 0, dense_rows * sizeof(int));
-    auto alloc = b.create<memref::AllocOp>(
-        loc,
-        MemRefType::get({-1}, output_type.getElementType(),
-                        MemRefLayoutAttrInterface(),
-                        StringAttr::get(context, placement_utils::kCpu)),
-        dense_rows);
-    row_value_count = alloc.getResult();
-    create_init_for_loop(zero_floating, row_value_count);
-  }
+  // int* row_value_count = new int[dense_rows];
+  // memset(row_value_count, 0, dense_rows * sizeof(int));
+  auto alloc = b.create<memref::AllocOp>(
+      loc,
+      MemRefType::get({-1}, output_type.getElementType(),
+                      MemRefLayoutAttrInterface(),
+                      StringAttr::get(context, placement_utils::kCpu)),
+      dense_rows);
+  row_value_count = alloc.getResult();
+  create_init_for_loop(zero_floating, row_value_count);
 
+#if 0
   // Init empty_row_indicator to true
-  // create_init_for_loop(true_value, empty_row_indicator);
-
+  create_init_for_loop(true_value, empty_row_indicator);
+#endif
   // calc row_count
   {
     // input_size = segment_ids_size
@@ -4866,18 +4867,19 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
     llvm::SmallVector<Value, 4> segment_ids_index;
     segment_ids_index.push_back(i);
     segment_ids_index.push_back(zero);
+    llvm::dbgs() << "Create LoadOp 0\n";
     Value segment_idx = b.create<arith::IndexCastOp>(
         loc, b.getIndexType(),
         b.create<memref::LoadOp>(loc, segment_ids, segment_ids_index));
 
-    if (sparse_segment_reduction_op.getIsMean()) {
-      b.create<memref::StoreOp>(
-          loc,
-          b.create<arith::AddFOp>(
-              loc, b.create<memref::LoadOp>(loc, row_value_count, segment_idx),
-              one_floating),
-          row_value_count, segment_idx);
-    }
+    llvm::dbgs() << "Create LoadOp 1\n";
+    b.create<memref::StoreOp>(
+        loc,
+        b.create<arith::AddFOp>(
+            loc, b.create<memref::LoadOp>(loc, row_value_count, segment_idx),
+            one_floating),
+        row_value_count, segment_idx);
+
     b.create<scf::YieldOp>(loc, ValueRange({}));
     b.setInsertionPointAfter(for_op);
   }
@@ -4893,17 +4895,20 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
 
     llvm::SmallVector<Value, 4> indices_index, segment_ids_index;
     indices_index.push_back(parallel_op.getInductionVars()[0]);
+    llvm::dbgs() << "Create LoadOp 2\n";
     Value id = b.create<arith::IndexCastOp>(
         loc, b.getIndexType(),
         b.create<memref::LoadOp>(loc, indices, indices_index));
     segment_ids_index.push_back(parallel_op.getInductionVars()[0]);
     segment_ids_index.push_back(zero);
     // when sparse id is rank 2, indices dim 1 is 2, just load is enough
+    llvm::dbgs() << "Create LoadOp 3\n";
     Value row = b.create<arith::IndexCastOp>(
         loc, b.getIndexType(),
         b.create<memref::LoadOp>(loc, segment_ids, segment_ids_index));
     llvm::SmallVector<Value, 2> row_index(1, row);
     // if row_value_count[row] > 0
+    llvm::dbgs() << "Create LoadOp 4\n";
     Value pred = b.create<arith::CmpFOp>(
         loc, arith::CmpFPredicate::ONE,
         b.create<memref::LoadOp>(loc, row_value_count, row_index),
@@ -4922,34 +4927,12 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
     b.setInsertionPointToStart(&if_op.getThenRegion().front());
     {
       // add
-#if 0
-      // if (empty_row_indicator[segment_id])
-      //   memset output[segment_id] to 0.0
-      auto if_empty = b.create<scf::IfOp>(
-          loc, b.create<memref::LoadOp>(loc, empty_row_indicator, row_index),
-          /*hasElseRegion*/ false);
-      if_empty.getThenRegion().front().clear();
-      b.setInsertionPointToStart(&if_empty.getThenRegion().front());
-      {
-        auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                                           /* upperBound */ input_dim,
-                                           /* step */ one);
-        for_op.getBody()->clear();
-        b.setInsertionPointToStart(for_op.getBody());
-        llvm::SmallVector<Value, 2> memset_index;
-        memset_index.push_back(row);
-        memset_index.push_back(for_op.getInductionVar());
-        b.create<memref::StoreOp>(loc, zero_floating, output, memset_index);
-        b.create<scf::YieldOp>(loc, ValueRange({}));
-        b.setInsertionPointAfter(for_op);
-      }
-      b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointAfter(if_empty);
-#endif
       b.create<memref::StoreOp>(loc, false_value, empty_row_indicator,
                                 row_index);
+      llvm::dbgs() << "Create LoadOp 5\n";
       Value accumulation = b.create<memref::LoadOp>(loc, output, output_index);
       if (sparse_segment_reduction_op.getIsMean()) {
+        llvm::dbgs() << "Create LoadOp 6\n";
         auto data_div = b.create<arith::DivFOp>(
             loc, b.create<memref::LoadOp>(loc, data, input_index),
             b.create<memref::LoadOp>(loc, row_value_count, row_index));
@@ -4957,6 +4940,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
             loc, b.create<arith::AddFOp>(loc, accumulation, data_div), output,
             output_index);
       } else {
+        llvm::dbgs() << "Create LoadOp 7\n";
         b.create<memref::StoreOp>(
             loc,
             b.create<arith::AddFOp>(

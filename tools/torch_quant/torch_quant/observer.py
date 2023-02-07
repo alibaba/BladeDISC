@@ -51,6 +51,7 @@ def toggle_observer(root: nn.Module, *, observe: bool, fake_quant: bool) -> None
 DTYPE_TO_BIT_SIGN = {
     torch.qint8: (8, True),
     torch.quint8: (8, False),
+    torch.qint32: (32, True),
 }
 
 
@@ -73,7 +74,7 @@ class MinMaxObserver(Observer):
         self.register_buffer("min_val", torch.tensor(float("inf")))
         self.register_buffer("max_val", torch.tensor(float("-inf")))
         self.register_buffer("scale", torch.tensor(1.))
-        self.register_buffer("zero_point", torch.tensor(0.))
+        self.register_buffer("zero_point", torch.tensor(0, dtype=torch.int32))
 
     @property
     def symmetric(self) -> bool:
@@ -109,6 +110,36 @@ class MinMaxObserver(Observer):
             scale, zero_point = self._calculate_qparams()
             self.scale.copy_(scale)
             self.zero_point.copy_(zero_point)
+        if self.fake_quant:
+            return torch.fake_quantize_per_tensor_affine(x, self.scale, self.zero_point, self.q_min, self.q_max)
+        else:
+            return x
+
+
+class BiasObserver(Observer):
+    def __init__(self, w_ob: Observer, act_ob: Observer,
+                 dtype: torch.dtype = torch.qint32,
+                 qscheme: torch.qscheme = torch.per_tensor_affine, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.w_ob = w_ob
+        self.act_ob = act_ob
+        self.dtype = dtype
+        self.qscheme = qscheme
+        self.bit, self.signed = DTYPE_TO_BIT_SIGN[dtype]
+        self.q_min, self.q_max = calc_quant_min_max(self.bit, self.signed)
+        self.register_buffer("scale", torch.tensor(1.))
+        self.register_buffer("zero_point", torch.tensor(0, dtype=torch.int32))
+
+    @property
+    def qparams(self) -> QParams:
+        return QParams(qscheme=self.qscheme, dtype=self.dtype,
+                       scale=self.scale,
+                       zero_point=self.zero_point)
+
+    def forward(self, x):
+        if self.observe:
+            scale = self.w_ob.scale * self.act_ob.scale
+            self.scale.copy_(scale)
         if self.fake_quant:
             return torch.fake_quantize_per_tensor_affine(x, self.scale, self.zero_point, self.q_min, self.q_max)
         else:

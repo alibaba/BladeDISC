@@ -175,7 +175,8 @@ LogicalResult InputInlineFusionPattern::processParallelOp(
     // Clean all the ops that do not have LoadOps inside the nested
     // ParallelOps and is not the ancestor of any ops that have LoadOps
     // inside the nested ParallelOps.
-    if (!(isFusionType<FusionType::kWhere>(op) || isFusionType<FusionType::kSparseReduction>(op))) {
+    if (!(isFusionType<FusionType::kWhere>(op) ||
+          isFusionType<FusionType::kSparseReduction>(op))) {
       cleanUnusedLhloOps(parent_block, &rewriter);
     }
     return success();

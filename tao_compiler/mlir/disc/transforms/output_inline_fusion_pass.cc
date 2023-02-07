@@ -121,30 +121,243 @@ bool miscFuseHelper<lmhlo::DynamicReshapeOp>(
   auto reshape_op = dyn_cast<lmhlo::DynamicReshapeOp>(consumer);
 
   auto loc = consumer->getLoc();
-  rewriter.setInsertionPoint(store_ops.front().getOperation());
+
+  llvm::dbgs() << "Dump before DynamicReshapeOp inline\n";
+  parallel_op.getOperation()->dump();
 
   Value operand_memref = reshape_op->getOperand(0);
-  auto operand_shape = getShapeValues(&rewriter, operand_memref);
   Value output_memref = reshape_op->getOperand(2);
-  auto output_shape = getShapeValues(&rewriter, output_memref);
+  auto output_ty = output_memref.getType().dyn_cast<MemRefType>();
+  int64_t output_rank = output_ty.getRank();
+
+  llvm::dbgs() << "store_ops size: " << store_ops.size() << "\n";
+  for (auto store : store_ops) {
+    store.getOperation()->dump();
+    Block* block = store.getOperation()->getBlock();
+    SmallVector<memref::LoadOp, 2> load_ops;
+    block->walk([&](memref::LoadOp load_op_in_block) {
+      if (load_op_in_block.getMemRef() == operand_memref) {
+        load_ops.push_back(load_op_in_block);
+      }
+    });
+#if 1
+    // We need to know if there exists a += compute(a)
+    // We can simply know if so if fusion is a kSparseReduction
+    // If so, we need to create a init loop for this memref
+    if (load_ops.size() == 1 /*&& fusion_type == FusionType::kSparseReduction*/) {
+      llvm::dbgs() << "Create memset output to 0\n";
+      rewriter.setInsertionPoint(parallel_op.getOperation());
+      Value zero_floating = rewriter.create<arith::ConstantOp>(
+          loc, rewriter.getFloatAttr(output_ty.getElementType(), 0));
+      Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+      Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+      auto output_shape = getShapeValues(&rewriter, output_memref);
+
+      // memset output to 0
+      auto num_elements =
+          emitNumElementsComputation(rewriter, loc, output_memref);
+      parallel_op.getOperation()->dump();
+      auto for_op = rewriter.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                                /* upperBound */ num_elements,
+                                                /* step */ one);
+      for_op.getBody()->clear();
+      rewriter.setInsertionPointToStart(for_op.getBody());
+
+      Value i = for_op.getInductionVar();
+      auto index = calcMultiDimIndex(&rewriter, loc, i, output_shape);
+      rewriter.create<memref::StoreOp>(loc, zero_floating, output_memref, index);
+      rewriter.create<scf::YieldOp>(loc, ValueRange({}));
+      rewriter.setInsertionPointAfter(for_op);
+    }
+#endif
+
+    llvm::dbgs() << "load_ops size: " << load_ops.size() << "\n";
+    for (auto load : load_ops) {
+      llvm::dbgs() << "inline DynamicReshape rewrite load op \n";
+      rewriter.setInsertionPointAfter(load.getOperation());
+      auto operand_shape = getShapeValues(&rewriter, operand_memref);
+      auto output_shape = getShapeValues(&rewriter, output_memref);
+      bool same_indices = load.getIndices() == store.getIndices();
+      Value linear_index = calcLinearIndex(
+          // &rewriter, loc, same_indices ? store.getIndices() :
+          // load.getIndices(),
+          &rewriter, loc, load.getIndices(), operand_shape);
+      SmallVector<Value> output_index =
+          calcMultiDimIndex(&rewriter, loc, linear_index, output_shape);
+      auto new_load =
+          rewriter.create<memref::LoadOp>(loc, output_memref, output_index);
+      rewriter.replaceOp(load, new_load.getResult());
+    }
+    llvm::dbgs() << "inline DynamicReshape computation \n";
+    rewriter.setInsertionPointAfter(store.getOperation());
+    auto operand_shape = getShapeValues(&rewriter, operand_memref);
+    auto output_shape = getShapeValues(&rewriter, output_memref);
+    Value linear_index =
+        calcLinearIndex(&rewriter, loc, store.getIndices(), operand_shape);
+    SmallVector<Value> output_index =
+        calcMultiDimIndex(&rewriter, loc, linear_index, output_shape);
+#if 0
+    llvm::dbgs() << "inline DynamicReshape before create store\n";
+    parallel_op.getOperation()->dump();
+    parallel_op->getParentOfType<func::FuncOp>()->dump();
+    store.getValueToStore().dump();
+    for (auto index : output_index) {
+      index.dump();
+    }
+    output_memref.dump();
+#endif
+    rewriter.create<memref::StoreOp>(loc, store.getValueToStore(),
+                                     output_memref, output_index);
+    llvm::dbgs() << "inline DynamicReshape computation done for single store\n";
+  }
+  llvm::dbgs() << "Dump after DynamicReshapeOp inline\n";
+  parallel_op.getOperation()->dump();
+
+  return true;
+}
+
+template <>
+bool miscFuseHelper<lmhlo::DynamicBroadcastInDimOp>(
+    PatternRewriter& rewriter, scf::ParallelOp parallel_op, Operation* consumer,
+    memref::StoreOp store_op, std::vector<memref::StoreOp>& store_ops) {
+  llvm::dbgs() << " DynamicBroadcastInDimOp \n";
+  parallel_op.getOperation()->dump();
+  llvm::dbgs() << " DynamicBroadcastInDimOp consumer\n";
+  consumer->dump();
+  llvm::dbgs() << " DynamicBroadcastInDimOp store_op \n";
+  store_op.getOperation()->dump();
+  llvm::dbgs() << " DynamicBroadcastInDimOp store_ops \n";
+  for (auto store : store_ops) {
+    store.getOperation()->dump();
+  }
+  llvm::dbgs() << " DynamicBroadcastInDimOp dump end \n";
+
+  if (!isa<lmhlo::DynamicBroadcastInDimOp>(consumer)) {
+    return false;
+  }
+  auto broadcast_op = dyn_cast<lmhlo::DynamicBroadcastInDimOp>(consumer);
+
+  auto broadcast_dimensions =
+      broadcast_op.getBroadcastDimensions().template getValues<int64_t>();
+  Value operand_memref = broadcast_op->getOperand(0);
+  auto operand_ty = operand_memref.getType().dyn_cast<MemRefType>();
+  int64_t input_rank = operand_ty.getRank();
+  auto input_shape = operand_ty.getShape();
+  Value output_memref = broadcast_op->getOperand(2);
+  auto output_ty = output_memref.getType().dyn_cast<MemRefType>();
+  int64_t output_rank = output_ty.getRank();
+  auto output_shape = output_ty.getShape();
+
+  auto loc = consumer->getLoc();
 
   SmallVector<Value, 4> indices;
-  for (auto store_op : store_ops) {
-    Value linear_index =
-        calcLinearIndex(&rewriter, loc, store_op.getIndices(), operand_shape);
-    auto output_index =
-        calcMultiDimIndex(&rewriter, loc, linear_index, output_shape);
-    rewriter.create<memref::StoreOp>(loc, store_op.getValueToStore(),
-                                     output_memref, output_index);
+  auto broadcast_dim_size = broadcast_dimensions.size();
+  llvm::dbgs() << "output rank: " << output_rank << "\n";
+  llvm::dbgs() << "broadcast_dimensions[0]: " << broadcast_dimensions[0] << "\n";
+  for (auto store : store_ops) {
+    if (broadcast_dim_size == 1) {
+      // broadcast from vector
+      rewriter.setInsertionPointAfter(store.getOperation());
+      auto zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+      for (int dim = 0; dim < output_rank; ++dim) {
+        int64_t static_dim_size = output_shape[dim];
+        if (static_dim_size == 1) {
+          indices.push_back(zero);
+        } else {
+          if (dim == broadcast_dimensions[0]) {
+            indices.push_back(store.getIndices()[0]);
+          } else {
+            // NOTE: hack here
+            // TODO: find a better impl
+            indices.push_back(parallel_op.getInductionVars()[1]);
+          }
+        }
+      }
+      rewriter.create<memref::StoreOp>(loc, store.getValueToStore(),
+                                       output_memref, indices);
+    } else {
+      // TODO(lanbo.llb): Support more bcast dimensions
+      return false;
+    }
+    indices.clear();
   }
+  llvm::dbgs() << "Dump after DynamicBroadcastInDimOp inline\n";
+  parallel_op.getOperation()->dump();
+
+  return true;
+}
+
+template <>
+bool miscFuseHelper<lmhlo::SelectOp>(PatternRewriter& rewriter,
+                                     scf::ParallelOp parallel_op,
+                                     Operation* consumer,
+                                     memref::StoreOp store_op,
+                                     std::vector<memref::StoreOp>& store_ops) {
+  llvm::dbgs() << " SelectOp \n";
+  consumer->dump();
+  llvm::dbgs() << " SelectOp store_op \n";
+  store_op.getOperation()->dump();
+  llvm::dbgs() << " SelectOp store_ops \n";
+  for (auto store : store_ops) {
+    store.getOperation()->dump();
+  }
+  llvm::dbgs() << " SelectOp dump end \n";
+
+  if (!isa<lmhlo::SelectOp>(consumer)) {
+    return false;
+  }
+
+  auto loc = consumer->getLoc();
+  auto select_op = dyn_cast<lmhlo::SelectOp>(consumer);
+  auto pred_memref = select_op.getOperand(0);
+  auto true_memref = select_op.getOperand(1);
+  auto false_memref = select_op.getOperand(2);
+  auto output_memref = select_op.getOperand(3);
+  auto output_ty = output_memref.getType().dyn_cast<MemRefType>();
+
+  Value zero_floating = rewriter.create<arith::ConstantOp>(
+      loc, rewriter.getFloatAttr(output_ty.getElementType(), 0));
+  // TODO: check whether true is from broadcasted scalar constant
+  for (auto store : store_ops) {
+    llvm::dbgs() << "Dump store op in SelectOp inline\n";
+    store.getOperation()->dump();
+    memref::StoreOp false_store_op;
+    Block* block = store.getOperation()->getBlock();
+    block->walk([&](memref::StoreOp store_op_in_block) {
+      if (store_op_in_block.getMemRef() == false_memref) {
+        false_store_op = store_op_in_block;
+      }
+    });
+#if 1
+    block->walk([&](memref::LoadOp load_op_in_block) {
+      if (load_op_in_block.getMemRef() == false_memref) {
+        rewriter.setInsertionPointAfter(load_op_in_block.getOperation());
+        auto new_load = rewriter.create<memref::LoadOp>(loc, output_memref,
+                                                        store.getIndices());
+        rewriter.replaceOp(load_op_in_block, new_load.getResult());
+      }
+    });
+#endif
+    rewriter.setInsertionPointAfter(false_store_op.getOperation());
+    auto select_val = rewriter.create<arith::SelectOp>(
+        loc, store.getValueToStore(), zero_floating,
+        false_store_op.getValueToStore());
+    rewriter.create<memref::StoreOp>(loc, select_val, output_memref,
+                                     store.getIndices());
+    // We also need to erase memref.store that store
+    // to true_memref/false_memref
+    rewriter.eraseOp(false_store_op);
+  }
+  llvm::dbgs() << "Dump after SelectOp inline\n";
+  parallel_op.getOperation()->dump();
 
   return true;
 }
 
 bool isSparseFusion(Operation* op) {
   return (isFusionType<FusionType::kWhere>(op) ||
-          isFusionType<FusionType::kSparseReduction>(op)
-          ) && !isOnGpu(op);
+          isFusionType<FusionType::kSparseReduction>(op)) &&
+         !isOnGpu(op);
 }
 
 // Currently we do not actually need lower_config, just leave here for potential
@@ -159,6 +372,7 @@ class OutputInlineFusionPattern : public RewritePattern {
 
   LogicalResult matchAndRewrite(Operation* op,
                                 PatternRewriter& rewriter) const override {
+    llvm::dbgs() << "Enter matchAndRewrite\n";
     // Currently only support cpu sparse fusions.
     if (!isSparseFusion(op)) return failure();
 
@@ -173,14 +387,12 @@ class OutputInlineFusionPattern : public RewritePattern {
     for (scf::ParallelOp parallelOp : innermostPloops) {
       if (!failed(processParallelOp(parallelOp, &parent_block, rewriter))) {
         // llvm::dbgs() << "****************success**************** \n";
-        // auto func = parallelOp->getParentOfType<func::FuncOp>();
-        // func->dump();
+        // parallelOp->getParentOfType<func::FuncOp>()->dump();
         // llvm::dbgs() << "****************success**************** \n";
         return success();
       }
       // llvm::dbgs() << "****************fail**************** \n";
-      // auto func = parallelOp->getParentOfType<func::FuncOp>();
-      // func->dump();
+      // parallelOp->getParentOfType<func::FuncOp>()->dump();
       // llvm::dbgs() << "****************fail**************** \n";
     }
     return failure();
@@ -193,39 +405,50 @@ class OutputInlineFusionPattern : public RewritePattern {
     parallel_op->walk(
         [&](memref::StoreOp store_op) { store_ops.push_back(store_op); });
 
+    llvm::dbgs() << "Dump store in parallel op\n";
+    for (auto store : store_ops) {
+      store.getOperation()->dump();
+    }
+    llvm::dbgs() << "Dump store in parallel op end\n";
+
     for (auto store_op : store_ops) {
       Operation* lhlo_op = getStorableOperation(store_op);
       if (!lhlo_op) continue;
 
-      std::vector<memref::StoreOp> store_ops_in_block =
+      std::vector<memref::StoreOp> store_ops_in_fusion =
           collectStoreToSameMemref(store_op);
 
       if (!failed(inlineFuseLhloOp(rewriter, parallel_op, lhlo_op, store_op,
-                                   store_ops_in_block))) {
+                                   store_ops_in_fusion))) {
+        llvm::dbgs() << "Dump lhlo after inline fusion success\n";
+        lhlo_op->dump();
+        llvm::dbgs() << "Dump lhlo after inline fusion success end\n";
         // TODO: Check whether it is safe to erase this op like input-inline
         rewriter.eraseOp(lhlo_op);
-        // lhlo_op->erase();
-#if 0
-        for (auto store_op : store_ops_in_block) {
-          // store_op.erase();
+#if 1
+        llvm::dbgs() << "************erase******************** \n";
+        for (auto store_op : store_ops_in_fusion) {
+          store_op.getOperation()->dump();
           rewriter.eraseOp(store_op);
         }
 #else
-        for (auto store_op : store_ops_in_block) {
+        for (auto store_op : store_ops_in_fusion) {
           auto store_op_users =
               getValueUsersInFusionLike(store_op.getMemRef(), store_op);
-          // llvm::dbgs() << "************erase******************** \n";
-          // for (auto user : store_op_users) {
-          //   user->dump();
-          // }
+          llvm::dbgs() << "************erase******************** \n";
+          store_op.getOperation()->dump();
+          for (auto user : store_op_users) {
+            user->dump();
+          }
           if (store_op_users.size() == 0) {
             rewriter.eraseOp(store_op);
           }
         }
 #endif
         // cleanUnusedLhloOps(parent_block, &rewriter);
-        // auto func = parallel_op->getParentOfType<func::FuncOp>();
-        // func->dump();
+        llvm::dbgs() << "Dump after inline fusion success\n";
+        parallel_op->getParentOfType<lmhlo::FusionOp>()->dump();
+        llvm::dbgs() << "Dump after inline fusion success end\n";
         return success();
       }
     }
@@ -268,24 +491,25 @@ class OutputInlineFusionPattern : public RewritePattern {
     return lhlo_op;
   }
 
-  // Collect store ops write to the same memref and within the same block as
+  // Collect store ops write to the same memref and within the same fusion as
   // store_op, including store_op itself.
   std::vector<memref::StoreOp> collectStoreToSameMemref(
       memref::StoreOp store_op) const {
     llvm::dbgs() << "Enter collectStoreToSameMemref\n";
-    Block* block = store_op.getOperation()->getBlock();
+    auto parallel_op = store_op->getParentOfType<scf::ParallelOp>();
     std::vector<memref::StoreOp> store_ops;
-    for (auto& op : block->getOperations()) {
-      if (!isa<memref::StoreOp>(&op)) continue;
-      auto store_op_in_block = dyn_cast<memref::StoreOp>(&op);
-      // llvm::dbgs() << "************************************* \n";
-      // store_op.getMemRef().dump();
-      // store_op_in_block.getMemRef().dump();
-      // llvm::dbgs() << "************************************* \n";
+    parallel_op->walk([&](memref::StoreOp store_op_in_fusion) {
+      llvm::dbgs() << "************************************* \n";
+      store_op.dump();
+      store_op.getMemRef().dump();
+      store_op_in_fusion.dump();
+      store_op_in_fusion.getMemRef().dump();
+      llvm::dbgs() << "************************************* \n";
 
-      if (store_op_in_block.getMemRef() != store_op.getMemRef()) continue;
-      store_ops.push_back(store_op_in_block);
-    }
+      if (store_op_in_fusion.getMemRef() == store_op.getMemRef()) {
+        store_ops.push_back(store_op_in_fusion);
+      }
+    });
     llvm::dbgs() << "Exit collectStoreToSameMemref\n";
     return store_ops;
   }
@@ -294,12 +518,17 @@ class OutputInlineFusionPattern : public RewritePattern {
       PatternRewriter& rewriter, scf::ParallelOp parallel_op,
       Operation* consumer, memref::StoreOp store_op,
       std::vector<memref::StoreOp>& store_ops) const {
+    llvm::dbgs() << "inlineFuseLhloOp dump\n";
+    consumer->dump();
+    llvm::dbgs() << "inlineFuseLhloOp dump end\n";
     if (miscFuseHelper<lmhlo::DynamicReshapeOp>(rewriter, parallel_op, consumer,
                                                 store_op, store_ops) ||
         miscFuseHelper<lmhlo::DynamicGatherOp>(rewriter, parallel_op, consumer,
                                                store_op, store_ops) ||
-        miscFuseHelper<lmhlo::DynamicBroadcastInDimOp>(rewriter, parallel_op, consumer,
-                                               store_op, store_ops)) {
+        miscFuseHelper<lmhlo::DynamicBroadcastInDimOp>(
+            rewriter, parallel_op, consumer, store_op, store_ops) ||
+        miscFuseHelper<lmhlo::SelectOp>(rewriter, parallel_op, consumer,
+                                        store_op, store_ops)) {
       return success();
     }
     return failure();

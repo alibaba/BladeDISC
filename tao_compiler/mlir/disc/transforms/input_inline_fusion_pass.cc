@@ -85,7 +85,8 @@ void InputInlineFusion::runOnOperation() {
   func.walk([&](FusionOp fusion) {
     if (isFusionType<FusionType::kStitch>(fusion.getOperation())) return;
     if (isFusionType<FusionType::kWhere>(fusion.getOperation())) return;
-    if (isFusionType<FusionType::kSparseReduction>(fusion.getOperation())) return;
+    if (isFusionType<FusionType::kSparseReduction>(fusion.getOperation()))
+      return;
     fusion.getRegion().walk([&](LmhloOp op) {
       if (isa<TerminatorOp>(op)) {
         return;

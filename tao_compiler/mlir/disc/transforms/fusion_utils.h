@@ -782,8 +782,7 @@ class TransformBasedCpuFusionStrategy : public FusionStrategy {
 class SparseOpCpuFusionStrategy : public FusionStrategy {
  public:
   SparseOpCpuFusionStrategy(const FusionOptions& options)
-      : FusionStrategy(options) {
-  }
+      : FusionStrategy(options) {}
 
   virtual bool isFusible(Operation* op) override;
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,

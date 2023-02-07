@@ -69,7 +69,7 @@ bool SparseOpCpuFusionStrategy::initFusionPattern(
       }
     } else {
       (llvm::dbgs()
-                 << "Fusion pattern should not contain any un-fusible ops\n");
+       << "Fusion pattern should not contain any un-fusible ops\n");
       return false;
     }
   }
@@ -83,13 +83,13 @@ bool SparseOpCpuFusionStrategy::initFusionPattern(
 
   if (where_ops.size() > 1 || sparse_reduction_ops.size() > 1) {
     (llvm::dbgs() << "Fusion pattern should not contain more than 1 "
-                               "where op or sparse reduction op\n");
+                     "where op or sparse reduction op\n");
     return false;
   }
 
   if (where_ops.size() == 1 && sparse_reduction_ops.size() == 1) {
     (llvm::dbgs() << "Fusion pattern should not contain where op and "
-                               "sparse reduction op at the same time\n");
+                     "sparse reduction op at the same time\n");
     return false;
   }
 
@@ -134,6 +134,7 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 
   // check fusiblity
   if (rhs.getFusionType() == FusionType::kWhere) {
+    return false;
     // Basic Input fusion for where op
     for (Operation* op : lhs.getOpList()) {
       if (!isInputFusible(op) || op->getAttr(kDiscShapeCalcAttr) != nullptr) {
@@ -141,6 +142,7 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
       }
     }
   } else if (lhs.getFusionType() == FusionType::kWhere) {
+    return false;
     // Output fusion with where op
     for (Operation* op : rhs.getOpList()) {
       if (!iskWhereOutputFusible(op)) {
@@ -157,23 +159,15 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   } else if (rhs.getFusionType() == FusionType::kSparseReduction) {
     // fuse kLoop that only broadcast constant
     for (Operation* op : lhs.getOpList()) {
-      if (!(isa<lmhlo::DynamicBroadcastInDimOp>(op) || isa<lmhlo::ConstantOp>(op))) {
+      if (!(isa<lmhlo::DynamicBroadcastInDimOp>(op) ||
+            isa<lmhlo::ConstantOp>(op))) {
         return false;
       }
     }
   } else {
-    if (rhs.getFusionType() == FusionType::kSparseReduction) {
-      llvm::dbgs() << "SparseOpCpuFusionStrategy::tryFuse failed() \n";
-      llvm::dbgs() << "*********************lhs*********************\n";
-      dumpFusionPattern(lhs);
-      llvm::dbgs() << "*********************rhs*********************\n";
-      dumpFusionPattern(rhs);
-      llvm::dbgs() << "*********************res*********************\n";
-      dumpFusionPattern(target);
-      llvm::dbgs() << "*********************end*********************\n\n";
-    }
     return false;
   }
+#if 0
   llvm::dbgs() << "SparseOpCpuFusionStrategy::tryFuse success() \n";
   llvm::dbgs() << "*********************lhs*********************\n";
   dumpFusionPattern(lhs);
@@ -182,6 +176,7 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   llvm::dbgs() << "*********************res*********************\n";
   dumpFusionPattern(target);
   llvm::dbgs() << "*********************end*********************\n\n";
+#endif
   return true;
 }
 

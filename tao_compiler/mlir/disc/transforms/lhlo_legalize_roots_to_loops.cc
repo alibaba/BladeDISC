@@ -4318,7 +4318,7 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
   };
 
   // Init empty_row_indicator to true
-  create_init_for_loop(true_value, empty_row_indicator);
+  // create_init_for_loop(true_value, empty_row_indicator);
 
   Value row_count_memref;
   {
@@ -4748,17 +4748,18 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
     ArrayRef<Operation*> root_ops, Operation* dominant_op,
     Block* parent = nullptr, bool non_fusion = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
-
   if (non_fusion) {
     if (!(root_ops.size() == 1 &&
-          isa<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(root_ops[0]))) {
+          isa<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(
+              root_ops[0]))) {
       return dominant_op->emitError()
              << "root_ops[0] is not a "
                 "lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp";
     }
   }
   auto sparse_segment_reduction_op =
-      dyn_cast<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(non_fusion ? root_ops[0] : dominant_op);
+      dyn_cast<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(
+          non_fusion ? root_ops[0] : dominant_op);
   if (!sparse_segment_reduction_op) {
     return dominant_op->emitError()
            << "can not cast root_ops or dominant_op to "
@@ -4786,6 +4787,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
   MemRefType output_type = output.getType().template cast<MemRefType>();
   int64_t output_rank = output_type.getRank();
 
+  b.setInsertionPoint(operation);
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   Value one = b.create<arith::ConstantIndexOp>(loc, 1);
 
@@ -4803,6 +4805,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
   Value indice_dim = b.create<memref::DimOp>(loc, segment_ids, 1);
   Value dense_rows = b.create<memref::DimOp>(loc, output, 0);
 
+#if 0
   // memset output to 0
   {
     auto num_elements = emitNumElementsComputation(b, loc, output);
@@ -4819,7 +4822,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
     b.create<scf::YieldOp>(loc, ValueRange({}));
     b.setInsertionPointAfter(for_op);
   }
-
+#endif
   auto create_init_for_loop = [&](Value init_value, Value target_memref) {
     auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
                                        /* upperBound */ dense_rows,
@@ -4834,21 +4837,22 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
     b.setInsertionPointAfter(for_op);
   };
 
-  llvm::dbgs() << "Init done \n";
   Value row_value_count;
-  // int* row_value_count = new int[dense_rows];
-  // memset(row_value_count, 0, dense_rows * sizeof(int));
-  auto alloc = b.create<memref::AllocOp>(
-      loc,
-      MemRefType::get({-1}, output_type.getElementType(),
-                      MemRefLayoutAttrInterface(),
-                      StringAttr::get(context, placement_utils::kCpu)),
-      dense_rows);
-  row_value_count = alloc.getResult();
-  create_init_for_loop(zero_floating, row_value_count);
+  if (sparse_segment_reduction_op.getIsMean()) {
+    // int* row_value_count = new int[dense_rows];
+    // memset(row_value_count, 0, dense_rows * sizeof(int));
+    auto alloc = b.create<memref::AllocOp>(
+        loc,
+        MemRefType::get({-1}, output_type.getElementType(),
+                        MemRefLayoutAttrInterface(),
+                        StringAttr::get(context, placement_utils::kCpu)),
+        dense_rows);
+    row_value_count = alloc.getResult();
+    create_init_for_loop(zero_floating, row_value_count);
+  }
 
   // Init empty_row_indicator to true
-  create_init_for_loop(true_value, empty_row_indicator);
+  // create_init_for_loop(true_value, empty_row_indicator);
 
   // calc row_count
   {
@@ -4865,21 +4869,23 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
     Value segment_idx = b.create<arith::IndexCastOp>(
         loc, b.getIndexType(),
         b.create<memref::LoadOp>(loc, segment_ids, segment_ids_index));
-    b.create<memref::StoreOp>(
-        loc,
-        b.create<arith::AddFOp>(
-            loc, b.create<memref::LoadOp>(loc, row_value_count, segment_idx),
-            one_floating),
-        row_value_count, segment_idx);
-    b.create<memref::StoreOp>(loc, false_value, empty_row_indicator,
-                              segment_idx);
+
+    if (sparse_segment_reduction_op.getIsMean()) {
+      b.create<memref::StoreOp>(
+          loc,
+          b.create<arith::AddFOp>(
+              loc, b.create<memref::LoadOp>(loc, row_value_count, segment_idx),
+              one_floating),
+          row_value_count, segment_idx);
+    }
     b.create<scf::YieldOp>(loc, ValueRange({}));
     b.setInsertionPointAfter(for_op);
   }
 
   {
-    llvm::SmallVector<Value, 2> lower(1, zero), upper(1, input_size),
-        step(1, one);
+    llvm::SmallVector<Value, 2> lower(2, zero), upper(2, input_size),
+        step(2, one);
+    upper[1] = input_dim;
     auto parallel_op =
         b.create<scf::ParallelOp>(loc, /* lowerBound */ lower,
                                   /* upperBound */ upper, /* step */ step);
@@ -4905,73 +4911,79 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
     auto if_op = b.create<scf::IfOp>(loc, pred, /*hasElseRegion*/ true);
     if_op.getThenRegion().front().clear();
     if_op.getElseRegion().front().clear();
+    // input/output index
+    Value i = parallel_op.getInductionVars()[1];
+    llvm::SmallVector<Value, 2> output_index, input_index;
+    output_index.push_back(row);
+    output_index.push_back(i);
+    input_index.push_back(id);
+    input_index.push_back(i);
+
     b.setInsertionPointToStart(&if_op.getThenRegion().front());
     {
       // add
-      auto for_op =
-          b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                               /* upperBound */ input_dim, /* step */ one);
-      for_op.getBody()->clear();
-      b.setInsertionPointToStart(for_op.getBody());
-      Value i = for_op.getInductionVar();
-      llvm::SmallVector<Value, 2> output_index, input_index;
-      output_index.push_back(row);
-      output_index.push_back(i);
-      input_index.push_back(id);
-      input_index.push_back(i);
+#if 0
+      // if (empty_row_indicator[segment_id])
+      //   memset output[segment_id] to 0.0
+      auto if_empty = b.create<scf::IfOp>(
+          loc, b.create<memref::LoadOp>(loc, empty_row_indicator, row_index),
+          /*hasElseRegion*/ false);
+      if_empty.getThenRegion().front().clear();
+      b.setInsertionPointToStart(&if_empty.getThenRegion().front());
+      {
+        auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                           /* upperBound */ input_dim,
+                                           /* step */ one);
+        for_op.getBody()->clear();
+        b.setInsertionPointToStart(for_op.getBody());
+        llvm::SmallVector<Value, 2> memset_index;
+        memset_index.push_back(row);
+        memset_index.push_back(for_op.getInductionVar());
+        b.create<memref::StoreOp>(loc, zero_floating, output, memset_index);
+        b.create<scf::YieldOp>(loc, ValueRange({}));
+        b.setInsertionPointAfter(for_op);
+      }
+      b.create<scf::YieldOp>(loc, ValueRange({}));
+      b.setInsertionPointAfter(if_empty);
+#endif
+      b.create<memref::StoreOp>(loc, false_value, empty_row_indicator,
+                                row_index);
+      Value accumulation = b.create<memref::LoadOp>(loc, output, output_index);
       if (sparse_segment_reduction_op.getIsMean()) {
         auto data_div = b.create<arith::DivFOp>(
             loc, b.create<memref::LoadOp>(loc, data, input_index),
             b.create<memref::LoadOp>(loc, row_value_count, row_index));
         b.create<memref::StoreOp>(
-            loc,
-            b.create<arith::AddFOp>(
-                loc, b.create<memref::LoadOp>(loc, output, output_index),
-                data_div),
-            output, output_index);
+            loc, b.create<arith::AddFOp>(loc, accumulation, data_div), output,
+            output_index);
       } else {
         b.create<memref::StoreOp>(
             loc,
             b.create<arith::AddFOp>(
-                loc, b.create<memref::LoadOp>(loc, output, output_index),
+                loc, accumulation,
                 b.create<memref::LoadOp>(loc, data, input_index)),
             output, output_index);
       }
       b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointAfter(for_op);
-      b.create<scf::YieldOp>(loc, ValueRange({}));
     }
     b.setInsertionPointToStart(&if_op.getElseRegion().front());
     {
+      b.create<memref::StoreOp>(loc, true_value, empty_row_indicator,
+                                row_index);
       // for empty rows, just memcpy
-      auto for_op =
-          b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                               /* upperBound */ input_dim, /* step */ one);
-      for_op.getBody()->clear();
-      b.setInsertionPointToStart(for_op.getBody());
-      Value i = for_op.getInductionVar();
-      llvm::SmallVector<Value, 2> output_index, input_index;
-      output_index.push_back(row);
-      output_index.push_back(i);
-      input_index.push_back(id);
-      input_index.push_back(i);
       b.create<memref::StoreOp>(
           loc, b.create<memref::LoadOp>(loc, data, input_index), output,
           output_index);
       b.create<scf::YieldOp>(loc, ValueRange({}));
-      b.setInsertionPointAfter(for_op);
-      b.create<scf::YieldOp>(loc, ValueRange({}));
     }
-
     b.setInsertionPointAfter(parallel_op);
   }
-  b.setInsertionPointAfter(operation);
 
-  // TODO: Support fusion
   if (non_fusion) {
     for (Operation* root_op : root_ops) root_op->erase();
   } else {
-    // TODO
+    // TODO: handle complex fusion case
+    dominant_op->erase();
   }
   return success();
 }
@@ -5377,8 +5389,9 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion,
       }
       break;
     case FusionType::kSparseReduction:
-      if (failed(lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(root_ops, dominant_op, fused_block,
-                                             /*non_fusion*/ false))) {
+      if (failed(lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
+              root_ops, dominant_op, fused_block,
+              /*non_fusion*/ false))) {
         return dominant_op->emitError() << "failed to lower to loops";
       }
       break;

@@ -482,6 +482,16 @@ Status MlirTest::CompareResults() {
       auto datas = expected_output_vals_[i].flat<float>();
       for (int64_t n = 0; n < datas.size(); ++n) {
         float actual = reinterpret_cast<float*>(actual_results_[i].get())[n];
+        VLOG(0) << "  expected: " << datas(n) << ", actual: " << actual << " " << actual/datas(n);
+        if (!MlirTest::IsAcceptableNear(datas(n), actual)) {
+          absl::StrAppend(&msg, i, " index: ", n, " expected: ", datas(n),
+                          ", actual: ", actual, "\n");
+        }
+      }
+      VLOG(0) << msg;
+      msg = "Error in output ";
+      for (int64_t n = 0; n < datas.size(); ++n) {
+        float actual = reinterpret_cast<float*>(actual_results_[i].get())[n];
         VLOG(2) << "  expected: " << datas(n) << ", actual: " << actual;
         if (!MlirTest::IsAcceptableNear(datas(n), actual)) {
           absl::StrAppend(&msg, i, " index: ", n, " expected: ", datas(n),

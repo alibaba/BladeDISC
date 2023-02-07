@@ -31,6 +31,9 @@ const std::string c_ft_path =
 // }
 
 TEST(EmbeddingColumnTest, DynamicShape2DI64Test) {
+  setenv("DISC_ENABLE_STITCH", "true", 1);
+  setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR", "true", 1);
+  setenv("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", "true", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "embedding_column_d_2d_i64.mlir",
       /*backend_types*/ {kSupportedCPUBackendList},
@@ -39,6 +42,9 @@ TEST(EmbeddingColumnTest, DynamicShape2DI64Test) {
       /*input_descriptors*/ {"3x4xi64_X"},
       /*output_descriptors*/ {"f32_X"},
       /*input_vals*/ {{0, 6, 0, 0, 8, 4, 4, 8, 0, 7, 6, 9}}));
+  unsetenv("DISC_ENABLE_STITCH");
+  unsetenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR");
+  unsetenv("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL");
 }
 
 }  // namespace mlir_test

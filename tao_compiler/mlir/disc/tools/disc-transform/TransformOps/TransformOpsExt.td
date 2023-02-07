@@ -481,4 +481,58 @@ def LinalgFuseProducersOp : Op<Transform_Dialect, "disc.linalg.fuse_producers",
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
 
+def ReplaceConstPaddingValueOp : Op<Transform_Dialect, "disc.replace_const_padding_value",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Given a tensor.PadOp, replace its padding content using `padding_value_placeholder`
+
+    Returns the updated tensor.PadOp op.
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       StrAttr:$mode);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict `mode` `(` $mode `)`";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let builders = [
+    OpBuilder<(ins "Value":$target, "StringRef":$mode)>
+  ];
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def ConvertPaddingPlaceholderToConstOp : Op<Transform_Dialect, "disc.convert_padding_placeholder_to_const",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Given a `padding_value_placeholder` op, convert to arith.const (ignore its padding mode).
+
+    Returns the result const op.
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

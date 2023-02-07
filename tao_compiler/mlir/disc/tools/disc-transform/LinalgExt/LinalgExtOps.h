@@ -20,6 +20,7 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Interfaces/TilingInterface.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtEnums.h.inc"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtInterfaces.h"
 
 #define GET_OP_CLASSES

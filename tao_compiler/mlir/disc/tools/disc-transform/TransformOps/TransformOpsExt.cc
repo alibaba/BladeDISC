@@ -34,6 +34,7 @@
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/MathExtras.h"
@@ -487,6 +488,75 @@ struct FoldMultiLevelPackOfConstantWrapperPattern
   }
 };
 
+/// convert:
+///   %0 = disc_linalg_ext.constant_wrapper dense<0.000000e+00> ...
+///   %1 = tensor.extract %0 ...
+///   use(%1)
+/// to:
+///   %0 = arith.constant 0 : float
+///   use(%0)
+struct FoldTensorExtractOfConstantWrapperPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    auto constOp = op.getTensor().getDefiningOp<ConstantWrapperOp>();
+    if (!constOp) return failure();
+
+    // Collect the constant indices into the tensor.
+    SmallVector<uint64_t, 8> indices;
+    for (Value indice : llvm::drop_begin(op->getOperands(), 1)) {
+      auto constIndexOp = indice.getDefiningOp<arith::ConstantIndexOp>();
+      if (!constIndexOp) return failure();
+      indices.push_back(constIndexOp.getValue().cast<IntegerAttr>().getInt());
+    }
+
+    auto attr = constOp.getValue().getValues<Attribute>()[indices];
+    rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, op.getResult().getType(),
+                                                   attr);
+    return success();
+  }
+};
+
+/// convert:
+///   %0 = ... : vector<16xf32>
+///   %1 = vector.transfer_write %0, %arg0[%c0, %c0]
+///   %2 = disc_linalg_ext. dense<0.000000e+00> ...
+///   %3 = vector.transfer_read %1[%c0, %c0], %2 ...
+///   use(%3)
+/// to:
+///   %0 = ... : vector<16xf32>
+///   use(%0)
+struct FoldXferReadOfXferWriterPattern
+    : public OpRewritePattern<vector::TransferReadOp> {
+  using OpRewritePattern<vector::TransferReadOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::TransferReadOp op,
+                                PatternRewriter& rewriter) const override {
+    auto writeOp = op.getSource().getDefiningOp<vector::TransferWriteOp>();
+    if (!writeOp || writeOp.getVector().getType() != op->getResult(0).getType())
+      return failure();
+
+    // check all the indices are equal
+    if (op.getIndices().size() != writeOp.getIndices().size()) return failure();
+    for (auto [idx0, idx1] : llvm::zip(op.getIndices(), writeOp.getIndices()))
+      if (idx0 != idx1) return failure();
+
+    // check padding value of xfer read op is padding_value_placeholder with
+    // kAny mode padding.
+    auto placeholderOp =
+        op.getPadding()
+            .getDefiningOp<disc_linalg_ext::PaddingValuePlaceholderOp>();
+    if (!placeholderOp ||
+        placeholderOp.getMode() != disc_linalg_ext::PaddingValueModeEnum::kAny)
+      return failure();
+
+    rewriter.replaceOp(op, writeOp.getVector());
+    return success();
+  }
+};
+
 static void addAllRegisteredCanonicalizationPatterns(
     RewritePatternSet& patterns) {
   MLIRContext* ctx = patterns.getContext();
@@ -502,6 +572,8 @@ static void addAllRegisteredCanonicalizationPatterns(
   patterns.insert<TransferReadOfFillOpPattern>(ctx);
   patterns.insert<TransferWriteOfFillOpPattern>(ctx);
   patterns.insert<FoldMultiLevelPackOfConstantWrapperPattern>(ctx);
+  patterns.insert<FoldTensorExtractOfConstantWrapperPattern>(ctx);
+  patterns.insert<FoldXferReadOfXferWriterPattern>(ctx);
 }
 
 }  // namespace
@@ -1639,6 +1711,71 @@ DiagnosedSilenceableFailure LinalgFuseProducersOp::apply(
   }
 
   results.set(getResult().cast<OpResult>(), {fusedOp});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// ReplaceConstPaddingValueOp
+//===---------------------------------------------------------------------===//
+
+void ReplaceConstPaddingValueOp::build(OpBuilder& builder,
+                                       OperationState& result, Value target,
+                                       StringRef mode) {
+  MLIRContext* ctx = builder.getContext();
+  result.addOperands(target);
+  result.addAttribute(ReplaceConstPaddingValueOp::getModeAttrName(result.name),
+                      builder.getStringAttr(mode));
+  result.addTypes({pdl::OperationType::get(ctx)});
+}
+
+DiagnosedSilenceableFailure ReplaceConstPaddingValueOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto padOp = dyn_cast<tensor::PadOp>(target);
+  if (!padOp) {
+    return mlir::emitDefiniteFailure(target, "applies only to tensor::PadOp");
+  }
+
+  auto mode =
+      disc_linalg_ext::symbolizeEnum<disc_linalg_ext::PaddingValueModeEnum>(
+          getMode());
+  if (!mode) {
+    return mlir::emitDefiniteFailure(target, "invalid mode attr");
+  }
+
+  OpBuilder b(target);
+  auto yieldOp = padOp.getBody()->getTerminator();
+  Attribute value;
+  if (!matchPattern(yieldOp->getOperand(0), m_Constant(&value))) {
+    return mlir::emitDefiniteFailure(target, "applies only to pad with const");
+  }
+  auto placeholder = b.create<disc_linalg_ext::PaddingValuePlaceholderOp>(
+      padOp.getLoc(), value, *mode);
+  yieldOp->replaceUsesOfWith(yieldOp->getOperand(0), placeholder->getResult(0));
+  results.assign({target});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// ConvertPaddingPlaceholderToConstOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure ConvertPaddingPlaceholderToConstOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto placeholderOp =
+      dyn_cast<disc_linalg_ext::PaddingValuePlaceholderOp>(target);
+  if (!placeholderOp) {
+    return mlir::emitDefiniteFailure(
+        target, "applies only to PaddingValuePlaceholderOp");
+  }
+
+  OpBuilder b(target);
+
+  auto constOp =
+      b.create<arith::ConstantOp>(target->getLoc(), placeholderOp.getValue());
+  target->replaceAllUsesWith(constOp->getResults());
+  results.assign({constOp.getOperation()});
   return DiagnosedSilenceableFailure(success());
 }
 

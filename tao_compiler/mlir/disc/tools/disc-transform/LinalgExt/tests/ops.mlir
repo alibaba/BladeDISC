@@ -14,3 +14,13 @@ func.func @const() -> tensor<2x4xf32> {
   %0 = disc_linalg_ext.constant_wrapper dense<[[0.0, 1.0, 2.0, 3.0], [4.0, 5.0, 6.0, 7.0]]> : tensor<2x4xf32>
   return %0 : tensor<2x4xf32>
 }
+
+// -----
+
+// CHECK-LABEL: @padding_value_placeholder
+func.func @padding_value_placeholder() -> f32 {
+  %0 = disc_linalg_ext.padding_value_placeholder padding_mode(kAny), value(0.0 : f32)
+  %1 = disc_linalg_ext.padding_value_placeholder padding_mode(kExact), value(0.0 : f32)
+  %2 = arith.addf %0, %1 : f32
+  return %2 : f32
+}

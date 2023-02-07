@@ -43,6 +43,7 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Support/MathExtras.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtEnums.cc.inc"
 
 namespace mlir {
 namespace disc_ral {

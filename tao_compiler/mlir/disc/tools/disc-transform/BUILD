@@ -62,6 +62,14 @@ gentbl_cc_library(
             "LinalgExt/LinalgExtOps.cc.inc",
         ),
         (
+            ["-gen-enum-decls"],
+            "LinalgExt/LinalgExtEnums.h.inc",
+        ),
+        (
+            ["-gen-enum-defs"],
+            "LinalgExt/LinalgExtEnums.cc.inc",
+        ),
+        (
             ["--gen-typedef-decls"],
             "LinalgExt/LinalgExtTypes.h.inc",
         ),

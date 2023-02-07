@@ -98,6 +98,9 @@ bool TransformBasedCpuFusionStrategy::initFusionPattern(
     return true;
   }
 
+  // We only support single output right now
+  if (fusionPattern.getResults().size() != 1) return true;
+
   DenseSet<Value> dotWeights;
   DenseSet<Operation*> supportedDotOps;
   for (Operation* op : fusionPattern.getOpList()) {
@@ -111,8 +114,21 @@ bool TransformBasedCpuFusionStrategy::initFusionPattern(
     }
   }
 
-  // Only support one gemm a.t.m.
-  if (supportedDotOps.size() != 1) return true;
+  // Only support at most one gemm a.t.m.
+  if (supportedDotOps.size() > 1) return true;
+  if (supportedDotOps.empty()) {
+    // special case: for elem+bcast epilogue subgraph fusion
+    // 1, check no large const
+    if (llvm::all_of(fusionPattern.getOpList(), [&](Operation* op) {
+          return !isa<lmhlo::ConstantOp>(op) || isScalarConstOp(op);
+        })) {
+      fusionPattern.setFusionType(FusionType::kLoop);
+      fusionPattern.setDominantOp(*fusionPattern.getRootOps().begin());
+    }
+    return true;
+  }
+
+  // normal case: gemm + epilogue fusion
   Operation* dominantDotOp = *supportedDotOps.begin();
 
   // Only support fuse const ops that are not consumed by ops outside the fusion
@@ -141,8 +157,6 @@ bool TransformBasedCpuFusionStrategy::initFusionPattern(
     if (llvm::find(operands, operand) == operands.end()) return true;
   }
 
-  // We only support single output right now
-  if (fusionPattern.getResults().size() != 1) return true;
   // the shape of the output should be the same as the shape of result of
   // dominant op.
   for (Value result : fusionPattern.getResults()) {
@@ -160,7 +174,7 @@ bool TransformBasedCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
                                               FusionPattern& rhs,
                                               FusionPattern& target) {
   if (!initFusionPattern(shapeAnalysis, target)) return false;
-  return target.isTransformBasedFusion();
+  return target.isFusible();
 }
 
 }  // namespace disc_ral

@@ -16,6 +16,7 @@ include "external/org_tensorflow/tensorflow/compiler/mlir/disc/tools/disc-transf
 include "external/org_tensorflow/tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtInterfaces.td"
 
 include "mlir/IR/AttrTypeBase.td"
+include "mlir/IR/BuiltinAttributeInterfaces.td"
 include "mlir/IR/EnumAttr.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
@@ -70,6 +71,56 @@ def DISCLinalgExt_ConstantWrapperOp : Op<DISCLinalgExt_Dialect, "constant_wrappe
   let results = (outs AnyType:$result);
 
   let assemblyFormat = "attr-dict $value";
+}
+
+def DISCLinalgExt_Any: I64EnumAttrCase<"kAny", 0>; // padding value doesn't matter.
+def DISCLinalgExt_Exact: I64EnumAttrCase<"kExact", 1>; // padding value matters.
+def DISCLinalgExt_PaddingValueMode : I64EnumAttr<"PaddingValueModeEnum",
+    "Padding mode for padding related-ops",
+    [
+        DISCLinalgExt_Any,
+        DISCLinalgExt_Exact
+    ]> {
+  let summary = "Padding mode for padding related-ops";
+  let cppNamespace = "::mlir::disc_ral::disc_linalg_ext";
+}
+
+def DISCLinalgExt_PaddingValuePlaceholderOp : Op<DISCLinalgExt_Dialect, "padding_value_placeholder", [
+    Pure, AllTypesMatch<["value", "result"]>]>{
+  let summary = "Used as a placeholder for padding value when vectorize or padding linalg ops";
+  let description = [{
+    Wrapper the padding value whne vectorize or pad a linalg op.
+
+    These padding value may have different semantics.
+
+    Example #1, we do not care the exact value of padding value. Padding is just used to get a
+    static shape value which is suitable for hardware vector/tensor register.
+    ```
+    %padding_value = ... // padding value
+    %0 = vector.transfer_read %arg0[%c0, %c0], %padding_value {in_bounds = [false, true]} : tensor<?x16xf32>, vector<6x16xf32>
+    %1 = vector.transfer_read %arg1[...], %padding_value {in_bounds = [true]} : tensor<3072xf32>, vector<16xf32>
+    %2 = vector.broadcast %1 : vector<16xf32> to vector<6x16xf32>
+    %3 = arith.addf %0, %2 : vector<6x16xf32>
+    %4 = arith.maxf %3, %cst_0 : vector<6x16xf32>
+    %5 = vector.transfer_write %4, %arg0[%c0, %c0] {in_bounds = [false, true]} : vector<6x16xf32>, tensor<?x16xf32>
+    ```
+
+    Example #2: Padding value does matter, otherwise the result is wrong.
+    ```
+    %0 = vector.transfer_read %arg0[%c0, %c0], %padding_value {in_bounds = [false, true]} : tensor<?x?xf32>, vector<6x1xf32>
+    %1 = vector.transfer_read %arg1[...], %padding_value {in_bounds = [true, false]} : tensor<?x?xf32>, vector<1x16xf32>
+    %2 = vector.transfer_read %arg2[...], %padding_value {in_bounds = [false, false]} : tensor<?x?xf32>, vector<6x16xf32>
+    %3 = vector.contract %0, %1, %2 : vector<6x16xf32>
+    %4 = vector.transfer_write %3, %arg2[%c0, %c0] {in_bounds = [false, false]} : vector<6x16xf32>, tensor<?x?xf32>
+    ```
+  }];
+
+  let arguments = (ins TypedAttrInterface:$value,
+                   DefaultValuedAttr<DISCLinalgExt_PaddingValueMode,
+                    "::mlir::disc_ral::disc_linalg_ext::PaddingValueModeEnum::kAny">:$mode);
+  let results = (outs AnyType:$result);
+
+  let assemblyFormat = "attr-dict `padding_mode` `(` $mode `)` `,` `value` `(` $value `)`";
 }
 
 def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [

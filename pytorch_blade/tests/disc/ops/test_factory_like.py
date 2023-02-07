@@ -46,7 +46,13 @@ class TestFactoryLikes(DiscTestCase):
         def fulls_dtype(d0: int, d1: int, val: int, device: torch.device):
             return torch.full([d0, d1], val,
                               dtype=torch.float32, device=device)
+
+        self._test_factory_like(fulls, 2, 2, 3)
+        self._test_factory_like(fulls_dtype, 2, 2, 3)
         
+        if utils.torch_version_number() <= utils.parse_version("1.8.1"):
+            return
+
         @torch.jit.script
         def empty(d0: int, d1: int, val: int, device: torch.device):
             return torch.empty([d0, d1], device=device)
@@ -56,13 +62,9 @@ class TestFactoryLikes(DiscTestCase):
             return torch.empty([d0, d1],
                               dtype=torch.float32, device=device)
 
-        self._test_factory_like(fulls, 2, 2, 3)
-        self._test_factory_like(fulls_dtype, 2, 2, 3)
-
         # results are not numeric checkable
         self._test_factory_like(empty, 2, 2, 3, rtol=1e+6, atol=1e+6)
         self._test_factory_like(empty_dtype, 2, 2, 3, rtol=1e+6, atol=1e+6)
-
 
 if __name__ == "__main__":
     unittest.main()

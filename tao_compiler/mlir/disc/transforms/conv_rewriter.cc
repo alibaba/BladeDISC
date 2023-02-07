@@ -268,6 +268,7 @@ struct DiscConvRewriterPass
       TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("NVIDIA_TF32_OVERRIDE",
                                                  /*default_val=*/use_tf32,
                                                  &use_tf32));
+#if !defined(TENSORFLOW_USE_ROCM)
       if (cc_major >= 8 && (!is_fp32 || use_tf32) ||
           inputTy.getElementType().isF16() &&
               filterTy.getElementType().isF16()) {
@@ -281,6 +282,11 @@ struct DiscConvRewriterPass
         fillNCHW(outputLayout, num_spatial_dims);
         fillOIHW(filterLayout, num_spatial_dims);
       }
+#else
+      fillNCHW(inputLayout, num_spatial_dims);
+      fillNCHW(outputLayout, num_spatial_dims);
+      fillOIHW(filterLayout, num_spatial_dims);
+#endif
     } else {
 #if defined(TAO_AARCH64)
       if (isDepthwiseConv(params)) {

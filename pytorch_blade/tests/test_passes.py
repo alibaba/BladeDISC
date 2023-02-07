@@ -109,6 +109,55 @@ graph():
   return (%8)"""
         FileCheck().run(expect_gstr, zeros_cpu.graph)
 
+    def test_hack_gpu_device_1(self):
+        cfg = Config.get_current_context_or_new()
+        cfg.force_gpu_constants_to_device = "cuda:2"
+
+        @torch.jit.script
+        def move_to_devices(x, y):
+            return x.to('cuda'), y.to('cuda:1')
+
+        with cfg:
+            pass_manager._jit_pass_hack_gpu_device(move_to_devices.graph)
+        expect_gstr = """
+graph(%x.1 : Tensor,
+      %y.1 : Tensor):
+  # CHECK: prim::Constant[value="cuda:2"]
+  %57 : Device = prim::Constant[value="cuda:2"]()
+  %21 : bool = prim::Constant[value=0]()
+  %20 : NoneType = prim::Constant()
+  # CHECK: prim::Constant[value="cuda:2"]
+  %56 : Device = prim::Constant[value="cuda:2"]()
+  %23 : Tensor = aten::to(%x.1, %56, %20, %21, %21)
+  %45 : Tensor = aten::to(%y.1, %57, %20, %21, %21)
+  %46 : (Tensor, Tensor) = prim::TupleConstruct(%23, %45)
+  return (%46)"""
+        FileCheck().run(expect_gstr, move_to_devices.graph)
+
+    def test_hack_gpu_device_2(self):
+        cfg = Config.get_current_context_or_new()
+
+        @torch.jit.script
+        def move_to_devices(x, y):
+            return x.to('cuda:1'), y.to('cuda:2')
+
+        with cfg:
+            pass_manager._jit_pass_hack_gpu_device(move_to_devices.graph)
+        expect_gstr = """
+graph(%x.1 : Tensor,
+      %y.1 : Tensor):
+  # CHECK-DAG: prim::Constant[value="cuda:1"]
+  %57 : Device = prim::Constant[value="cuda:1"]()
+  %21 : bool = prim::Constant[value=0]()
+  %20 : NoneType = prim::Constant()
+  # CHECK-DAG: prim::Constant[value="cuda:2"]
+  %56 : Device = prim::Constant[value="cuda:2"]()
+  %23 : Tensor = aten::to(%x.1, %56, %20, %21, %21)
+  %45 : Tensor = aten::to(%y.1, %57, %20, %21, %21)
+  %46 : (Tensor, Tensor) = prim::TupleConstruct(%23, %45)
+  return (%46)"""
+        FileCheck().run(expect_gstr, move_to_devices.graph)
+
 
 if __name__ == "__main__":
     unittest.main()

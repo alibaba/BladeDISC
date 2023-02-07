@@ -454,3 +454,16 @@ def _jit_pass_hack_cpu_device(graph):
         if prim_const.hasAttribute('value') and prim_const.kindOf('value') == 's' and prim_const.s('value') == 'cpu':
             prim_const.s_('value', 'cuda')
 
+def _jit_pass_hack_gpu_device(graph):
+    cfg = Config.get_current_context_or_new()
+    if not cfg.force_gpu_constants_to_device:
+        return
+
+    torch._C._jit_pass_inline(graph)
+    nodes = [n for n in graph.nodes() if 'prim::Constant' in n.kind()]
+    for prim_const in nodes:
+        if prim_const.hasAttribute('value') and prim_const.kindOf('value') == 's':
+            val = prim_const.s('value')
+            if val == 'cuda' or val.startswith('cuda:'):
+                prim_const.s_('value', cfg.force_gpu_constants_to_device)
+

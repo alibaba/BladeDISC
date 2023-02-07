@@ -103,9 +103,9 @@ StatusOr<bool> IsFakeQuantArgumentConstant(Node* n) {
       DeviceNameUtils::ParseFullName(n->assigned_device_name(), &parsed));
   if (parsed.type != DEVICE_CPU) return false;
 
-  // multi DiscFakeQuant use one Const
-  if (n->type_string() == "Const" &&
-      std::all_of(n->out_nodes().begin(), n->out_nodes().end(), [](Node* out) {
+  // Const has DiscFakeQuant user
+  if (n->type_string() == "Const" && n->out_edges().size() > 1 &&
+      std::any_of(n->out_nodes().begin(), n->out_nodes().end(), [](Node* out) {
         return out->type_string() == "DiscFakeQuant";
       }))
     return true;

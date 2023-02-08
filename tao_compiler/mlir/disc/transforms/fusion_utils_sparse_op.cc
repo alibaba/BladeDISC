@@ -134,7 +134,6 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 
   // check fusiblity
   if (rhs.getFusionType() == FusionType::kWhere) {
-    return false;
     // Basic Input fusion for where op
     for (Operation* op : lhs.getOpList()) {
       if (!isInputFusible(op) || op->getAttr(kDiscShapeCalcAttr) != nullptr) {

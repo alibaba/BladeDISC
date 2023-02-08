@@ -4807,24 +4807,25 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
   Value indice_dim = b.create<memref::DimOp>(loc, segment_ids, 1);
   Value dense_rows = b.create<memref::DimOp>(loc, output, 0);
 
-#if 0
-  // memset output to 0
-  {
-    auto num_elements = emitNumElementsComputation(b, loc, output);
-    auto output_shape = getShapeValues(&b, output);
-    auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                                       /* upperBound */ num_elements,
-                                       /* step */ one);
-    for_op.getBody()->clear();
-    b.setInsertionPointToStart(for_op.getBody());
+  if (non_fusion) {
+    // memset output to 0
+    {
+      auto num_elements = emitNumElementsComputation(b, loc, output);
+      auto output_shape = getShapeValues(&b, output);
+      auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                         /* upperBound */ num_elements,
+                                         /* step */ one);
+      for_op.getBody()->clear();
+      b.setInsertionPointToStart(for_op.getBody());
 
-    Value i = for_op.getInductionVar();
-    auto index = calcMultiDimIndex(&b, loc, i, output_shape);
-    b.create<memref::StoreOp>(loc, zero_floating, output, index);
-    b.create<scf::YieldOp>(loc, ValueRange({}));
-    b.setInsertionPointAfter(for_op);
+      Value i = for_op.getInductionVar();
+      auto index = calcMultiDimIndex(&b, loc, i, output_shape);
+      b.create<memref::StoreOp>(loc, zero_floating, output, index);
+      b.create<scf::YieldOp>(loc, ValueRange({}));
+      b.setInsertionPointAfter(for_op);
+    }
   }
-#endif
+
   auto create_init_for_loop = [&](Value init_value, Value target_memref) {
     auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
                                        /* upperBound */ dense_rows,

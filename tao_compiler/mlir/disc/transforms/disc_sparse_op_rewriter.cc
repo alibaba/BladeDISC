@@ -290,10 +290,54 @@ struct RewriteSparseSegmentReductionOp
             origin_values, origin_indices, dense_shape,
             rewriter.getBoolAttr(op.getIsMean()));
 
-    // redirect use of origin empty_row_indicator to newly created op's output 1
-    // TODO(lanbo.llb): redirect reverse index map use
-    empty_row_indicator.replaceAllUsesWith(
-        sparse_segment_reduction_with_empty_rows.getResult(1));
+    // TODO(lanbo.llb): redirect reverse index map use, which is not necessary
+    // in Inference case
+    // Redirect use of origin empty_row_indicator to newly created op's output 1
+    if (empty_row_users.size() == 1) {
+      empty_row_indicator.replaceAllUsesWith(
+          sparse_segment_reduction_with_empty_rows.getResult(1));
+    } else if (empty_row_users.size() > 1) {
+      // In some cases, empty_row_indicator is used by multiple consumers,
+      // we should only replace uses of empty_row_indicator from the same consumers
+      for (auto user : empty_row_users) {
+        llvm::dbgs() << "*****************empty_row_user******************\n";
+        user->dump();
+        if (!(user && isa<mhlo::DynamicBroadcastInDimOp>(user))) {
+          llvm::dbgs() << "*****************not a DynamicBroadcastInDimOp******************\n";
+          return failure();
+        }
+        auto broadcast_users = llvm::to_vector<4>(user->getResult(0).getUsers());
+        llvm::dbgs() << "broadcast_users size: " << broadcast_users.size() << "\n";
+        if (broadcast_users.size() != 1) {
+          return failure();
+        }
+        llvm::dbgs() << "*****************1******************\n";
+        auto reshape_op = broadcast_users[0];
+        reshape_op->dump();
+        if (!(reshape_op && isa<mhlo::DynamicReshapeOp>(reshape_op))) {
+          return failure();
+        }
+        llvm::dbgs() << "*****************2******************\n";
+        auto reshape_users = llvm::to_vector<4>(reshape_op->getResult(0).getUsers());
+        llvm::dbgs() << "reshape users size: " << reshape_users.size() << "\n";
+        if (reshape_users.size() != 1) {
+          return failure();
+        }
+        llvm::dbgs() << "*****************3******************\n";
+        auto select_op = reshape_users[0];
+        select_op->dump();
+        if (!(select_op && isa<mhlo::SelectOp>(select_op))) {
+          return failure();
+        }
+        llvm::dbgs() << "*****************4******************\n";
+        auto sparse_reduction = select_op->getOperand(2).getDefiningOp();
+        llvm::dbgs() << "*****************what******************\n";
+        if (sparse_reduction == op.getOperation()) {
+          llvm::dbgs() << "*****************replace******************\n";
+          user->setOperand(0, sparse_segment_reduction_with_empty_rows.getResult(1));
+        }
+      }
+    }
     rewriter.replaceOp(op,
                        sparse_segment_reduction_with_empty_rows.getResult(0));
     return success();

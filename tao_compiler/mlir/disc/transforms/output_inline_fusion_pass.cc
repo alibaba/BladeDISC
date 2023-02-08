@@ -335,6 +335,34 @@ bool miscFuseHelper<lmhlo::SelectOp>(PatternRewriter& rewriter,
         auto new_load = rewriter.create<memref::LoadOp>(loc, output_memref,
                                                         store.getIndices());
         rewriter.replaceOp(load_op_in_block, new_load.getResult());
+#if 1
+        // We need to know if there exists a += compute(a)
+        // We can simply know if so if fusion is a kSparseReduction
+        // If so, we need to create a init loop for this memref
+        llvm::dbgs() << "Create memset output to 0\n";
+        rewriter.setInsertionPoint(parallel_op.getOperation());
+        Value zero_floating = rewriter.create<arith::ConstantOp>(
+            loc, rewriter.getFloatAttr(output_ty.getElementType(), 0));
+        Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+        Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+        auto output_shape = getShapeValues(&rewriter, output_memref);
+
+        // memset output to 0
+        auto num_elements =
+            emitNumElementsComputation(rewriter, loc, output_memref);
+        parallel_op.getOperation()->dump();
+        auto for_op = rewriter.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                                  /* upperBound */ num_elements,
+                                                  /* step */ one);
+        for_op.getBody()->clear();
+        rewriter.setInsertionPointToStart(for_op.getBody());
+
+        Value i = for_op.getInductionVar();
+        auto index = calcMultiDimIndex(&rewriter, loc, i, output_shape);
+        rewriter.create<memref::StoreOp>(loc, zero_floating, output_memref, index);
+        rewriter.create<scf::YieldOp>(loc, ValueRange({}));
+        rewriter.setInsertionPointAfter(for_op);
+#endif
       }
     });
 #endif

@@ -89,6 +89,28 @@ Status DiscLaunchOp::CompileAndRunMlir(OpKernelContext* ctx, DoneHelper* helper,
     return Status::OK();
   }
 
+  static const char* clusters_to_skip = getenv("DISC_SKIP_CLUSTERS");
+  if (clusters_to_skip) {
+    string refined_name = ";" + name() + ";";
+    string clusters_to_skip_str(clusters_to_skip);
+    if (clusters_to_skip_str.find(refined_name) != std::string::npos) {
+      VLOG(0) << "go fallback path due to cluster " << name()
+              << " in DISC_SKIP_CLUSTERS(" << clusters_to_skip << ")";
+      return Status::OK();
+    }
+  }
+
+  static const char* clusters_to_enable = getenv("DISC_ENABLE_CLUSTERS");
+  if (clusters_to_enable) {
+    string refined_name = ";" + name() + ";";
+    string clusters_to_enable_str(clusters_to_enable);
+    if (clusters_to_enable_str.find(refined_name) == std::string::npos) {
+      VLOG(0) << "go fallback path due to cluster not in" << name()
+              << " in DISC_ENABLE_CLUSTERS(" << clusters_to_enable << ")";
+      return Status::OK();
+    }
+  }
+
   auto call_info = &(helper->call_info);
   TF_RETURN_IF_ERROR(
       CompileToLocalExecutable(ctx, mlir_function_, /* is_mlir */ true,

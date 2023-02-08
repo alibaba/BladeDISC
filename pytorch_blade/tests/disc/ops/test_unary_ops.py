@@ -13,7 +13,7 @@ import torch
 import unittest
 from unittest import skipIf
 
-from tests.disc.testing_base import DiscTestCase
+from tests.disc.testing_base import DiscTestCase, skipTorchLE
 
 class TestDiscUnaryOps(DiscTestCase):
     def _test_unary_ops(self, unary_ops_func, test_data=None):
@@ -95,6 +95,7 @@ class TestDiscUnaryOps(DiscTestCase):
         test_data = (x, y)
         self._test_cvt_to_disc(type_as, test_data)
 
+    @skipTorchLE("1.8.1")
     def test_type(self):
         @torch.jit.script
         def tensor_type(x):

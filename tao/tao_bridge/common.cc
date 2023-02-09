@@ -95,9 +95,6 @@ static void AllocateTaoBridgeFlags() {
                                1000,
                                &opts->profiling_guided_compilation_candidates));
 
-  // Get options from environment for Blade-CPU
-  CHECK_OK(ReadBoolFromEnvVar("TVM_DUMP_PROTO", true, &opts->tvm_using_proto));
-
   // TAO WHALE features
   CHECK_OK(ReadBoolFromEnvVar("TAO_WHALE_SEPERATE_MICRO_BATCH", false,
                               &opts->seperate_whale_micro_batch));

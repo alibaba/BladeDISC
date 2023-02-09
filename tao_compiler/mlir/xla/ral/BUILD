@@ -25,7 +25,6 @@ load("//mlir/util:util.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
      "if_platform_alibaba",
-     "if_patine",
      "if_blade_gemm",
      "if_mkldnn",
      "if_disc_aarch64",
@@ -183,24 +182,6 @@ tf_cc_test(
 )
 
 cc_library(
-    name = "real_disc_patine_client_deps",
-    srcs = [],
-    hdrs = [],
-    copts = ["-Itao/third_party/PatineClient/build/install/include"],
-    linkopts = [
-      "-Ltao/third_party/PatineClient/build/install/lib64",
-      "-Wl,--start-group tao/third_party/PatineClient/build/intel/lib/libmkl_intel_ilp64.a tao/third_party/PatineClient/build/intel/lib/libmkl_gnu_thread.a tao/third_party/PatineClient/build/intel/lib/libmkl_core.a -Wl,--end-group",
-    ],
-    deps = ["//tao/third_party/PatineClient:patine_client"],
-)
-
-
-cc_library(
-    name = "disc_patine_client_deps",
-    deps = if_platform_alibaba([":real_disc_patine_client_deps"])
-)
-
-cc_library(
     name = "blade_gemm_deps",
     deps = if_torch_disc(
         ["@blade_gemm//:blade_gemm"],
@@ -304,8 +285,6 @@ cc_library(
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
         "context/quantized_gpu_kernel_impl.cc",
-    ]) + if_patine([
-        "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.cc",
         "context/common_context_impl_quantization.cc",
@@ -361,8 +340,6 @@ cc_library(
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:stream_executor_headers_lib",
         "@org_tensorflow//tensorflow/core:framework",
-    ]) + if_patine([
-        ":disc_patine_client_deps",
     ]) + if_blade_gemm([
         ":disc_blade_gemm_deps",
     ]) + if_mkldnn([
@@ -703,8 +680,6 @@ cc_library(
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
         "context/quantized_gpu_kernel_impl.cc",
-    ]) + if_patine([
-        "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.cc",
         "context/common_context_impl_quantization.cc",

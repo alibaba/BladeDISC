@@ -524,15 +524,6 @@ message InputShapeProto {
   TensorShapeProto shape = 2;
 }
 
-message TvmResultProto {
-  repeated InputShapeProto inputs_shape = 1;
-  uint64 func_hash = 2;
-  bytes lib_bytes = 3;
-  bytes params_bytes = 4;
-  bytes graph_bytes = 5;
-  bytes relay_mod = 6;
-}
-
 // A lite version of CompilationResult and Executable for TAO
 message CompilationResultProto {
   // Path of the cubin file on the disk,
@@ -542,15 +533,8 @@ message CompilationResultProto {
   bytes cubin = 1;
   repeated ThunkProto execution_plan = 2;
 
-  // TODO for cpu:
-  TvmResultProto tvm_result = 3;
-
   // for MLIR
   MlirResult mlir = 9;
-
-  // TODO for fpga:
-  // bytes computation_func;
-  // HalCnnModuleDictionary dic;
 
   // The map of inputs/outputs seems to be useless, since the
   // information is already extracted into the args message of each thunk.

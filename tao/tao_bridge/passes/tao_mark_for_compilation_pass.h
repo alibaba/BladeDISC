@@ -54,7 +54,6 @@ class TaoMarkForCompilationPass : public GraphOptimizationPass {
       if (opt->max_cluster_size > 0) {
         max_cluster_size_ = opt->max_cluster_size;
       }
-      use_tvm_ = opt->use_tvm;
       is_inner_ = opt->inner_tao_launch;
       if (opt->feats) {
         graph_tag_ = opt->feats->Tag();
@@ -66,7 +65,6 @@ class TaoMarkForCompilationPass : public GraphOptimizationPass {
   Status ResetClusterNumber();
 
  private:
-  bool use_tvm_;
   Status RunForTest(const GraphOptimizationPassOptions& options,
                     bool disable_deadness_analysis);
 

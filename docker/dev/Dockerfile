@@ -20,11 +20,10 @@ RUN apt-get update -y && apt-get install -y git curl vim libssl-dev wget unzip o
 RUN bash /install/scripts/install-cmake.sh
 RUN bash /install/scripts/install-bazel.sh
 RUN bash /install/scripts/install-python.sh
-RUN bash /install/scripts/install-llvm_toolchain.sh
 
 ARG DEVICE=cu110
 RUN bash /install/scripts/install-tensorrt.sh
 RUN bash /install/scripts/install-cudnn.sh
 
-ENV PATH="/usr/local/llvm_toolchain/bin:/opt/cmake/bin:${PATH}"
-ENV LD_LIBRARY_PATH="/usr/local/llvm_toolchain/lib:/usr/local/TensorRT/lib/:/usr/local/cuda/lib64/:${LD_LIBRARY_PATH}"
+ENV PATH="/opt/cmake/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/TensorRT/lib/:/usr/local/cuda/lib64/:${LD_LIBRARY_PATH}"

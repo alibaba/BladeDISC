@@ -820,7 +820,7 @@ void FusionPattern::findOpsOfSkeletonGroup(
           !shmem_cached_ops.contains(input_op) &&
           !all_skeletons.contains(input_op)) {
         auto output = input_op->getOperand(input_op->getNumOperands() - 1);
-        int collapsed_tile_dim = getCollapsedTileDim(output);
+        int64_t collapsed_tile_dim = getCollapsedTileDim(output);
         auto output_type = output.getType().cast<MemRefType>();
         if (collapsed_tile_dim != ShapedType::kDynamic) {
           auto bit_width = row_per_block * collapsed_tile_dim *
@@ -850,7 +850,7 @@ void FusionPattern::findOpsOfSkeletonGroup(
 int64_t FusionPattern::getCollapsedTileDim(Value value) {
   auto value_type = value.getType().cast<MemRefType>();
   auto value_shape = value_type.getShape();
-  int collapsed_tile_dim = 1;
+  int64_t collapsed_tile_dim = 1;
   for (auto tile : tile_plan_[value].tileSizes) {
     int dim = tile.first;
     if (value_shape[dim] == ShapedType::kDynamic) {
@@ -1698,12 +1698,12 @@ void StitchCPUAnalysis::dumpParallelPlan() {
     llvm::dbgs() << "  value: " << en.first << "\n";
     for (const auto& en2 : llvm::enumerate(en.second)) {
       llvm::dbgs() << "  parallel info #" << en2.index() << ": ";
-      int test = en2.value();
+      int64_t test = en2.value();
       auto& info = parallelInfoStore_[test];
       llvm::dbgs() << "id@prevId: " << info.id << "@" << info.producerId
                    << " || ";
       llvm::dbgs() << "consumerIds: ";
-      for (int id : info.consumerIds) llvm::dbgs() << id << " ";
+      for (int64_t id : info.consumerIds) llvm::dbgs() << id << " ";
       llvm::dbgs() << " || ";
       for (auto& innerEn : info.indices) {
         llvm::dbgs() << innerEn.first << " : "
@@ -1865,15 +1865,15 @@ bool TileInfo::merge(TileInfo& other) {
 }
 
 // Returns false if failed to merge.
-bool TileInfo::merge(int axis, int tileSize) {
+bool TileInfo::merge(int64_t axis, int64_t tileSize) {
   auto it = tileSizes.find(axis);
   if (it == tileSizes.end()) {
     tileSizes[axis] = tileSize;
     return true;
   }
 
-  int minSize = std::min(it->second, tileSize);
-  int maxSize = std::max(it->second, tileSize);
+  int64_t minSize = std::min(it->second, tileSize);
+  int64_t maxSize = std::max(it->second, tileSize);
   if (minSize == ShapedType::kDynamic) {
     it->second = ShapedType::kDynamic;
     return true;
@@ -1893,8 +1893,8 @@ bool TileInfo::updateIfNotEqual(TileInfo& other) {
 
 // Assigns a tile sizes for each buffers.
 // Take buffer `a` memref<?x?x?xf32> as an example:
-//  Tile(a) = {0 : -1}: means axis 0 is fully selected as tile
-//  Tile(a) = {1 : -1, 2 : 4}: means axis 1 is fully selected and
+//  Tile(a) = {0 : kDynamic}: means axis 0 is fully selected as tile
+//  Tile(a) = {1 : kDynamic, 2 : 4}: means axis 1 is fully selected and
 //                             tile size for axis 2 is 4.
 bool StitchCPUAnalysis::doTileAnalysis() {
   bool changed = false;

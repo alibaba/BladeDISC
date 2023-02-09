@@ -172,13 +172,13 @@ struct TileInfo {
   // Maps axis -> tile_size along this axis.
   // select all the elements along the axis if tile_size ==
   // ShapedType::kDynamic
-  DenseMap<int, int> tileSizes;
+  DenseMap<int64_t, int64_t> tileSizes;
 
   // Returns false if failed to merge.
   bool merge(TileInfo& other);
 
   // Returns false if failed to merge.
-  bool merge(int axis, int tileSize = -1);
+  bool merge(int64_t axis, int64_t tileSize = ShapedType::kDynamic);
 
   // return true if updated.
   bool updateIfNotEqual(TileInfo& other);

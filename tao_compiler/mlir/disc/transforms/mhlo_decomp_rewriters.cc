@@ -111,6 +111,29 @@ LogicalResult PadOpConvert::matchAndRewrite(mhlo::PadOp op,
 }
 }  // namespace
 
+namespace {
+struct SliceOpConvert : public OpRewritePattern<mhlo::SliceOp> {
+  explicit SliceOpConvert(MLIRContext* context) : OpRewritePattern(context) {}
+  LogicalResult matchAndRewrite(mhlo::SliceOp op,
+                                PatternRewriter& rewriter) const override;
+};
+
+LogicalResult SliceOpConvert::matchAndRewrite(mhlo::SliceOp op,
+                                            PatternRewriter& rewriter) const {
+  auto loc = op.getLoc();
+  Value startIndices =
+      rewriter.create<mhlo::ConstantOp>(loc, op.getStartIndices());
+  Value limitIndices =
+      rewriter.create<mhlo::ConstantOp>(loc, op.getLimitIndices());
+  Value strides =
+      rewriter.create<mhlo::ConstantOp>(loc, op.getStrides());
+  auto operand = op.getOperand();
+  rewriter.replaceOpWithNewOp<mhlo::RealDynamicSliceOp>(
+      op, op.getType(), operand, startIndices, limitIndices, strides);
+  return success();
+}
+}  // namespace
+
 struct MhloDecompositionRewriterPass
     : public MhloDecompositionRewriterPassBase<MhloDecompositionRewriterPass> {
   void runOnOperation() override {
@@ -119,6 +142,7 @@ struct MhloDecompositionRewriterPass
     RewritePatternSet patterns(ctx);
     patterns.insert<BatchNormInferenceOpConvert>(ctx);
     patterns.insert<PadOpConvert>(ctx);
+    patterns.insert<SliceOpConvert>(ctx);
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");
       signalPassFailure();

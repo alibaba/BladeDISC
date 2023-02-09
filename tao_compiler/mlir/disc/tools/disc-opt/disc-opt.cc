@@ -33,6 +33,7 @@ limitations under the License.
 #include "mlir/disc/IR/hlo_disc_ops.h"
 #include "mlir/disc/IR/lhlo_disc_ops.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
 #include "mlir/disc/tools/disc-transform/transforms/register_passes.h"
 #include "mlir/disc/transforms/register_passes.h"
@@ -67,6 +68,8 @@ int main(int argc, char** argv) {
   registry.addExtensions<
       mlir::iree_compiler::IREE::LinalgExt::LinalgExtTransformOpsExtension,
       transform_ext::StructuredTransformOpsExtension>();
+  mlir::disc_ral::disc_linalg_ext::registerTilingInterfaceExternalModels(
+      registry);
 
   return failed(mlir::MlirOptMain(argc, argv, "MLIR HLO pass driver\n",
                                   registry,

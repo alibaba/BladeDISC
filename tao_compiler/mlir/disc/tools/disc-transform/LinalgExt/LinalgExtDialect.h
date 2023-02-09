@@ -12,6 +12,7 @@
 #ifndef DISC_TOOLS_DISC_TRANSFORM_LINALGEXT_DIALECT_EXT_
 #define DISC_TOOLS_DISC_TRANSFORM_LINALGEXT_DIALECT_EXT_
 
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h.inc"

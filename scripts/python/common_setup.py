@@ -622,6 +622,8 @@ def symlink_disc_files(args):
     link_dirs(os.path.join(dir_tf_community, 'tao', 'third_party', 'PatineClient'),
             os.path.join(dir_platform_alibaba, 'third_party', 'PatineClient'))
     logger.info("linking blade_gemm")
+    with cwd(os.path.join(dir_platform_alibaba, 'blade_gemm', "third_party", "cutlass")):
+        execute("git apply ../patch.diff")
     link_dirs(os.path.join(get_source_root_dir(), 'tf_community', 'tao', 'blade_gemm'),
             os.path.join(dir_platform_alibaba, 'blade_gemm'))
     logger.info("linking blade_service_common")

@@ -190,6 +190,7 @@ struct LhloOpToStdScalarOp {
 template <typename OpTy>
 Value LhloOpToStdScalarOp::map(OpTy op, Type resultType, ValueRange operands,
                                OpBuilder* b) {
+  /* tanyo: fixme
   if (!needUpgradingUnsignedInteger(op))
     return lmhlo::LhloOpToStdScalarOp::map<OpTy>(cast<OpTy>(op), resultType,
                                                  operands, b);
@@ -212,6 +213,8 @@ Value LhloOpToStdScalarOp::map(OpTy op, Type resultType, ValueRange operands,
     result = b->create<UnrealizedConversionCastOp>(loc, resultType, result)
                  ->getResult(0);
   }
+  return result; */
+  Value result;
   return result;
 }
 

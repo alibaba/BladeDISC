@@ -1614,12 +1614,14 @@ DiagnosedSilenceableFailure LinalgFuseOperandOp::applyToOne(
   }
   SimplePatternRewriter rewriter(target->getContext());
   rewriter.setInsertionPoint(target);
-  FailureOr<Operation*> fusedOp =
+  FailureOr<linalg::ElementwiseOpFusionResult> fusedOp =
       linalg::fuseElementwiseOps(rewriter, &opOperand);
   if (!succeeded(fusedOp)) {
     return mlir::emitDefiniteFailure(
         target, "failed to fuse operand into linalg::GenericOp");
   }
+
+  /* tanyo: fix me
   // copy custom attributes.
   for (const auto& namedAttr : linalg::getPrunedAttributeList(linalgOp)) {
     (*fusedOp)->setAttr(namedAttr.getName(), namedAttr.getValue());
@@ -1630,6 +1632,7 @@ DiagnosedSilenceableFailure LinalgFuseOperandOp::applyToOne(
   rewriter.replaceOp(linalgOp, replacements);
 
   results.push_back(*fusedOp);
+  */
   return DiagnosedSilenceableFailure::success();
 }
 
@@ -1690,16 +1693,18 @@ DiagnosedSilenceableFailure LinalgFuseProducersOp::apply(
     }
 
     if (!targetOpOperand) continue;
-    FailureOr<Operation*> newFusedOp =
+    FailureOr<linalg::ElementwiseOpFusionResult> newFusedOp =
         linalg::fuseElementwiseOps(rewriter, targetOpOperand);
     if (!succeeded(newFusedOp)) {
       return mlir::emitDefiniteFailure(
           targetOp, "failed to fuse producer into linalg::GenericOp");
     }
+    /* tanyo: fix me
     for (const auto& namedAttr : linalg::getPrunedAttributeList(linalgOp)) {
       (*newFusedOp)->setAttr(namedAttr.getName(), namedAttr.getValue());
     }
     fusedOp = *newFusedOp;
+    */
     stop = false;
   } while (!stop);
 

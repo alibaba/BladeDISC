@@ -52,6 +52,7 @@ limitations under the License.
 #include "mlir/disc/transforms/placement_utils.h"
 #include "mlir/disc/transforms/rewriters.h"
 
+#define DEBUG_TYPE "disc_lower_to_library_call.cc"
 namespace mlir {
 namespace disc_ral {
 
@@ -889,6 +890,7 @@ struct DiscLowerToLibraryCallPass
   }
 
   void runOnOperation() override {
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
     func::FuncOp func = getOperation();
     // skip kdot fusion func.
     if (func->getAttrOfType<StringAttr>(kFuncCompIntensFusionAttr)) {
@@ -924,10 +926,12 @@ struct DiscLowerToLibraryCallPass
     // custom call related
     patterns.insert<CustomCallV2OpConvertor>(context, gpu_enabled_);
 
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");
       signalPassFailure();
     }
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   }
 };
 

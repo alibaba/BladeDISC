@@ -30,6 +30,7 @@ limitations under the License.
 #include "mlir/disc/transforms/placement_utils.h"
 #include "mlir/xla/ral/ral_metadata.h"
 #include "tensorflow/core/platform/env.h"
+#include "llvm/Support/Debug.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -146,10 +147,12 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
 // memref<...>
 LogicalResult DiscConstToRALPass::convertConstantOp(
     ConstantOp const_op, MetadataFileEmitter& emitter) {
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   OpBuilder builder(const_op);
   Location loc = const_op.getLoc();
   DenseElementsAttr valueAttr = const_op.getValue().cast<DenseElementsAttr>();
   Type elemType = getElementTypeOrSelf(valueAttr);
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
 
   // Convert i1 -> i8
   if (elemType.getIntOrFloatBitWidth() == 1) {
@@ -160,10 +163,12 @@ LogicalResult DiscConstToRALPass::convertConstantOp(
           return llvm::APInt(8, intVal.getZExtValue());
         }));
   }
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
 
   Value result = const_op.getOperation()->getOperand(0);
   MemRefType memref = result.getType().cast<MemRefType>();
   bool on_host = !placement_utils::isGpuMemRef(result);
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
 
   StrT data;
   StrT name;
@@ -172,10 +177,12 @@ LogicalResult DiscConstToRALPass::convertConstantOp(
     const_op.emitError("fail to general a unique name for const ops");
     return failure();
   }
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   name.push_back('\0');
   std::string name_str = std::string(name).substr(0, name.size() - 1);
   std::string data_str = std::string(data);
 
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   // save data
   auto name_idx_map = on_host ? &host_name_idx_map_ : &device_name_idx_map_;
   auto it = name_idx_map->find(name_str);
@@ -190,12 +197,14 @@ LogicalResult DiscConstToRALPass::convertConstantOp(
     }
     it = name_idx_map->emplace(std::move(name_str), next_const_idx).first;
   }
+  std::cout << __FILE__ << ":" << __LINE__ << "\n";
 
   std::string symbol_name =
       ("__global_const_" + llvm::Twine(num_processing_const_ops_++)).str();
   Value const_name_global = LLVM::createGlobalString(
       loc, builder, symbol_name, name, LLVM::Linkage::Internal);
 
+  std::cout << __FILE__ << ":" << __LINE__ << "\n";
   ModuleOp m = getOperation();
   MLIRContext* ctx = m.getContext();
   Type pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
@@ -214,6 +223,7 @@ LogicalResult DiscConstToRALPass::convertConstantOp(
 
   result.replaceAllUsesWith(dispatch_op.getResult(0));
   const_op.erase();
+  std::cout << __FILE__ << ":" << __LINE__ << "\n";
   return success();
 }
 

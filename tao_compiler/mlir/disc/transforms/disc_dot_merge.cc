@@ -393,12 +393,14 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
           limit[j] = orig_dot_type.getDimSize(j);
         }
       }
-      auto slice = builder.create<mhlo::SliceOp>(
+      Value slice = builder.create<mhlo::SliceOp>(
           loc, merged_dot, GetI64ElementsAttr(start, &builder),
           GetI64ElementsAttr(limit, &builder),
           GetI64ElementsAttr(strides, &builder));
-      slice.getResult().setType(op->getResult(0).getType());
-      op->replaceAllUsesWith(slice);
+
+      auto cast_slice = builder.create<tensor::CastOp>(
+		      loc, op->getResult(0).getType(), slice);
+      op->replaceAllUsesWith(cast_slice);
     }
   } else {
     // Use dynamic-dim ops.
@@ -456,12 +458,12 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
       }
       auto slice_type = RankedTensorType::get(slice_shapes, element_type);
 
-      auto dyn_slice = builder.create<mhlo::RealDynamicSliceOp>(
+      Value dyn_slice = builder.create<mhlo::RealDynamicSliceOp>(
           loc, slice_type, merged_dot, start_indices, limit_indices,
           strides_indices);
-      dyn_slice.getResult().setType(op->getResult(0).getType());
+      auto cast_dyn_slice = builder.create<tensor::CastOp>(loc, op->getResult(0).getType(), dyn_slice);
 
-      op->replaceAllUsesWith(dyn_slice);
+      op->replaceAllUsesWith(cast_dyn_slice);
     }
   }
 

@@ -429,7 +429,7 @@ class ReviseGpuKernelOutliningPass
       assert(gpu_func_op && "gpu_func_op is empty");
       gpu_func_op.walk([&](AllocOp alloc) {
         auto memref_type = alloc.getResult().getType().cast<MemRefType>();
-        assert(memref_type.getMemorySpaceAsInt() ==
+        assert(memref_type.getMemorySpace().dyn_cast<gpu::AddressSpaceAttr>().getValue() ==
                    gpu::GPUDialect::getWorkgroupAddressSpace() &&
                "unexpected alloc op in gpu_func_op");
         convertWorkgroupBuffer(gpu_func_op, alloc);

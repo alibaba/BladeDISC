@@ -95,8 +95,39 @@ cc_library(
         "//visibility:private"
     ],
     deps = if_torch_disc(
-        ["@mlir-hlo//:mlir_hlo"],
-        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo"]
+        ["@mlir-hlo//:mlir_hlo",
+  "@mlir-hlo//:legalize_to_linalg_utils",
+  "@mlir-hlo//:mhlo_passes",
+  "@mlir-hlo//:codegen_utils",
+  "@mlir-hlo//:placement_utils",
+	 ],
+        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+	"@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mhlo_passes",
+	"@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:legalize_to_linalg_utils",
+	"@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:codegen_utils",
+	"@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:placement_utils",
+	 ]
+    )
+)
+
+cc_library(
+    name = "mlir_lhlo_delegate",
+    visibility = [
+        "//visibility:private"
+    ],
+    deps = if_torch_disc(
+["@mlir-hlo//:lhlo",
+ "@mlir-hlo//:lhlo_gpu",
+  "@mlir-hlo//:map_hlo_to_lhlo_op",
+  "@mlir-hlo//:lmhlo_passes",
+  "@mlir-hlo//:map_lmhlo_to_scalar_op",
+  ],
+["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+ "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo_gpu",
+	"@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lmhlo_passes",
+	"@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_hlo_to_lhlo_op",
+	"@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+       ]
     )
 )
 
@@ -2436,6 +2467,7 @@ cc_library(
         ":mhlo_disc_enums_inc_gen",
         ":mhlo_disc_ops_inc_gen",
         ":mlir_hlo_delegate",
+        ":mlir_lhlo_delegate",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Analysis",
         "@llvm-project//mlir:ControlFlowInterfaces",

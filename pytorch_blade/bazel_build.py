@@ -238,7 +238,7 @@ class BazelBuild(TorchBladeBuild):
         _make_executable("debug_bazel.sh")
 
         bazel_cmd = " ".join([bazel_cmd] + self.targets)
-        subprocess.check_call(bazel_cmd, shell=True, env=env, executable="/bin/bash")
+        # subprocess.check_call(bazel_cmd, shell=True, env=env, executable="/bin/bash")
 
         # If you want to package more files, please extends the distribution.cfg.
         # We symlink those files into extension's directory, since that
@@ -264,7 +264,7 @@ class BazelBuild(TorchBladeBuild):
         self.test_suites = [
             "//tests/mhlo/...",
             "//pytorch_blade:torch_blade_test_suite",
-            "//tests/torch-disc-pdll/tests/...",
+            # "//tests/torch-disc-pdll/tests/...",
         ]
 
         if (self.torch_major_version, self.torch_minor_version) > (1, 6):

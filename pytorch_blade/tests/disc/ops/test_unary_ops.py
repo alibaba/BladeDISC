@@ -95,6 +95,7 @@ class TestDiscUnaryOps(DiscTestCase):
         test_data = (x, y)
         self._test_cvt_to_disc(type_as, test_data)
 
+    # test aten::to(prim::dtype(x))
     @skipTorchLE("1.8.1")
     def test_type(self):
         @torch.jit.script

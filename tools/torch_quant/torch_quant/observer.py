@@ -184,7 +184,7 @@ class PerChannelMinMaxObserver(Observer):
             max_val = self.max_val
             x_dim = x.size()
 
-            new_axis_list = [i for i in range(len(x_dim))]  # noqa: C416
+            new_axis_list = list(range(len(x_dim)))
             new_axis_list[self.ch_axis] = 0
             new_axis_list[0] = self.ch_axis
             y = x.permute(new_axis_list)

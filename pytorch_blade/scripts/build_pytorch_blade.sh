@@ -46,7 +46,7 @@ function ci_build() {
     fi
 
     if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
-      export TORCH_BLADE_BUILD_TENSORRT=ON
+      export TORCH_BLADE_BUILD_TENSORRT=${TORCH_BLADE_BUILD_TENSORRT:-ON}
       export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
       python3 ../scripts/python/common_setup.py $COMMON_SETUP_ARGS
     else

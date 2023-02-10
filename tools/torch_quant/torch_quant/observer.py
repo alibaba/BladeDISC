@@ -10,7 +10,7 @@
 # limitations under the License.
 
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import NamedTuple, Tuple
 
 import torch
@@ -72,9 +72,10 @@ class Observer(torch.nn.Module, ABC):
         return self.qscheme in (torch.per_tensor_symmetric, torch.per_channel_symmetric)
 
     @property
-    @abstractmethod
     def qparams(self) -> QParams:
-        ...
+        return QParams(qscheme=self.qscheme, dtype=self.dtype,
+                       scale=self.scale,
+                       zero_point=self.zero_point)
 
     def _calculate_qparams(self, min_val, max_val) -> Tuple[torch.Tensor, torch.Tensor]:
         if not check_min_max_valid(min_val, max_val):
@@ -150,12 +151,6 @@ class MinMaxObserver(Observer):
         self.register_buffer("scale", torch.tensor([1.]))
         self.register_buffer("zero_point", torch.tensor([0], dtype=torch.int32))
 
-    @property
-    def qparams(self) -> QParams:
-        return QParams(qscheme=self.qscheme, dtype=self.dtype,
-                       scale=self.scale,
-                       zero_point=self.zero_point)
-
     def forward(self, x):
         if self.observe:
             min_val, max_val = torch.aminmax(x.detach().to(self.min_val.dtype))
@@ -179,12 +174,6 @@ class PerChannelMinMaxObserver(Observer):
         self.register_buffer("scale", torch.tensor([]))
         self.register_buffer("zero_point", torch.tensor([], dtype=torch.int32))
         self.ch_axis = ch_axis
-
-    @property
-    def qparams(self) -> QParams:
-        return QParams(qscheme=self.qscheme, dtype=self.dtype,
-                       scale=self.scale,
-                       zero_point=self.zero_point)
 
     def forward(self, x):
         if self.observe:
@@ -237,12 +226,6 @@ class BiasObserver(Observer):
         self.q_min, self.q_max = calc_quant_min_max(self.bit, self.signed)
         self.register_buffer("scale", torch.tensor(1.))
         self.register_buffer("zero_point", torch.tensor(0, dtype=torch.int32))
-
-    @property
-    def qparams(self) -> QParams:
-        return QParams(qscheme=self.qscheme, dtype=self.dtype,
-                       scale=self.scale,
-                       zero_point=self.zero_point)
 
     def forward(self, x):
         if self.observe:

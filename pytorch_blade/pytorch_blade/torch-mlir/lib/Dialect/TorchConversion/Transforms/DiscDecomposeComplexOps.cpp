@@ -216,7 +216,7 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
       ArrayRef<int64_t> inputShape = selfTy.getSizes();
       auto rank = inputShape.size();
       dimInt = toPositiveDim(dimInt, rank);
-      if (inputShape[dimInt] != ShapedType::kDynamic && chunkSizeInt > 0) {
+      if (inputShape[dimInt] != kUnknownSize && chunkSizeInt > 0) {
         chunksInt = inputShape[dimInt] / chunkSizeInt;
       }
     }
@@ -356,7 +356,7 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
         loc, rewriter.getI64IntegerAttr(1));
     ArrayRef<int64_t> inputShape = inputTy.getSizes();
     SmallVector<int64_t> sliceShape{inputShape.begin(), inputShape.end()};
-    sliceShape[dimInt] = ShapedType::kDynamic;
+    sliceShape[dimInt] = kUnknownSize;
 
     Type sliceTy = inputTy.getWithSizesAndDtype(
         llvm::makeArrayRef(sliceShape), inputTy.getDtype());

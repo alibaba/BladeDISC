@@ -646,6 +646,8 @@ void dumpConvLikeKernelProflingInfo(const ConvParams& params, size_t nanosec,
               << "\tBytes = " << bytes << "\n"
               << "\tBandwidth = " << double(bytes) / double(nanosec) << " GB\n"
               << "\tGFLOPS = " << double(gflops) / double(nanosec) << "\n";
+  TAO_VLOG(0) << "weight_is_const = " << params.weight_is_const << "\n";
+  TAO_VLOG(0) << "is_depthwise = " << params.is_depthwise << "\n";
 }
 
 #if defined(TAO_AARCH64)

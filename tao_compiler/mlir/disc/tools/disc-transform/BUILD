@@ -314,6 +314,7 @@ cc_library(
     name = "transform_dialect_interpreter",
     srcs = ["transforms/transform_dialect_interpreter.cc"],
     deps = [
+        ":DISCLinalgExtDialect",
         ":disc_transform_ops",
         ":pass_details",
         "@iree-dialects//:IREELinalgExtDialect",

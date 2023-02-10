@@ -39,6 +39,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
 #include "mlir/disc/tools/disc-transform/transforms/PassDetail.h"
 #include "mlir/disc/tools/disc-transform/utils.h"
@@ -90,6 +91,7 @@ void addTransformDialectDependentDialects(DialectRegistry& registry) {
   linalg::registerTransformDialectExtension(registry);
   scf::registerTransformDialectExtension(registry);
   registerTransformDialectCommonExtension(registry);
+  disc_linalg_ext::registerTilingInterfaceExternalModels(registry);
 }
 
 namespace {

@@ -12,7 +12,8 @@
 import logging
 from collections import defaultdict
 from functools import partial
-from typing import Any, Callable, Dict, Iterable, Set, Tuple, Type
+from typing import Any, Callable, Dict, Iterable, Set, Tuple, Type, Optional
+from inspect import signature
 
 import torch
 import torch.nn as nn
@@ -52,6 +53,12 @@ def _add_module(root: nn.Module, full_path: str, module: nn.Module) -> None:
     parent, name = _locate_parent(root, full_path)
     parent.add_module(name, module)
 
+def _override_module(root: nn.Module, full_path: str, module: nn.Module) -> None:
+    parent, name = _locate_parent(root, full_path)
+    if not hasattr(parent, name):
+        raise RuntimeError(f"There is no module named {name}.")
+    delattr(parent, name)
+    parent.add_module(name, module)
 
 def _register_buffer(root: nn.Module, full_path: str, tensor: torch.Tensor) -> None:
     parent, name = _locate_parent(root, full_path)
@@ -65,7 +72,7 @@ class GraphModContext:
     def __init__(self, gm: GraphModule, root: nn.Module,
                  act_ob_ctr: Callable[..., Observer],
                  w_ob_ctr: Callable[..., Observer],
-                 bias_ob_ctr: Callable[..., Observer]) -> None:
+                 bias_ob_ctr: Optional[Callable[..., Observer]] = None) -> None:
         self.gm = gm
         self.root = root
         self.modules = dict(self.root.named_modules(remove_duplicate=False))
@@ -120,7 +127,11 @@ class GraphModContext:
     def get_or_create_module(self, full_path: str, constructor: Callable[[], nn.Module]) -> nn.Module:
         for n, m in self.root.named_modules(remove_duplicate=False):
             if n == full_path:
-                _add_module(self.gm, full_path, m)
+                # If an observer module with the same full_path already exists, get its QParams and
+                # use it to instantiate the new observer.
+                if hasattr(m, "qparams") and hasattr(constructor.func, "from_qparams"):
+                    m = constructor.func.from_qparams(m.qparams)
+                self.add_module(full_path, m)
                 return m
 
         m = constructor()
@@ -164,7 +175,7 @@ def insert_act_observer(ctx: GraphModContext) -> None:
     ctx.gm.recompile()
 
 
-def quantizable_module_to_observed(ctx: GraphModContext) -> None:
+def quantizable_module_to_observed(ctx: GraphModContext, is_observe_bias: bool = False) -> None:
     """
     Replace quantizable modules with observed version.
 
@@ -175,6 +186,7 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
 
     Args:
         ctx (GraphModContext): Context object for graph modification.
+        is_observe_bias (bool): Whether bias should be observed
     """
     for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
         src = ctx.modules[node.target]
@@ -183,10 +195,12 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
             raise ValueError(f'{type(src)} cannot be observed.')
         act_ob = ctx.modules[node.args[0].target]
         w_ob_path = f'{node.target}.w_ob'
-        bias_ob_path = f'{node.target}.bias_ob'
         w_ob = ctx.get_or_create_module(w_ob_path, ctx.w_ob_ctr)
-        bias_ob = ctx.get_or_create_module(
-            bias_ob_path, partial(ctx.bias_ob_ctr, w_ob, act_ob))
+        bias_ob = None
+        if is_observe_bias:
+            bias_ob_path = f'{node.target}.bias_ob'
+            bias_ob = ctx.get_or_create_module(
+                bias_ob_path, partial(ctx.bias_ob_ctr, w_ob, act_ob))
         dst = dst_type.from_float(src, w_ob, bias_ob)
         ctx.replace_module(node.target, dst)
     ctx.gm.recompile()

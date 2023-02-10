@@ -29,6 +29,7 @@ from torch_quant.graph import (
 from torch_quant.module import ModuleFilter, copy_and_replace, fx_trace
 from torch_quant.observer import (
     BiasObserver,
+    LSQObserver,
     MinMaxObserver,
     Observer,
     PerChannelMinMaxObserver,
@@ -59,6 +60,13 @@ DEFAULT_W_OB_CTR = {
 
 DEFAULT_BIAS_OB_CTR = BiasObserver
 
+DEFAULT_QAT_W_OB_CTR = partial(LSQObserver, dtype=torch.qint8)
+DEFAULT_QAT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
+    Backend.REFERENCE: partial(LSQObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
+    Backend.DISC: partial(LSQObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
+    Backend.FBGEMM: partial(LSQObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
+}
+
 
 class Quantizer:
     def __init__(self, module_filter: Optional[ModuleFilter] = None,
@@ -83,7 +91,7 @@ class Quantizer:
             ctx.modify_graph([
                 set_qconfig,
                 insert_act_observer,
-                quantizable_module_to_observed,
+                partial(quantizable_module_to_observed, is_observe_bias=True),
             ])
         else:
             ctx.modify_graph([set_qconfig, insert_act_observer])
@@ -95,14 +103,34 @@ class Quantizer:
             self.calib_gm(x.gm, x.m)
         return copy_and_replace(model, trace_mapping)
 
+    def qat_gm(self, gm: GraphModule, root: nn.Module) -> None:
+        ctx = GraphModContext(gm, root, DEFAULT_QAT_ACT_OB_CTR[self.backend],
+                              DEFAULT_QAT_W_OB_CTR, None)
+        ctx.modify_graph([
+            set_qconfig,
+            insert_act_observer,
+            # Generally we do not add fake-quant to bias during qat fine-tuning. If
+            # users want to evaluate the accuracy of a model in specific state, they
+            # should use the model returned by `quantizer.quantize`
+            partial(quantizable_module_to_observed, is_observe_bias=False)])
+        toggle_observer(gm, observe=False, fake_quant=True)
+
+    def qat(self, model: nn.Module) -> nn.Module:
+        trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
+        for x in trace_mapping.values():
+            self.qat_gm(x.gm, x.m)
+        return copy_and_replace(model, trace_mapping)
+
     def quantize_gm(self, gm: GraphModule, root: nn.Module) -> None:
         ctx = GraphModContext(gm, root, self.act_ob_ctr,
                               self.w_ob_ctr, self.bias_ob_ctr)
+        # TODO: for x86 disc backend, the bias does not need to be
+        # fake-quantized while for aarch64 disc backend， it needs.
         if self.backend == Backend.DISC:
             ctx.modify_graph([
                 set_qconfig,
                 insert_act_observer,
-                quantizable_module_to_observed,
+                partial(quantizable_module_to_observed, is_observe_bias=True),
             ])
             toggle_observer(gm, observe=False, fake_quant=True)
 

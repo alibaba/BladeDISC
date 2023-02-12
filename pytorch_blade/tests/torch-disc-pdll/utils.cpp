@@ -261,6 +261,20 @@ static void convertTorchConstantFloatToFloatAttr(
   results.push_back(rewriter.getF64FloatAttr(elem));
 }
 
+static void convertTorchConstantFloat32ToFloat32Attr(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+
+  double elem;
+  auto status =
+      matchPattern(values[0].cast<Value>(), Torch::m_TorchConstantFloat(&elem));
+  assert(status);
+
+  results.push_back(rewriter.getF32FloatAttr(float(elem)));
+}
+
 static void convertTorchConstantIntListToI64DenseElemsAttr(
     PatternRewriter& rewriter,
     PDLResultList& results,

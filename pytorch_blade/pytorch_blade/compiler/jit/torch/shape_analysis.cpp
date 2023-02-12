@@ -78,6 +78,7 @@ ShapeSymbol getSymDimSize(TensorTypePtr type, int64_t dim) {
         return ShapeSymbol::fromStaticSize(dimSize.static_size());
     }
   }
+#endif
   return ShapeSymbol::newSymbol();
 }
 
@@ -1435,8 +1436,7 @@ class ShapePropagator : public PropertyPropBase {
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
             auto ret = type;
             auto dtype = getScalarTypeFromValue(node->namedInput(attr::dtype));
-            if (dtype) {
-              return {ret->withScalarType(dtype)};
+            if (dtype) return {ret->withScalarType(dtype)};
             if (maybe_dtype_option && !maybe_dtype_option->isNone()) {
               return {ret->withScalarType(maybe_dtype_option->toScalarType())};
             } else {

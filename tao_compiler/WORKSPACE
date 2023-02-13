@@ -5,6 +5,10 @@ local_repository(
     path = "../tf_community",
 )
 
+local_repository(
+  name = "mlir-hlo",
+  path = "../tf_community/tensorflow/compiler/xla/mlir_hlo",
+)
 # Initialize the TensorFlow repository and all dependencies.
 #
 # The cascade of load() statements and tf_workspace?() calls works around the

@@ -627,7 +627,7 @@ static SmallVector<Value> getIndicesForAccess(OpBuilder& b, Location loc,
 static LogicalResult inlinePayload(OpBuilder& b, LinalgOp linalgOp,
                                    ValueRange ivs, ValueRange argValues) {
   Block* body = linalgOp.getBlock();
-  BlockAndValueMapping map;
+  IRMapping map;
   map.map(body->getArguments(), argValues);
   for (auto& op : body->without_terminator()) {
     if (auto indexOp = dyn_cast<IndexOp>(&op)) {
@@ -668,10 +668,13 @@ struct LinalgOpTilingInterface
   /// Return the loop iterator type.
   SmallVector<utils::IteratorType> getLoopIteratorTypes(Operation* op) const {
     LinalgOpTy concreteOp = cast<LinalgOpTy>(op);
-    return llvm::to_vector(llvm::map_range(
-        concreteOp.getIteratorTypesArray(), [](StringRef iteratorType) {
-          return utils::symbolizeIteratorType(iteratorType).value();
-        }));
+    return concreteOp.getIteratorTypesArray();
+    // return llvm::to_vector(concreteOp.getIteratorTypesArray());
+
+    // return llvm::to_vector(llvm::map_range(
+    //     concreteOp.getIteratorTypesArray(), [](StringRef iteratorType) {
+    //       return utils::symbolizeIteratorType(iteratorType).value();
+    //     }));
   }
 
   /// Return the iteration domain range.
@@ -708,7 +711,7 @@ struct LinalgOpTilingInterface
         getTensorOutputTypes(linalgOp, tiledOperands);
 
     Operation* tiledOp =
-        linalgOp.clone(b, loc, resultTensorTypes, tiledOperands);
+        mlir::clone(b, op, resultTensorTypes, tiledOperands);
     offsetIndices(b, cast<LinalgOp>(tiledOp), offsets);
 
     return {tiledOp};

@@ -1733,7 +1733,7 @@ void ReplaceConstPaddingValueOp::build(OpBuilder& builder,
 }
 
 DiagnosedSilenceableFailure ReplaceConstPaddingValueOp::applyToOne(
-    Operation* target, SmallVectorImpl<Operation*>& results,
+    Operation* target, transform::ApplyToEachResultList& results,
     transform::TransformState& state) {
   auto padOp = dyn_cast<tensor::PadOp>(target);
   if (!padOp) {
@@ -1756,8 +1756,8 @@ DiagnosedSilenceableFailure ReplaceConstPaddingValueOp::applyToOne(
   auto placeholder = b.create<disc_linalg_ext::PaddingValuePlaceholderOp>(
       padOp.getLoc(), value, *mode);
   yieldOp->replaceUsesOfWith(yieldOp->getOperand(0), placeholder->getResult(0));
-  results.assign({target});
-  return DiagnosedSilenceableFailure(success());
+  results.push_back(target);
+  return DiagnosedSilenceableFailure::success();
 }
 
 //===---------------------------------------------------------------------===//
@@ -1765,7 +1765,7 @@ DiagnosedSilenceableFailure ReplaceConstPaddingValueOp::applyToOne(
 //===---------------------------------------------------------------------===//
 
 DiagnosedSilenceableFailure ConvertPaddingPlaceholderToConstOp::applyToOne(
-    Operation* target, SmallVectorImpl<Operation*>& results,
+    Operation* target, transform::ApplyToEachResultList& results,
     transform::TransformState& state) {
   auto placeholderOp =
       dyn_cast<disc_linalg_ext::PaddingValuePlaceholderOp>(target);
@@ -1779,8 +1779,8 @@ DiagnosedSilenceableFailure ConvertPaddingPlaceholderToConstOp::applyToOne(
   auto constOp =
       b.create<arith::ConstantOp>(target->getLoc(), placeholderOp.getValue());
   target->replaceAllUsesWith(constOp->getResults());
-  results.assign({constOp.getOperation()});
-  return DiagnosedSilenceableFailure(success());
+  results.push_back(constOp.getOperation());
+  return DiagnosedSilenceableFailure::success();
 }
 
 }  // namespace transform_dialect

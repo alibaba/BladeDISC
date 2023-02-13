@@ -27,6 +27,27 @@
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/core/util/env_var.h"
 
+#if TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION == 4
+#define TF_2_4
+#endif
+
+#if defined(TF_1_12) || defined(TF_1_14) || defined(TF_2_4)
+namespace tsl {
+template <typename T>
+using StatusOr = ::stream_executor::port::StatusOr<T>;
+using Status = ::stream_executor::port::Status;
+} // namespace tsl
+
+namespace {
+tsl::Status OkStatus() {
+   return ::stream_executor::port::Status::OK();
+}
+} // namespace
+#else
+#include "tensorflow/tsl/platform/status.h"
+#include "tensorflow/tsl/platform/statusor.h"
+#endif
+
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 
 namespace tao {

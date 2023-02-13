@@ -41,7 +41,7 @@ tensorflow::Status DiscInterpreter::Compile(
   TF_RETURN_IF_ERROR(GetEntryFunc(result.output_fname, result.entry_func));
   InitExecCUDAContext(result.meta_fname);
 
-  return tensorflow::Status::OK();
+  return tsl::OkStatus();
 }
 
 tensorflow::Status BindInputs(const std::vector<tensorflow::Tensor>& tensors,
@@ -77,7 +77,7 @@ tensorflow::Status BindInputs(const std::vector<tensorflow::Tensor>& tensors,
     }
 #endif
   }
-  return tensorflow::Status::OK();
+  return tsl::OkStatus();
 }
 
 tensorflow::Status DiscInterpreter::Run(
@@ -96,7 +96,7 @@ tensorflow::Status DiscInterpreter::Run(
   TF_RETURN_IF_ERROR(BindInputs(tensors, placements, *exec_ctx.get()));
   void* ctx_struct[] = {exec_ctx.get(), ral_func_ptr_};
   result.entry_func(ctx_struct);
-  return tensorflow::Status::OK();
+  return tsl::OkStatus();
 }
 
 void DiscInterpreter::InitExecCUDAContext(const std::string& meta_fname) {
@@ -128,7 +128,7 @@ tensorflow::Status DiscInterpreter::GetEntryFunc(
   }
   entry_func = (func_t)entry_func_ptr;
   CHECK_NOTNULL(entry_func);
-  return tensorflow::Status::OK();
+  return tsl::OkStatus();
 }
 
 }  //  namespace replay

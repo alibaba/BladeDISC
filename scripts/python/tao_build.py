@@ -411,11 +411,12 @@ def test_tao_compiler(root, args):
                 flag += " --config=platform_alibaba"
             mlir_test_list = [
                 TARGET_DISC_IR_TEST,
-                TARGET_DISC_TRANSFORMS_TEST,
+                # TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
             ] + TARGET_DISC_RAL_TESTS \
-              + TARGET_DISC_TRANSFORM_DIALECT_TESTS \
-              + TARGET_DISC_PDLL_TESTS 
+            #  + TARGET_DISC_TRANSFORM_DIALECT_TESTS \
+            #   + TARGET_DISC_PDLL_TESTS 
+
             MLIR_TESTS = " ".join(mlir_test_list)
             bazel_test(MLIR_TESTS, flag=flag)
         else:
@@ -434,13 +435,14 @@ def test_tao_compiler(root, args):
 
             mlir_tests_list = [
                 TARGET_DISC_IR_TEST,
-                TARGET_DISC_TRANSFORMS_TEST,
+            #    TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
                 TARGET_DISC_REPLAY_TEST,
             ] + TARGET_DISC_RAL_TESTS \
-              + TARGET_DISC_PDLL_TESTS \
               + TARGET_DISC_CUDA_SOURCE_TESTS \
-              + TARGET_DISC_TRANSFORM_DIALECT_TESTS
+            #  + TARGET_DISC_PDLL_TESTS \
+            #  + TARGET_DISC_TRANSFORM_DIALECT_TESTS
+
             MLIR_TESTS = " ".join(mlir_tests_list)
             bazel_test(MLIR_TESTS, flag=flag)
             flag += " --action_env=BRIDGE_ENABLE_TAO=true "

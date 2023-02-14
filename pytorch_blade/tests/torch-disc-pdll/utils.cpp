@@ -319,8 +319,8 @@ static void inferTorchAtenTensorCatType(
                                 .getType()
                                 .cast<Torch::ValueTensorType>()
                                 .getSizes();
-        if (tensor_shape[i] == ShapedType::kDynamicSize) {
-          concat_dim = ShapedType::kDynamicSize;
+        if (tensor_shape[i] == Torch::kUnknownSize) {
+          concat_dim = Torch::kUnknownSize;
           break;
         }
         concat_dim += tensor_shape[i];
@@ -355,7 +355,7 @@ static void getTorchIntFromIntList(
     if (matchPattern(value, Torch::m_TorchConstantInt(&num)))
       elems.push_back(num);
     else
-      elems.push_back(kUnknownSize);
+      elems.push_back(Torch::kUnknownSize);
   }
 
   int64_t select_value = elems[select_dim];
@@ -401,7 +401,7 @@ static void getTorchTensorTypeFromList(
     if (matchPattern(value, Torch::m_TorchConstantInt(&num)))
       elems.push_back(num);
     else
-      elems.push_back(ShapedType::kDynamicSize);
+      elems.push_back(Torch::kUnknownSize);
   }
   // auto lead_tensor_type =
   // values[0].cast<Value>().getType().cast<Torch::ValueTensorType>(); auto

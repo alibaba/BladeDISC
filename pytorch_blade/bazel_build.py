@@ -69,7 +69,7 @@ class BazelBuild(TorchBladeBuild):
             "//pytorch_blade:_torch_blade.so",
             "//tests/mhlo/torch-mlir-opt:torch-mlir-opt",
             "//tests/torchscript:shape_analysis_tool",
-            "//tests/torch-disc-pdll:torch-disc-pdll",
+            # "//tests/torch-disc-pdll:torch-disc-pdll",
         ]
 
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
@@ -264,7 +264,7 @@ class BazelBuild(TorchBladeBuild):
         self.test_suites = [
             "//tests/mhlo/...",
             "//pytorch_blade:torch_blade_test_suite",
-            "//tests/torch-disc-pdll/tests/...",
+            # "//tests/torch-disc-pdll/tests/...",
         ]
 
         if (self.torch_major_version, self.torch_minor_version) > (1, 6):

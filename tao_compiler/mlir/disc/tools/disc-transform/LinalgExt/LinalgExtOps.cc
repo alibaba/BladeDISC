@@ -132,7 +132,7 @@ void MultiLevelPackOp::build(OpBuilder& builder, OperationState& state,
     ShapedType inputType, ArrayRef<int64_t> tileLevels,
     ArrayRef<int64_t> tileSizes, ArrayRef<int64_t> permutation) {
   int expectedResultRank = MultiLevelPackOp::getExpectedResultRank(tileLevels);
-  SmallVector<int64_t> tiledShape(expectedResultRank, ShapedType::kDynamicSize);
+  SmallVector<int64_t> tiledShape(expectedResultRank, ShapedType::kDynamic);
   int tileSizeIdx = 0;
   int tiledDimIdx = 0;
   for (int dimIdx = 0; dimIdx < inputType.getRank(); ++dimIdx) {
@@ -146,7 +146,7 @@ void MultiLevelPackOp::build(OpBuilder& builder, OperationState& state,
           ceilDiv(tileSize, lastTileSize);
       lastTileSize = tileSize;
     }
-    if (dimSize != ShapedType::kDynamicSize)
+    if (dimSize != ShapedType::kDynamic)
       tiledShape[tiledDimIdx] = ceilDiv(dimSize, lastTileSize);
     tileSizeIdx += level;
     tiledDimIdx += 1 + level;
@@ -629,7 +629,7 @@ static SmallVector<Value> getIndicesForAccess(OpBuilder& b, Location loc,
 static LogicalResult inlinePayload(OpBuilder& b, LinalgOp linalgOp,
                                    ValueRange ivs, ValueRange argValues) {
   Block* body = linalgOp.getBlock();
-  BlockAndValueMapping map;
+  IRMapping map;
   map.map(body->getArguments(), argValues);
   for (auto& op : body->without_terminator()) {
     if (auto indexOp = dyn_cast<IndexOp>(&op)) {
@@ -670,10 +670,7 @@ struct LinalgOpTilingInterface
   /// Return the loop iterator type.
   SmallVector<utils::IteratorType> getLoopIteratorTypes(Operation* op) const {
     LinalgOpTy concreteOp = cast<LinalgOpTy>(op);
-    return llvm::to_vector(llvm::map_range(
-        concreteOp.getIteratorTypesArray(), [](StringRef iteratorType) {
-          return utils::symbolizeIteratorType(iteratorType).value();
-        }));
+    return concreteOp.getIteratorTypesArray();
   }
 
   /// Return the iteration domain range.
@@ -709,8 +706,7 @@ struct LinalgOpTilingInterface
     SmallVector<Type> resultTensorTypes =
         getTensorOutputTypes(linalgOp, tiledOperands);
 
-    Operation* tiledOp =
-        linalgOp.clone(b, loc, resultTensorTypes, tiledOperands);
+    Operation* tiledOp = mlir::clone(b, op, resultTensorTypes, tiledOperands);
     offsetIndices(b, cast<LinalgOp>(tiledOp), offsets);
 
     return {tiledOp};
@@ -1086,8 +1082,7 @@ struct FoldTensorCastOp : public OpInterfaceRewritePattern<LinalgExtOp> {
     }
     // Clone op.
     Operation* newOp =
-        cast<DestinationStyleOpInterface>(op.getOperation())
-            .clone(rewriter, op->getLoc(), newResultTypes, newOperands);
+        mlir::clone(rewriter, op.getOperation(), newResultTypes, newOperands);
     SmallVector<Value, 4> replacements;
     replacements.reserve(newOp->getNumResults());
     for (auto result : llvm::zip(op->getResults(), newOp->getResults())) {

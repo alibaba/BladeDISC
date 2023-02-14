@@ -13,8 +13,8 @@
 
 #include <sstream>
 
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/disc/IR/lhlo_disc_ops.h"
 #include "mlir/disc/disc_util.h"
 
@@ -475,7 +475,7 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitScalarOrSplatConstantOp(
   MemRefType memref_type = constant.getOutput().getType().cast<MemRefType>();
 
   auto expression = EmitScalarOrSplatConstantExpression(constant);
-  if (!expression.hasValue()) {
+  if (!expression.has_value()) {
     return llvm::None;
   }
 
@@ -503,7 +503,7 @@ SourceEmitterCUDA::EmitBroadcastOfScalarOrSplatConstantOp(
   // ConstantOp.
   auto input_value = op->getOperand(0);
   auto input_op = findLastWriterInBlock(input_value, op->getBlock());
-  if (!input_op.hasValue()) {
+  if (!input_op.has_value()) {
     return llvm::None;
   }
 
@@ -656,7 +656,7 @@ bool SourceEmitterCUDA::isSupportedOp(Operation* op) {
 // constant op.
 bool SourceEmitterCUDA::isBroadcastOnScalarOrSplatConstant(Operation* op) {
   auto input_op = findLastWriterInBlock(op->getOperand(0), op->getBlock());
-  if (!input_op.hasValue()) {
+  if (!input_op.has_value()) {
     return false;
   }
   lmhlo::ConstantOp constant = dyn_cast<lmhlo::ConstantOp>(input_op.value());

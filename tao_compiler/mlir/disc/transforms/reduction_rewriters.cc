@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -96,7 +96,7 @@ LogicalResult ReduceOpConvert::matchAndRewrite(
     auto newReduceOp =
         rewriter.create<mhlo::ReduceOp>(op.getLoc(), val, op.getOperand(1),
                                         rewriter.getI64TensorAttr(reduceDims));
-    BlockAndValueMapping mapping;
+    IRMapping mapping;
     mapping.clear();
     op.getBody().cloneInto(&newReduceOp.getBody(), mapping);
     return newReduceOp;

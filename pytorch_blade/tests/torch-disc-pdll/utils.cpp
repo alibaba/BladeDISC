@@ -142,7 +142,7 @@ static LogicalResult checkTorchConstantIntList(
   assert(values.size() == 1);
   SmallVector<int64_t> elems;
   if (!matchPattern(
-          values[0].cast<Value>(), Torch::m_TorchConstantIntList(elems)))
+          values[0].cast<Value>(), Torch::m_TorchListOfConstantInts(elems)))
     return failure();
   return success();
 }
@@ -212,15 +212,16 @@ static LogicalResult checkTorchTensorElemType(
                                                              : failure();
 }
 
-static void getTorchTensorType(
+static LogicalResult getTorchTensorType(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
   auto type = values[0].cast<Value>().getType().cast<Torch::ValueTensorType>();
   results.push_back(Type(type));
+  return success();
 }
 
-static void createTorchCustomCall(
+static LogicalResult createTorchCustomCall(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -246,6 +247,7 @@ static void createTorchCustomCall(
 
   results.push_back(op);
   results.push_back(ValueRange(vs));
+  return success();
 }
 
 static void convertTorchConstantFloatToFloatAttr(
@@ -262,7 +264,7 @@ static void convertTorchConstantFloatToFloatAttr(
   results.push_back(rewriter.getF64FloatAttr(elem));
 }
 
-static void convertTorchConstantIntListToI64DenseElemsAttr(
+static LogicalResult convertTorchConstantIntListToI64DenseElemsAttr(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -270,13 +272,14 @@ static void convertTorchConstantIntListToI64DenseElemsAttr(
 
   SmallVector<int64_t> elems;
   auto status = matchPattern(
-      values[0].cast<Value>(), Torch::m_TorchConstantIntList(elems));
+      values[0].cast<Value>(), Torch::m_TorchListOfConstantInts(elems));
   assert(status);
 
   results.push_back(rewriter.getI64TensorAttr(elems));
+  return success();
 }
 
-static void convertTorchConstantIntToI64Attr(
+static LogicalResult convertTorchConstantIntToI64Attr(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -288,6 +291,7 @@ static void convertTorchConstantIntToI64Attr(
   assert(status);
 
   results.push_back(rewriter.getIntegerAttr(rewriter.getIntegerType(64), elem));
+  return success();
 }
 
 static void inferTorchAtenTensorCatType(
@@ -317,8 +321,8 @@ static void inferTorchAtenTensorCatType(
                                 .getType()
                                 .cast<Torch::ValueTensorType>()
                                 .getSizes();
-        if (tensor_shape[i] == ShapedType::kDynamicSize) {
-          concat_dim = ShapedType::kDynamicSize;
+        if (tensor_shape[i] == Torch::kUnknownSize) {
+          concat_dim = Torch::kUnknownSize;
           break;
         }
         concat_dim += tensor_shape[i];
@@ -353,7 +357,7 @@ static void getTorchIntFromIntList(
     if (matchPattern(value, Torch::m_TorchConstantInt(&num)))
       elems.push_back(num);
     else
-      elems.push_back(ShapedType::kDynamicSize);
+      elems.push_back(Torch::kUnknownSize);
   }
 
   int64_t select_value = elems[select_dim];
@@ -399,7 +403,7 @@ static void getTorchTensorTypeFromList(
     if (matchPattern(value, Torch::m_TorchConstantInt(&num)))
       elems.push_back(num);
     else
-      elems.push_back(ShapedType::kDynamicSize);
+      elems.push_back(Torch::kUnknownSize);
   }
   // auto lead_tensor_type =
   // values[0].cast<Value>().getType().cast<Torch::ValueTensorType>(); auto
@@ -453,7 +457,7 @@ Type mapStrToType(PatternRewriter& rewriter, std::string type_str) {
   return typeconvert_dict[type_str];
 }
 
-static void convertTorchTensorElemType(
+static LogicalResult convertTorchTensorElemType(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -466,9 +470,10 @@ static void convertTorchTensorElemType(
       old_type.getContext(), old_type.getOptionalSizes(), elemType);
 
   results.push_back(Type(new_type));
+  return success();
 }
 
-static void getTorchQuantizedTensorType(
+static LogicalResult getTorchQuantizedTensorType(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -488,6 +493,7 @@ static void getTorchQuantizedTensorType(
   auto quantized_type = Torch::ValueTensorType::get(
       old_type.getContext(), old_type.getOptionalSizes(), elem_type);
   results.push_back(Type(quantized_type));
+  return success();
 }
 
 // Register some pre-defined helper functions for torch pdl patterns.

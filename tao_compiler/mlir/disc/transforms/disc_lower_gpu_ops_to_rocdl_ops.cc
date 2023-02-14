@@ -151,7 +151,9 @@ void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
                                        ROCDL::GridDimYOp, ROCDL::GridDimZOp>,
            GPUShuffleOpLowering, GPUReturnOpLowering>(converter);
   patterns.add<GPUFuncOpLowering>(
-      converter, /*allocaAddrSpace=*/5,
+      converter,
+      /*allocaAddrSpace=*/ROCDL::ROCDLDialect::kPrivateMemoryAddressSpace,
+      /*workgroupAddrSpace=*/ROCDL::ROCDLDialect::kSharedMemoryAddressSpace,
       StringAttr::get(&converter.getContext(),
                       ROCDL::ROCDLDialect::getKernelFuncAttrName()));
   patterns.add<OpToFuncCallLowering<math::AbsFOp>>(converter, "__ocml_fabs_f32",
@@ -242,7 +244,7 @@ struct DiscLowerGpuOpsToROCDLOpsPass
     cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
     populateMathToLLVMConversionPatterns(converter, patterns);
 
-    populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
+    populateFinalizeMemRefToLLVMConversionPatterns(converter, llvmPatterns);
 
     populateFuncToLLVMConversionPatterns(converter, patterns);
     ::mlir::disc_ral::populateGpuToROCDLConversionPatterns(converter,

@@ -245,7 +245,7 @@ Status MlirTest::Run() {
     TF_RETURN_IF_ERROR(RunGoldenTF());
   }
   TF_RETURN_IF_ERROR(CompareResults());
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 int MlirTest::CallBinary(std::string program_path,
@@ -307,7 +307,7 @@ Status MlirTest::CompileMlirToBinary() {
     return Internal("tf dialect -> compilation result failed");
   }
 
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 Status MlirTest::LoadGraph(const std::string& graph_file_name) {
@@ -332,7 +332,7 @@ Status MlirTest::LoadGraph(const std::string& graph_file_name) {
     return Internal("Error: create session failed" +
                     session_create_status.error_message());
   }
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 // TODO: configurable relative/absolute error tolerance according to
@@ -476,7 +476,7 @@ Status MlirTest::RunGoldenTF() {
   }
 
   expected_output_vals_ = std::move(output_tensors);
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 Status MlirTest::CompareResults() {
@@ -594,7 +594,7 @@ Status MlirTest::CompareResults() {
       return Internal("Error: unexpected output tensor dtype");
     }
   }
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 MlirTestImpl::MlirTestImpl(
@@ -1194,7 +1194,7 @@ Status MlirTestImpl::GenerateInputAndRun() {
   }
 #endif
 
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 }  //  namespace mlir_test

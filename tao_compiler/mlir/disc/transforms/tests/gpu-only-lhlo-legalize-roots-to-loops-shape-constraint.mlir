@@ -383,7 +383,7 @@ func.func @kinput_row_reduce_schedule_1_no_vec(%arg0: memref<?x?xf32>, %arg1: me
   // CHECK-DAG: %[[HIGHT:.*]] = memref.dim %[[ARG1]], %[[C0]] : memref<?x?xf32>
   // CHECK-DAG: %[[WIDTH:.*]] = memref.dim %[[ARG1]], %[[C1]] : memref<?x?xf32>
   // CHECK: scf.parallel (%[[H_IDX:.*]], %[[W_IDX:.*]]) = (%[[C0]], %[[C0]]) to (%[[HIGHT]], %[[BLOCK_SIZE]]) step (%[[C1]], %[[C1]])
-  // CHECK: %[[SMEM:.*]] = memref.alloc() : memref<32xf32, 3>
+  // CHECK: %[[SMEM:.*]] = memref.alloc() : memref<32xf32, #gpu.address_space<workgroup>>
   // CHECK: scf.for %[[W_LOCAL_IDX:.*]] = %[[TID:.*]] to %[[WIDTH]] step %[[BLOCK_SIZE]]
   // First round reduce.
   // CHECK: gpu.shuffle
@@ -420,7 +420,7 @@ func.func @kinput_row_reduce_schedule_1_vec2(%arg0: memref<?x?xf32>, %arg1: memr
   // CHECK-DAG: %[[WIDTH:.*]] = memref.dim %[[ARG1]], %[[C1]] : memref<?x?xf32>
   // CHECK: %[[BLOCK_NUMBER:.*]] = arith.divui %[[HIGHT]], %[[VEC_SIZE]] : index
   // CHECK: scf.parallel (%[[H_IDX:.*]], %[[W_IDX:.*]]) = (%[[C0]], %[[C0]]) to (%[[BLOCK_NUMBER]], %[[BLOCK_SIZE]]) step (%[[C1]], %[[C1]])
-  // CHECK: %[[SMEM:.*]] = memref.alloc() : memref<32xf32, 3>
+  // CHECK: %[[SMEM:.*]] = memref.alloc() : memref<32xf32, #gpu.address_space<workgroup>>
   // CHECK: scf.for %[[W_LOCAL_IDX:.*]] = %[[TID:.*]] to %[[WIDTH]] step %[[BLOCK_SIZE]]
   // First round reduce.
   // CHECK: gpu.shuffle

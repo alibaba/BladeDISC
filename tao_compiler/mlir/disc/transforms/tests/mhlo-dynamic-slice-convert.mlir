@@ -23,14 +23,9 @@ func.func @dynamic_slice(%arg0: tensor<?xi64>, %arg1: tensor<i32>) -> tensor<1xi
 
 // CHECK-LABEL: func.func @dynamic_slice_with_constant_start_indices
 func.func @dynamic_slice_with_constant_start_indices(%arg0: tensor<?xi64>) -> tensor<1xi64> {
-  // CHECK: %[[V0:.*]] = tensor.dim %[[ARG0:.*]], %{{.*}} : tensor<?xi64>
-  // CHECK: %[[V1:.*]] = arith.index_cast %[[V0]] : index to i64
-  // CHECK: %[[V2:.*]] = arith.subi %[[V1]], %{{.*}} : i64
-  // CHECK: %[[V3:.*]] = arith.minsi %[[V2]], %{{.*}} : i64
-  // CHECK: %[[V4:.*]] = arith.addi %[[V3]], %{{.*}} : i64
-  // CHECK: %[[V5:.*]] = tensor.from_elements %[[V3]] : tensor<1xi64>
-  // CHECK: %[[V6:.*]] = tensor.from_elements %[[V4]] : tensor<1xi64>
-  // CHECK: %[[V7:.*]] = mhlo.real_dynamic_slice %[[ARG0:.*]], %[[V5]], %[[V6]], %{{.*}} : (tensor<?xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+  // CHECK: %[[CST1:.*]] = arith.constant dense<1> : tensor<1xi64>
+  // CHECK: %[[CST0:.*]] = arith.constant dense<0> : tensor<1xi64>
+  // CHECK: mhlo.real_dynamic_slice %[[ARG0:.*]], %[[CST0]], %[[CST1]], %[[CST1]] : (tensor<?xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
   %start_indices = mhlo.constant dense<0> : tensor<i32>
   %out = "mhlo.dynamic_slice"(%arg0, %start_indices) {
     slice_sizes = dense<1> : tensor<1xi64>

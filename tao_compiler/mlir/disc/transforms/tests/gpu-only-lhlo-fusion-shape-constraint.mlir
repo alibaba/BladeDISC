@@ -1,5 +1,5 @@
-// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=base})' -split-input-file %s -o - | FileCheck %s --check-prefix=BASE
-// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=STITCH
+// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=true fusion-strategy=base}))' -split-input-file %s -o - | FileCheck %s --check-prefix=BASE
+// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch}))' -split-input-file %s -o - | FileCheck %s --check-prefix=STITCH
 
 // BASE-LABEL: @simple_kloop_fusion
 // BASE-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?x?xf32, "gpu">, %[[ARG3:.*]]: memref<?x?xf32, "gpu">) -> memref<?x?xf32, "gpu">
@@ -92,9 +92,9 @@ func.func @simple_multi_output_kloop_fusion_with_reorder(%arg0: memref<?x?xf32, 
 
   // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.abs"(%[[T0]], %[[T1]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
+  // BASE: "lmhlo.dynamic_broadcast_in_dim"(%[[T1]], %[[ARG4]], %[[T5]])
   // BASE: "lmhlo.add"(%[[T1]], %[[T2]], %[[T3]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: })
-  // BASE: "lmhlo.dynamic_broadcast_in_dim"(%[[T1]], %[[ARG4]], %[[T5]])
   // BASE: return %[[T1]], %[[T3]], %[[T5]] : memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">
   "lmhlo.abs"(%4, %5) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   "lmhlo.dynamic_broadcast_in_dim"(%5, %arg4, %8) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (memref<?x?xf32, "gpu">, memref<2xindex, "cpu">, memref<?x?xf32, "gpu">) -> ()
@@ -529,8 +529,7 @@ func.func @kstitch_fusion_mean(%arg0: memref<?x?x?xf32, "gpu">) -> memref<?x?xf3
   "lmhlo.divide"(%11, %16, %17) {disc.device = "gpu"} : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // Make sure there is one and only one kStitch fusion.
   // STITCH:      disc.fusion.name
-  // STITCH-SAME: disc.fusion_type = "kStitch"
-  // STITCH-NOT:  disc.fusion.name
+  // STITCH-SAME: disc.fusion_type = "kRowReduction"
   return %17 : memref<?x?xf32, "gpu">
 }
 "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()

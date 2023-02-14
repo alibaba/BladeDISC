@@ -1,4 +1,4 @@
-// RUN: disc-opt %s -pass-pipeline='func.func(disc-parallel-loop-tiling{parallel-loop-tile-sizes=1,4 with-inbound-check=true})' -split-input-file | FileCheck %s
+// RUN: disc-opt %s -pass-pipeline='builtin.module(func.func(disc-parallel-loop-tiling{parallel-loop-tile-sizes=1,4 with-inbound-check=true}))' -split-input-file | FileCheck %s
 
 func.func @parallel_loop(%arg0 : index, %arg1 : index, %arg2 : index,
                     %arg3 : index, %arg4 : index, %arg5 : index,

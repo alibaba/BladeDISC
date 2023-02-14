@@ -134,12 +134,12 @@ func.func @dot_general_1dx1d(%arg0: tensor<256xf32>, %arg1: tensor<256xf32>) -> 
 
 // -----
 // CHECK-LABEL: func.func @dot_general_transpose(
-// CHECK-SAME:        %[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<?xf32>) -> tensor<?x?xf32> {
-// CHECK:         %[[T0:.*]] = "mhlo.dot_general"(%[[ARG0]], %[[ARG1]]) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [0]>} : (tensor<?x?xf32>, tensor<?xf32>) -> tensor<?x?xf32>
+// CHECK-SAME:        %[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<?xf32>) -> tensor<?xf32> {
+// CHECK:         %[[T0:.*]] = "mhlo.dot_general"(%[[ARG0]], %[[ARG1]]) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [0]>} : (tensor<?x?xf32>, tensor<?xf32>) -> tensor<?xf32>
 // CHECK:         return %[[T0]]
 // CHECK:       }
-func.func @dot_general_transpose(%arg0: tensor<?x?xf32>, %arg1: tensor<?xf32>) -> tensor<?x?xf32> {
+func.func @dot_general_transpose(%arg0: tensor<?x?xf32>, %arg1: tensor<?xf32>) -> tensor<?xf32> {
   %1 = "mhlo.transpose"(%arg0) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<?x?xf32>) -> tensor<?x?xf32>
-  %2 = "mhlo.dot_general"(%1, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<?x?xf32>, tensor<?xf32>) -> tensor<?x?xf32>
-  return %2 : tensor<?x?xf32>
+  %2 = "mhlo.dot_general"(%1, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<?x?xf32>, tensor<?xf32>) -> tensor<?xf32>
+  return %2 : tensor<?xf32>
 }

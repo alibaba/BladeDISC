@@ -355,7 +355,7 @@ static void getTorchIntFromIntList(
     if (matchPattern(value, Torch::m_TorchConstantInt(&num)))
       elems.push_back(num);
     else
-      elems.push_back(ShapedType::kDynamicSize);
+      elems.push_back(kUnknownSize);
   }
 
   int64_t select_value = elems[select_dim];

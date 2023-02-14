@@ -12,7 +12,7 @@ limitations under the License.
 
 // This file defines DISC shape related operations.
 
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
+#include "mlir/disc/IR/disc_shape_ops.h"
 
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -37,7 +37,7 @@ DISCShapeDialect::DISCShapeDialect(MLIRContext* context)
     : Dialect(getDialectNamespace(), context, TypeID::get<DISCShapeDialect>()) {
   addOperations<
 #define GET_OP_LIST
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.cc.inc"
+#include "mlir/disc/IR/disc_shape_ops.cc.inc"
       >();
   context->loadDialect<tensor::TensorDialect>();
 }
@@ -395,4 +395,4 @@ LogicalResult TieProductEqualOp::verify() { return Verify(*this); }
 }  // namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.cc.inc"
+#include "mlir/disc/IR/disc_shape_ops.cc.inc"

@@ -12,7 +12,7 @@ limitations under the License.
 
 // This file defines the operations used in the LMHLO DISC dialect.
 
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
 
 #include <unordered_set>
 
@@ -27,7 +27,7 @@ LmhloDiscDialect::LmhloDiscDialect(MLIRContext* context)
     : Dialect(getDialectNamespace(), context, TypeID::get<LmhloDiscDialect>()) {
   addOperations<
 #define GET_OP_LIST
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.cc.inc"
+#include "mlir/disc/IR/lhlo_disc_ops.cc.inc"
 
       >();
   context->loadDialect<memref::MemRefDialect>();
@@ -86,4 +86,4 @@ LogicalResult CustomCallOp::verify() {
 }  // namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.cc.inc"
+#include "mlir/disc/IR/lhlo_disc_ops.cc.inc"

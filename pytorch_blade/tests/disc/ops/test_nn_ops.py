@@ -14,11 +14,15 @@ import unittest
 
 from torch_blade import utils
 from torch_blade.version import cuda_available
-from tests.disc.testing_base import DiscTestCase, skipTorchGE, isTorchMlirEnable
+from tests.disc.testing_base import \
+    DiscTestCase, skipTorchGE, skipTorchLT, isTorchMlirEnable
+
 
 class TestDiscNNOps(DiscTestCase):
+
     def _test_nn_ops(self, nn_ops_func, x=None):
-        test_data = torch.randn([2, 3, 224, 224], device=self.device) if x is None else x
+        test_data = torch.randn([2, 3, 224, 224], device=self.device) \
+            if x is None else x
         if (isinstance(test_data, torch.Tensor)):
             test_data = (test_data.to(self.device),)
         self._test_cvt_to_disc(nn_ops_func, test_data)
@@ -27,8 +31,9 @@ class TestDiscNNOps(DiscTestCase):
         softmax = torch.nn.Softmax(dim=-1)
         self._test_nn_ops(softmax)
 
-        if isTorchMlirEnable() or utils.torch_version_number() >= utils.parse_version("1.12.0"):
-            #TODO(yancey.yx): support i32 input
+        if isTorchMlirEnable() or utils.torch_version_number() \
+                >= utils.parse_version("1.12.0"):
+            # TODO(yancey.yx): support i32 input
             return
 
         @torch.jit.script
@@ -36,27 +41,48 @@ class TestDiscNNOps(DiscTestCase):
             return torch.nn.functional.softmax(x, dim=-1, dtype=torch.float32)
 
         self._test_nn_ops(
-            softmax_func, x=torch.randint(-3, 3, [2, 3, 10, 4], dtype=torch.int32)
+            softmax_func, torch.randint(-3, 3, [2, 3, 4], dtype=torch.int32)
         )
 
     def test_log_softmax(self):
         log_softmax = torch.nn.LogSoftmax(dim=-1)
         self._test_nn_ops(log_softmax)
 
-        if isTorchMlirEnable() or utils.torch_version_number() >= utils.parse_version("1.12.0"):
-            #TODO(tanyo): support i32 input
+        if isTorchMlirEnable() or utils.torch_version_number() \
+                >= utils.parse_version("1.12.0"):
+            # TODO(tanyo): support i32 input
             return
 
         @torch.jit.script
         def log_softmax_func(x):
-            return torch.nn.functional.log_softmax(x, dim=-1, dtype=torch.float32)
+            return torch.nn.functional.log_softmax(x, dim=-1,
+                                                   dtype=torch.float32)
 
         self._test_nn_ops(
-            log_softmax_func, x=torch.randint(-3, 3, [2, 3, 10, 4], dtype=torch.int32)
+            log_softmax_func,
+            torch.randint(-3, 3, [2, 3, 4], dtype=torch.int32)
+        )
+
+    @unittest.skipIf(not cuda_available, "run only on cuda")
+    def test_softmax_return_half(self):
+        @torch.jit.script
+        def softmax_func_return_half(x):
+            return torch.nn.functional.softmax(x, dim=1, dtype=torch.half)
+
+        @torch.jit.script
+        def log_softmax_func_return_half(x):
+            return torch.nn.functional.log_softmax(x, dim=-1, dtype=torch.half)
+
+        inputs = (torch.randn([2, 3, 4], device=self.device),)
+        self._test_cvt_to_disc(
+            softmax_func_return_half, inputs, atol=1e-2
+        )
+        self._test_cvt_to_disc(
+            log_softmax_func_return_half, inputs, atol=1e-2
         )
 
     @unittest.skipIf(not cuda_available, "Please fix incorrect results")
-    @skipTorchGE("1.12.0") 
+    @skipTorchGE("1.12.0")
     def test_softmax_func(self):
         @torch.jit.script
         def softmax(x):
@@ -101,6 +127,20 @@ class TestDiscNNOps(DiscTestCase):
         input = torch.ones(3, 4, device=self.device)
         hx = torch.ones(3, 8, device=self.device)
         self._test_nn_ops(rnn, (input, hx))
+
+    @skipTorchLT("1.12.0")
+    def test_constant_pad(self):
+        @torch.jit.script
+        def constant_pad(t4d):
+            # pad by (0, 1), (2, 1), and (3, 3)
+            p3d = (0, 1, 2, 1, 3, 3)
+            return t4d.pad(p3d, "constant", 3.0)
+
+        x = torch.randn([2, 3, 4, 5], device=self.device)
+        self._test_nn_ops(constant_pad, x=(x,))
+
+        x = torch.randn([2, 3, 224, 224], device=self.device)
+        self._test_nn_ops(constant_pad, x=(x,))
 
 
 if __name__ == "__main__":

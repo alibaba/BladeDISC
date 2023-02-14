@@ -12,6 +12,7 @@
 #ifndef DISC_TOOLS_DISC_TRANSFORM_LINALGEXT_OPS_EXT_
 #define DISC_TOOLS_DISC_TRANSFORM_LINALGEXT_OPS_EXT_
 
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
@@ -20,10 +21,21 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Interfaces/TilingInterface.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtInterfaces.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtEnums.h.inc"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtInterfaces.h"
+
+namespace mlir {
+namespace disc_ral {
+namespace disc_linalg_ext {
+
+using linalg::LinalgOp;
+
+}  // namespace disc_linalg_ext
+}  // namespace disc_ral
+}  // namespace mlir
 
 #define GET_OP_CLASSES
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h.inc"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h.inc"
 
 namespace mlir {
 namespace disc_ral {
@@ -45,6 +57,8 @@ SmallVector<T> interchange(ArrayRef<T> elements,
   }
   return vec;
 }
+
+void registerTilingInterfaceExternalModels(DialectRegistry& registry);
 
 }  // namespace disc_linalg_ext
 }  // namespace disc_ral

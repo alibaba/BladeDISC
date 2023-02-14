@@ -6,7 +6,7 @@ load(
 load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library", "gentbl_filegroup", "td_library")
 
 package(
-    default_visibility = [":friends"],
+    default_visibility = ["//visibility:public"],
     licenses = ["notice"],  # Apache 2.0
 )
 
@@ -25,6 +25,7 @@ td_library(
     srcs = glob([
         "LinalgExt/*.td",
     ]),
+    includes=["external/org_tensorflow"],
     deps = [
         "@llvm-project//mlir:BuiltinDialectTdFiles",
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
@@ -59,6 +60,14 @@ gentbl_cc_library(
         (
             ["--gen-op-defs"],
             "LinalgExt/LinalgExtOps.cc.inc",
+        ),
+        (
+            ["-gen-enum-decls"],
+            "LinalgExt/LinalgExtEnums.h.inc",
+        ),
+        (
+            ["-gen-enum-defs"],
+            "LinalgExt/LinalgExtEnums.cc.inc",
         ),
         (
             ["--gen-typedef-decls"],
@@ -285,8 +294,9 @@ cc_library(
         ":DISCLinalgExtDialect",
         ":disc_transform_utils",
         ":pass_details",
-        "//tensorflow/compiler/xla/mlir_hlo:legalize_to_linalg_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "//mlir/disc:disc_lhlo_elemental_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:legalize_to_linalg_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -304,6 +314,7 @@ cc_library(
     name = "transform_dialect_interpreter",
     srcs = ["transforms/transform_dialect_interpreter.cc"],
     deps = [
+        ":DISCLinalgExtDialect",
         ":disc_transform_ops",
         ":pass_details",
         "@iree-dialects//:IREELinalgExtDialect",
@@ -336,7 +347,7 @@ cc_library(
     srcs = ["transforms/rewrite_payload_ir_for_ral.cc"],
     deps = [
         ":pass_details",
-        "//tensorflow/compiler/mlir/disc:placement_utils",
+        "//mlir/disc:placement_utils",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -372,15 +383,31 @@ cc_library(
 )
 
 cc_library(
+    name = "convert-foreach-thread-op-to-parallel-op",
+    srcs = ["transforms/convert_foreach_thread_op_to_parallel_op.cc"],
+    deps = [
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/passes.h",
         "transforms/register_passes.h",
     ],
-    visibility = [
-        ":friends",
-    ],
+    visibility = ["//visibility:public"],
     deps = [
+        ":convert-foreach-thread-op-to-parallel-op",
         ":legalize_lmhlo_fusion_to_linalg",
         ":memref_copy_to_linalg",
         ":rewrite-payload-ir-for-ral",

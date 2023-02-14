@@ -23,6 +23,7 @@ from torch_blade._torch_blade import _backends
 from torch_blade.clustering import support_fusion_group, support_group_conversion
 from torch_blade.config import Config
 from torch_blade.logging import logger
+from collections import defaultdict
 
 def _dump_to_tempfile(tmp_dir, dump_bytes):
     inp_file = tempfile.NamedTemporaryFile(dir=tmp_dir, delete=False)
@@ -100,10 +101,33 @@ def _compile_torchscript(graph):
 
         return so_bytes, pb_bytes, input_dev_str, output_dev_str
 
+def _get_customize_op_black_list(graph):
+    cfg = Config.get_current_context_or_new()
+    node_kind_list = defaultdict(list)
+    for node in graph.node_list():
+        node_kind_list[node.kind()].append(node)
+
+    customize_node_black_list = [
+        op for op in cfg.customize_op_black_list if "@" in op
+    ]
+    extra_unspt_nodes = []
+    for node_name in customize_node_black_list:
+        try:
+            op_kind, node_idx = node_name.split("@")
+            node_idx = int(node_idx)
+            node = node_kind_list[op_kind][node_idx]
+            extra_unspt_nodes.append(node)
+        except Exception as error:
+            logger.warning(error)
+
+    customize_node_black_list = [
+        op for op in cfg.customize_op_black_list if "@" not in op
+    ]
+    extra_unspt_nodes += [n for n in graph.nodes() if n.kind() in customize_node_black_list]
+    return extra_unspt_nodes
 
 def _get_mlir_unsupported(graph):
-    cfg = Config.get_current_context_or_new()
-    extra_unspt_nodes = [n for n in graph.nodes() if n.kind() in cfg.customize_op_black_list]
+    extra_unspt_nodes = _get_customize_op_black_list(graph)
     unspt_nodes = [n for n in graph.nodes() if not mlir.is_mlir_mhlo_supported(n)]
     return set(unspt_nodes + extra_unspt_nodes)
 
@@ -178,7 +202,6 @@ def _optimize_mlir(script_module):
     # only when it's safe. Otherwise label the inplace ops as unsupported.
     # Then move the pass as a common step to _optimize_common.
     torch._C._jit_pass_remove_inplace_ops(graph)
-
     def fusion_block(block):
         for n in block.nodes():
             for blk in n.blocks():

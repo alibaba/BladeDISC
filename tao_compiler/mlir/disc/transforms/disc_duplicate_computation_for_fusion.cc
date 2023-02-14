@@ -16,10 +16,10 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/utils/source_emitter.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/utils/source_emitter.h"
 
 // This file implements the logic to duplicate some lmhlo operations in order
 // to enable more opportunities for fusion and reduce memory footprint.
@@ -146,8 +146,7 @@ LogicalResult DuplicateConstantWithBcast::matchAndRewrite(
       auto new_bcast_alloc = builder.clone(*orig_bcast_alloc.getOperation());
       Value new_bcast_memref = new_bcast_alloc->getResult(0);
       builder.create<lmhlo::DynamicBroadcastInDimOp>(
-          loc, new_bcast_memref.getType(), new_const_memref,
-          bcast.getOutputDimensions(), new_bcast_memref,
+          loc, new_const_memref, bcast.getOutputDimensions(), new_bcast_memref,
           bcast.getBroadcastDimensions());
 
       user->replaceUsesOfWith(bcast_output, new_bcast_memref);

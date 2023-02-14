@@ -68,6 +68,12 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscQuantizedDotRewriter();
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscMhloDecompositionRewriterPass();
 
+// Rewrite mhlo::ReduceOp
+std::unique_ptr<OperationPass<FuncOp>> createDiscReductionRewriterPass();
+
+// Mhlo cse pass for some special cases such as mhlo::reduce
+std::unique_ptr<OperationPass<FuncOp>> createDiscMhloCSEPass();
+
 // Rewrite dot to fold transpose.
 std::unique_ptr<OperationPass<FuncOp>> createDiscDotRewriterPass();
 
@@ -220,6 +226,9 @@ std::unique_ptr<OperationPass<FuncOp>> createLhloFusionInlinerPass();
 
 // Dot merge optimization.
 std::unique_ptr<OperationPass<FuncOp>> createDiscDotMergePass();
+
+// Quantized dot merge optimization.
+std::unique_ptr<OperationPass<FuncOp>> createDiscQuantizedDotMergePass();
 
 // Apply some basic algebra simplification optimizations.
 std::unique_ptr<OperationPass<FuncOp>> createDiscAlgebraicSimplifierPass();

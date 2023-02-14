@@ -21,8 +21,8 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/transforms/PassDetail.h"
 
 #define DEBUG_TYPE "disc-lower-quantize-and-dequantize"
 

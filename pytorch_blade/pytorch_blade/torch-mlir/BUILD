@@ -61,14 +61,15 @@ cc_library(
     ],
     hdrs = [
         "include/torch-mlir/Conversion/MhloPasses.h",
+        "include/torch-mlir/Dialect/TorchConversion/Transforms/DiscPdlPredefinedPatterns.h",
     ],
     strip_include_prefix = "include",
     deps = [
         ":DiscTorchMLIRUtils",
         ":TorchMLIRConversionMhloPassesIncGen",
         "@mlir-hlo//:mlir_hlo",
-        "@org_tensorflow//tensorflow/compiler/mlir/disc:mhlo_disc",
-        "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_pdl_utils",
+        "@org_disc_compiler//mlir/disc:mhlo_disc",
+        "@org_disc_compiler//mlir/disc:disc_pdl_utils",
         "@llvm-project//mlir:Dialect",
         "@torch-mlir//:TorchMLIRTorchBackendTypeConversion",
         "@torch-mlir//:TorchMLIRTorchConversionDialect",

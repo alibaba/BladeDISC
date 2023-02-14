@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/custom_library/random.h"
+#include "mlir/xla/ral/context/custom_library/random.h"
 
 namespace tao {
 namespace ral {

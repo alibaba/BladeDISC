@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/transforms/disc_transform_schedule.h"
+#include "mlir/disc/transforms/disc_transform_schedule.h"
 
 #include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtDialect.h"
 #include "iree-dialects/Dialect/LinalgExt/TransformOps/LinalgExtTransformOps.h"
@@ -43,16 +43,16 @@ limitations under the License.
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/LogicalResult.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/passes.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
+#include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
+#include "mlir/disc/tools/disc-transform/transforms/passes.h"
+#include "mlir/disc/tools/disc-transform/utils.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/tsl/platform/default/logging.h"
 
 // This file implements logic to assign transform schedule for the given pattern
@@ -172,10 +172,11 @@ transform_dialect::FoldProducerExtractSliceOp buildFoldProducerExtractSlice(
 }
 
 transform::PadOp buildPadOp(OpBuilder& b, Location& loc, Value target,
-                            ArrayRef<int64_t> paddingDimensions) {
+                            ArrayRef<int64_t> paddingDimensions,
+                            int64_t numOperands) {
   auto pdlType = pdl::OperationType::get(b.getContext());
   // TODO(wyzero): support other types.
-  SmallVector<Attribute> paddingAttrs(paddingDimensions.size(),
+  SmallVector<Attribute> paddingAttrs(numOperands,
                                       b.getZeroAttr(b.getF32Type()));
   return b.create<transform::PadOp>(loc, pdlType, target,
                                     b.getArrayAttr(paddingAttrs),
@@ -236,8 +237,92 @@ SplitHandlesOp buildSplitHandlesOp(OpBuilder& b, Location& loc, Value target,
   return b.create<SplitHandlesOp>(loc, pdlTypes, target, num_result_handles);
 }
 
-LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
-                                                ModuleOp m) {
+transform_dialect::InlineReductionInitializerOp
+buildInlineReductionInitializerOp(OpBuilder& b, Location& loc, Value initOp,
+                                  Value loopOp, Value readerOp) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::InlineReductionInitializerOp>(
+      loc, pdlType, initOp, loopOp, readerOp);
+}
+
+transform_dialect::DecomposeVectorsOp buildDecomposeVectors(
+    OpBuilder& b, Location& loc, Value target, int64_t vectorSize) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::DecomposeVectorsOp>(loc, pdlType, target,
+                                                         vectorSize);
+}
+
+transform_dialect::LinalgFuseProducersOp buildLinalgFuseProducersOp(
+    OpBuilder& b, Location& loc, Value target, ValueRange producers) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::LinalgFuseProducersOp>(loc, pdlType,
+                                                            target, producers);
+}
+
+transform_dialect::ReplaceConstPaddingValueOp buildReplaceConstPaddingValueOp(
+    OpBuilder& b, Location& loc, Value target, StringRef mode) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::ReplaceConstPaddingValueOp>(loc, pdlType,
+                                                                 target, mode);
+}
+
+transform_dialect::ConvertPaddingPlaceholderToConstOp
+buildConvertPaddingPlaceholderToConstOp(OpBuilder& b, Location& loc,
+                                        Value target) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::ConvertPaddingPlaceholderToConstOp>(
+      loc, pdlType, target);
+}
+
+class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
+ public:
+  explicit ParsedFromFileScheduleFactory(int64_t id, PatternKind kind,
+                                         ArrayRef<StringRef> tags,
+                                         ModuleOp transformModule);
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+
+ private:
+  ModuleOp transformModule_;
+};
+
+ParsedFromFileScheduleFactory::ParsedFromFileScheduleFactory(
+    int64_t id, PatternKind kind, ArrayRef<StringRef> tags,
+    ModuleOp transformModule)
+    : ScheduleFactoryWithNoGuard(id, kind, tags),
+      transformModule_(transformModule) {}
+
+LogicalResult ParsedFromFileScheduleFactory::assignSchedule(
+    PatternDescription& pd, ModuleOp m) {
+  OpBuilder b(m);
+  for (auto& op : transformModule_.getBody()->getOperations()) {
+    if (!isa<transform::TransformOpInterface>(&op)) continue;
+    m.push_back(b.clone(op));
+  }
+  return success();
+}
+
+class Aarch64GEMMDefaultScheduleFactory : public ScheduleFactoryWithNoGuard {
+ public:
+  using ScheduleFactoryWithNoGuard::ScheduleFactoryWithNoGuard;
+  bool checkFusionPatternProperties(PatternDescription&) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+};
+
+// TODO(wyzero): merge default schedule and default with epilogue schedule.
+bool Aarch64GEMMDefaultScheduleFactory::checkFusionPatternProperties(
+    PatternDescription& pd) {
+  auto& fusionPattern = pd.getFusionPattern();
+  auto& rootOps = fusionPattern.getRootOps();
+  // Only support single output a.t.m.
+  if (rootOps.size() != 1) return false;
+
+  // This schedule not support epilogue fusion
+  auto dominantOp = fusionPattern.getDominantOp();
+  return rootOps[0] == dominantOp && isa<lmhlo::DotGeneralOp>(dominantOp);
+}
+
+LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
+    PatternDescription& pd, ModuleOp m) {
   OpBuilder b(m);
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
@@ -323,7 +408,7 @@ LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
   buildFoldProducerExtractSlice(b, loc, weightInnerSlice, 2);
 
   // pad to match the requirement of hardware vector/tensor instruction.
-  auto padOp = buildPadOp(b, loc, tileOp->getResult(0), {0, 1, 2});
+  auto padOp = buildPadOp(b, loc, tileOp->getResult(0), {0, 1, 2}, 3);
 
   Value padForInput = buildGetProducerOfOperand(b, loc, padOp, 0);
   Value padForWeight = buildGetProducerOfOperand(b, loc, padOp, 1);
@@ -427,10 +512,516 @@ LogicalResult aarch64GEMMDefaultScheduleFactory(PatternDescription& pd,
   return success();
 }
 
-DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, "",
-                        aarch64GEMMDefaultScheduleFactory);
+class Aarch64GEMMDefaultScheduleWithEpilogueFactory
+    : public ScheduleFactoryWithNoGuard {
+ public:
+  using ScheduleFactoryWithNoGuard::ScheduleFactoryWithNoGuard;
+  bool checkFusionPatternProperties(PatternDescription&) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+};
+
+bool Aarch64GEMMDefaultScheduleWithEpilogueFactory::
+    checkFusionPatternProperties(PatternDescription& pd) {
+  auto& fusionPattern = pd.getFusionPattern();
+  auto& rootOps = fusionPattern.getRootOps();
+  // Only support single output a.t.m.
+  if (rootOps.size() != 1) return false;
+
+  // This schedule only works for gemm with epilogue fusion
+  auto dominantOp = fusionPattern.getDominantOp();
+  return rootOps[0] != dominantOp && isa<lmhlo::DotGeneralOp>(dominantOp);
+}
+
+LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
+    PatternDescription& pd, ModuleOp m) {
+  OpBuilder b(m);
+  b.setInsertionPointToStart(&m.getBodyRegion().front());
+  Location loc = m.getLoc();
+  MLIRContext* ctx = m->getContext();
+  auto seqOp = b.create<transform_ext::CanonicalizedSequenceOp>(
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{});
+  seqOp.getBody().push_back(new Block);
+  auto& bodyBlock = seqOp.getBody().front();
+  auto pdlOpType = pdl::OperationType::get(ctx);
+  bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
+  b.setInsertionPointToStart(&bodyBlock);
+  Value variant = bodyBlock.getArgument(0);
+
+  auto& fusionPattern = pd.getFusionPattern();
+  auto nameMap = TransformNameAssigner(fusionPattern.getOpList()).getNameMap();
+  auto dotOp =
+      dyn_cast_or_null<lmhlo::DotGeneralOp>(fusionPattern.getDominantOp());
+  if (!dotOp) {
+    return m->emitError() << "expect dot_general op as dominant\n";
+  }
+  Value lhs = dotOp->getOperand(0);
+  Value rhs = dotOp->getOperand(1);
+  auto lhsTy = lhs.getType().cast<MemRefType>();
+  auto rhsTy = rhs.getType().cast<MemRefType>();
+  if (lhsTy.getRank() != 2 || rhsTy.getRank() != 2) {
+    return m->emitError() << "only support rank 2 GEMM a.t.m.\n";
+  }
+
+  auto dimNumbers = dotOp.getDotDimensionNumbers();
+  auto lhsCntractingDims = dimNumbers.getLhsContractingDimensions();
+  auto rhsCntractingDims = dimNumbers.getRhsContractingDimensions();
+  if (lhsCntractingDims.size() != 1 || rhsCntractingDims.size() != 1) {
+    return m->emitError() << "only support exactly 1 contract dim\n";
+  }
+  bool lhsTranspose = (lhsCntractingDims[0] == lhsTy.getRank() - 2);
+  bool rhsTranspose = (rhsCntractingDims[0] == rhsTy.getRank() - 1);
+  int64_t M = lhsTranspose ? lhsTy.getShape()[lhsTy.getRank() - 1]
+                           : lhsTy.getShape()[lhsTy.getRank() - 2];
+  int64_t K = lhsTranspose ? lhsTy.getShape()[lhsTy.getRank() - 2]
+                           : lhsTy.getShape()[lhsTy.getRank() - 1];
+  int64_t N = rhsTranspose ? rhsTy.getShape()[rhsTy.getRank() - 2]
+                           : rhsTy.getShape()[rhsTy.getRank() - 1];
+
+  if (fusionPattern.getRootOps().size() != 1) {
+    return m->emitError() << "only support single output a.t.m.\n";
+  }
+  Operation* rootOp = fusionPattern.getRootOps()[0];
+  Value rootHandle = buildMatchOp(b, loc, variant, {}, nameMap[rootOp]);
+
+  // merge elemwise ops in case there are many.
+  SmallVector<Value> otherElemOpHandles;
+  for (Operation* op : fusionPattern.getOpList()) {
+    if (op == rootOp || op == dotOp.getOperation()) continue;
+    otherElemOpHandles.push_back(
+        buildMatchOp(b, loc, variant, {}, nameMap[op]));
+  }
+  if (!otherElemOpHandles.empty()) {
+    buildLinalgFuseProducersOp(b, loc, rootHandle, otherElemOpHandles);
+    rootHandle = buildMatchOp(b, loc, variant, {}, nameMap[rootOp]);
+  }
+
+  // split root ops.
+  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, rootHandle, {1, 1});
+  Value forEachThreadLoop = forEachThreadOp->getResult(0);
+  Value tiledRoot = forEachThreadOp->getResult(1);
+
+  // build handle to target dot op.
+  Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
+  auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
+  Value fill = matmulSplitOp->getResult(0);
+  Value matmul = matmulSplitOp->getResult(1);
+  matmul = buildFuseIntoContainingOp(b, loc, matmul, forEachThreadLoop);
+  fill = buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+
+  // first/second level tile size for dimension m
+  int64_t M0 = 288, M1 = 6;
+  // first/second level tile size for dimension n
+  int64_t N0 = 48, N1 = 16;
+  // first level tile size for dimension k
+  int64_t K0 = 1;
+  // TODO(wyzero): query cpuinfo.
+  int64_t hardwareVectorSizeInBytes = 4;
+
+  // first level tile and fuse matmul and fill op.
+  auto tileOp1 = buildTileOp(b, loc, tiledRoot, {M0, N0}, {0, 1});
+  matmul = buildFuseIntoContainingOp(b, loc, matmul, tileOp1->getResult(1));
+  fill = buildFuseIntoContainingOp(b, loc, fill, tileOp1->getResult(1));
+
+  // second level tile and fuse matmul and fill op.
+  auto tileOp2 = buildTileOp(b, loc, tileOp1->getResult(0), {M1, N1}, {0, 1});
+  // pad root ops to register level size (static size).
+  int64_t numOperandsUpperBound = fusionPattern.getOperands().size() +
+                                  fusionPattern.getResults().size() +
+                                  fusionPattern.getInternalResults().size() + 1;
+  auto padRootOp =
+      buildPadOp(b, loc, tileOp2->getResult(0), {0, 1}, numOperandsUpperBound);
+  auto padOps = buildMatchOp(b, loc, variant, {"tensor.pad"}, {});
+  buildReplaceConstPaddingValueOp(b, loc, padOps, "kAny");
+  matmul = buildFuseIntoContainingOp(b, loc, matmul, tileOp2->getResult(1));
+  fill = buildFuseIntoContainingOp(b, loc, fill, tileOp2->getResult(1));
+
+  // gemm reduction axis tiling
+  auto tileOp3 = buildTileOp(b, loc, matmul, {0, 0, K0}, {0, 1, 2});
+
+  variant = buildRunCanonicalizer(b, loc, variant);
+
+  // fold two extract_slice ops generated by two-level tiling. It's needed to
+  // enable following pad and hosit schedule.
+  Value weightInnerSlice =
+      buildGetProducerOfOperand(b, loc, tileOp3->getResult(0), 1);
+  buildFoldProducerExtractSlice(b, loc, weightInnerSlice, 2);
+
+  // pad to match the requirement of hardware vector/tensor instruction.
+  auto padGEMMOp = buildPadOp(b, loc, tileOp3->getResult(0), {0, 1, 2}, 3);
+
+  Value padForInput = buildGetProducerOfOperand(b, loc, padGEMMOp, 0);
+  Value padForWeight = buildGetProducerOfOperand(b, loc, padGEMMOp, 1);
+
+  // Check if we need to pad dimension `m/n/k` if input or weight is packed
+  bool mIsPadded = (M1 != 1) && (M == ShapedType::kDynamicSize ||
+                                 (M > M0 && (M % M0 != 0 || M0 % M1 != 0)) ||
+                                 (M <= M0 && M > M1 && M % M1 != 0));
+  bool nIsPadded = (N1 != 1) && (N == ShapedType::kDynamicSize ||
+                                 (N > N0 && (N % N0 != 0 || N0 % N1 != 0)) ||
+                                 (N <= N0 && N > N1 && N % N1 != 0));
+  bool kIsPadded =
+      (K0 != 1) && (K == ShapedType::kDynamicSize || K > K0 && K % K0 != 0);
+
+  // Check if we need to pack the input:
+  bool packInput = ((M == ShapedType::kDynamicSize || M >= M1) &&
+                    (K == ShapedType::kDynamicSize || K > K0) &&
+                    (N == ShapedType::kDynamicSize || N > N0));
+  if (packInput) {
+    // supposed loop order:
+    //  loop_m0
+    //   loop_n0
+    //    loop_m1
+    //     loop_n1
+    //      loop_k0 {
+    //        inner_most_gemm
+    //      }
+    // We want to cache the packed A below loop_m0 and above loop_n0.
+    // Thus the initial loop_level is 4.
+    int loopLevel = 4;
+    // in case:
+    // - the size of dimension N <= N0, then loop_n0 will be folded.
+    loopLevel -= (N != ShapedType::kDynamicSize && N <= N0);
+    // - the size of dimension M <= M1, then loop_m1 will be folded.
+    loopLevel -= (M != ShapedType::kDynamicSize && M <= M1);
+    // - the size of dimension N <= N1, then loop_n1 will be folded.
+    loopLevel -= (N != ShapedType::kDynamicSize && N <= N1);
+    // - the size of dimension K <= K0, then loop_k0 will be folded.
+    loopLevel -= (K != ShapedType::kDynamicSize && K <= K0);
+
+    if (loopLevel <= 0) {
+      return m->emitError()
+             << "failed to cache the packed input due to loopLevel = "
+             << loopLevel << " is invalid\n";
+    }
+    auto loopN0 = buildGetParentForOp(b, loc, padForInput, loopLevel);
+    bool inputIsPadded = mIsPadded || kIsPadded;
+    SmallVector<int64_t> tileSizes;
+    SmallVector<int64_t> permutation;
+    if (lhsTranspose) {
+      tileSizes = {K0, M1};
+      permutation = {2, 0, 1, 3};
+    } else {
+      tileSizes = {M1, K0};
+      permutation = {0, 2, 3, 1};
+    }
+    buildCacheRead(b, loc, padForInput, loopN0, {1, 1}, tileSizes,
+                   inputIsPadded, permutation);
+  }
+
+  // Check if we need to pack the weight, one of the following conditions:
+  // - if M, N and K are both dynamic, we always pad input a.t.m.
+  // - if N is known and N >= N0 && N0 > N1
+  bool packWeight = ((K == ShapedType::kDynamicSize || K > K0) &&
+                     (N == ShapedType::kDynamicSize || N > N1));
+  if (packWeight) {
+    bool weightIsPadded = nIsPadded || kIsPadded;
+    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    SmallVector<int64_t> tileSizes;
+    SmallVector<int64_t> permutation;
+    if (rhsTranspose) {
+      tileSizes = {N1, K0};
+      permutation = {0, 2, 3, 1};
+    } else {
+      tileSizes = {K0, N1};
+      permutation = {2, 0, 1, 3};
+    }
+    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+                   weightIsPadded, permutation);
+  }
+
+  variant = buildRunCanonicalizer(b, loc, variant);
+
+  Value multiLevelPackOps =
+      buildMatchOp(b, loc, variant, {"disc_linalg_ext.multi_level_pack"});
+  buildLowerMultiLevelPackToLoop(b, loc, multiLevelPackOps);
+
+  variant = buildRunCanonicalizer(b, loc, variant);
+
+  Value func = buildMatchOp(b, loc, variant, {"func.func"});
+  buildVectorize(b, loc, func, true);
+
+  variant = buildRunCanonicalizer(b, loc, variant);
+  auto placeholderOps = buildMatchOp(
+      b, loc, variant, {"disc_linalg_ext.padding_value_placeholder"}, {});
+  buildConvertPaddingPlaceholderToConstOp(b, loc, placeholderOps);
+  variant = buildDISCBufferize(b, loc, variant);
+
+  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
+                    "linalg-copy", true, "eltwise", false);
+  buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
+                    "linalg-copy", true, "eltwise", false);
+  // de-compose large size vector operations
+  variant = buildDecomposeVectors(b, loc, variant, hardwareVectorSizeInBytes);
+  b.create<transform::YieldOp>(loc);
+  return success();
+}
+
+class Aarch64GEMMLargeKScheduleFactory : public ScheduleFactory {
+ public:
+  using ScheduleFactory::ScheduleFactory;
+  bool checkFusionPatternProperties(PatternDescription&) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+  LogicalResult buildGuardCondition(OpBuilder& b, Location loc,
+                                    PatternDescription&, Value&) override;
+};
+
+bool Aarch64GEMMLargeKScheduleFactory::checkFusionPatternProperties(
+    PatternDescription& pd) {
+  auto& fusionPattern = pd.getFusionPattern();
+  auto& rootOps = fusionPattern.getRootOps();
+  // Only support single output a.t.m.
+  if (rootOps.size() != 1) return false;
+
+  // This schedule not support epilogue fusion
+  auto dominantOp = fusionPattern.getDominantOp();
+  return rootOps[0] == dominantOp && isa<lmhlo::DotGeneralOp>(dominantOp);
+}
+
+LogicalResult Aarch64GEMMLargeKScheduleFactory::buildGuardCondition(
+    OpBuilder& b, Location loc, PatternDescription& pd, Value& pred) {
+  auto& fusionPattern = pd.getFusionPattern();
+  auto dotOp =
+      dyn_cast_or_null<lmhlo::DotGeneralOp>(fusionPattern.getDominantOp());
+  if (!dotOp) {
+    llvm::dbgs() << "expect dot_general op as dominant\n";
+    return failure();
+  }
+  Value lhs = dotOp->getOperand(0);
+  auto lhsTy = lhs.getType().cast<MemRefType>();
+  if (lhsTy.getRank() != 2) {
+    return dotOp->emitError() << "only support rank 2 GEMM a.t.m.\n";
+  }
+
+  auto dimNumbers = dotOp.getDotDimensionNumbers();
+  auto lhsContractingDims = dimNumbers.getLhsContractingDimensions();
+  if (lhsContractingDims.size() != 1) {
+    return dotOp->emitError() << "only support exactly 1 contract dim\n";
+  }
+  bool lhsTranspose = (lhsContractingDims[0] == lhsTy.getRank() - 2);
+  Value dimK = b.create<memref::DimOp>(loc, lhs, lhsTranspose ? 0 : 1);
+  Value largeK = b.create<arith::ConstantIndexOp>(loc, 768);
+  pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, dimK, largeK);
+  return success();
+}
+
+LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
+    PatternDescription& pd, ModuleOp m) {
+  OpBuilder b(m);
+  b.setInsertionPointToStart(&m.getBodyRegion().front());
+  Location loc = m.getLoc();
+  MLIRContext* ctx = m->getContext();
+  auto seqOp = b.create<transform_ext::CanonicalizedSequenceOp>(
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{});
+  seqOp.getBody().push_back(new Block);
+  auto& bodyBlock = seqOp.getBody().front();
+  auto pdlOpType = pdl::OperationType::get(ctx);
+  bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
+  b.setInsertionPointToStart(&bodyBlock);
+  Value variant = bodyBlock.getArgument(0);
+
+  auto& fusionPattern = pd.getFusionPattern();
+  auto nameMap = TransformNameAssigner(fusionPattern.getOpList()).getNameMap();
+  auto dotOp =
+      dyn_cast_or_null<lmhlo::DotGeneralOp>(fusionPattern.getDominantOp());
+  if (!dotOp) {
+    return m->emitError() << "expect dot_general op as dominant\n";
+  }
+  Value lhs = dotOp->getOperand(0);
+  Value rhs = dotOp->getOperand(1);
+  auto lhsTy = lhs.getType().cast<MemRefType>();
+  auto rhsTy = rhs.getType().cast<MemRefType>();
+  if (lhsTy.getRank() != 2 || rhsTy.getRank() != 2) {
+    return m->emitError() << "only support rank 2 GEMM a.t.m.\n";
+  }
+
+  auto dimNumbers = dotOp.getDotDimensionNumbers();
+  auto lhsContractingDims = dimNumbers.getLhsContractingDimensions();
+  auto rhsContractingDims = dimNumbers.getRhsContractingDimensions();
+  if (lhsContractingDims.size() != 1 || rhsContractingDims.size() != 1) {
+    return m->emitError() << "only support exactly 1 contract dim\n";
+  }
+  bool lhsTranspose = (lhsContractingDims[0] == lhsTy.getRank() - 2);
+  bool rhsTranspose = (rhsContractingDims[0] == rhsTy.getRank() - 1);
+  int64_t M = lhsTranspose ? lhsTy.getShape()[lhsTy.getRank() - 1]
+                           : lhsTy.getShape()[lhsTy.getRank() - 2];
+  int64_t K = lhsTranspose ? lhsTy.getShape()[lhsTy.getRank() - 2]
+                           : lhsTy.getShape()[lhsTy.getRank() - 1];
+  int64_t N = rhsTranspose ? rhsTy.getShape()[rhsTy.getRank() - 2]
+                           : rhsTy.getShape()[rhsTy.getRank() - 1];
+
+  // build handle to target dot op.
+  Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
+  auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
+  Value fill = matmulSplitOp->getResult(0);
+  Value matmul = matmulSplitOp->getResult(1);
+
+  // transform.structured.tile_to_foreach_thread_op %matmul num_threads [1, 1]
+  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, matmul, {1, 1});
+  Value forEachThreadLoop = forEachThreadOp->getResult(0);
+  Value tiledMatmul = forEachThreadOp->getResult(1);
+
+  // transform.structured.fuse_into_containing_op %fill into %0#0
+  auto fuseIntoContainingOp =
+      buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+
+  // first level tile size for dimension m
+  int64_t M0 = 288, M1 = 8;
+  // first/second level tile size for dimension n
+  int64_t N0 = 204, N1 = 12;
+  // first/second level tile size for dimension k
+  int64_t K0 = 512, K1 = 1;
+  // TODO(wyzero): query cpuinfo.
+  int64_t hardwareVectorSizeInBytes = 4;
+
+  auto tileOp0 = buildTileOp(b, loc, tiledMatmul, {M0, N0, K0}, {0, 2, 1});
+  auto tileOp1 =
+      buildTileOp(b, loc, tileOp0->getResult(0), {M1, N1, K1}, {0, 1, 2});
+
+  // fold extract_slice ops generated by two-level tiling. It's needed to
+  // enable following pad and cache_read schedule.
+  Value weightInnerSlice =
+      buildGetProducerOfOperand(b, loc, tileOp1->getResult(0), 1);
+  buildFoldProducerExtractSlice(b, loc, weightInnerSlice, 2);
+
+  // pad to match the requirement of hardware vector/tensor instruction.
+  auto padOp = buildPadOp(b, loc, tileOp1->getResult(0), {0, 1, 2}, 3);
+
+  Value padForInput = buildGetProducerOfOperand(b, loc, padOp, 0);
+  Value padForWeight = buildGetProducerOfOperand(b, loc, padOp, 1);
+
+  // Check if we need to pad dimension `m/n/k` if input or weight is packed
+  bool mIsPadded = (M1 != 1) && (M == ShapedType::kDynamicSize ||
+                                 (M > M0 && (M % M0 != 0 || M0 % M1 != 0)) ||
+                                 (M <= M0 && M > M1 && M % M1 != 0));
+  bool nIsPadded = (N1 != 1) && (N == ShapedType::kDynamicSize ||
+                                 (N > N0 && (N % N0 != 0 || N0 % N1 != 0)) ||
+                                 (N <= N0 && N > N1 && N % N1 != 0));
+  bool kIsPadded = (K1 != 1) && (K == ShapedType::kDynamicSize ||
+                                 (K > K0 && (K % K0 != 0 || K0 % K1 != 0)) ||
+                                 (K <= K0 && K > K1 && K % K1 != 0));
+
+  // Check if we need to pack the input:
+  bool packInput = ((M == ShapedType::kDynamicSize || M >= M1) &&
+                    (K == ShapedType::kDynamicSize || K > K0) &&
+                    (N == ShapedType::kDynamicSize || N > N0));
+  // supposed loop order:
+  //  loop_m0
+  //   loop_k0
+  //    loop_n0
+  //     loop_m1
+  //      loop_n1
+  //       loop_k1 {
+  //         inner_most_gemm
+  //       }
+  // in case:
+  // - the size of dimension K <= K0, then loop_k0 will be folded.
+  bool m0Skipped = (M != ShapedType::kDynamicSize && M <= M0);
+  // - the size of dimension K <= K0, then loop_k0 will be folded.
+  bool k0Skipped = (K != ShapedType::kDynamicSize && K <= K0);
+  // - the size of dimension N <= N0, then loop_n0 will be folded.
+  bool n0Skipped = (N != ShapedType::kDynamicSize && N <= N0);
+  // - the size of dimension M <= M1, then loop_m1 will be folded.
+  bool m1Skipped = (M != ShapedType::kDynamicSize && M <= M1);
+  // - the size of dimension N <= N1, then loop_n1 will be folded.
+  bool n1Skipped = (N != ShapedType::kDynamicSize && N <= N1);
+  // - the size of dimension K <= K0, then loop_k0 will be folded.
+  bool k1Skipped = (K != ShapedType::kDynamicSize && K <= K1);
+  if (packInput) {
+    // We want to cache the packed A below loop_k0 and above loop_n0.
+    // Thus the initial loop_level is 4.
+    int loopLevel = 4 - n0Skipped - m1Skipped - n1Skipped - k1Skipped;
+    if (loopLevel <= 0) {
+      return m->emitError()
+             << "failed to cache the packed input due to loopLevel = "
+             << loopLevel << " is invalid\n";
+    }
+    auto loopN0 = buildGetParentForOp(b, loc, padForInput, loopLevel);
+    bool inputIsPadded = mIsPadded || kIsPadded;
+    SmallVector<int64_t> tileSizes;
+    SmallVector<int64_t> permutation;
+    if (lhsTranspose) {
+      tileSizes = {K1, M1};
+      permutation = {2, 0, 1, 3};
+    } else {
+      tileSizes = {M1, K1};
+      permutation = {0, 2, 3, 1};
+    }
+    buildCacheRead(b, loc, padForInput, loopN0, {1, 1}, tileSizes,
+                   inputIsPadded, permutation);
+  }
+
+  // Check if we need to pack the weight, one of the following conditions:
+  // - if M, N and K are both dynamic, we always pad input a.t.m.
+  // - if N is known and N >= N0 && N0 > N1
+  bool packWeight = ((K == ShapedType::kDynamicSize || K > K1) &&
+                     (N == ShapedType::kDynamicSize || N > N1));
+  if (packWeight) {
+    bool weightIsPadded = nIsPadded || kIsPadded;
+    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    SmallVector<int64_t> tileSizes;
+    SmallVector<int64_t> permutation;
+    if (rhsTranspose) {
+      tileSizes = {N1, K1};
+      permutation = {0, 2, 3, 1};
+    } else {
+      tileSizes = {K1, N1};
+      permutation = {2, 0, 1, 3};
+    }
+    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+                   weightIsPadded, permutation);
+  }
+
+  variant = buildRunCanonicalizer(b, loc, variant);
+
+  Value multiLevelPackOps =
+      buildMatchOp(b, loc, variant, {"disc_linalg_ext.multi_level_pack"});
+  buildLowerMultiLevelPackToLoop(b, loc, multiLevelPackOps);
+
+  variant = buildRunCanonicalizer(b, loc, variant);
+
+  Value func = buildMatchOp(b, loc, variant, {"func.func"});
+  buildVectorize(b, loc, func, true);
+
+  variant = buildRunCanonicalizer(b, loc, variant);
+  variant = buildDISCBufferize(b, loc, variant);
+
+  if (!k0Skipped && !k1Skipped) {
+    Value leftFillOp = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
+    Value contractOp = buildMatchOp(b, loc, variant, {"vector.contract"});
+    int outterMostKLoopLevel =
+        5 - k0Skipped - n0Skipped - m1Skipped - n1Skipped - k1Skipped;
+    auto loop0 = buildGetParentForOp(b, loc, contractOp, outterMostKLoopLevel);
+    auto loop1 = buildGetParentForOp(b, loc, contractOp, 2);
+    auto readers = buildMatchOp(b, loc, loop1, {"vector.transfer_read"});
+    auto splitedReaders = buildSplitHandlesOp(b, loc, readers, 3);
+    buildInlineReductionInitializerOp(b, loc, leftFillOp, loop0,
+                                      splitedReaders->getResult(0));
+  }
+
+  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
+                    "linalg-copy", true, "eltwise", false);
+  buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
+                    "linalg-copy", true, "eltwise", false);
+  variant = buildDecomposeVectors(b, loc, variant, hardwareVectorSizeInBytes);
+  b.create<transform::YieldOp>(loc);
+  return success();
+}
+
+DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, kDefaultScheduleFactoryPriority,
+                        Aarch64GEMMDefaultScheduleFactory,
+                        ArrayRef<StringRef>{kDefaultScheduleFactoryTag});
+
+DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 10,
+                        Aarch64GEMMDefaultScheduleWithEpilogueFactory,
+                        ArrayRef<StringRef>{"default_epilogue"});
+
+DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 100,
+                        Aarch64GEMMLargeKScheduleFactory,
+                        ArrayRef<StringRef>{"large_k"});
 
 }  // namespace
+
+const char* kDefaultScheduleFactoryTag = "default";
 
 std::string patternKindToString(PatternKind kind) {
   auto& map = getPatternKindToStringMap();
@@ -451,7 +1042,10 @@ PatternKind patternKindFromString(const std::string& str) {
 PatternDescription::PatternDescription(lmhlo::FusionOp op,
                                        FusionPattern& fusionPattern,
                                        ShapeAnalysis& shapeAnalysis)
-    : op_(op), fusionPattern_(fusionPattern), shapeAnalysis_(shapeAnalysis) {
+    : op_(op),
+      fusionPattern_(fusionPattern),
+      shapeAnalysis_(shapeAnalysis),
+      tagSet_(parsefusionTagSetFromStr(getFusionTagStr(op))) {
   // TODO(wyzero): select the pattern kind according to the `fusionPattern`.
   patternKind_ = PatternKind::kGEMM;
 }
@@ -462,32 +1056,104 @@ std::string PatternDescription::getPatternTagStr() const {
   return getFusionTagStr(op_).str();
 }
 
+const std::set<std::string>& PatternDescription::getPatternTagSet() const {
+  return tagSet_;
+}
+
 std::string PatternDescription::getTaggedPatternStr() const {
   return patternKindToString(patternKind_) + "@" + getPatternTagStr();
 }
+
+ScheduleFactory::ScheduleFactory(int64_t id, PatternKind kind,
+                                 ArrayRef<StringRef> tags)
+    : id_(id), kind_(kind) {
+  tagSet_.insert(Twine(id).str());
+  for (auto tag : tags) {
+    tagSet_.insert(tag.str());
+  }
+}
+
+bool ScheduleFactory::accept(PatternDescription& pattern) {
+  return checkKindAndTags(pattern) && checkFusionPatternProperties(pattern);
+}
+
+bool ScheduleFactory::checkKindAndTags(PatternDescription& pattern) {
+  if (pattern.getPatternKind() != kind_) return false;
+  for (auto& tag : pattern.getPatternTagSet())
+    if (tagSet_.find(tag) == tagSet_.end()) return false;
+  return true;
+}
+
+bool ScheduleFactory::checkFusionPatternProperties(PatternDescription&) {
+  return true;
+}
+
+LogicalResult ScheduleFactory::buildGuardCondition(OpBuilder& b, Location loc,
+                                                   PatternDescription&,
+                                                   Value&) {
+  return failure();
+}
+
+LogicalResult ScheduleFactory::assignSchedule(PatternDescription&, ModuleOp) {
+  return failure();
+}
+
+bool ScheduleFactory::noGuardCondition(PatternDescription&) { return false; }
 
 /* static */ ScheduleFactoryRegistry& ScheduleFactoryRegistry::get() {
   static ScheduleFactoryRegistry instance;
   return instance;
 }
 
-bool ScheduleFactoryRegistry::registerScheduleFactory(PatternKind kind,
-                                                      const std::string& tag,
-                                                      ScheduleFactory factory) {
-  return factoryMap_[kind].emplace(tag, factory).second;
+/* static */ int64_t ScheduleFactoryRegistry::getNextUniqueId() {
+  static std::atomic<int64_t> nextIdx{0};
+  return nextIdx++;
 }
 
-ScheduleFactory ScheduleFactoryRegistry::getScheduleFactory(
-    PatternKind kind, const std::string& tag) {
-  auto it = factoryMap_.find(kind);
-  if (it == factoryMap_.end()) return nullptr;
-  auto factoryIt = it->second.find(tag);
-  if (factoryIt == it->second.end()) return nullptr;
-  return factoryIt->second;
+bool ScheduleFactoryRegistry::registerScheduleFactory(
+    PatternKind kind, int priority, ScheduleFactoryPtr factory) {
+  return patternMap_[kind].emplace(priority, std::move(factory)).second;
+}
+
+void ScheduleFactoryRegistry::unregisterScheduleFactory(PatternKind kind,
+                                                        int priority) {
+  patternMap_[kind].erase(priority);
+}
+
+ScheduleFactory* ScheduleFactoryRegistry::getScheduleFactoryWithHighestPriority(
+    PatternDescription& pd) {
+  auto& factoryMap = patternMap_[pd.getPatternKind()];
+  for (auto it = factoryMap.rbegin(); it != factoryMap.rend(); ++it) {
+    if (it->second->accept(pd)) return it->second.get();
+  }
+  return nullptr;
+}
+
+SmallVector<ScheduleFactory*>
+ScheduleFactoryRegistry::getAllCandidateScheduleFactories(
+    PatternDescription& pd) {
+  SmallVector<ScheduleFactory*> factories;
+  auto& factoryMap = patternMap_[pd.getPatternKind()];
+  for (auto it = factoryMap.rbegin(); it != factoryMap.rend(); ++it) {
+    if (it->second->accept(pd)) {
+      factories.push_back(it->second.get());
+      // early stop
+      if (it->second->noGuardCondition(pd)) break;
+    }
+  }
+  return factories;
 }
 
 ScheduleDispatcher::ScheduleDispatcher(const std::string& transformFileName)
     : transformFileName_(transformFileName) {}
+
+ScheduleDispatcher::~ScheduleDispatcher() {
+  int priority = kParsedFromFileScheduleFactoryStartPriority;
+  for (const auto& outter : parsedModuleMap_)
+    for (const auto& inner : outter.second)
+      ScheduleFactoryRegistry::get().unregisterScheduleFactory(outter.first,
+                                                               priority++);
+}
 
 LogicalResult ScheduleDispatcher::parseModuleFromFile(MLIRContext* ctx) {
   if (transformFileName_.empty() || !parsedModuleMap_.empty()) return success();
@@ -497,6 +1163,7 @@ LogicalResult ScheduleDispatcher::parseModuleFromFile(MLIRContext* ctx) {
   SmallVector<StringRef> patternSettings;
   StringRef(transformFileName_)
       .split(patternSettings, ';', /*MaxSplit=*/-1, /*KeepEmpty=*/false);
+  int priority = kParsedFromFileScheduleFactoryStartPriority;
   for (auto& patternSetting : patternSettings) {
     SmallVector<StringRef> items;
     patternSetting.split(items, ":", /*MaxSplit=*/-1, /*KeepEmpty=*/true);
@@ -512,44 +1179,35 @@ LogicalResult ScheduleDispatcher::parseModuleFromFile(MLIRContext* ctx) {
       return failure();
     }
 
-    if (failed(parseTransformModuleFromFile(
-            ctx, items[2], parsedModuleMap_[kind][items[1].str()]))) {
+    auto& transformModule = parsedModuleMap_[kind][items[1].str()];
+    if (failed(parseTransformModuleFromFile(ctx, items[2], transformModule))) {
       llvm::dbgs()
           << "illegal transform file setting, unable to load module from: "
           << items[2] << "\n";
       return failure();
     }
+    SmallVector<StringRef> tags;
+    items[1].split(tags, kFusionTagSeparator, /*MaxSplit*/ -1,
+                   /*KeepEmpty*/ false);
+    ScheduleFactoryRegistry::get().registerScheduleFactory(
+        kind, priority++,
+        std::make_unique<ParsedFromFileScheduleFactory>(
+            ScheduleFactoryRegistry::get().getNextUniqueId(), kind, tags,
+            transformModule.get()));
   }
   return success();
 }
 
-bool ScheduleDispatcher::tryToApplyScheduleFromParsedFile(
-    PatternDescription& pd, ModuleOp m) {
-  auto it = parsedModuleMap_.find(pd.getPatternKind());
-  if (it == parsedModuleMap_.end()) return false;
-  auto tagIt = it->second.find(pd.getPatternTagStr());
-  if (tagIt == it->second.end()) return false;
-  OpBuilder b(m);
-  for (auto& op : tagIt->second.get().getBody()->getOperations()) {
-    if (!isa<transform::TransformOpInterface>(&op)) continue;
-    m.push_back(b.clone(op));
-  }
-  return true;
-}
-
 LogicalResult ScheduleDispatcher::dispatch(PatternDescription& pd, ModuleOp m) {
-  if (failed(parseModuleFromFile(m.getContext()))) return failure();
-  if (tryToApplyScheduleFromParsedFile(pd, m)) return success();
-
-  auto factory = ScheduleFactoryRegistry::get().getScheduleFactory(
-      pd.getPatternKind(), pd.getPatternTagStr());
+  auto factory =
+      ScheduleFactoryRegistry::get().getScheduleFactoryWithHighestPriority(pd);
   if (!factory) {
     llvm::dbgs() << "no default schedule for pattern: "
                  << pd.getTaggedPatternStr() << "\n";
     return failure();
   }
 
-  return factory(pd, m);
+  return factory->assignSchedule(pd, m);
 }
 
 }  // namespace disc_ral

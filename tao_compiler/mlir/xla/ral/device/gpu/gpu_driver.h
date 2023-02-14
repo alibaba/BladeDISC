@@ -21,7 +21,7 @@
 #include <memory>
 #include <string>
 
-#include "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
+#include "mlir/xla/ral/ral_driver.h"
 
 namespace tao {
 namespace ral {

@@ -17,14 +17,16 @@ limitations under the License.
 #define TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_FUSION_UTILS_H_
 
 #include <memory>
+#include <set>
+#include <string>
 #include <vector>
 
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/transforms/shape_utils.h"
 
 #define DEBUG_TYPE "disc-fusion-utils"
 
@@ -78,6 +80,7 @@ bool isOnGpu(Operation* op);
 constexpr const char* kDiscFusionTypeAttrName = "disc.fusion_type";
 constexpr StringRef kFusionOpNameAttr = "disc.fusion.name";
 constexpr StringRef kFusionOpTagAttr = "disc.fusion.tag";
+constexpr const char* kFusionTagSeparator = "X";
 
 // kLoop fusion template satisfies:
 //   - all ops in the fusion pattern are element-wise.
@@ -426,8 +429,18 @@ void setFusionName(OpBuilder& b, lmhlo::FusionOp op, StringRef name);
 // Here different tags is mapping to different variants of the fusion op.
 void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag);
 
+// Merge the tags of the op and `tagSet`, assign the new tag set to `op`.
+void mergeFusionTag(OpBuilder& b, lmhlo::FusionOp op,
+                    const std::set<std::string>& tagSet);
+
 // Returns the tag string attached to the fusion op.
 StringRef getFusionTagStr(lmhlo::FusionOp op);
+
+// Returns the unified tag string for the whole tagSet.
+std::string fusionTagSetToStr(const std::set<std::string>& tagSet);
+
+// Returns the parsed tag set from `tagStr`.
+std::set<std::string> parsefusionTagSetFromStr(StringRef tagStr);
 
 // Returns the full name of the fusion op
 // Here full name is composed of the name and tag of the fusion op.

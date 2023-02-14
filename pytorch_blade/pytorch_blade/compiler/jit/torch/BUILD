@@ -15,6 +15,9 @@ cc_library(
 	"//pytorch_blade/common_utils:torch_blade_macros",
         "@local_org_torch//:libtorch",
     ],
+    copts = select({
+       "//:enable_cuda": ["-DTORCH_BLADE_BUILD_WITH_CUDA"],
+       "//conditions:default": []}),
     alwayslink = True,
 )
 

@@ -9,14 +9,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/utils/source_emitter.h"
+#include "mlir/disc/utils/source_emitter.h"
 
 #include <sstream>
 
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -34,7 +34,7 @@ std::string to_string(const Type& data) {
 
 template <typename OPType>
 std::string CUDAMathFuncName(Type type) {
-  assert(false & "unsupported op");
+  assert(false && "unsupported op");
   return "";
 }
 
@@ -46,7 +46,7 @@ std::string CUDAMathFuncName<lmhlo::AbsOp>(Type type) {
              type.isInteger(64)) {
     return "abs";
   } else {
-    assert(false & "unsupported type for abs op.");
+    assert(false && "unsupported type for abs op.");
   }
   return "";
 }
@@ -58,7 +58,7 @@ std::string CUDAMathFuncName<lmhlo::CeilOp>(Type type) {
   } else if (type.isF32() || type.isF64()) {
     return "ceil";
   } else {
-    assert(false & "unsupported type for ceil op.");
+    assert(false && "unsupported type for ceil op.");
   }
   return "";
 }
@@ -82,7 +82,7 @@ std::string CUDAMathFuncName<lmhlo::ConvertOp>(Type type) {
   } else if (type.isUnsignedInteger(64)) {
     return "(unsigned long int)";
   } else {
-    assert(false & "unsupported type for convert op.");
+    assert(false && "unsupported type for convert op.");
   }
   return "";
 }
@@ -94,7 +94,7 @@ std::string CUDAMathFuncName<lmhlo::CosineOp>(Type type) {
   } else if (type.isF32() || type.isF64()) {
     return "cos";
   } else {
-    assert(false & "unsupported type for cosine op.");
+    assert(false && "unsupported type for cosine op.");
   }
   return "";
 }
@@ -106,7 +106,7 @@ std::string CUDAMathFuncName<lmhlo::ExpOp>(Type type) {
   } else if (type.isF32() || type.isF64()) {
     return "exp";
   } else {
-    assert(false & "unsupported type for exp op.");
+    assert(false && "unsupported type for exp op.");
   }
   return "";
 }
@@ -118,7 +118,7 @@ std::string CUDAMathFuncName<lmhlo::FloorOp>(Type type) {
   } else if (type.isF32() || type.isF64()) {
     return "floor";
   } else {
-    assert(false & "unsupported type for floor op.");
+    assert(false && "unsupported type for floor op.");
   }
   return "";
 }
@@ -128,7 +128,7 @@ std::string CUDAMathFuncName<lmhlo::IsFiniteOp>(Type type) {
   if (type.isF32() || type.isF64()) {
     return "isfinite";
   } else {
-    assert(false & "unsupported type for isfinite op.");
+    assert(false && "unsupported type for isfinite op.");
   }
   return "";
 }
@@ -140,7 +140,7 @@ std::string CUDAMathFuncName<lmhlo::LogOp>(Type type) {
   } else if (type.isF32() || type.isF64()) {
     return "log";
   } else {
-    assert(false & "unsupported type for log op.");
+    assert(false && "unsupported type for log op.");
   }
   return "";
 }
@@ -150,7 +150,7 @@ std::string CUDAMathFuncName<lmhlo::Log1pOp>(Type type) {
   if (type.isF32() || type.isF64()) {
     return "log1p";
   } else {
-    assert(false & "unsupported type for abs op.");
+    assert(false && "unsupported type for abs op.");
   }
   return "";
 }
@@ -162,7 +162,7 @@ std::string CUDAMathFuncName<lmhlo::RsqrtOp>(Type type) {
   } else if (type.isF32() || type.isF64()) {
     return "rsqrt";
   } else {
-    assert(false & "unsupported type for rsqrt op.");
+    assert(false && "unsupported type for rsqrt op.");
   }
   return "";
 }
@@ -174,7 +174,7 @@ std::string CUDAMathFuncName<lmhlo::SqrtOp>(Type type) {
   } else if (type.isF32() || type.isF64()) {
     return "sqrt";
   } else {
-    assert(false & "unsupported type for sqrt op.");
+    assert(false && "unsupported type for sqrt op.");
   }
   return "";
 }
@@ -184,7 +184,7 @@ std::string CUDAMathFuncName<lmhlo::TanhOp>(Type type) {
   if (type.isF32() || type.isF64()) {
     return "tanh";
   } else {
-    assert(false & "unsupported type for tanh op.");
+    assert(false && "unsupported type for tanh op.");
   }
   return "";
 }
@@ -211,7 +211,7 @@ std::string MLIRType2CUDATypeStr(Type type) {
   } else if (type.isUnsignedInteger(64)) {
     return "uint64_t";
   } else {
-    assert(false & "unsupported type for convert op.");
+    assert(false && "unsupported type for convert op.");
   }
   return "";
 }

@@ -13,14 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/tests/mlir_feature_test.h"
-#include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
+#include "mlir/disc/tests/mlir_feature_test.h"
+#include "mlir/disc/tests/mlir_test.h"
 #include "tensorflow/core/platform/test.h"
 
 namespace mlir_test {
 
-const std::string c_ft_path =
-    "tensorflow/compiler/mlir/disc/tests/disc-transform/data/";
+const std::string c_ft_path = "mlir/disc/tests/disc-transform/data/";
 
 static bool init_threads = []() {
   setenv("OMP_NUM_THREADS", "1", 1);
@@ -231,6 +230,24 @@ TEST(PackedMatmul, F32_768x2_Using_Default_Schedule) {
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"304x768xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {},
+      /*expected_output_vals*/ {},
+      /*profiling*/ true));
+}
+
+TEST(PackedMatmul, F32_768x3072_Using_Default_Schedule) {
+  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSettingContext ctx(setting);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path +
+          "default_schedule_matmul_nn_p_3072x768_f32.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"24x3072xf32_X"},
       /*output_descriptors*/ {"f32_X"},
       /*input_vals*/ {},
       /*expected_output_vals*/ {},

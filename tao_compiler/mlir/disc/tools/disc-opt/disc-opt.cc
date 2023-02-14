@@ -28,15 +28,16 @@ limitations under the License.
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
+#include "mlir/disc/IR/disc_ral_ops.h"
+#include "mlir/disc/IR/disc_shape_ops.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
+#include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
+#include "mlir/disc/tools/disc-transform/transforms/register_passes.h"
+#include "mlir/disc/transforms/register_passes.h"
 #include "stablehlo/dialect/ChloOps.h"
-#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/register_passes.h"
-#include "tensorflow/compiler/mlir/disc/transforms/register_passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 
 int main(int argc, char** argv) {
@@ -67,6 +68,8 @@ int main(int argc, char** argv) {
   registry.addExtensions<
       mlir::iree_compiler::IREE::LinalgExt::LinalgExtTransformOpsExtension,
       transform_ext::StructuredTransformOpsExtension>();
+  mlir::disc_ral::disc_linalg_ext::registerTilingInterfaceExternalModels(
+      registry);
 
   return failed(mlir::MlirOptMain(argc, argv, "MLIR HLO pass driver\n",
                                   registry,

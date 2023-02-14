@@ -654,6 +654,21 @@ LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<AtenNegIntOp>::matchAndRewrite(
+    AtenNegIntOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto val = adaptor.a();
+  auto zero = rewriter.create<mlir::arith::ConstantOp>(
+      op->getLoc(), rewriter.getIntegerAttr(val.getType(), 0));
+
+  rewriter.replaceOpWithNewOp<arith::SubIOp>(
+      op, getTypeConverter()->convertType(op.getType()), zero, val);
+
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<TensorStaticInfoCastOp>::matchAndRewrite(
     TensorStaticInfoCastOp op,
     OpAdaptor adaptor,
@@ -805,9 +820,10 @@ LogicalResult ConvertAtenOp<AtenEmptyMemoryFormatOp>::matchAndRewrite(
   auto mhloShape = rewriter.create<mlir::tensor::FromElementsOp>(loc, dimSizes);
   auto constOp =
       mhlo::getConstTensor<int32_t>(rewriter, op, {1.0}, {}).getValue();
-
+  auto castedConstOp =
+      rewriter.create<mhlo::ConvertOp>(loc, constOp, outType.getElementType());
   auto result = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-      loc, outType, constOp, mhloShape, rewriter.getI64TensorAttr({}));
+      loc, outType, castedConstOp, mhloShape, rewriter.getI64TensorAttr({}));
 
   rewriter.replaceOp(op, {result});
   return success();
@@ -827,7 +843,8 @@ LogicalResult ConvertAtenOp<AtenFlipOp>::matchAndRewrite(
   if (!matchPattern(op.dims(), m_TorchConstantIntList(dimListInt)))
     return rewriter.notifyMatchFailure(
         op, "Only constant dims are currently supported");
-
+  auto dims = mhlo::toPositiveDims(dimListInt, selfTy.getRank());
+  std::copy(dims.begin(), dims.end(), dimListInt.begin());
   rewriter.replaceOpWithNewOp<mlir::mhlo::ReverseOp>(
       op,
       getTypeConverter()->convertType(op.getType()),
@@ -1336,6 +1353,68 @@ LogicalResult ConvertAtenOp<AtenEmbeddingOp>::matchAndRewrite(
   return success();
 }
 } // namespace
+
+namespace {
+template <>
+LogicalResult ConvertAtenOp<AtenConstantPadNdOp>::matchAndRewrite(
+    AtenConstantPadNdOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto self = adaptor.self();
+  auto selfTy = self.getType().template cast<RankedTensorType>();
+  if (!selfTy)
+    return op.emitError("only ranked tensor types are supported");
+
+  SmallVector<Value, 4> pad;
+  getListConstructElements(op.pad(), pad);
+  if (pad.size() % 2 != 0)
+    return op.emitError("pad list size must be even");
+
+  auto padDims = pad.size() / 2;
+  auto rank = selfTy.getRank();
+  if (padDims > rank)
+    return op.emitError("pad list size is larger then rank");
+
+  auto loc = op.getLoc();
+  Value zero = rewriter.create<arith::ConstantIntOp>(
+      loc, 0, rewriter.getIntegerType(64));
+  SmallVector<Value, 4> paddingLows(rank, zero);
+  SmallVector<Value, 4> paddingHighs(rank, zero);
+  SmallVector<Value, 4> paddingInters(rank, zero);
+  // starting from the last dimension and moving forward
+  for (auto k = 0; k < padDims; ++k) {
+    paddingLows[rank - k - 1] =
+        rewriter.create<ToI64Op>(loc, pad[k * 2]).getResult();
+    paddingHighs[rank - k - 1] =
+        rewriter.create<ToI64Op>(loc, pad[k * 2 + 1]).getResult();
+  }
+
+  Value valueTensor = rewriter.create<tensor::FromElementsOp>(
+      loc, ArrayRef<Value>{adaptor.value()});
+
+  Value paddingValue = rewriter.create<mhlo::ReshapeOp>(
+      loc,
+      RankedTensorType::get({}, selfTy.getElementType()),
+      rewriter.create<mhlo::ConvertOp>(
+          loc, valueTensor, selfTy.getElementType()));
+  Value paddingLowTensor =
+      rewriter.create<tensor::FromElementsOp>(loc, paddingLows);
+  Value paddingHighTensor =
+      rewriter.create<tensor::FromElementsOp>(loc, paddingHighs);
+  Value paddingInterTensor =
+      rewriter.create<tensor::FromElementsOp>(loc, paddingInters);
+  rewriter.replaceOpWithNewOp<mhlo::DynamicPadOp>(
+      op,
+      getTypeConverter()->convertType(op.getType()),
+      self,
+      paddingValue,
+      paddingLowTensor,
+      paddingHighTensor,
+      paddingInterTensor);
+  return success();
+}
+} // namespace
+
 namespace {
 template <>
 LogicalResult ConvertAtenOp<AtenSqueezeDimOp>::matchAndRewrite(
@@ -1442,6 +1521,7 @@ class DiscConvertTorchToMhlo
     INSERT_UNARY_CONVERT_PATTERN(AtenToDtypeLayoutOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenToPrimDeviceOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenTypeAsOp);
+    INSERT_UNARY_CONVERT_PATTERN(AtenDetachOp);
 #undef INSERT_UNARY_CONVERT_PATTERN
 
 #define INSERT_UNARY_PATTERN(AtenOp, MhloOp) \
@@ -1478,6 +1558,7 @@ class DiscConvertTorchToMhlo
   target.addIllegalOp<AtenOp>();      \
   patterns.add<ConvertAtenOp<AtenOp>>(typeConverter, context)
     INSERT_ATENOP_PATTERN(AtenArangeOp);
+    INSERT_ATENOP_PATTERN(AtenConstantPadNdOp);
     INSERT_ATENOP_PATTERN(AtenCopyOp);
     INSERT_ATENOP_PATTERN(AtenLeakyReluOp);
     INSERT_ATENOP_PATTERN(AtenRelu6Op);
@@ -1498,6 +1579,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenMaxDimOp);
     INSERT_ATENOP_PATTERN(AtenWhereSelfOp);
     INSERT_ATENOP_PATTERN(AtenSqueezeDimOp);
+    INSERT_ATENOP_PATTERN(AtenNegIntOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \

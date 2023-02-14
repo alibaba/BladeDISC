@@ -64,7 +64,7 @@ class BazelBuild(TorchBladeBuild):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.targets = [
-            "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
+            "@org_disc_compiler//mlir/xla/ral:libral_base_context.so",
             "//pytorch_blade:libtorch_blade.so",
             "//pytorch_blade:_torch_blade.so",
             "//tests/mhlo/torch-mlir-opt:torch-mlir-opt",
@@ -185,7 +185,7 @@ class BazelBuild(TorchBladeBuild):
         self.shell_setting = "set -e; set -o pipefail; "
         # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3
         venv.create(".bazel_pyenv", clear=True)
-        self.build_cmd = "source .bazel_pyenv/bin/activate; bazel build"
+        self.build_cmd = "source .bazel_pyenv/bin/activate; bazel build --verbose_failures"
         self.test_cmd = "source .bazel_pyenv/bin/activate; bazel test"
         if running_on_ci():
             self.test_cmd += " --test_output=errors"
@@ -212,7 +212,7 @@ class BazelBuild(TorchBladeBuild):
                 + [
                     "--compilation_mode=opt",
                     "--define is_torch_disc=false",  # still use mhlo within TF to build compiler main
-                    "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
+                    "@org_disc_compiler//mlir/disc:disc_compiler_main",
                 ]
             )
             subprocess.check_call(
@@ -266,7 +266,8 @@ class BazelBuild(TorchBladeBuild):
             "//pytorch_blade:torch_blade_test_suite",
             "//tests/torch-disc-pdll/tests/...",
         ]
-        if (self.torch_major_version, self.torch_minor_version) > (1,6):
+
+        if (self.torch_major_version, self.torch_minor_version) > (1, 6):
             # torchscript graph ir parser changed after torch 1.6.
             # We will not test torchscript graph ir before torch 1.6
             self.test_suites.append("//tests/torchscript/...")
@@ -279,6 +280,28 @@ class BazelBuild(TorchBladeBuild):
             + self.test_suites
         )
         subprocess.check_call(test_cmd, shell=True, env=env, executable="/bin/bash")
+
+        self.disc_test_suites = [
+            "//tests/disc_mlir/...",
+        ]
+        disc_test_extra_opts = ['--config=disc_test']
+        if self.is_debug:
+            # The config opt disc_test_debug is not rational but without it we will run into the following issue:
+            # In file included from /usr/include/stdint.h:25,
+            #                  from /opt/rh/devtoolset-9/root/usr/lib/gcc/x86_64-redhat-linux/9/include/stdint.h:9,
+            #                  from external/boringssl/src/include/openssl/base.h:60,
+            #                  from external/boringssl/err_data.c:17:
+            # /usr/include/features.h:330:4: error: #warning _FORTIFY_SOURCE requires compiling with optimization (-O) [-Werror=cpp]
+            disc_test_extra_opts.append("--config=disc_test_debug")
+
+        disc_test_cmd = " ".join(
+            [self.shell_setting, self.test_cmd]
+            + self.disc_base_opts
+            + disc_test_extra_opts
+            + self.configs
+            + self.disc_test_suites
+        )
+        subprocess.check_call(disc_test_cmd, shell=True, env=env, executable="/bin/bash")
 
 
 if __name__ == "__main__":

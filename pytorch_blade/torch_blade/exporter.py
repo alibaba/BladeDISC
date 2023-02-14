@@ -41,6 +41,7 @@ def _script_module_preprocess(s_module, inputs, input_dims=[]):
     graph = s_module._c.forward.graph
     torch._C._jit_pass_inline(graph)
     pm._jit_pass_hack_cpu_device(graph)
+    pm._jit_pass_hack_gpu_device(graph)
 
     cfg = Config.get_current_context_or_new()
     for jit_pass in cfg.customize_jit_passes:

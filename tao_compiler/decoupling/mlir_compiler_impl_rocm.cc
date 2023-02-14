@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/decoupling/mlir_compiler_impl_rocm.h"
+#include "decoupling/mlir_compiler_impl_rocm.h"
 
 #define CUDA_SUCCESS hipSuccess
 #include "tensorflow/stream_executor/rocm/rocm_driver_wrapper.h"

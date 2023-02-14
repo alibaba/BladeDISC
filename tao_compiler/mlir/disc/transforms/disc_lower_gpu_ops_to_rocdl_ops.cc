@@ -33,6 +33,7 @@
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
@@ -43,11 +44,11 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/transforms/disc_lower_gpu_ops_common.h"
 #include "mlir/lib/Conversion/GPUCommon/GPUOpsLowering.h"
 #include "mlir/lib/Conversion/GPUCommon/IndexIntrinsicsOpLowering.h"
 #include "mlir/lib/Conversion/GPUCommon/OpToFuncCallLowering.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_lower_gpu_ops_common.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -126,6 +127,7 @@ void configureGpuToROCDLConversionLegality(ConversionTarget& target) {
   target.addLegalDialect<ROCDL::ROCDLDialect>();
   target.addIllegalDialect<gpu::GPUDialect>();
   target.addIllegalDialect<cf::ControlFlowDialect>();
+  target.addIllegalDialect<arith::ArithDialect, math::MathDialect>();
   target.addIllegalOp<LLVM::CosOp, LLVM::ExpOp, LLVM::FAbsOp, LLVM::FCeilOp,
                       LLVM::FFloorOp, LLVM::LogOp, LLVM::Log10Op, LLVM::Log2Op,
                       LLVM::PowOp, LLVM::SinOp, LLVM::SqrtOp>();
@@ -162,6 +164,8 @@ void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
                                                    "__ocml_ceil_f64");
   patterns.add<OpToFuncCallLowering<math::CosOp>>(converter, "__ocml_cos_f32",
                                                   "__ocml_cos_f64");
+  patterns.add<OpToFuncCallLowering<math::CopySignOp>>(
+      converter, "__ocml_copysign_f32", "__ocml_copysign_f64");
   patterns.add<OpToFuncCallLowering<math::ExpOp>>(converter, "__ocml_exp_f32",
                                                   "__ocml_exp_f64");
   patterns.add<OpToFuncCallLowering<math::ExpM1Op>>(

@@ -10,7 +10,7 @@
 // limitations under the License.
 
 #if defined(TAO_CPU_ONLY)
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_quantization.h"
+#include "mlir/xla/ral/context/common_context_impl_quantization.h"
 
 // aarch64 related
 #if defined(TAO_AARCH64)
@@ -19,8 +19,9 @@
 
 // x86 related
 #if defined(TAO_X86)
-#include "tensorflow/compiler/mlir/xla/ral/context/mkldnn/ideep/ideep/abstract_types.hpp"
-#include "tensorflow/compiler/mlir/xla/ral/context/mkldnn/ideep/ideep/attributes.hpp"
+#include "mlir/xla/ral/context/common_context_impl_mkldnn.h"
+#include "mlir/xla/ral/context/mkldnn/ideep/ideep/abstract_types.hpp"
+#include "mlir/xla/ral/context/mkldnn/ideep/ideep/attributes.hpp"
 #endif
 
 namespace tao {
@@ -354,7 +355,7 @@ void ral_qconv_acl_s8_s8_s8_per_channel(
 ///        convolution creator.
 /// @param input [batch, in_height, in_width, in_channels] with "NHWC" or
 ///              [batch, in_channels, in_height, in_width] with "NCHW"
-/// @param weight [filter_height, filter_width, in_channels, out_channels]
+/// @param weight [out_channels, filter_height, filter_width, in_channels]
 /// @param customAttrs data_format, padding, strides, dilations
 /// @return result [batch, out_height, out_width, out_channels] with "NHWC" or
 ///                [batch, out_channels, out_height, out_width] with "NCHW"
@@ -374,7 +375,7 @@ MemRefType<int8_t, NDims> ral_pdll_qconv_acl_s8_s8_s8_per_channel(
   }
 
   auto attr = getOrParsePDLAttr(ctx, customAttrs,
-                                "ral_pdll_qgemm_acl_s8_s8_s8_per_channel");
+                                "ral_pdll_qconv_acl_s8_s8_s8_per_channel");
   if (!attr) {
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }
@@ -416,8 +417,7 @@ MemRefType<int8_t, NDims> ral_pdll_qconv_acl_s8_s8_s8_per_channel(
     if (!generateExplicitPaddings<NDims>(reorderDims, explicit_paddings,
                                          padding))
       ctx->signalError(Context::FAILURE, "fail to generate explicit paddings");
-  }
-  {
+  } else {
     if (!generatePadding<NDims>(input, weight, padding_str, reorderDims,
                                 strides, dilations, padding))
       ctx->signalError(Context::FAILURE, "fail to generate paddings");
@@ -1334,20 +1334,38 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
   std::vector<float> output_scales({resultScales.data[0]});
   std::vector<int32_t> output_zero_point({resultZeroPoints.data[0]});
 
-  input_t.set_zero_point(input_zero_point);
-  weight_t.set_zero_point(weight_zero_point);
-  output_t.set_zero_point(output_zero_point);
+  ideep::matmul_forward_params param;
+  // TODO: Only calculate the scale & zero_point once.
+  ideep::matmul_forward::prepare(
+      param, input_t, weight_t, bias_t, output_t, input_scales, weight_scales,
+      output_scales, input_zero_point, output_zero_point, 1.0f, 1.0f,
+      ideep::attr_t(), ideep::data_type::s8, ideep::lowp_kind::s8s8,
+      ideep::engine::cpu_engine());
 
-  ideep::matmul_forward::compute(input_t, weight_t, bias_t, output_t,
-                                 1.0f,                    // dst_coeff
-                                 1.0f,                    // sum_coeff
-                                 input_scales,            // input_scales
-                                 weight_scales,           // weight_scales,
-                                 output_scales,           // dst_scales
-                                 ideep::attr_t(),         // attr_t
-                                 ideep::data_type::s8,    // dst_type
-                                 ideep::lowp_kind::s8s8,  // input-weight type
-                                 ideep::engine::cpu_engine());
+  bool weight_is_const =
+      dictAttr.get("weight_is_const").as<BoolPDLAttr>().getValue();
+  bool bias_is_const =
+      dictAttr.get("bias_is_const").as<BoolPDLAttr>().getValue();
+  if (!isWeightPrePackingEnabled() || !weight_is_const || !bias_is_const) {
+    // TODO: add a template to control whether bias shoule be reordered
+    ideep::matmul_forward::compute<true, true>(param, input_t, weight_t, bias_t,
+                                               output_t);
+  } else {
+    ideep::tensor packed_weight;
+    ideep::tensor packed_bias;
+    std::string unique_name =
+        "disc.ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel";
+    auto state = ctx->getOrCreateResource<OnednnGemmState>(
+        unique_name, []() { return new OnednnGemmState; });
+    packed_weight = state->get_or_create_packed_weight(
+        weight.data, weight_t, param.pd.weights_desc(), param.weights_attr);
+    packed_bias = state->get_or_create_packed_bias(
+        bias.data, bias_t, param.pd.bias_desc(), param.bias_attr);
+
+    ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
+                                                packed_bias, output_t);
+  }
+
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(result); ++i) {
       TAO_VLOG(0) << "output[" << i
@@ -1422,20 +1440,31 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
   std::vector<float> output_scales({resultScales.data[0]});
   std::vector<int32_t> output_zero_point({resultZeroPoints.data[0]});
 
-  input_t.set_zero_point(input_zero_point);
-  weight_t.set_zero_point(weight_zero_point);
-  output_t.set_zero_point(output_zero_point);
+  ideep::matmul_forward_params param;
+  // TODO: Only calculate the scale & zero_point once.
+  ideep::matmul_forward::prepare(
+      param, input_t, weight_t, output_t, input_scales, weight_scales,
+      output_scales, input_zero_point, output_zero_point, 1.0f, 1.0f,
+      ideep::attr_t(), ideep::data_type::s8, ideep::lowp_kind::s8s8,
+      ideep::engine::cpu_engine());
 
-  ideep::matmul_forward::compute(input_t, weight_t, output_t,
-                                 1.0f,                    // dst_coeff
-                                 1.0f,                    // sum_coeff
-                                 input_scales,            // input_scales
-                                 weight_scales,           // weight_scales,
-                                 output_scales,           // dst_scales
-                                 ideep::attr_t(),         // attr_t
-                                 ideep::data_type::s8,    // dst_type
-                                 ideep::lowp_kind::s8s8,  // input-weight type
-                                 ideep::engine::cpu_engine());
+  bool weight_is_const =
+      dictAttr.get("weight_is_const").as<BoolPDLAttr>().getValue();
+  if (!isWeightPrePackingEnabled() || !weight_is_const) {
+    ideep::matmul_forward::compute<true, true>(param, input_t, weight_t,
+                                               output_t);
+  } else {
+    ideep::tensor packed_weight;
+    std::string unique_name = "disc.ral_pdll_qgemm_onednn_s8_s8_s8_per_channel";
+    auto state = ctx->getOrCreateResource<OnednnGemmState>(
+        unique_name, []() { return new OnednnGemmState; });
+    packed_weight = state->get_or_create_packed_weight(
+        weight.data, weight_t, param.pd.weights_desc(), param.weights_attr);
+
+    ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
+                                                output_t);
+  }
+
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(result); ++i) {
       TAO_VLOG(0) << "output[" << i

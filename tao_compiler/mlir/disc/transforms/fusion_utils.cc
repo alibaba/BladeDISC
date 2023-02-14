@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/fusion_utils.h"
 
 #include <algorithm>
 #include <mutex>
@@ -27,12 +27,12 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+#include "mlir/disc/transforms/disc_shape_optimization_utils.h"
+#include "mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/transforms/placement_utils.h"
 
 // This file implements some helper functions and classes used to do fusion
 // & code generation.
@@ -257,14 +257,36 @@ void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag) {
   std::string oldTag;
   auto attr = op->getAttrOfType<StringAttr>(kFusionOpTagAttr);
   if (attr && attr.getValue().size()) {
-    oldTag = (Twine(attr.getValue()) + "X").str();
+    oldTag = (Twine(attr.getValue()) + kFusionTagSeparator).str();
   }
   op->setAttr(kFusionOpTagAttr, b.getStringAttr((Twine(oldTag) + tag).str()));
+}
+
+void mergeFusionTag(OpBuilder& b, lmhlo::FusionOp op,
+                    const std::set<std::string>& tagSet) {
+  auto opTagSet = parsefusionTagSetFromStr(getFusionTagStr(op));
+  for (const auto& tag : tagSet) opTagSet.insert(tag);
+  auto newTagStr = llvm::join(opTagSet, kFusionTagSeparator);
+  op->setAttr(kFusionOpTagAttr, b.getStringAttr(newTagStr));
 }
 
 StringRef getFusionTagStr(lmhlo::FusionOp op) {
   auto attr = op->getAttrOfType<StringAttr>(kFusionOpTagAttr);
   return attr ? attr.getValue() : "";
+}
+
+std::string fusionTagSetToStr(const std::set<std::string>& tagSet) {
+  SmallVector<StringRef> tags;
+  for (const auto& tag : tagSet) tags.push_back(tag);
+  return llvm::join(tags, kFusionTagSeparator);
+}
+
+std::set<std::string> parsefusionTagSetFromStr(StringRef tagStr) {
+  SmallVector<StringRef> tags;
+  std::set<std::string> tagSet;
+  tagStr.split(tags, kFusionTagSeparator, /*MaxSplit*/ -1, /*KeepEmpty*/ false);
+  for (auto tag : tags) tagSet.insert(tag.str());
+  return tagSet;
 }
 
 // Returns the full name of the fusion op
@@ -287,6 +309,34 @@ std::string generateSignatureForFusion(FusionPattern& fusionPattern) {
   for (Operation* op : fusionPattern.getRootOps()) {
     sig.append(op->getName().stripDialect());
     sig.push_back('_');
+  }
+
+  if (fusionPattern.isTransformBasedFusion()) {
+    if (auto dotOp = dyn_cast_or_null<lmhlo::DotGeneralOp>(
+            fusionPattern.getDominantOp())) {
+      auto lhsTy = dotOp->getOperand(0).getType().cast<MemRefType>();
+      auto rhsTy = dotOp->getOperand(1).getType().cast<MemRefType>();
+      auto appendShapeToStr = [&](ArrayRef<int64_t> shape) {
+        for (const auto& en : llvm::enumerate(shape)) {
+          if (en.index() > 0) sig.append("x");
+          if (en.value() == ShapedType::kDynamicSize) {
+            sig.append("u");
+          } else {
+            sig.append(Twine(en.value()).str());
+          }
+        }
+      };
+      sig.append("_LS_");
+      appendShapeToStr(lhsTy.getShape());
+      sig.append("_RS_");
+      appendShapeToStr(rhsTy.getShape());
+      auto dimNumbers = dotOp.getDotDimensionNumbers();
+      sig.append("_LC_");
+      appendShapeToStr(dimNumbers.getLhsContractingDimensions());
+      sig.append("_RC_");
+      appendShapeToStr(dimNumbers.getRhsContractingDimensions());
+      sig.append("_");
+    }
   }
 
   sig.append(
@@ -680,7 +730,7 @@ FusionPattern::FusionPattern(Operation* op) : FusionPatternBase(op) {
 // Create a new fusion pattern from the ops inside the lmhlo fusion op.
 FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
     : FusionPatternBase(op) {
-  assert(shape_analysis != nullptr & "shape_analysis should not be nullptr.");
+  assert(shape_analysis != nullptr && "shape_analysis should not be nullptr.");
 
   FusionType fusionType = FusionType::kNone;
   auto deviceAttr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);
@@ -1493,7 +1543,11 @@ bool StitchCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 
 bool StitchCpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                                 FusionPattern& fusion_pattern) {
-  fusion_pattern.setFusionType(FusionType::kStitch);
+  StitchCPUAnalysis stitchAnalysis(fusion_pattern, shapeAnalysis);
+  if (!stitchAnalysis.fusibilityAnalysis())
+    fusion_pattern.setFusionType(FusionType::kNone);
+  else
+    fusion_pattern.setFusionType(FusionType::kStitch);
   return true;
 }
 

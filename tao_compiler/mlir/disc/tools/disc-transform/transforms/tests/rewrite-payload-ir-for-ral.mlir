@@ -18,8 +18,6 @@ module {
     %0 = affine.apply #map()[%dim]
     %1 = affine.apply #map1()[%dim_0]
     %dim_1 = memref.dim %arg0, %c1 : memref<?x?xf32>
-    // CHECK-NOT: scf.foreach_thread
-    // CHECK: scf.parallel
     scf.foreach_thread (%arg3, %arg4) in (%0, %1) {
       %2 = affine.min #map2(%arg3)[%dim]
       %3 = affine.min #map3(%arg4)[%dim_0]

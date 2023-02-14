@@ -17,9 +17,9 @@
 #include "absl/strings/str_replace.h"
 #include "llvm/Support/Program.h"
 #include "mlir/Pass/Pass.h"
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
+#include "mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/core/lib/strings/str_util.h"
 #include "tensorflow/core/platform/path.h"
 #include "tensorflow/core/platform/random.h"
@@ -187,26 +187,26 @@ LogicalResult DiscGPUSourceToLibPass::compilePreprocessedCUDASourceToLib(
   char* headers_cpp1;
   if (cc_major_ == 7 && cc_minor_ == 0) {
     headers_cpp1 =
-#include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.700.cpp1.ii.h"
+#include "mlir/disc/utils/cutlass_header_preprocess.700.cpp1.ii.h"
         ;
   } else if (cc_major_ == 7 && cc_minor_ == 5) {
     headers_cpp1 =
-#include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.750.cpp1.ii.h"
+#include "mlir/disc/utils/cutlass_header_preprocess.750.cpp1.ii.h"
         ;
   } else if (cc_major_ == 8 && cc_minor_ == 0) {
     headers_cpp1 =
-#include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.800.cpp1.ii.h"
+#include "mlir/disc/utils/cutlass_header_preprocess.800.cpp1.ii.h"
         ;
   } else if (cc_major_ == 8 && cc_minor_ == 6) {
     headers_cpp1 =
-#include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.860.cpp1.ii.h"
+#include "mlir/disc/utils/cutlass_header_preprocess.860.cpp1.ii.h"
         ;
   } else {
     return failure();
   }
 
   const char* headers_cpp4 =
-#include "tensorflow/compiler/mlir/disc/utils/cutlass_header_preprocess.cpp4.ii.h"
+#include "mlir/disc/utils/cutlass_header_preprocess.cpp4.ii.h"
       ;
 
   auto synthesizeCodeAndWriteFile = [&](std::string path, std::string header,

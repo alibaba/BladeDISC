@@ -76,6 +76,16 @@ def DotRewriterPass : Pass<"disc-dot-rewriter", "mlir::func::FuncOp"> {
   let constructor = "createDiscDotRewriterPass()";
 }
 
+def ReductionRewriterPass : Pass<"disc-reduction-rewriter", "mlir::func::FuncOp"> {
+  let summary = "Rewrite mhlo::ReduceOp";
+  let constructor = "createDiscReductionRewriterPass()";
+}
+
+def DiscMhloCSEPass : Pass<"disc-mhlo-cse", "mlir::func::FuncOp"> {
+  let summary = "disc mhlo cse pass";
+  let constructor = "createDiscMhloCSEPass()";
+}
+
 def QuantizedDotRewriterPass : Pass<"quantized-disc-dot-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite quantized dot to transpose weight(row2col).";
   let constructor = "createDiscQuantizedDotRewriter()";
@@ -407,6 +417,12 @@ def DiscDotMergePass : Pass<"disc-dot-merge", "mlir::func::FuncOp"> {
   let summary = "Dot merge optimization. Either merge same-shape dots into "
                 "batched dot, or merge dots with same operand into one (on-going)";
   let constructor = "createDiscDotMergePass()";
+}
+
+def DiscQuantizedDotMergePass : Pass<"disc-quantized-dot-merge", "mlir::func::FuncOp"> {
+  let summary = "Dot merge optimization. Either merge same-shape dots into "
+                "batched dot, or merge dots with same operand into one (on-going)";
+  let constructor = "createDiscQuantizedDotMergePass()";
 }
 
 def DiscAlgebraicSimplifierPass : Pass<"disc-algebraic-simplifier", "mlir::func::FuncOp"> {

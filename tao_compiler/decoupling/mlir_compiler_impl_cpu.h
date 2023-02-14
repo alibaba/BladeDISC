@@ -16,7 +16,7 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_DECOUPLING_MLIR_COMPILER_IMPL_CPU_H_
 #define TENSORFLOW_COMPILER_DECOUPLING_MLIR_COMPILER_IMPL_CPU_H_
 
-#include "tensorflow/compiler/decoupling/mlir_compiler.h"
+#include "decoupling/mlir_compiler.h"
 
 namespace tensorflow {
 

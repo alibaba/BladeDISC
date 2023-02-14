@@ -55,17 +55,16 @@ def _run_lit_test(name, data, size, tags, driver, features, exec_properties):
     if name.startswith('cpu-only'):
         # Since tf's test_tag_filters will filt `no_gpu` for gpu config
         tags.append('no_gpu')
-
     # Disable tests on windows for now, to enable testing rest of all xla and mlir.
     native.py_test(
         name = name,
         srcs = ["@llvm-project//llvm:lit"],
         tags = tags + ["no_pip", "no_windows"],
         args = [
-            "tensorflow/compiler/mlir/disc/" + paths.basename(data[-1]) + " --config-prefix=runlit -v",
+            "mlir/disc/" + paths.basename(data[-1]) + " --config-prefix=runlit -v",
         ] + features,
         data = data + [
-            "//tensorflow/compiler/mlir/disc:litfiles",
+            "//mlir/disc:litfiles",
             "@llvm-project//llvm:FileCheck",
             "@llvm-project//llvm:count",
             "@llvm-project//llvm:not",

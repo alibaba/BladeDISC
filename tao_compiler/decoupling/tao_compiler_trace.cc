@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/decoupling/tao_compiler_trace.h"
+#include "decoupling/tao_compiler_trace.h"
 
 #include <fstream>
 #include <mutex>

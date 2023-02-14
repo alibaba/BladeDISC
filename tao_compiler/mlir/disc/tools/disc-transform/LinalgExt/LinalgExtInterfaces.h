@@ -30,7 +30,7 @@ LogicalResult verifyLinalgExtOpInterface(Operation* op);
 }
 
 /// Include the generated interface declarations.
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOpInterfaces.h.inc"
+#include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOpInterfaces.h.inc"
 
 }  // namespace disc_linalg_ext
 }  // namespace disc_ral

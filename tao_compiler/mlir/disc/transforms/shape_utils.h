@@ -16,7 +16,7 @@
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallVector.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
+#include "mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_SHAPE_UTILS_H_
 #define TENSORFLOW_COMPILER_MLIR_XLA_SHAPE_UTILS_H_

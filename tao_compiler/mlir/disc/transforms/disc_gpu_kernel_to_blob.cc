@@ -432,7 +432,6 @@ class GpuKernelToBlobPass
     registerNVVMDialectTranslation(registry);
     OperationPass<gpu::GPUModuleOp>::getDependentDialects(registry);
   }
-
 };
 
 }  // namespace

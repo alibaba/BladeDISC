@@ -16,7 +16,7 @@ limitations under the License.
 #include "mlir/disc/transforms/disc_lower_gpu_ops_common.h"
 
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Support/LogicalResult.h"
 
 namespace mlir {
@@ -81,7 +81,7 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
 
   // Clone the memref::GenericAtomicRMWOp region and extract the result.
   auto loopArgument = loopBlock->getArgument(0);
-  BlockAndValueMapping mapping;
+  IRMapping mapping;
   mapping.map(atomicOp.getCurrentValue(), loopArgument);
   Block& entryBlock = atomicOp.getAtomicBody().front();
   for (auto& nestedOp : entryBlock.without_terminator()) {

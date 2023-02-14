@@ -10,10 +10,10 @@
 // limitations under the License.
 
 #include "pytorch_blade/compiler/mlir/converters/mhlo_conversion.h"
-#include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>
-#include <mlir/CAPI/IR.h>
-#include <mlir/Dialect/Func/IR/FuncOps.h>
-#include <mlir/Dialect/Tensor/IR/Tensor.h>
+#include "mhlo/IR/hlo_ops.h"
+#include "mlir/CAPI/IR.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 
 #include "llvm/Support/SourceMgr.h"
 #include "mlir/disc/IR/hlo_disc_ops.h"
@@ -26,7 +26,7 @@
 
 #include "function_importer.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Pass/PassManager.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "torch-mlir/Conversion/MhloPasses.h"
@@ -198,7 +198,9 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
 
   ::mlir::torch::Torch::TorchLoweringPipelineOptions options;
   ::mlir::PassManager pm(
-      &mlir_context, ::mlir::OpPassManager::Nesting::Implicit);
+      &mlir_context,
+      mlir_module.getOperationName(),
+      ::mlir::OpPassManager::Nesting::Implicit);
   if (enable_printing) {
     pm.enableIRPrinting(
         /*shouldPrintBeforePass*/ [](mlir::Pass*,
@@ -240,7 +242,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
       "main",
       funcType,
       ::llvm::ArrayRef<::mlir::NamedAttribute>{entry_attr});
-  ::mlir::BlockAndValueMapping mapper;
+  ::mlir::IRMapping mapper;
   funcOp.cloneInto(tf_func, mapper);
   funcOp.erase();
   mlir_module.push_back(tf_func);

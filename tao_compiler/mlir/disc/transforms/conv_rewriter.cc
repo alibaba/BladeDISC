@@ -16,7 +16,7 @@ limitations under the License.
 // This file canonicalize conv ops in hlo dialect to match the
 // format of CUDNN library call.
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Attributes.h"                          // TF:llvm-project
 #include "mlir/IR/Location.h"                            // TF:llvm-project

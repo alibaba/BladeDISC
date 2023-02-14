@@ -11,7 +11,7 @@
 
 #include "mlir/disc/transforms/input_inline_fusion_pattern.h"
 
-#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
+#include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"

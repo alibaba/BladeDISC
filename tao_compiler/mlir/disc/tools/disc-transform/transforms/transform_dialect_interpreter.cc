@@ -13,7 +13,7 @@
 #include "iree-dialects/Dialect/LinalgExt/TransformOps/LinalgExtTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/LinalgTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
-#include "iree-dialects/Dialect/LinalgTransform/TransformInterpreterUtils.h"
+#include "iree-dialects/Dialect/LinalgTransform/TransformInterpreterPassBase.h"
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -130,6 +130,7 @@ void DiscTransformDialectInterpreterPass::runOnOperation() {
     for (auto op : module.getBody()->getOps<transform::TransformOpInterface>())
       b.clone(*op);
 
+    /* tanyo: fixme
     // Apply the transform IR.
     for (auto op :
          transformModule.getBody()->getOps<transform::TransformOpInterface>()) {
@@ -138,7 +139,7 @@ void DiscTransformDialectInterpreterPass::runOnOperation() {
               transform::TransformOptions().enableExpensiveChecks(
                   enableExpensiveChecks_))))
         return signalPassFailure();
-    }
+    } */
   } else {
     // parse transform ops from a standalone file.
     OwningOpRef<ModuleOp> transformModule;
@@ -151,11 +152,13 @@ void DiscTransformDialectInterpreterPass::runOnOperation() {
     for (auto op : transformModule.get()
                        .getBody()
                        ->getOps<transform::TransformOpInterface>()) {
+      /* tanyo: fixme
       if (failed(transform::applyTransforms(
               module, op,
               transform::TransformOptions().enableExpensiveChecks(
                   enableExpensiveChecks_))))
         return signalPassFailure();
+      */
     }
   }
 }

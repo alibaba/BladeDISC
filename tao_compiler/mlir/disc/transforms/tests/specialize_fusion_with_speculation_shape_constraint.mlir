@@ -1,5 +1,5 @@
 // RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt \
-// RUN:   -pass-pipeline='func.func(disc-specialize-fusion-with-speculation{core-count=72 max-threads-per-core=1536})' \
+// RUN:   -pass-pipeline='builtin.module(func.func(disc-specialize-fusion-with-speculation{core-count=72 max-threads-per-core=1536}))' \
 // RUN:   %s --split-input-file | FileCheck %s
 
 // CHECK-LABEL: simple_broadcast_specialization
@@ -40,13 +40,10 @@ func.func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
   // CHECK: %[[T14:.*]] = arith.cmpi eq, %[[T12]], %[[T13]] : index
   // CHECK: %[[T15:.*]] = arith.andi %[[T14]], %[[T11]] : i1
   // CHECK: scf.if %[[T15]] {
-  // CHECK-DAG:   %[[CastedT3:.*]] = memref.reinterpret_cast %[[TT3]]
-  // CHECK-DAG:   %[[CastedT6:.*]] = memref.reinterpret_cast %[[TT6]]
-  // CHECK-DAG:   %[[CastedT8:.*]] = memref.reinterpret_cast %[[TT8]]
   // CHECK:   "lmhlo.fusion"() ({
   // CHECK:     "lmhlo.constant"
-  // CHECK:     "lmhlo.dynamic_broadcast_in_dim"(%[[T9:.*]], %[[T5:.*]], %[[CastedT6]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (memref<f32, "gpu">, memref<2xindex>, memref<?x?xf32, "gpu">) -> ()
-  // CHECK:     "lmhlo.add"(%[[CastedT6]], %[[CastedT3]], %[[CastedT8]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
+  // CHECK:     "lmhlo.dynamic_broadcast_in_dim"(%[[T9:.*]], %[[T5:.*]], %[[TT6]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (memref<f32, "gpu">, memref<2xindex>, memref<?x?xf32, "gpu">) -> ()
+  // CHECK:     "lmhlo.add"(%[[TT6]], %[[TT3]], %[[TT8]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // CHECK:     "lmhlo.terminator"() : () -> ()
   // CHECK:   })
   // CHECK: } else {

@@ -18,7 +18,7 @@ limitations under the License.
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"                 // from @llvm-project
 #include "mlir/Dialect/Tensor/IR/Tensor.h"               // from @llvm-project
 #include "mlir/IR/Attributes.h"                          // from @llvm-project
@@ -99,16 +99,16 @@ class ConvertSqueezeOpDynamic : public OpRewritePattern<TF::SqueezeOp> {
     auto result_ty = op.getType().template dyn_cast<RankedTensorType>();
     if (result_ty.hasStaticShape()) {
       rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, op.getType(),
-                                                   op.input());
+                                                   op.getInput());
     } else {
       Location loc = op.getLoc();
-      Value input = op.input();
+      Value input = op.getInput();
       auto input_ty = input.getType().dyn_cast<RankedTensorType>();
       if (!input_ty) {
         return failure();
       }
       int64_t input_rank = input_ty.getRank();
-      auto squeeze_dims_attr = op.squeeze_dims();
+      auto squeeze_dims_attr = op.getSqueezeDims();
       int64_t squeeze_dims_attr_size = squeeze_dims_attr.size();
       if (squeeze_dims_attr_size == 0) {
         return failure();
@@ -128,7 +128,7 @@ class ConvertSqueezeOpDynamic : public OpRewritePattern<TF::SqueezeOp> {
           continue;
         }
         auto dim_size = input_ty.getDimSize(i);
-        if (dim_size == ShapedType::kDynamicSize) {
+        if (dim_size == ShapedType::kDynamic) {
           shape_values.push_back(rewriter.create<tensor::DimOp>(loc, input, i));
         } else {
           shape_values.push_back(
@@ -138,7 +138,7 @@ class ConvertSqueezeOpDynamic : public OpRewritePattern<TF::SqueezeOp> {
       Value new_shape =
           rewriter.create<tensor::FromElementsOp>(loc, shape_values);
       rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
-          op, result_ty, op.input(), new_shape);
+          op, result_ty, op.getInput(), new_shape);
     }
     return success();
   }
@@ -150,13 +150,13 @@ class ConvertTopKV2OpDynamic : public OpRewritePattern<TF::TopKV2Op> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(TF::TopKV2Op op,
                                 PatternRewriter& rewriter) const final {
-    auto k_type = op.k().getType().dyn_cast<RankedTensorType>();
+    auto k_type = op.getK().getType().dyn_cast<RankedTensorType>();
     if (!k_type || (k_type.getElementType() != rewriter.getIntegerType(32)) ||
         (k_type.getRank() != 0)) {
       return op.emitOpError() << "TopKV2 requires 0D scalar tensor k";
     }
 
-    auto input_type = op.input().getType().dyn_cast<RankedTensorType>();
+    auto input_type = op.getInput().getType().dyn_cast<RankedTensorType>();
     if (!input_type) {
       return op.emitOpError() << "TopKV2 requires input to be ranked tensor";
     }
@@ -171,7 +171,8 @@ class ConvertTopKV2OpDynamic : public OpRewritePattern<TF::TopKV2Op> {
     SmallVector<Value, 4> iota_shape_values;
     iota_shape_values.reserve(input_rank);
     for (int64_t idx = 0; idx < input_rank; ++idx) {
-      Value dim = rewriter.create<tensor::DimOp>(op.getLoc(), op.input(), idx);
+      Value dim =
+          rewriter.create<tensor::DimOp>(op.getLoc(), op.getInput(), idx);
       iota_shape_values.push_back(dim);
     }
     Value iota_shape =
@@ -189,7 +190,7 @@ class ConvertTopKV2OpDynamic : public OpRewritePattern<TF::TopKV2Op> {
     auto topk_custom_call_op = rewriter.create<mhlo_disc::CustomCallOp>(
         op.getLoc(),
         TypeRange{op.getResult(0).getType(), op.getResult(1).getType()},
-        ValueRange{op.input(), iota_op, op.k()},
+        ValueRange{op.getInput(), iota_op, op.getK()},
         /*call_target_name*/ "topk",
         /*has_side_effect*/ false,
         /*backend_config*/ StringAttr::get(op->getContext(), ostream.str()));
@@ -207,15 +208,15 @@ class ConvertUniformOp : public OpRewritePattern<TF::RandomUniformOp> {
                                 PatternRewriter& rewriter) const final {
     auto loc = op.getLoc();
     Value zero = rewriter.create<mhlo::ConstantOp>(
-        loc, rewriter.getFloatAttr(op.dtype(), 0.0));
+        loc, rewriter.getFloatAttr(op.getDtype(), 0.0));
     Value one = rewriter.create<mhlo::ConstantOp>(
-        loc, rewriter.getFloatAttr(op.dtype(), 1.0));
+        loc, rewriter.getFloatAttr(op.getDtype(), 1.0));
     auto cfg = PackRandomUniformBackendConfig(
-        rewriter.getIntegerAttr(op.dtype(), op.seed()),
-        rewriter.getIntegerAttr(op.dtype(), op.seed2()), &rewriter);
+        rewriter.getIntegerAttr(op.getDtype(), op.getSeed()),
+        rewriter.getIntegerAttr(op.getDtype(), op.getSeed2()), &rewriter);
     auto custom_call_op = rewriter.create<mhlo_disc::CustomCallOp>(
         loc, TypeRange{op.getResult().getType()},
-        ValueRange{zero, one, op.shape()},
+        ValueRange{zero, one, op.getShape()},
         /*custom call target*/ rewriter.getStringAttr("rng_uniform"),
         /*has_side_effect*/ rewriter.getBoolAttr(false),
         /*backend_config*/ cfg);
@@ -308,12 +309,12 @@ struct ConvertQuantizeV2Op : public OpRewritePattern<TF::QuantizeV2Op> {
 
   LogicalResult matchAndRewrite(TF::QuantizeV2Op op,
                                 PatternRewriter& rewriter) const final {
-    auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
+    auto inputTy = op.getInput().getType().dyn_cast<RankedTensorType>();
     auto inputMinRangeTy =
-        op.min_range().getType().dyn_cast<RankedTensorType>();
+        op.getMinRange().getType().dyn_cast<RankedTensorType>();
     auto inputMaxRangeTy =
-        op.max_range().getType().dyn_cast<RankedTensorType>();
-    auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
+        op.getMaxRange().getType().dyn_cast<RankedTensorType>();
+    auto resultTy = op.getOutput().getType().dyn_cast<RankedTensorType>();
 
     if (!inputTy || !inputMinRangeTy || !inputMaxRangeTy || !resultTy)
       return failure();
@@ -330,17 +331,17 @@ struct ConvertQuantizeV2Op : public OpRewritePattern<TF::QuantizeV2Op> {
 
     // Not supported according to:
     //   tensorflow/core/kernels/quantize_op.cc
-    if (op.axis() != -1 && op.mode() == "MIN_FIRST") return failure();
+    if (op.getAxis() != -1 && op.getMode() == "MIN_FIRST") return failure();
 
-    if (op.axis() == -1 && op.mode() == "MIN_FIRST") {
+    if (op.getAxis() == -1 && op.getMode() == "MIN_FIRST") {
       return quantizeModeMinFirst(op, rewriter);
     }
 
     // TODO(disc): support `MIN_COMBINED` mode
-    if (op.mode() == "MIN_COMBINED") return failure();
+    if (op.getMode() == "MIN_COMBINED") return failure();
 
     // TODO(disc): support `HALF_TO_EVEN` mode
-    if (op.round_mode() == "HALF_TO_EVEN") return failure();
+    if (op.getRoundMode() == "HALF_TO_EVEN") return failure();
 
     return quantizeModeScaledOrMinCombined(op, rewriter);
   }
@@ -364,7 +365,7 @@ LogicalResult ConvertQuantizeV2Op::adjustMinMaxRange(TF::QuantizeV2Op op,
                                                      Value& maxRange) const {
   Location loc = op.getLoc();
 
-  auto inputMinRangeTy = op.min_range().getType().cast<RankedTensorType>();
+  auto inputMinRangeTy = op.getMinRange().getType().cast<RankedTensorType>();
   auto scalarTensorTy =
       RankedTensorType::get({}, inputMinRangeTy.getElementType());
 
@@ -374,17 +375,17 @@ LogicalResult ConvertQuantizeV2Op::adjustMinMaxRange(TF::QuantizeV2Op op,
       loc, DenseFPElementsAttr::get(scalarTensorTy, {1.0f}));
   Value ensureMinimumRange = rewriter.create<TF::ConstOp>(
       loc,
-      DenseFPElementsAttr::get(scalarTensorTy, {op.ensure_minimum_range()}));
+      DenseFPElementsAttr::get(scalarTensorTy, {op.getEnsureMinimumRange()}));
 
-  minRange = rewriter.create<TF::MinimumOp>(loc, zeros, op.min_range());
-  Value absInputMinRange = rewriter.create<TF::AbsOp>(loc, op.min_range());
-  Value absInputMaxRange = rewriter.create<TF::AbsOp>(loc, op.max_range());
+  minRange = rewriter.create<TF::MinimumOp>(loc, zeros, op.getMinRange());
+  Value absInputMinRange = rewriter.create<TF::AbsOp>(loc, op.getMinRange());
+  Value absInputMaxRange = rewriter.create<TF::AbsOp>(loc, op.getMaxRange());
   Value maxAbsInputRange =
       rewriter.create<TF::MaximumOp>(loc, absInputMinRange, absInputMaxRange);
   Value epsilon = rewriter.create<TF::MaximumOp>(loc, maxAbsInputRange, ones);
   epsilon = rewriter.create<TF::MulOp>(loc, epsilon, ensureMinimumRange);
   maxRange = rewriter.create<TF::AddOp>(loc, epsilon, minRange);
-  maxRange = rewriter.create<TF::MaximumOp>(loc, op.max_range(), maxRange);
+  maxRange = rewriter.create<TF::MaximumOp>(loc, op.getMaxRange(), maxRange);
   maxRange = rewriter.create<TF::MaximumOp>(loc, zeros, maxRange);
 
   return success();
@@ -394,7 +395,7 @@ LogicalResult ConvertQuantizeV2Op::quantizeModeMinFirst(
     TF::QuantizeV2Op op, PatternRewriter& rewriter) const {
   Location loc = op.getLoc();
 
-  auto inputMinRangeTy = op.min_range().getType().cast<RankedTensorType>();
+  auto inputMinRangeTy = op.getMinRange().getType().cast<RankedTensorType>();
   auto scalarTensorTy =
       RankedTensorType::get({}, inputMinRangeTy.getElementType());
 
@@ -407,19 +408,19 @@ LogicalResult ConvertQuantizeV2Op::quantizeModeMinFirst(
   if (failed(adjustMinMaxRange(op, rewriter, minRange, maxRange)))
     return op->emitError("fail to adjust min/max range\n");
 
-  auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
+  auto resultTy = op.getOutput().getType().dyn_cast<RankedTensorType>();
   auto resultElemTy = QuantizedTypeToIntegerType(resultTy.getElementType());
   auto limits = GetNumericLimits(resultElemTy);
 
-  if (op.mode() == "MIN_FIRST") {
+  if (op.getMode() == "MIN_FIRST") {
     Value rangeScale = rewriter.create<TF::SubOp>(loc, maxRange, minRange);
     Value numStepsMinusOne = rewriter.create<TF::ConstOp>(
         loc,
-        DenseFPElementsAttr::get(op.min_range().getType(),
+        DenseFPElementsAttr::get(op.getMinRange().getType(),
                                  {(1ull << resultElemTy.getWidth()) - 1.0f}));
     rangeScale = rewriter.create<TF::DivOp>(loc, rangeScale, numStepsMinusOne);
 
-    Value result = rewriter.create<TF::MulOp>(loc, op.input(), rangeScale);
+    Value result = rewriter.create<TF::MulOp>(loc, op.getInput(), rangeScale);
     result = rewriter.create<TF::RoundOp>(loc, result);
 
     Value rangeMinScaled =
@@ -427,27 +428,27 @@ LogicalResult ConvertQuantizeV2Op::quantizeModeMinFirst(
     rangeMinScaled = rewriter.create<TF::RoundOp>(loc, rangeMinScaled);
 
     Value lowestQuantized = rewriter.create<TF::ConstOp>(
-        loc, DenseFPElementsAttr::get(op.min_range().getType(),
+        loc, DenseFPElementsAttr::get(op.getMinRange().getType(),
                                       {limits.lowest_quantized}));
     Value lowerBound = rewriter.create<TF::ConstOp>(
-        loc, DenseFPElementsAttr::get(op.min_range().getType(),
+        loc, DenseFPElementsAttr::get(op.getMinRange().getType(),
                                       {limits.lower_bound_float}));
     Value upperBound = rewriter.create<TF::ConstOp>(
-        loc, DenseFPElementsAttr::get(op.min_range().getType(),
+        loc, DenseFPElementsAttr::get(op.getMinRange().getType(),
                                       {limits.upper_bound_float}));
     Value bias =
         rewriter.create<TF::SubOp>(loc, rangeMinScaled, lowestQuantized);
     result = rewriter.create<TF::SubOp>(loc, result, bias);
     result = rewriter.create<TF::MaximumOp>(loc, result, lowerBound);
     result = rewriter.create<TF::MinimumOp>(loc, result, upperBound);
-    result = rewriter.create<TF::CastOp>(loc, op.output().getType(), result);
+    result = rewriter.create<TF::CastOp>(loc, op.getOutput().getType(), result);
 
     SmallVector<Value> newResults{result, minRange, maxRange};
     rewriter.replaceOp(op, newResults);
     return success();
   }
 
-  return op->emitError() << "not supported quantization mode: " << op.mode()
+  return op->emitError() << "not supported quantization mode: " << op.getMode()
                          << "\n";
 }
 
@@ -455,7 +456,7 @@ LogicalResult ConvertQuantizeV2Op::quantizeModeScaledOrMinCombined(
     TF::QuantizeV2Op op, PatternRewriter& rewriter) const {
   Location loc = op.getLoc();
 
-  auto inputMinRangeTy = op.min_range().getType().cast<RankedTensorType>();
+  auto inputMinRangeTy = op.getMinRange().getType().cast<RankedTensorType>();
   auto scalarTensorTy =
       RankedTensorType::get({}, inputMinRangeTy.getElementType());
 
@@ -468,13 +469,13 @@ LogicalResult ConvertQuantizeV2Op::quantizeModeScaledOrMinCombined(
   if (failed(adjustMinMaxRange(op, rewriter, minRange, maxRange)))
     return op->emitError("fail to adjust min/max range\n");
 
-  auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
+  auto resultTy = op.getOutput().getType().dyn_cast<RankedTensorType>();
   auto resultElemTy = QuantizedTypeToIntegerType(resultTy.getElementType());
   auto limits = GetNumericLimits(resultElemTy);
 
   Value minOutputValue = rewriter.create<TF::ConstOp>(
-      loc, DenseFPElementsAttr::get(
-               scalarTensorTy, {limits.lower_bound_float + op.narrow_range()}));
+      loc, DenseFPElementsAttr::get(scalarTensorTy, {limits.lower_bound_float +
+                                                     op.getNarrowRange()}));
   Value maxOutputValue = rewriter.create<TF::ConstOp>(
       loc,
       DenseFPElementsAttr::get(scalarTensorTy, {limits.upper_bound_float}));
@@ -535,24 +536,24 @@ LogicalResult ConvertQuantizeV2Op::quantizeModeScaledOrMinCombined(
   maxRange = rewriter.create<TF::DivOp>(loc, maxOutputValue, scaleFactor);
 
   auto expandDims = [&](Value v) {
-    return expandValueDims(v, op.axis(), resultTy.getRank(), rewriter, loc);
+    return expandValueDims(v, op.getAxis(), resultTy.getRank(), rewriter, loc);
   };
 
-  Value result = op.input();
+  Value result = op.getInput();
   Value expandedMinRange = expandDims(minRange);
   Value expandedMaxRange = expandDims(maxRange);
   Value expandedScaleFactor = expandDims(scaleFactor);
   result = rewriter.create<TF::MaximumOp>(loc, result, expandedMinRange);
   result = rewriter.create<TF::MinimumOp>(loc, result, expandedMaxRange);
   result = rewriter.create<TF::MulOp>(loc, result, expandedScaleFactor);
-  if (op.round_mode() == "HALF_AWAY_FROM_ZERO") {
+  if (op.getRoundMode() == "HALF_AWAY_FROM_ZERO") {
     result = rewriter.create<TF::RoundOp>(loc, result);
   } else {
-    return op->emitError() << "not supported round_mode: " << op.round_mode()
+    return op->emitError() << "not supported round_mode: " << op.getRoundMode()
                            << "\n";
   }
 
-  result = rewriter.create<TF::CastOp>(loc, op.output().getType(), result);
+  result = rewriter.create<TF::CastOp>(loc, op.getOutput().getType(), result);
   SmallVector<Value> newResults{result, minRange, maxRange};
   rewriter.replaceOp(op, newResults);
   return success();
@@ -563,12 +564,12 @@ struct ConvertDequantizeOp : public OpRewritePattern<TF::DequantizeOp> {
 
   LogicalResult matchAndRewrite(TF::DequantizeOp op,
                                 PatternRewriter& rewriter) const final {
-    auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
+    auto inputTy = op.getInput().getType().dyn_cast<RankedTensorType>();
     auto inputMinRangeTy =
-        op.min_range().getType().dyn_cast<RankedTensorType>();
+        op.getMinRange().getType().dyn_cast<RankedTensorType>();
     auto inputMaxRangeTy =
-        op.max_range().getType().dyn_cast<RankedTensorType>();
-    auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
+        op.getMaxRange().getType().dyn_cast<RankedTensorType>();
+    auto resultTy = op.getOutput().getType().dyn_cast<RankedTensorType>();
 
     if (!inputTy || !inputMinRangeTy || !inputMaxRangeTy || !resultTy)
       return failure();
@@ -584,10 +585,10 @@ struct ConvertDequantizeOp : public OpRewritePattern<TF::DequantizeOp> {
     }
 
     // TODO(disc): support `MIN_FIRST` mode
-    if (op.mode() == "MIN_FIRST") return failure();
+    if (op.getMode() == "MIN_FIRST") return failure();
 
     // TODO(disc): support `MIN_COMBINED` mode
-    if (op.mode() == "MIN_COMBINED") return failure();
+    if (op.getMode() == "MIN_COMBINED") return failure();
 
     return dequantize(op, rewriter);
   }
@@ -600,18 +601,18 @@ LogicalResult ConvertDequantizeOp::dequantize(TF::DequantizeOp op,
                                               PatternRewriter& rewriter) const {
   Location loc = op.getLoc();
 
-  auto inputMinRangeTy = op.min_range().getType().cast<RankedTensorType>();
+  auto inputMinRangeTy = op.getMinRange().getType().cast<RankedTensorType>();
   auto scalarTensorTy =
       RankedTensorType::get({}, inputMinRangeTy.getElementType());
 
-  auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
+  auto inputTy = op.getInput().getType().dyn_cast<RankedTensorType>();
   auto inputElemTy = QuantizedTypeToIntegerType(inputTy.getElementType());
-  auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
+  auto resultTy = op.getOutput().getType().dyn_cast<RankedTensorType>();
   auto limits = GetNumericLimits(inputElemTy);
 
-  Value minRange = op.min_range();
-  Value maxRange = op.max_range();
-  Value input = op.input();
+  Value minRange = op.getMinRange();
+  Value maxRange = op.getMaxRange();
+  Value input = op.getInput();
   auto newInputTy =
       RankedTensorType::get(inputTy.getShape(), resultTy.getElementType());
   input = rewriter.create<TF::CastOp>(loc, newInputTy, input);
@@ -620,7 +621,7 @@ LogicalResult ConvertDequantizeOp::dequantize(TF::DequantizeOp op,
       loc,
       DenseFPElementsAttr::get(scalarTensorTy, {limits.upper_bound_float}));
 
-  if (op.mode() == "SCALED") {
+  if (op.getMode() == "SCALED") {
     // `tf.Dequantive` and `_MklDequantize` have different behaviours.
     // We have to disable onednn before testing `tf.Dequantive` since
     // `tf.Dequantive` will be converted to `_MklDequantize` by default when
@@ -629,7 +630,7 @@ LogicalResult ConvertDequantizeOp::dequantize(TF::DequantizeOp op,
     Value minOutputValue = rewriter.create<TF::ConstOp>(
         loc,
         DenseFPElementsAttr::get(
-            scalarTensorTy, {limits.lower_bound_float + op.narrow_range()}));
+            scalarTensorTy, {limits.lower_bound_float + op.getNarrowRange()}));
     Value scaleFactorFromMax =
         rewriter.create<TF::DivOp>(loc, maxRange, maxOutputValue);
     Value scaleFactor = scaleFactorFromMax;
@@ -639,15 +640,15 @@ LogicalResult ConvertDequantizeOp::dequantize(TF::DequantizeOp op,
       scaleFactor = rewriter.create<TF::MaximumOp>(loc, scaleFactorFromMin,
                                                    scaleFactorFromMax);
     }
-    scaleFactor = expandValueDims(scaleFactor, op.axis(), inputTy.getRank(),
+    scaleFactor = expandValueDims(scaleFactor, op.getAxis(), inputTy.getRank(),
                                   rewriter, loc);
     Value result = rewriter.create<TF::MulOp>(loc, scaleFactor, input);
-    result.setType(op.output().getType());
+    result.setType(op.getOutput().getType());
     rewriter.replaceOp(op, {result});
     return success();
   }
 
-  return op->emitError() << "not supported quantization mode: " << op.mode()
+  return op->emitError() << "not supported quantization mode: " << op.getMode()
                          << "\n";
 }
 
@@ -658,15 +659,15 @@ struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
 
   LogicalResult matchAndRewrite(TF::DiscFakeQuantOp op,
                                 PatternRewriter& rewriter) const final {
-    if (op.use_dynamic()) {
+    if (op.getUseDynamic()) {
       return op->emitError("dynamic quantization is not supported yet");
     }
     auto loc = op.getLoc();
-    auto input = op.input();
-    auto scale = op.scale();
-    auto zero_point = op.zero_point();
+    auto input = op.getInput();
+    auto scale = op.getScale();
+    auto zero_point = op.getZeroPoint();
     SmallVector<int64_t> axis;
-    for (auto& v : op.axis()) {
+    for (auto& v : op.getAxis()) {
       axis.push_back(v.cast<IntegerAttr>().getInt());
     }
     // Default mode of round in tf is RoundHalfAwayFromZero
@@ -675,10 +676,10 @@ struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
         rewriter.getContext(),
         mlir::mhlo_disc::RoundModeEnum::RoundHalfAwayFromZero);
     Value new_op = rewriter.create<mhlo_disc::FakeQuantOp>(
-        loc, op.getType(), input, scale, zero_point, op.use_signedAttr(),
-        op.use_symmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
-        op.num_bitsAttr(), op.quant_minAttr(), op.quant_maxAttr(),
-        op.use_dynamicAttr(), round_mode_attr);
+        loc, op.getType(), input, scale, zero_point, op.getUseSignedAttr(),
+        op.getUseSymmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
+        op.getNumBitsAttr(), op.getQuantMinAttr(), op.getQuantMaxAttr(),
+        op.getUseDynamicAttr(), round_mode_attr);
     rewriter.replaceOp(op, {new_op});
     return success();
   }
@@ -691,18 +692,18 @@ struct ConvertFakeQuantV2Op : public OpRewritePattern<TF::DiscFakeQuantOp> {
   LogicalResult matchAndRewrite(TF::DiscFakeQuantOp op,
                                 PatternRewriter& rewriter) const final {
     Location loc = op.getLoc();
-    auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
+    auto inputTy = op.getInput().getType().dyn_cast<RankedTensorType>();
     if (!inputTy)
       return op->emitError("Only support input with ranked tensor type");
 
     SmallVector<int64_t> axis;
-    for (auto& v : op.axis()) {
+    for (auto& v : op.getAxis()) {
       axis.push_back(v.cast<IntegerAttr>().getInt());
     }
 
-    int64_t numBits = op.num_bitsAttr().getInt();
+    int64_t numBits = op.getNumBitsAttr().getInt();
     auto quantizedElemTy =
-        op.use_signedAttr().getValue()
+        op.getUseSignedAttr().getValue()
             ? IntegerType::get(rewriter.getContext(), numBits)
             : IntegerType::get(
                   rewriter.getContext(), numBits,
@@ -717,14 +718,14 @@ struct ConvertFakeQuantV2Op : public OpRewritePattern<TF::DiscFakeQuantOp> {
         mlir::mhlo_disc::RoundModeEnum::RoundHalfAwayFromZero);
 
     Value quantizedValue = rewriter.create<mhlo_disc::QuantizeOp>(
-        loc, quantizedTy, op.input(), op.scale(), op.zero_point(),
-        op.use_symmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
-        op.quant_minAttr(), op.quant_maxAttr(), op.use_dynamicAttr(),
+        loc, quantizedTy, op.getInput(), op.getScale(), op.getZeroPoint(),
+        op.getUseSymmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
+        op.getQuantMinAttr(), op.getQuantMaxAttr(), op.getUseDynamicAttr(),
         round_mode_attr);
     Value dequantizedValue = rewriter.create<mhlo_disc::DequantizeOp>(
-        loc, op.getType(), quantizedValue, op.scale(), op.zero_point(),
-        op.use_symmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
-        op.use_dynamicAttr(), round_mode_attr);
+        loc, op.getType(), quantizedValue, op.getScale(), op.getZeroPoint(),
+        op.getUseSymmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
+        op.getUseDynamicAttr(), round_mode_attr);
     rewriter.replaceOp(op, {dequantizedValue});
     return success();
   }
@@ -759,8 +760,8 @@ bool isQint32ConstantZeroTensor(Value v) {
   if (!constOp) return false;
 
   tensorflow::Tensor out;
-  if (tensorflow::ConvertToTensor(constOp.value(), &out) !=
-      tensorflow::Status::OK())
+  if (tensorflow::ConvertToTensor(constOp.getValue(), &out) !=
+      tensorflow::OkStatus())
     return false;
 
   int64_t numElems = out.NumElements();
@@ -1200,13 +1201,13 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
   LogicalResult matchAndRewrite(TF::BucketizeOp op,
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
-    Value input = op.input();
+    Value input = op.getInput();
     auto input_type = input.getType().dyn_cast<RankedTensorType>();
     // attr: boundaries, type is float according op definition
     auto boundaries =
         rewriter
             .create<mhlo::ConstantOp>(
-                loc, GetF32ElementsAttr(op.boundaries(), &rewriter))
+                loc, GetF32ElementsAttr(op.getBoundaries(), &rewriter))
             .getResult();
     // the following behavior matches the behavior of the core
     // Bucketize kernel. However, comparing an int32 or int64 against float may
@@ -1224,17 +1225,17 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
     SmallVector<Value, 4> broadcast_to_shape;
     broadcast_to_shape.reserve(input_rank + 1);
     SmallVector<int64_t, 4> broadcast_shape(input_rank + 1,
-                                            ShapedType::kDynamicSize);
+                                            ShapedType::kDynamic);
     for (int i = 0; i < input_rank; ++i) {
       int64_t dim_size = input_type.getDimSize(i);
-      if (dim_size != ShapedType::kDynamicSize) {
+      if (dim_size != ShapedType::kDynamic) {
         broadcast_shape[i] = dim_size;
       }
       broadcast_to_shape.push_back(rewriter.create<arith::IndexCastOp>(
           loc, rewriter.getI32Type(),
           rewriter.create<tensor::DimOp>(loc, input, i)));
     }
-    auto array_attr = op.boundaries().cast<ArrayAttr>();
+    auto array_attr = op.getBoundaries().cast<ArrayAttr>();
     broadcast_shape[input_rank] = array_attr.getValue().size();
     broadcast_to_shape.push_back(rewriter.create<arith::ConstantOp>(
         loc, rewriter.getIntegerAttr(rewriter.getI32Type(),
@@ -1290,8 +1291,8 @@ class ConvertSparseReshapeOp : public OpRewritePattern<TF::SparseReshapeOp> {
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
     auto hlo_sparse_reshape = rewriter.create<mhlo_disc::SparseReshapeOp>(
-        loc, op.output_indices().getType(), op.output_shape().getType(),
-        op.input_indices(), op.input_shape(), op.new_shape());
+        loc, op.getOutputIndices().getType(), op.getOutputShape().getType(),
+        op.getInputIndices(), op.getInputShape(), op.getNewShape());
     rewriter.replaceOp(op, hlo_sparse_reshape.getResults());
     return success();
   }
@@ -1305,12 +1306,12 @@ class ConvertSparseFillEmptyRowsOp
   LogicalResult matchAndRewrite(TF::SparseFillEmptyRowsOp op,
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
-    auto indices_type = op.indices().getType().dyn_cast<RankedTensorType>();
-    auto values_type = op.values().getType().dyn_cast<RankedTensorType>();
+    auto indices_type = op.getIndices().getType().dyn_cast<RankedTensorType>();
+    auto values_type = op.getValues().getType().dyn_cast<RankedTensorType>();
     auto dense_shape_type =
-        op.dense_shape().getType().dyn_cast<RankedTensorType>();
+        op.getDenseShape().getType().dyn_cast<RankedTensorType>();
     auto default_value_type =
-        op.default_value().getType().dyn_cast<RankedTensorType>();
+        op.getDefaultValue().getType().dyn_cast<RankedTensorType>();
     if (!indices_type || !values_type || !dense_shape_type ||
         !default_value_type) {
       return failure();
@@ -1318,11 +1319,11 @@ class ConvertSparseFillEmptyRowsOp
     auto element_type = values_type.getElementType();
     auto sparse_fill_empty_rows_op =
         rewriter.create<mhlo_disc::SparseFillEmptyRowsOp>(
-            loc, op.output_indices().getType(), op.output_values().getType(),
-            op.empty_row_indicator().getType(),
-            op.reverse_index_map().getType(),
-            RankedTensorType::get({1}, rewriter.getI64Type()), op.indices(),
-            op.values(), op.dense_shape(), op.default_value());
+            loc, op.getOutputIndices().getType(),
+            op.getOutputValues().getType(), op.getEmptyRowIndicator().getType(),
+            op.getReverseIndexMap().getType(),
+            RankedTensorType::get({1}, rewriter.getI64Type()), op.getIndices(),
+            op.getValues(), op.getDenseShape(), op.getDefaultValue());
     // N_full is in output 4
     Value N_full_vec = sparse_fill_empty_rows_op.getResult(4);
     Value idx_zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
@@ -1337,7 +1338,7 @@ class ConvertSparseFillEmptyRowsOp
     output_indices_slice_shape_values.push_back(-1);
     // dense_shape should has static shape, we can get it's dim here
     auto output_rank =
-        op.dense_shape().getType().dyn_cast<RankedTensorType>().getDimSize(0);
+        op.getDenseShape().getType().dyn_cast<RankedTensorType>().getDimSize(0);
     output_indices_slice_shape_values.push_back(output_rank);
     output_values_slice_shape_values.push_back(-1);
 
@@ -1397,8 +1398,8 @@ class ConvertSparseSegmentMeanOp
         rewriter.getContext(), mlir::mhlo_disc::ReductionModeEnum::Mean);
     auto hlo_sparse_segment_mean =
         rewriter.create<mhlo_disc::SparseSegmentReductionOp>(
-            loc, op.output().getType(), op.data(), op.indices(),
-            op.segment_ids(), reduction_mode_attr);
+            loc, op.output().getType(), op.getData(), op.getIndices(),
+            op.getSegmentIds(), reduction_mode_attr);
     rewriter.replaceOp(op, hlo_sparse_segment_mean.getResult());
     return success();
   }
@@ -1431,8 +1432,8 @@ class ConvertWhereOp : public OpRewritePattern<TF::WhereOp> {
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
     auto where = rewriter.create<mhlo_disc::WhereOp>(
-        loc, op.index().getType(),
-        RankedTensorType::get({1}, rewriter.getI64Type()), op.input());
+        loc, op.getIndex().getType(),
+        RankedTensorType::get({1}, rewriter.getI64Type()), op.getInput());
 
     // num_output_elements
     Value num_output_elements_vec = where.getResult(1);
@@ -1466,7 +1467,7 @@ class ConvertWhereOp : public OpRewritePattern<TF::WhereOp> {
     SmallVector<int64_t, 2> output_slice_shape_values;
     output_slice_shape_values.push_back(-1);
     auto input_rank =
-        op.input().getType().dyn_cast<RankedTensorType>().getRank();
+        op.getInput().getType().dyn_cast<RankedTensorType>().getRank();
     output_slice_shape_values.push_back(input_rank);
 
     auto index_slice_op = rewriter.create<mhlo::RealDynamicSliceOp>(

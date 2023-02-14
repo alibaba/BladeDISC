@@ -46,7 +46,7 @@ function ci_build() {
     fi
 
     if [ "$TORCH_BLADE_BUILD_ON_YITIAN" = "ON" ]; then
-      COMMON_SETUP_ARGS+=" --target_cpu_arch='arm64-v8.2-a'"
+      COMMON_SETUP_ARGS+=" --target_cpu_arch='armv8.6-a-sve2'"
     fi
 
     if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then

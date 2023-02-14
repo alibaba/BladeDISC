@@ -171,14 +171,14 @@ SmallVector<Operation*, 4> getValueUsers(Value v);
 struct TileInfo {
   // Maps axis -> tile_size along this axis.
   // select all the elements along the axis if tile_size ==
-  // ShapedType::kDynamicSize
-  DenseMap<int, int> tileSizes;
+  // ShapedType::kDynamic
+  DenseMap<int64_t, int64_t> tileSizes;
 
   // Returns false if failed to merge.
   bool merge(TileInfo& other);
 
   // Returns false if failed to merge.
-  bool merge(int axis, int tileSize = ShapedType::kDynamicSize);
+  bool merge(int64_t axis, int64_t tileSize = ShapedType::kDynamic);
 
   // return true if updated.
   bool updateIfNotEqual(TileInfo& other);

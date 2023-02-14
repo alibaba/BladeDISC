@@ -5433,8 +5433,10 @@ struct DiscLhloLegalizeRootsToParallelLoops
         });
         fusion.getRegion().walk([&](memref::AssumeAlignmentOp op) {
           auto memref_type = op.getMemref().getType().cast<MemRefType>();
-          if (memref_type.getMemorySpaceAsInt() ==
-              gpu::GPUDialect::getWorkgroupAddressSpace()) {
+          auto addrSpace =
+              memref_type.getMemorySpace().dyn_cast<gpu::AddressSpaceAttr>();
+          if (addrSpace && addrSpace.getValue() ==
+                               gpu::GPUDialect::getWorkgroupAddressSpace()) {
             to_be_removed.push_back(op);
           }
         });

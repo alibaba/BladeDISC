@@ -82,7 +82,7 @@ def DISCShape_SymbolicDimOp:
   }];
   let arguments = (ins
     SymbolNameAttr:$sym_name,
-    DefaultValuedAttr<I64Attr, "-1">:$value,
+    DefaultValuedAttr<I64Attr, "ShapedType::kDynamic">:$value,
     DefaultValuedAttr<BoolAttr, "false">:$knownNonNegative,
     DefaultValuedAttr<BoolAttr, "false">:$knownNegativeOne,
     DefaultValuedAttr<BoolAttr, "false">:$knownNonSizeOne,

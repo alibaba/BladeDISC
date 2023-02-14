@@ -587,7 +587,6 @@ def prepare_env(args):
     os.environ["TAO_BUILD_GIT_HEAD"] = str(git_head())
     host = socket.gethostname()
     os.environ["TAO_BUILD_HOST"] = host
-    print("GPL "+host)
     os.environ["TAO_BUILD_IP"] = socket.gethostbyname(host)
     timestamp = datetime.today().strftime("%Y%m%d%H%M%S")
     os.environ["TAO_BUILD_TIME"] = timestamp

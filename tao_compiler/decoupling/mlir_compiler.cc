@@ -276,7 +276,7 @@ Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs,
 
   main_func->setAttr("tf.entry_function",
                      builder.getDictionaryAttr(attributes));
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 CompilerMLIR::CompilerMLIR() {
@@ -303,7 +303,7 @@ CompilerMLIR::~CompilerMLIR() {}
 
 Status CompilerMLIR::Init(const TaoCompilerInput& input,
                           const string& output_file) {
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 Status CompilerMLIR::ConvertToMlir(const TaoCompilerInput& input,
@@ -391,12 +391,12 @@ Status CompilerMLIR::ConvertToMlir(const TaoCompilerInput& input,
   }
 
   module_ = std::move(module);
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 Status CompilerMLIR::FillDeviceInfo(
     mlir::disc_ral::DISCLoweringOptions& options) {
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 Status CompilerMLIR::CompileMlirToExecutable(const TaoCompilerInput& input,
@@ -416,7 +416,7 @@ Status CompilerMLIR::CompileMlirToExecutable(const TaoCompilerInput& input,
   TF_RETURN_IF_ERROR(
       WriteTextProto(Env::Default(), output_file, result_proto_));
 
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 Status CompilerMLIR::Compile(const TaoCompilerInput& input,
@@ -424,7 +424,7 @@ Status CompilerMLIR::Compile(const TaoCompilerInput& input,
   TF_RETURN_IF_ERROR(Init(input, output_file));
   TF_RETURN_IF_ERROR(ConvertToMlir(input, output_file));
   TF_RETURN_IF_ERROR(CompileMlirToExecutable(input, output_file));
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 }  // namespace tao

@@ -44,7 +44,7 @@ tensorflow::Status DeCompressTar(const std::string& tar_fname,
     VLOG(0) << ss.str();
     return tensorflow::errors::Internal(ss.str());
   }
-  return tensorflow::Status::OK();
+  return tsl::OkStatus();
 }
 
 tensorflow::Status CompressTar(const std::vector<std::string>& srcs,
@@ -72,7 +72,7 @@ tensorflow::Status CompressTar(const std::vector<std::string>& srcs,
     VLOG(0) << ss.str();
     return tensorflow::errors::Internal(ss.str());
   }
-  return tensorflow::Status::OK();
+  return tsl::OkStatus();
 }
 
 }  // namespace replay

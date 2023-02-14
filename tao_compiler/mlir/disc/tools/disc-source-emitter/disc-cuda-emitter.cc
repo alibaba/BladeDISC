@@ -71,7 +71,7 @@ static LogicalResult emitCUDASourceAndAttach(func::FuncOp func) {
       if (!instruction.hasValue()) {
         return failure();
       } else {
-        op.setAttr("cuda-code", builder.getStringAttr(instruction.getValue()));
+        op.setAttr("cuda-code", builder.getStringAttr(instruction.value()));
       }
     }
   }

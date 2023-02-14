@@ -25,7 +25,7 @@ Status CompilerMLIR_CPU::FillDeviceInfo(
   // TODO(kevin.zwy): add an cpu_info field to store #cores configuration.
   options.mode = mlir::disc_ral::CodeGenMode::kCpuCentric;
 
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 }  // namespace tao

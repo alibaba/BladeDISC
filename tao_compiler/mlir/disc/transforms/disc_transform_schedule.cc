@@ -653,19 +653,19 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
   Value padForWeight = buildGetProducerOfOperand(b, loc, padGEMMOp, 1);
 
   // Check if we need to pad dimension `m/n/k` if input or weight is packed
-  bool mIsPadded = (M1 != 1) && (M == ShapedType::kDynamicSize ||
+  bool mIsPadded = (M1 != 1) && (M == ShapedType::kDynamic ||
                                  (M > M0 && (M % M0 != 0 || M0 % M1 != 0)) ||
                                  (M <= M0 && M > M1 && M % M1 != 0));
-  bool nIsPadded = (N1 != 1) && (N == ShapedType::kDynamicSize ||
+  bool nIsPadded = (N1 != 1) && (N == ShapedType::kDynamic ||
                                  (N > N0 && (N % N0 != 0 || N0 % N1 != 0)) ||
                                  (N <= N0 && N > N1 && N % N1 != 0));
   bool kIsPadded =
-      (K0 != 1) && (K == ShapedType::kDynamicSize || K > K0 && K % K0 != 0);
+      (K0 != 1) && (K == ShapedType::kDynamic || K > K0 && K % K0 != 0);
 
   // Check if we need to pack the input:
-  bool packInput = ((M == ShapedType::kDynamicSize || M >= M1) &&
-                    (K == ShapedType::kDynamicSize || K > K0) &&
-                    (N == ShapedType::kDynamicSize || N > N0));
+  bool packInput = ((M == ShapedType::kDynamic || M >= M1) &&
+                    (K == ShapedType::kDynamic || K > K0) &&
+                    (N == ShapedType::kDynamic || N > N0));
   if (packInput) {
     // supposed loop order:
     //  loop_m0
@@ -680,13 +680,13 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
     int loopLevel = 4;
     // in case:
     // - the size of dimension N <= N0, then loop_n0 will be folded.
-    loopLevel -= (N != ShapedType::kDynamicSize && N <= N0);
+    loopLevel -= (N != ShapedType::kDynamic && N <= N0);
     // - the size of dimension M <= M1, then loop_m1 will be folded.
-    loopLevel -= (M != ShapedType::kDynamicSize && M <= M1);
+    loopLevel -= (M != ShapedType::kDynamic && M <= M1);
     // - the size of dimension N <= N1, then loop_n1 will be folded.
-    loopLevel -= (N != ShapedType::kDynamicSize && N <= N1);
+    loopLevel -= (N != ShapedType::kDynamic && N <= N1);
     // - the size of dimension K <= K0, then loop_k0 will be folded.
-    loopLevel -= (K != ShapedType::kDynamicSize && K <= K0);
+    loopLevel -= (K != ShapedType::kDynamic && K <= K0);
 
     if (loopLevel <= 0) {
       return m->emitError()
@@ -711,8 +711,8 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
   // Check if we need to pack the weight, one of the following conditions:
   // - if M, N and K are both dynamic, we always pad input a.t.m.
   // - if N is known and N >= N0 && N0 > N1
-  bool packWeight = ((K == ShapedType::kDynamicSize || K > K0) &&
-                     (N == ShapedType::kDynamicSize || N > N1));
+  bool packWeight = ((K == ShapedType::kDynamic || K > K0) &&
+                     (N == ShapedType::kDynamic || N > N1));
   if (packWeight) {
     bool weightIsPadded = nIsPadded || kIsPadded;
     forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
@@ -746,10 +746,12 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
   buildConvertPaddingPlaceholderToConstOp(b, loc, placeholderOps);
   variant = buildDISCBufferize(b, loc, variant);
 
+  /* tanyo: fixme
   buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
                     "linalg-copy", true, "eltwise", false);
   buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
                     "linalg-copy", true, "eltwise", false);
+                    */
   // de-compose large size vector operations
   variant = buildDecomposeVectors(b, loc, variant, hardwareVectorSizeInBytes);
   b.create<transform::YieldOp>(loc);

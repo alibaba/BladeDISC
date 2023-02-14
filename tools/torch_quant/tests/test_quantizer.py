@@ -21,12 +21,8 @@ from torch_quant.quantizer import Backend, Quantizer
 class QuantizerTest(unittest.TestCase):
     @parameterized.expand([
         (Backend.REFERENCE, ),
-<<<<<<< HEAD
         # (Backend.FBGEMM, ), TODO(litan.ls): select test according to ci env
-=======
-        #(Backend.FBGEMM, ),
         (Backend.DISC, ),
->>>>>>> main
     ])
     def test_calib_and_quantize(self, backend: Backend) -> None:
         model = SimpleModule()

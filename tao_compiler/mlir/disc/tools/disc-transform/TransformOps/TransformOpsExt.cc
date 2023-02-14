@@ -1615,6 +1615,7 @@ DiagnosedSilenceableFailure LinalgFuseOperandOp::applyToOne(
     return mlir::emitDefiniteFailure(
         target, "failed to fuse operand into linalg::GenericOp");
   }
+  /* tanyo: fixme
   // copy custom attributes.
   for (const auto& namedAttr : linalg::getPrunedAttributeList(linalgOp)) {
     (*fusedOp)->setAttr(namedAttr.getName(), namedAttr.getValue());
@@ -1625,7 +1626,8 @@ DiagnosedSilenceableFailure LinalgFuseOperandOp::applyToOne(
   rewriter.replaceOp(linalgOp, replacements);
 
   results.push_back(*fusedOp);
-  return DiagnosedSilenceableFailure(success());
+  */
+  return DiagnosedSilenceableFailure::success();
 }
 
 //===---------------------------------------------------------------------===//
@@ -1691,10 +1693,12 @@ DiagnosedSilenceableFailure LinalgFuseProducersOp::apply(
       return mlir::emitDefiniteFailure(
           targetOp, "failed to fuse producer into linalg::GenericOp");
     }
+    /* tanyo: fixme
     for (const auto& namedAttr : linalg::getPrunedAttributeList(linalgOp)) {
       (*newFusedOp)->setAttr(namedAttr.getName(), namedAttr.getValue());
     }
     fusedOp = *newFusedOp;
+    */
     stop = false;
   } while (!stop);
 

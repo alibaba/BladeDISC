@@ -730,6 +730,7 @@ LogicalResult ApplyCpuOptionsBeforeTranslatingToLLVM(
   if (cpuOptions.disable_loop_unroll) {
     module.walk([&](Operation* op) {
       if (!isa<LLVM::BrOp, LLVM::CondBrOp>(op)) return;
+      /* tanyo: fixme
       OpBuilder opBuilder(op);
       auto keyName = LLVM::LLVMDialect::getLoopOptionsAttrName();
       LLVM::LoopOptionsAttrBuilder b;
@@ -739,6 +740,7 @@ LogicalResult ApplyCpuOptionsBeforeTranslatingToLLVM(
       namedAttrs.emplace_back(opBuilder.getNamedAttr(keyName, valueAttr));
       auto dictAttr = DictionaryAttr::get(op->getContext(), namedAttrs);
       op->setAttr(LLVM::LLVMDialect::getLoopAttrName(), dictAttr);
+      */
     });
     if (VLOG_IS_ON(1)) {
       llvm::dbgs() << "[[DISC DEBUG]] no_unroll dump begin: \n"
@@ -804,13 +806,14 @@ LogicalResult ApplyCpuOptionsAfterTranslatingToLLVM(
         llvm::errs() << "[[DISC WARNING]] unknown fast_math_level value\n";
         break;
     }
+    /* tanyo: fixme
     for (auto&& func : module->getFunctionList()) {
       for (auto&& bb : func.getBasicBlockList())
         for (auto&& I : bb) {
           if (!llvm::isa<llvm::SelectInst>(&I)) continue;
           I.setFastMathFlags(ffm);
         }
-    }
+    }*/
   }
   return success();
 }

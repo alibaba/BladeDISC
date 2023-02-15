@@ -73,6 +73,7 @@ class TaoCloneConstantsForBetterClusteringPass : public GraphOptimizationPass {
 
   int unique_name_counter_ = 0;
 };
+
 }  // namespace tao
 }  // namespace tensorflow
 

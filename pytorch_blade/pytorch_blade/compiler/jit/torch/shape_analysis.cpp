@@ -937,6 +937,7 @@ class ShapePropagator : public PropertyPropBase {
 #elif PYTORCH_VERSION_GE(1, 11)
             "aten::slice_scatter(Tensor self, Tensor src, int dim=0, int? start=None, int? end=None, int step=1) -> Tensor",
 #endif
+            "aten::fill.Scalar(Tensor self, Scalar value) -> Tensor",
             "aten::floor_divide.Scalar(Tensor self, Scalar other) -> Tensor",
             "aten::floor_divide_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)",
             "aten::relu(Tensor self) -> Tensor",
@@ -1016,6 +1017,8 @@ class ShapePropagator : public PropertyPropBase {
             "aten::round(Tensor self) -> Tensor",
             "aten::rrelu(Tensor self, Scalar lower, Scalar upper, bool training, Generator? generator) -> Tensor",
             "aten::rsqrt(Tensor self) -> Tensor",
+            "aten::silu(Tensor self) -> Tensor",
+            "aten::silu_(Tensor self) -> Tensor",
             "aten::selu(Tensor self) -> Tensor",
             "aten::selu_(Tensor self) -> Tensor",
             "aten::sigmoid(Tensor self) -> Tensor",
@@ -2238,6 +2241,19 @@ class ShapePropagator : public PropertyPropBase {
         node->outputs()[1]->setType(type);
         return true;
       }
+    } else if (
+        node->matches(
+            "aten::convolution_backward(Tensor grad_output, Tensor input, Tensor weight, SymInt[]? bias_sizes, int[] stride, SymInt[] padding, int[] dilation, bool transposed, SymInt[] output_padding, int groups, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")) {
+      if (auto type = node->input(1)->type()->cast<TensorType>()) {
+        node->outputs()[0]->setType(type);
+      }
+      if (auto type = node->input(2)->type()->cast<TensorType>()) {
+        node->outputs()[1]->setType(type);
+      }
+      if (auto type = node->input(0)->type()->cast<TensorType>()) {
+        node->outputs()[2]->setType(type->withDim(1));
+      }
+      return true;
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
     } else if (
         node->matches(

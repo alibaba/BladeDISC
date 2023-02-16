@@ -58,9 +58,6 @@ def check_min_max_valid(min_val: torch.Tensor, max_val: torch.Tensor) -> bool:
     return True
 
 
-def is_per_channel(qscheme: torch.qscheme):
-    return qscheme in (torch.per_tensor_symmetric, torch.per_channel_symmetric)
-
 def pre_load_state_dict_hook(
         module,
         state_dict,
@@ -110,7 +107,7 @@ class Observer(torch.nn.Module, ABC):
 
     @property
     def per_channel(self) -> bool:
-        return is_per_channel(self.qscheme)
+        return self.qscheme in (torch.per_channel_affine, torch.per_channel_symmetric)
 
     @property
     def qparams(self) -> QParams:
@@ -160,7 +157,6 @@ class Observer(torch.nn.Module, ABC):
         LOGGER.debug(
             f'calc qparams: {self.min_val=}, {self.max_val=}, {self.q_min=}, {self.q_max=}, {self.bit=}, {self.signed=}, {scale=}, {zero_point=}')
         return scale, zero_point
-
 
 
 def toggle_observer(root: nn.Module, *, observe: bool, fake_quant: bool) -> None:
@@ -256,9 +252,7 @@ class PerChannelMinMaxObserver(Observer):
 class BiasObserver(Observer):
     def __init__(self, w_ob: Observer, act_ob: Observer, **kwargs) -> None:
         dtype = torch.qint32
-        is_w_per_channel = is_per_channel(w_ob.qscheme)
-        is_act_per_channel = is_per_channel(act_ob.qscheme)
-        if is_w_per_channel or is_act_per_channel:
+        if w_ob.per_channel or act_ob.per_channel:
             qscheme = torch.per_channel_symmetric
         else:
             qscheme = torch.per_tensor_symmetric

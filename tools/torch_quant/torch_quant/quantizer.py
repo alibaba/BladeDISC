@@ -58,12 +58,6 @@ DEFAULT_W_OB_CTR = {
     Backend.FBGEMM: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
 }
 
-# TODO: maybe should configure according to the w/act when initializing the bias observer?
-# DEFAULT_BIAS_OB_CTR = {
-#     Backend.REFERENCE: partial(BiasObserver, dtype=torch.qint32, qsheme=torch.per_tensor_affine),
-#     Backend.DISC: partial(BiasObserver, dtype=torch.qint32, qsheme=torch.per_channel_symmetric),
-#     Backend.FBGEMM: partial(BiasObserver, dtype=torch.qint32, qsheme=torch.per_channel_symmetric)
-# }
 DEFAULT_BIAS_OB_CTR = BiasObserver
 
 

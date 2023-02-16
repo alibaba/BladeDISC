@@ -28,10 +28,9 @@ fi
 # cleanup build cache
 (rm -rf build \
   && rm -rf tao/build \
-  && cd tao && bazel clean --expunge && cd .. \
-  && cd tf_community && bazel clean --expunge)
+  && cd tao && bazel clean --expunge)
 
-python ${ENTRY} ${VENV_PATH} -s configure --bridge-gcc default --compiler-gcc default ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
+python ${ENTRY} ${VENV_PATH} -s configure --bridge-gcc default --compiler-gcc default ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH} ${TARGET_CPU_ARCH}
 python ${ENTRY} ${VENV_PATH} -s build_tao_bridge ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
 python ${ENTRY} ${VENV_PATH} -s build_tao_compiler ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
 if [[ -z "$ROCM" ]] && [[ -z "$DCU" ]]; then

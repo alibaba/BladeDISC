@@ -103,11 +103,11 @@ class Observer(torch.nn.Module, ABC):
 
     @property
     def symmetric(self) -> bool:
-        return is_per_channel(self.qscheme)
+        return self.qscheme in (torch.per_tensor_symmetric, torch.per_channel_symmetric)
 
     @property
     def per_channel(self) -> bool:
-        return self.qscheme in (torch.per_channel_symmetric, torch.per_channel_affine)
+        return is_per_channel(self.qscheme)
 
     @property
     def qparams(self) -> QParams:

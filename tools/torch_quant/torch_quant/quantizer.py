@@ -16,13 +16,24 @@ from typing import Callable, Dict, Optional
 import torch
 import torch.nn as nn
 from torch.fx import GraphModule, Tracer
-from torch_quant.graph import (GraphModContext, fold_qdq, insert_act_observer,
-                               observer_to_qdq, q_ref_dq_to_fbgemm,
-                               quantizable_module_to_observed,
-                               quantizable_module_to_ref, set_qconfig)
+from torch_quant.graph import (
+    GraphModContext,
+    fold_qdq,
+    insert_act_observer,
+    observer_to_qdq,
+    q_ref_dq_to_fbgemm,
+    quantizable_module_to_observed,
+    quantizable_module_to_ref,
+    set_qconfig
+)
 from torch_quant.module import ModuleFilter, copy_and_replace, fx_trace
-from torch_quant.observer import (BiasObserver, MinMaxObserver, Observer,
-                                  toggle_observer)
+from torch_quant.observer import (
+    BiasObserver,
+    MinMaxObserver,
+    Observer,
+    PerChannelMinMaxObserver,
+    toggle_observer
+)
 
 
 class Backend(Enum):
@@ -37,7 +48,22 @@ DEFAULT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
     Backend.FBGEMM: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
 }
 
-DEFAULT_W_OB_CTR = partial(MinMaxObserver, dtype=torch.qint8)
+
+DEFAULT_W_OB_CTR = {
+    # According to the url below, PyTorch's reference module does not support
+    # symmetric quantization, which is confusing...
+    # https://github.com/pytorch/pytorch/blob/28e69954a1fb25c20153c0e3636b9052e6962ffa/torch/ao/nn/quantized/reference/modules/utils.py#L19
+    Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
+    Backend.DISC: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
+    Backend.FBGEMM: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
+}
+
+# TODO: maybe should configure according to the w/act when initializing the bias observer?
+# DEFAULT_BIAS_OB_CTR = {
+#     Backend.REFERENCE: partial(BiasObserver, dtype=torch.qint32, qsheme=torch.per_tensor_affine),
+#     Backend.DISC: partial(BiasObserver, dtype=torch.qint32, qsheme=torch.per_channel_symmetric),
+#     Backend.FBGEMM: partial(BiasObserver, dtype=torch.qint32, qsheme=torch.per_channel_symmetric)
+# }
 DEFAULT_BIAS_OB_CTR = BiasObserver
 
 
@@ -53,10 +79,10 @@ class Quantizer:
         self.backend = backend
         self.tracer = tracer
         self.act_ob_ctr = act_ob_ctr or DEFAULT_ACT_OB_CTR[backend]
-        self.w_ob_ctr = w_ob_ctr or DEFAULT_W_OB_CTR
+        self.w_ob_ctr = w_ob_ctr or DEFAULT_W_OB_CTR[backend]
         self.bias_ob_ctr = bias_ob_ctr or DEFAULT_BIAS_OB_CTR
 
-    def calib_gm(self,  gm: GraphModule, root: nn.Module) -> None:
+    def calib_gm(self, gm: GraphModule, root: nn.Module) -> None:
         ctx = GraphModContext(gm, root, self.act_ob_ctr,
                               self.w_ob_ctr, self.bias_ob_ctr)
         # TODO(litan.ls): unify graph modification for different backends

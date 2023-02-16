@@ -22,6 +22,9 @@ LOGGER = logging.getLogger(__name__)
 # definition of zero_point and scale:
 # float_value = (quant_value - zero_point) * scale
 
+# TODO: there is so many code patches to handle the scale & zero_point's shape.
+# Need to try to see if there is a more efficient way.
+
 
 class QParams(NamedTuple):
     qscheme: torch.qscheme
@@ -254,7 +257,11 @@ class BiasObserver(Observer):
     def __init__(self, w_ob: Observer, act_ob: Observer, **kwargs) -> None:
         dtype = torch.qint32
         is_w_per_channel = is_per_channel(w_ob.qscheme)
-        qscheme = torch.per_channel_symmetric if is_w_per_channel else torch.per_tensor_symmetric
+        is_act_per_channel = is_per_channel(act_ob.qscheme)
+        if is_w_per_channel or is_act_per_channel:
+            qscheme = torch.per_channel_symmetric
+        else:
+            qscheme = torch.per_tensor_symmetric
         super().__init__(dtype, qscheme, w_ob.ch_axis, **kwargs)
         self.w_ob = w_ob
         self.act_ob = act_ob

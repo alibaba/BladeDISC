@@ -37,6 +37,7 @@ jobs:
           -v /etc/hosts:/etc/hosts:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -h=`hostname`
           -w /disc \
           disc-dev-cpu-yitian \
           bash ./scripts/ci/build_and_test.sh --cpu-only --target_cpu_arch="armv8.6-a-sve2"

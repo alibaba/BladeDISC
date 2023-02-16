@@ -44,6 +44,9 @@ if [[ -f ~/.cache/proxy_config ]]; then
   source ~/.cache/proxy_config
 fi
 
+# cleanup build cache
+(cd tf_community && bazel clean --expunge)
+
 # note(yancey.yx): using virtualenv to avoid permission issue on workflow actions CI,
 if [ $TORCH_BLADE_CI_BUILD_TORCH_VERSION = "ngc" ]; then
   python -m virtualenv venv --system-site-packages && source venv/bin/activate

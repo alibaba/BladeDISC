@@ -261,11 +261,17 @@ def mkl_install_dir(root):
 def acl_root_dir(root):
     return os.path.join(mkldnn_build_dir(root), 'acl', 'ComputeLibrary')
 
+def extra_acl_patch_dir(root):
+    if root is None:
+        root = get_source_root_dir()
+    return os.path.join(root, "third_party", "bazel", "acl")
+
 def config_mkldnn(root, args):
     build_dir = mkldnn_build_dir(root)
     ensure_empty_dir(build_dir, clear_hidden=False)
     mkl_dir = mkl_install_dir(root)
     acl_dir = acl_root_dir(root)
+    acl_patch_dir = extra_acl_patch_dir(root)
     ensure_empty_dir(mkl_dir, clear_hidden=False)
     ensure_empty_dir(acl_dir, clear_hidden=False)
     if args.x86:
@@ -293,11 +299,19 @@ def config_mkldnn(root, args):
               ACL_DIR={}
               git clone --branch v22.02 --depth 1 $ACL_REPO $ACL_DIR
               cd $ACL_DIR
+              EXTRA_ACL_PATCH_DIR={}
+              for file in $EXTRA_ACL_PATCH_DIR/acl_*.patch
+              do
+                  if [[ $file == *makefile* ]]; then
+                      continue
+                  fi
+                  patch -p1 < $file
+              done
 
               scons --silent $MAKE_NP Werror=0 debug=0 neon=1 opencl=0 openmp=1 embed_kernels=0 os=linux arch={} build=native extra_cxx_flags="-fPIC"
 
               exit $?
-            '''.format(acl_dir, arch)
+            '''.format(acl_dir, acl_patch_dir, arch)
             execute(cmd)
             # a workaround for static linking
             execute('rm -f build/*.so')

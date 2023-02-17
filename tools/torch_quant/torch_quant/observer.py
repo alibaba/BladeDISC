@@ -11,6 +11,7 @@
 
 import logging
 from abc import ABC
+from functools import partial
 from typing import NamedTuple, Tuple
 
 import torch
@@ -20,6 +21,9 @@ LOGGER = logging.getLogger(__name__)
 
 # definition of zero_point and scale:
 # float_value = (quant_value - zero_point) * scale
+
+# TODO: there is so many code patches to handle the scale & zero_point's shape.
+# Need to try to see if there is a more efficient way.
 
 
 class QParams(NamedTuple):
@@ -54,8 +58,36 @@ def check_min_max_valid(min_val: torch.Tensor, max_val: torch.Tensor) -> bool:
     return True
 
 
+def pre_load_state_dict_hook(
+        module,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs
+):
+    if module.ch_axis == -1:
+        # per-tensor quantization, no extra things should be done
+        return
+    attr_list = ['scale', 'zero_point', 'min_val', 'max_val']
+    for attr in attr_list:
+        name = prefix + attr
+        if name in state_dict:
+
+            if not hasattr(module, attr):
+                raise RuntimeError(f"There is no attribute {attr} for module {prefix},"
+                                   f"This may caused by a mismatch between prepared model"
+                                   f"with the checkpoint.")
+            attr_val_in_module = getattr(module, attr)
+            attr_val_in_state_dict = state_dict[name]
+            if attr_val_in_module.shape != attr_val_in_state_dict.shape:
+                attr_val_in_module.data = torch.ones_like(attr_val_in_state_dict)
+
+
 class Observer(torch.nn.Module, ABC):
-    def __init__(self, dtype, qscheme, **kwargs) -> None:
+    def __init__(self, dtype, qscheme, ch_axis=-1, **kwargs) -> None:
         super().__init__()
         self.dtype = dtype
         self.qscheme = qscheme
@@ -66,10 +98,16 @@ class Observer(torch.nn.Module, ABC):
         self.register_buffer('eps', torch.tensor([torch.finfo(torch.float32).eps]))
         self.observe = True
         self.fake_quant = True
+        self.ch_axis = ch_axis
+        self._register_load_state_dict_pre_hook(partial(pre_load_state_dict_hook, self))
 
     @property
     def symmetric(self) -> bool:
         return self.qscheme in (torch.per_tensor_symmetric, torch.per_channel_symmetric)
+
+    @property
+    def per_channel(self) -> bool:
+        return self.qscheme in (torch.per_channel_affine, torch.per_channel_symmetric)
 
     @property
     def qparams(self) -> QParams:
@@ -121,7 +159,6 @@ class Observer(torch.nn.Module, ABC):
         return scale, zero_point
 
 
-
 def toggle_observer(root: nn.Module, *, observe: bool, fake_quant: bool) -> None:
     for m in root.modules():
         if isinstance(m, Observer):
@@ -168,12 +205,11 @@ class MinMaxObserver(Observer):
 class PerChannelMinMaxObserver(Observer):
     def __init__(self, ch_axis=0, dtype: torch.dtype = torch.qint8,
                  qscheme: torch.qscheme = torch.per_channel_symmetric, **kwargs) -> None:
-        super().__init__(dtype, qscheme, **kwargs)
+        super().__init__(dtype, qscheme, ch_axis, **kwargs)
         self.register_buffer("min_val", torch.tensor([]))
         self.register_buffer("max_val", torch.tensor([]))
         self.register_buffer("scale", torch.tensor([]))
         self.register_buffer("zero_point", torch.tensor([], dtype=torch.int32))
-        self.ch_axis = ch_axis
 
     def forward(self, x):
         if self.observe:
@@ -214,24 +250,32 @@ class PerChannelMinMaxObserver(Observer):
 
 
 class BiasObserver(Observer):
-    def __init__(self, w_ob: Observer, act_ob: Observer,
-                 dtype: torch.dtype = torch.qint32,
-                 qscheme: torch.qscheme = torch.per_tensor_affine, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, w_ob: Observer, act_ob: Observer, **kwargs) -> None:
+        dtype = torch.qint32
+        if w_ob.per_channel or act_ob.per_channel:
+            qscheme = torch.per_channel_symmetric
+        else:
+            qscheme = torch.per_tensor_symmetric
+        super().__init__(dtype, qscheme, w_ob.ch_axis, **kwargs)
         self.w_ob = w_ob
         self.act_ob = act_ob
-        self.dtype = dtype
-        self.qscheme = qscheme
-        self.bit, self.signed = DTYPE_TO_BIT_SIGN[dtype]
-        self.q_min, self.q_max = calc_quant_min_max(self.bit, self.signed)
+
         self.register_buffer("scale", torch.tensor(1.))
         self.register_buffer("zero_point", torch.tensor(0, dtype=torch.int32))
 
     def forward(self, x):
         if self.observe:
             scale = self.w_ob.scale * self.act_ob.scale
+            if self.per_channel:
+                self.scale.data = torch.ones_like(scale)
+                self.zero_point.data = torch.zeros_like(scale)
             self.scale.copy_(scale)
         if self.fake_quant:
-            return torch.fake_quantize_per_tensor_affine(x, self.scale, self.zero_point, self.q_min, self.q_max)
+            if self.per_channel:
+                return torch.fake_quantize_per_channel_affine(
+                    x, self.scale, self.zero_point, self.ch_axis, self.q_min, self.q_max
+                )
+            else:
+                return torch.fake_quantize_per_tensor_affine(x, self.scale, self.zero_point, self.q_min, self.q_max)
         else:
             return x

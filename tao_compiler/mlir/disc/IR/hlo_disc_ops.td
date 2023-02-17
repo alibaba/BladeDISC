@@ -339,15 +339,16 @@ def HLO_SparseFillEmptyRowsOp : HLODISC_ShapedInterfaceOp<"sparse_fill_empty_row
   );
 }
 
-def HLO_SparseSegmentMeanOp : HLODISC_ShapedInterfaceOp<"sparse_segment_mean", [Pure]> {
-  let summary = "One-to-one mapping of TF_SparseSegmentMeanOp";
+def HLO_SparseSegmentReductionOp: HLODISC_ShapedInterfaceOp<"sparse_segment_reduction", [Pure]> {
+  let summary = "One-to-one mapping of TF_SparseSegmentMeanOp or TF_SparseSegmentSumOp";
   let description = [{
-    See tf's sparse_segment_mean operator.
+    See tf's sparse_segment_mean or sparse_segment_sum operator.
   }];
   let arguments = (ins
     HLO_FpTensor:$data,
     HLO_I32OrI64Tensor:$indices,
-    HLO_I32OrI64Tensor:$segment_ids
+    HLO_I32OrI64Tensor:$segment_ids,
+    DefaultValuedAttr<BoolAttr, "true">:$is_mean
   );
 
   let results = (outs

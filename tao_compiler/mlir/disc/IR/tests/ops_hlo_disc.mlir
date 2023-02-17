@@ -224,7 +224,7 @@ func.func @sparse_fill_empty_rows_basic(%indices: tensor<?x?xi64>, %values: tens
 
 // CHECK-LABEL: func.func @sparse_segment_mean_basic
 func.func @sparse_segment_mean_basic(%data: tensor<?x?xf32>, %indices: tensor<?xi32>, %segment_ids: tensor<?xi32>) -> (tensor<?x?xf32>) {
-  %output = "mhlo_disc.sparse_segment_mean"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<?xi32>, tensor<?xi32>) -> (tensor<?x?xf32>)
+  %output = "mhlo_disc.sparse_segment_reduction"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<?xi32>, tensor<?xi32>) -> (tensor<?x?xf32>)
   return %output : tensor<?x?xf32>
 }
 

@@ -330,7 +330,7 @@ func.func @sparse_fill_empty_rows_basic(%indices: tensor<?xi64>, %values: tensor
 // CHECK-LABEL: func.func @sparse_segment_mean_matrix_indices
 func.func @sparse_segment_mean_matrix_indices(%data: tensor<?x?xf32>, %indices: tensor<?x?xi32>, %segment_ids: tensor<?xi32>) -> (tensor<?x?xf32>) {
   // expected-error@+1 {{indices should be a vector}}
-  %output = "mhlo_disc.sparse_segment_mean"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<?x?xi32>, tensor<?xi32>) -> (tensor<?x?xf32>)
+  %output = "mhlo_disc.sparse_segment_reduction"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<?x?xi32>, tensor<?xi32>) -> (tensor<?x?xf32>)
   return %output : tensor<?x?xf32>
 }
 
@@ -339,7 +339,7 @@ func.func @sparse_segment_mean_matrix_indices(%data: tensor<?x?xf32>, %indices: 
 // CHECK-LABEL: func.func @sparse_segment_mean_matrix_segment_ids
 func.func @sparse_segment_mean_matrix_segment_ids(%data: tensor<?x?xf32>, %indices: tensor<?xi32>, %segment_ids: tensor<?x?xi32>) -> (tensor<?x?xf32>) {
   // expected-error@+1 {{segment_ids should be a vector}}
-  %output = "mhlo_disc.sparse_segment_mean"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<?xi32>, tensor<?x?xi32>) -> (tensor<?x?xf32>)
+  %output = "mhlo_disc.sparse_segment_reduction"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<?xi32>, tensor<?x?xi32>) -> (tensor<?x?xf32>)
   return %output : tensor<?x?xf32>
 }
 
@@ -348,7 +348,7 @@ func.func @sparse_segment_mean_matrix_segment_ids(%data: tensor<?x?xf32>, %indic
 // CHECK-LABEL: func.func @sparse_segment_mean_no_match_indices_segment_ids
 func.func @sparse_segment_mean_no_match_indices_segment_ids(%data: tensor<?x?xf32>, %indices: tensor<6xi32>, %segment_ids: tensor<4xi32>) -> (tensor<?x?xf32>) {
   // expected-error@+1 {{segment_ids and indices should have same size}}
-  %output = "mhlo_disc.sparse_segment_mean"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<6xi32>, tensor<4xi32>) -> (tensor<?x?xf32>)
+  %output = "mhlo_disc.sparse_segment_reduction"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<6xi32>, tensor<4xi32>) -> (tensor<?x?xf32>)
   return %output : tensor<?x?xf32>
 }
 

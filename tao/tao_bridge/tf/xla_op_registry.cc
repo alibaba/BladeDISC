@@ -1248,6 +1248,7 @@ REGISTER_XLA_OP_FOR_TAO(Name("QuantizedConv2DWithBiasAndRequantize"));
 REGISTER_XLA_OP_FOR_TAO(Name("SparseReshape"));
 REGISTER_XLA_OP_FOR_TAO(Name("SparseFillEmptyRows"));
 REGISTER_XLA_OP_FOR_TAO(Name("SparseSegmentMean"));
+REGISTER_XLA_OP_FOR_TAO(Name("SparseSegmentSum"));
 REGISTER_XLA_OP_FOR_TAO(Name("Where"));
 #endif // TF_VERSION
 #endif // TAO_CPU_ONLY

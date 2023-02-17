@@ -13,7 +13,7 @@ import torch
 import torch_blade
 import unittest
 
-from tests.disc.testing_base import DiscTestCase, skipTorchLE
+from tests.disc.testing_base import DiscTestCase, skipTorchLE, skipOnYitian
 
 @skipOnYitian()
 @skipTorchLE("1.6.1")

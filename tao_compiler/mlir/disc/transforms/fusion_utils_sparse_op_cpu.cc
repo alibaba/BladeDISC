@@ -9,9 +9,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/transforms/fusion_utils.h"
+#include "mlir/disc/transforms/placement_utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -33,7 +33,7 @@ bool iskSparseReductionOutputFusible(Operation* op) {
 }
 
 bool isFusibleSparseReductionOp(Operation* op) {
-  return isa<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(op);
+  return isa<lmhlo_disc::SparseSegmentMeanOp>(op);
 }
 
 ////////////////////// CPU SparseOp FusionStrategy Implemenation ////////////
@@ -130,7 +130,6 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
     return false;
   }
 
-  bool enable_sparse_reduction_fusion = initSparseSegmentReductionRewrite();
   // check fusiblity
   if (rhs.getFusionType() == FusionType::kWhere) {
     // Basic Input fusion for where op

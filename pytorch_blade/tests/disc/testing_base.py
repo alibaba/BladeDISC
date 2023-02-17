@@ -25,8 +25,8 @@ from torch_blade.pass_manager import _optimize_common
 from torch_blade.quantization import is_available as is_quantization_available
 from torch_blade.testing.common_utils import TestCase
 
-def skipOnYitian():
-    return os.popen("lscpu").read().find("svebf16") != -1
+def skipIfOnYitian():
+    return unittest.skipIf(os.popen("lscpu").read().find("svebf16") != -1, "Yitian bug was not fix")
 
 def skipIfNoDISC():
     return unittest.skipIf(not is_available(), "DISC support was not built")

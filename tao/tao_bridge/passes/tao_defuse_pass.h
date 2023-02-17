@@ -22,17 +22,10 @@ namespace tao {
 
 class TaoDefusePass : public GraphOptimizationPass {
  public:
-  TaoDefusePass(bool use_tvm) : GraphOptimizationPass() { use_tvm_ = use_tvm; }
+  TaoDefusePass() : GraphOptimizationPass() {}
   Status Run(const GraphOptimizationPassOptions& options) override;
 
-  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {
-    if (opt) {
-      use_tvm_ = opt->use_tvm;
-    }
-  }
-
- private:
-  bool use_tvm_;
+  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {}
 };
 
 const std::unordered_set<string> FusedOpList = {"_FusedConv2D", "_FusedMatMul",

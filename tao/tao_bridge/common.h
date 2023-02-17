@@ -83,9 +83,6 @@ struct TaoBridgeOptions {
   // compilation cache capacity
   int64 cache_capacity;
 
-  // Blade-CPU used options
-  bool tvm_using_proto;
-
   // tao whale options
   bool seperate_whale_micro_batch;
 

@@ -39,12 +39,7 @@ struct TaoPassOptions {
 
   // Whether to build a inner-layer TaoLaunch op.
   bool inner_tao_launch;
-  // Activated branches, defaults to all.
-#ifdef USE_TVM_CPU
-  bool use_tvm = true;
-#else
-  bool use_tvm = false;
-#endif
+
   bool cluster_recount = true;
 
   std::unique_ptr<FeatureDetector> feats;

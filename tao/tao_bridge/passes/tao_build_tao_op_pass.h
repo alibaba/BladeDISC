@@ -27,12 +27,10 @@ class TaoBuildTaoOpPass : public GraphOptimizationPass {
   void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {
     if (opt) {
       inner_tao_launch_ = opt->inner_tao_launch;
-      use_tvm_ = opt->use_tvm;
     }
   }
 
  private:
-  bool use_tvm_;
   bool inner_tao_launch_{false};  // inner attribute of TaoLaunch op.
 };
 

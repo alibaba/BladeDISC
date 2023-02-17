@@ -207,7 +207,6 @@ tao_bridge_cc_test(
     srcs = [
         "tao_bridge/passes/tao_clone_constants_for_better_clustering_test.cc",
         "tao_bridge/passes/tao_defuse_pass_test.cc",
-        "tao_bridge/passes/tao_remove_small_cluster_pass_test.cc",
     ],
     tags = ["cpu"],
 )

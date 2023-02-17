@@ -308,7 +308,6 @@ def config_mkldnn(root, args):
     with cwd(build_dir):
         cc = which("gcc")
         cxx = which("g++")
-        # always link patine statically
         flags = " -DMKL_ROOT={} ".format(mkl_dir)
         envs = " CC={} CXX={} ".format(cc, cxx)
         if args.aarch64:
@@ -629,7 +628,7 @@ def symlink_disc_files(args):
     logger.info("cleanup tao_compiler with XLA always...")
 
     # def link_internal_tao_bridge(is_platform_alibaba):
-    # softlink ["tao_launch_op", "gpu"] dirs, "tvm" and "transform" dirs are not needed for now.
+    # softlink ["tao_launch_op", "gpu"] dirs, and "transform" dirs are not needed for now.
     for dir_name in ["tao_launch_op", "gpu"]:
         src_file = os.path.join(internal_tao_bridge_dir(), dir_name)
         link_in_bridge = os.path.join(tao_bridge_dir(), dir_name)

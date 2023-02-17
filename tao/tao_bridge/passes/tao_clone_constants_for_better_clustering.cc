@@ -129,13 +129,9 @@ Status TaoCloneConstantsForBetterClusteringPass::CloneSmallHostConstantInputs(
   for (const Edge* e : in_edges) {
     Node* input = e->src();
     bool is_small_host_constant = false, is_fakequant_argument_constant = false;
-    if (use_tvm_) {
-      TF_ASSIGN_OR_RETURN(is_small_host_constant, IsSmallHostConstant(input));
-    }
-    if (clone_const_for_fakequant_) {
-      TF_ASSIGN_OR_RETURN(is_fakequant_argument_constant,
-                          IsFakeQuantArgumentConstant(input));
-    }
+    TF_ASSIGN_OR_RETURN(is_fakequant_argument_constant,
+                        IsFakeQuantArgumentConstant(input));
+
     if ((is_small_host_constant || is_fakequant_argument_constant) &&
         input->out_edges().size() != 1) {
       if (is_small_host_constant)
@@ -162,10 +158,6 @@ Status TaoCloneConstantsForBetterClusteringPass::CloneSmallHostConstantInputs(
 
 Status TaoCloneConstantsForBetterClusteringPass::Run(
     const GraphOptimizationPassOptions& options) {
-  if (!use_tvm_ && !clone_const_for_fakequant_) {
-    return Status::OK();
-  }
-
   Graph* g = options.graph->get();
   std::unordered_set<string> name_set;
   for (Node* n : g->nodes()) {

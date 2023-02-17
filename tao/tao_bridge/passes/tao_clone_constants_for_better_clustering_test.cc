@@ -63,10 +63,7 @@ Status CloneConstant(std::unique_ptr<Graph>* graph) {
   GraphOptimizationPassOptions opt_options;
   opt_options.graph = graph;
 
-  std::unique_ptr<TaoPassOptions> opts = absl::make_unique<TaoPassOptions>();
-  TaoCloneConstantsForBetterClusteringPass pass(opts->use_tvm);
-
-  // pass.set_opts(opts);
+  TaoCloneConstantsForBetterClusteringPass pass;
   return pass.Run(opt_options);
 }
 
@@ -150,11 +147,7 @@ TEST(CloneConstantPassTest, Base) {
     }
   }
   TaoPassOptions opts;
-  if (opts.use_tvm) {
-    EXPECT_NE(name_0, name_1);
-  } else {
-    EXPECT_EQ(name_0, name_1);
-  }
+  EXPECT_EQ(name_0, name_1);
 }
 
 }  // namespace

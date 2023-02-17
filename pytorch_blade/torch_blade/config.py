@@ -343,7 +343,7 @@ class Config(ConfigContext):
 
     @property
     def dynamic_tuning_shapes(self):
-        """The dynamic shapes configuration for TensorRT & TVM tuning
+        """The dynamic shapes configuration for TensorRT tuning
 
         :type: dict or List of dict
 

@@ -33,12 +33,6 @@ def if_cuda_or_rocm(if_true, if_false=[]):
         "//conditions:default": if_false
     })
 
-def if_patine(if_true, if_false=[]):
-    return select({
-        "//mlir/util:is_patine": if_true,
-        "//conditions:default": if_false
-    })
-
 def if_blade_gemm(if_true, if_false=[]):
     return select({
         "//mlir/util:is_blade_gemm": if_true,

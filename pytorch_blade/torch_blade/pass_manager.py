@@ -424,25 +424,6 @@ def _jit_pass_replace_inplace_name(graph):
 
     _replace_inplace_name(graph)
 
-def _jit_pass_patine_conv2d(graph):
-    torch._C._jit_pass_custom_pattern_based_rewrite_graph("""
-graph(%input, %weight, %bias, %stride, %padding, %dilation, %group):
-   %r = aten::conv2d(%input, %weight, %bias, %stride, %padding, %dilation, %group)
-   %r = aten::relu(%r)
-   return (%r)""", """
-graph(%input, %weight, %bias, %stride, %padding, %dilation, %group):
-   %0 : int = prim::Constant[value=0]()
-   %1 : int = prim::Constant[value=1]()
-   %2 : int = prim::Constant[value=2]()
-   %3 : int = prim::Constant[value=3]()
-   %nhwc_dims : int[] = prim::ListConstruct(%0, %2, %3, %1)
-   %nhwc = aten::permute(%input, %nhwc_dims)
-   %r = patine::conv2d_relu_nhwc(%nhwc, %weight, %bias, %stride, %padding, %dilation, %group)
-   %nchw_dims : int[] = prim::ListConstruct(%0, %3, %1, %2)
-   %nchw = aten::permute(%r, %nchw_dims)
-   return (%nchw)""", graph)
-    tools.eliminate_redundant_permutations(graph)
-
 def _jit_pass_hack_cpu_device(graph):
     cfg = Config.get_current_context_or_new()
     if not cfg.enable_force_to_cuda:

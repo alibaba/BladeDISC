@@ -771,6 +771,7 @@ cc_library(
         "transforms/fusion_utils_stitch_gpu.cc",
         "transforms/fusion_utils_dot_gpu.cc",
         "transforms/fusion_utils_transform_based.cc",
+        "transforms/fusion_utils_sparse_op_cpu.cc",
     ],
     hdrs = ["transforms/fusion_utils.h"],
     deps = [

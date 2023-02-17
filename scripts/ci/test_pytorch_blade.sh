@@ -44,8 +44,10 @@ if [[ -f ~/.cache/proxy_config ]]; then
   source ~/.cache/proxy_config
 fi
 
+set +e
 # cleanup build cache
 (cd tao_compiler && bazel clean --expunge)
+set -e
 
 # note(yancey.yx): using virtualenv to avoid permission issue on workflow actions CI,
 if [ $TORCH_BLADE_CI_BUILD_TORCH_VERSION = "ngc" ]; then

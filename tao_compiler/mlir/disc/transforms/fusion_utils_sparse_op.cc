@@ -54,9 +54,6 @@ bool SparseOpCpuFusionStrategy::initFusionPattern(
   SmallVector<Operation*> where_ops;
   SmallVector<Operation*> sparse_reduction_ops;
   SmallVector<Operation*> basic_fusible_ops;
-  llvm::dbgs() << "\nSparseOpCpuFusionStrategy::initFusionPattern \n";
-  dumpFusionPattern(fusion_pattern);
-  llvm::dbgs() << "*********************end*********************\n\n";
 
   for (Operation* op : fusion_pattern.getOpList()) {
     if (this->isFusible(op)) {
@@ -68,8 +65,8 @@ bool SparseOpCpuFusionStrategy::initFusionPattern(
         basic_fusible_ops.push_back(op);
       }
     } else {
-      (llvm::dbgs()
-       << "Fusion pattern should not contain any un-fusible ops\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Fusion pattern should not contain any un-fusible ops\n");
       return false;
     }
   }
@@ -82,28 +79,37 @@ bool SparseOpCpuFusionStrategy::initFusionPattern(
   }
 
   if (where_ops.size() > 1 || sparse_reduction_ops.size() > 1) {
-    (llvm::dbgs() << "Fusion pattern should not contain more than 1 "
-                     "where op or sparse reduction op\n");
+    LLVM_DEBUG(llvm::dbgs() << "Fusion pattern should not contain more than 1 "
+                               "where op or sparse reduction op\n");
     return false;
   }
 
   if (where_ops.size() == 1 && sparse_reduction_ops.size() == 1) {
-    (llvm::dbgs() << "Fusion pattern should not contain where op and "
-                     "sparse reduction op at the same time\n");
+    LLVM_DEBUG(llvm::dbgs() << "Fusion pattern should not contain where op and "
+                               "sparse reduction op at the same time\n");
     return false;
   }
 
   if (where_ops.size() == 1) {
-    llvm::dbgs() << "Init kWhere fusion \n";
+    LLVM_DEBUG(llvm::dbgs() << "Init kWhere fusion \n");
     fusion_pattern.setFusionType(FusionType::kWhere);
     fusion_pattern.setDominantOp(where_ops[0]);
   } else if (sparse_reduction_ops.size() == 1) {
-    llvm::dbgs() << "Init kSparseReduction fusion \n";
+    LLVM_DEBUG(llvm::dbgs() << "Init kSparseReduction fusion \n");
     fusion_pattern.setFusionType(FusionType::kSparseReduction);
     fusion_pattern.setDominantOp(sparse_reduction_ops[0]);
   }
 
   return true;
+}
+
+bool initSparseSegmentReductionRewrite() {
+  const char* env = getenv("DISC_ENABLE_SPARSE_REDUCTION_FUSION");
+  if (!env) return false;
+  std::string envStr = env;
+  std::transform(envStr.begin(), envStr.end(), envStr.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return envStr == "true" || envStr == "1";
 }
 
 bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
@@ -124,14 +130,15 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
       }
     }
     if (!found) {
-      llvm::dbgs() << "rhs/lhs are not producer-consumer\n";
+      LLVM_DEBUG(llvm::dbgs() << "rhs/lhs are not producer-consumer\n");
       return false;
     }
   } else {
-    llvm::dbgs() << "rhs/lhs are both not sparse fusion\n";
+    LLVM_DEBUG(llvm::dbgs() << "rhs/lhs are both not sparse fusion\n");
     return false;
   }
 
+  bool enable_sparse_reduction_fusion = initSparseSegmentReductionRewrite();
   // check fusiblity
   if (rhs.getFusionType() == FusionType::kWhere) {
     // Basic Input fusion for where op
@@ -149,6 +156,9 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
       }
     }
   } else if (lhs.getFusionType() == FusionType::kSparseReduction) {
+    if (!enable_sparse_reduction_fusion) {
+      return false;
+    }
     // output fusion with sparse reduction op
     for (Operation* op : rhs.getOpList()) {
       if (!iskSparseReductionOutputFusible(op)) {
@@ -156,6 +166,9 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
       }
     }
   } else if (rhs.getFusionType() == FusionType::kSparseReduction) {
+    if (!enable_sparse_reduction_fusion) {
+      return false;
+    }
     // fuse kLoop that only broadcast constant
     for (Operation* op : lhs.getOpList()) {
       if (!(isa<lmhlo::DynamicBroadcastInDimOp>(op) ||
@@ -166,16 +179,6 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   } else {
     return false;
   }
-#if 0
-  llvm::dbgs() << "SparseOpCpuFusionStrategy::tryFuse success() \n";
-  llvm::dbgs() << "*********************lhs*********************\n";
-  dumpFusionPattern(lhs);
-  llvm::dbgs() << "*********************rhs*********************\n";
-  dumpFusionPattern(rhs);
-  llvm::dbgs() << "*********************res*********************\n";
-  dumpFusionPattern(target);
-  llvm::dbgs() << "*********************end*********************\n\n";
-#endif
   return true;
 }
 

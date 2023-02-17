@@ -44,7 +44,9 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
       %outputs_78, %control_79 = tf_executor.island wraps "tf.Slice"(%outputs_76, %outputs_6, %outputs_0) {device = ""} : (tensor<*xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<*xi32>
       %outputs_80, %control_81 = tf_executor.island wraps "tf.ConcatV2"(%outputs_26, %outputs_78, %outputs_8) {device = ""} : (tensor<*xi32>, tensor<*xi32>, tensor<i32>) -> tensor<*xi32>
       %outputs_82, %control_83 = tf_executor.island wraps "tf.Reshape"(%outputs_74, %outputs_80) {device = ""} : (tensor<*xf32>, tensor<*xi32>) -> tensor<*xf32>
-      tf_executor.fetch %outputs_82 : tensor<*xf32>
+      %outputs_84, %control_85 = tf_executor.island wraps "tf.Abs"(%outputs_82) {device = ""} : (tensor<*xf32>) -> tensor<*xf32>
+      %outputs_86, %control_87 = tf_executor.island wraps "tf.Add"(%outputs_82, %outputs_84) {device = ""} : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+      tf_executor.fetch %outputs_86 : tensor<*xf32>
     }
     return %0 : tensor<*xf32>
   }

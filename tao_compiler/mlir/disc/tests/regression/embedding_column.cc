@@ -30,7 +30,7 @@ const std::string c_ft_path =
 //                        6, 0, 8, 9, 0, 0, 0, 0, 0, 0, 9, 4}}));
 // }
 
-#if 0
+#if 1
 TEST(EmbeddingColumnTest, MeanDynamicShape2DI64Test) {
   setenv("DISC_ENABLE_STITCH", "true", 1);
   setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR", "true", 1);
@@ -47,8 +47,7 @@ TEST(EmbeddingColumnTest, MeanDynamicShape2DI64Test) {
   unsetenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR");
   unsetenv("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL");
 }
-#endif
-
+#else
 TEST(EmbeddingColumnTest, SumDynamicShape2DI64Test) {
   setenv("DISC_ENABLE_STITCH", "true", 1);
   setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR", "true", 1);
@@ -58,12 +57,14 @@ TEST(EmbeddingColumnTest, SumDynamicShape2DI64Test) {
       /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"3x4xi64_X"},
+      /*input_descriptors*/ {"6x4xi64_X"},
       /*output_descriptors*/ {"f32_X"},
-      /*input_vals*/ {{0, 6, 0, 0, 8, 4, 4, 8, 0, 7, 6, 9}}));
+      /*input_vals*/ {{0, 6, 0, 0, 8, 4, 4, 8, 0, 7, 6, 9,
+                       6, 0, 8, 9, 0, 0, 0, 0, 0, 0, 9, 4}}));
   unsetenv("DISC_ENABLE_STITCH");
   unsetenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR");
   unsetenv("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL");
 }
+#endif
 
 }  // namespace mlir_test

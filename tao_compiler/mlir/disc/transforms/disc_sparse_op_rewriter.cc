@@ -298,16 +298,20 @@ struct RewriteSparseSegmentReductionOp
           sparse_segment_reduction_with_empty_rows.getResult(1));
     } else if (empty_row_users.size() > 1) {
       // In some cases, empty_row_indicator is used by multiple consumers,
-      // we should only replace uses of empty_row_indicator from the same consumers
+      // we should only replace uses of empty_row_indicator from the same
+      // consumers
       for (auto user : empty_row_users) {
         llvm::dbgs() << "*****************empty_row_user******************\n";
         user->dump();
         if (!(user && isa<mhlo::DynamicBroadcastInDimOp>(user))) {
-          llvm::dbgs() << "*****************not a DynamicBroadcastInDimOp******************\n";
+          llvm::dbgs() << "*****************not a "
+                          "DynamicBroadcastInDimOp******************\n";
           return failure();
         }
-        auto broadcast_users = llvm::to_vector<4>(user->getResult(0).getUsers());
-        llvm::dbgs() << "broadcast_users size: " << broadcast_users.size() << "\n";
+        auto broadcast_users =
+            llvm::to_vector<4>(user->getResult(0).getUsers());
+        llvm::dbgs() << "broadcast_users size: " << broadcast_users.size()
+                     << "\n";
         if (broadcast_users.size() != 1) {
           return failure();
         }
@@ -318,7 +322,8 @@ struct RewriteSparseSegmentReductionOp
           return failure();
         }
         llvm::dbgs() << "*****************2******************\n";
-        auto reshape_users = llvm::to_vector<4>(reshape_op->getResult(0).getUsers());
+        auto reshape_users =
+            llvm::to_vector<4>(reshape_op->getResult(0).getUsers());
         llvm::dbgs() << "reshape users size: " << reshape_users.size() << "\n";
         if (reshape_users.size() != 1) {
           return failure();
@@ -334,7 +339,8 @@ struct RewriteSparseSegmentReductionOp
         llvm::dbgs() << "*****************what******************\n";
         if (sparse_reduction == op.getOperation()) {
           llvm::dbgs() << "*****************replace******************\n";
-          user->setOperand(0, sparse_segment_reduction_with_empty_rows.getResult(1));
+          user->setOperand(
+              0, sparse_segment_reduction_with_empty_rows.getResult(1));
         }
       }
     }
@@ -349,24 +355,13 @@ struct DiscSparseOpRewriterPass
   void runOnOperation() override;
 };
 
-bool initSparseSegmentReductionRewrite() {
-  const char* env = getenv("DISC_ENABLE_SPARSE_SEGMENT_REDUCTION_REWRITE");
-  if (!env) return true;
-  std::string envStr = env;
-  std::transform(envStr.begin(), envStr.end(), envStr.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-  return envStr == "true" || envStr == "1";
-}
-
 void DiscSparseOpRewriterPass::runOnOperation() {
   // Setup rewriter patterns.
   MLIRContext& ctx = getContext();
   RewritePatternSet patterns(&ctx);
   patterns.insert<SimplifySparseReshapeOp>(patterns.getContext());
-  patterns.insert<RewriteDynamicGatherOp>(patterns.getContext());
-  if (initSparseSegmentReductionRewrite()) {
-    patterns.insert<RewriteSparseSegmentReductionOp>(patterns.getContext());
-  }
+  // patterns.insert<RewriteDynamicGatherOp>(patterns.getContext());
+  patterns.insert<RewriteSparseSegmentReductionOp>(patterns.getContext());
 
   if (failed(
           applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {

@@ -144,9 +144,9 @@ class DiscPdlTestCase(TestCase):
 
     def _test_torchscipte_to_mhlo(
             self, module, expected_str, pdll_files=None,
-            pdll_dirs=None, enable_int8=False
+            pdll_dirs=None, enable_int8=False, 
+            env_var = {},
     ):
-        env_var = {}
         if pdll_files is not None:
             env_var["DISC_TORCH_PDL_FILES"] = pdll_files
         if pdll_dirs is not None:

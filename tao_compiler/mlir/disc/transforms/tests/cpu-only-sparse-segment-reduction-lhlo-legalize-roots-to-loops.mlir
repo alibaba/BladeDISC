@@ -50,8 +50,8 @@ func.func @sparse_segment_sum(
   // CHECK:   %[[V2:.*]] = arith.index_cast %[[V1]] : i32 to index
   // CHECK:   %[[V3:.*]] = memref.load %{{.*}}[%[[ARG4]]] : memref<?xi32, "cpu">
   // CHECK:   %[[V4:.*]] = arith.index_cast %[[V3]] : i32 to index
-  // CHECK:   %[[V5:.*]] = memref.load %{{.*}}[%[[V2]], %[[ARG5]]] : memref<?x?xf32, "cpu">
-  // CHECK:   %[[V6:.*]] = memref.load %{{.*}}[%[[V4]], %[[ARG5]]] : memref<?x?xf32, "cpu">
+  // CHECK-DAG:   %[[V5:.*]] = memref.load %{{.*}}[%[[V2]], %[[ARG5]]] : memref<?x?xf32, "cpu">
+  // CHECK-DAG:   %[[V6:.*]] = memref.load %{{.*}}[%[[V4]], %[[ARG5]]] : memref<?x?xf32, "cpu">
   // CHECK:   %[[V7:.*]] = arith.addf %[[V6]], %[[V5]] : f32
   // CHECK:   memref.store %[[V7]], %{{.*}}[%[[V4]], %[[ARG5]]] : memref<?x?xf32, "cpu">
   // CHECK:   scf.yield

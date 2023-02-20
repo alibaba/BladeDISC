@@ -10,6 +10,7 @@
 # limitations under the License.
 
 import argparse
+import math
 import os
 import pandas as pd
 
@@ -33,6 +34,8 @@ created by TorchBench CI automatically
 def try_cast_to_float(to_cast: str):
     try:
         to_cast = float(to_cast)
+        if math.isnan(to_cast):
+            to_cast = "N/A"
     except:
         pass
     finally:

@@ -4681,7 +4681,8 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
   b.create<scf::YieldOp>(loc, ValueRange({}));
   b.setInsertionPointAfter(for_op);
 
-  if (sparse_segment_reduction_op.getReductionMode() == lmhlo_disc::ReductionModeEnum::Sum) {
+  if (sparse_segment_reduction_op.getReductionMode() ==
+      lmhlo_disc::ReductionModeEnum::Sum) {
     // data/output's dim 1~(rank-1) are the same
     // for (i = 0; i < indices.shape(0), ++i) {
     //   row_idx = indices[i]
@@ -4727,7 +4728,8 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
             b.create<memref::LoadOp>(loc, data, data_index)),
         output, output_index);
     b.setInsertionPointAfter(parallel_op);
-  } else if (sparse_segment_reduction_op.getReductionMode() == lmhlo_disc::ReductionModeEnum::Mean) {
+  } else if (sparse_segment_reduction_op.getReductionMode() ==
+             lmhlo_disc::ReductionModeEnum::Mean) {
     // segment_count is only needed for mean
     Value segment_count_memref;
     // segment_count[max_segment_ids]
@@ -4841,7 +4843,8 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
     b.create<scf::YieldOp>(loc, ValueRange({}));
     b.setInsertionPointAfter(parallel_op);
   } else {
-    return dominant_op->emitError() << "Reduction mode is not supported for lmhlo_disc.sparse_segment_reduction"; 
+    return dominant_op->emitError() << "Reduction mode is not supported for "
+                                       "lmhlo_disc.sparse_segment_reduction";
   }
   b.setInsertionPoint(operation);
 

@@ -1394,8 +1394,7 @@ class ConvertSparseSegmentMeanOp
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
     auto reduction_mode_attr = mlir::mhlo_disc::ReductionModeEnumAttr::get(
-        rewriter.getContext(),
-        mlir::mhlo_disc::ReductionModeEnum::Mean);
+        rewriter.getContext(), mlir::mhlo_disc::ReductionModeEnum::Mean);
     auto hlo_sparse_segment_mean =
         rewriter.create<mhlo_disc::SparseSegmentReductionOp>(
             loc, op.output().getType(), op.data(), op.indices(),
@@ -1414,8 +1413,7 @@ class ConvertSparseSegmentSumOp
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
     auto reduction_mode_attr = mlir::mhlo_disc::ReductionModeEnumAttr::get(
-        rewriter.getContext(),
-        mlir::mhlo_disc::ReductionModeEnum::Sum);
+        rewriter.getContext(), mlir::mhlo_disc::ReductionModeEnum::Sum);
     auto hlo_sparse_segment_sum =
         rewriter.create<mhlo_disc::SparseSegmentReductionOp>(
             loc, op.output().getType(), op.data(), op.indices(),

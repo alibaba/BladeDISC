@@ -144,7 +144,8 @@ class BazelBuild(TorchBladeBuild):
             self.configs += ["--config=blade_gemm"]
 
         if self.build_hie:
-            self.configs += ["--config=hie"]
+            print("[WARNIGN] HIE will be disabled temporarily.")
+            # self.configs += ["--config=hie"]
 
         if self.skip_compute_intensive_fusion:
             self.configs += ["--config=skip_compute_intensive_fusion"]

@@ -624,4 +624,63 @@ def DISCFuseIntoContainingOp :
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
 
+def ReductionOutputFuseOp : Op<Transform_Dialect, "disc.reduction_output_fuse",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Given a linalg op, output fuse it into the reduction loop.
+
+    Returns the fused linalg op and the new loop op.
+
+    Example:
+     convert from:
+     ```
+      %1 = scf.for %arg1 = %c0 to %c768 step %c512 iter_args(%arg0 = %0) -> (tensor<?x3072xf32>) {
+        ...
+        %t0 = tensor.extract_slice %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+        %t1 = linalg.matmul {disc.transform.name = "dot_general"} ins(...) outs(%t0 : tensor<?x3072xf32>) -> tensor<?x3072xf32>
+        %t2 = tensor.insert_slice %t1 into %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> into tensor<?x3072xf32>
+        scf.yield %t2 : tensor<?x3072xf32>
+      }
+      %3 = tensor.extract_slice %2[...] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+      %4 = linalg.generic {indexing_maps = [#map5, #map6, #map7, #map6], iterator_types = ["parallel", "parallel"]} ins(..., %1, ...) outs(%3 : tensor<?x3072xf32>) attrs =  {disc.device = "cpu", disc.trasform.name = "maximum"} {
+      ^bb0(%in: f32, %in_5: f32, %in_6: f32, %out: f32):
+        %12 = arith.addf %in_5, %in_6 : f32
+        %13 = arith.maxf %in, %12 : f32
+        linalg.yield %13 : f32
+      } -> tensor<?x3072xf32>
+      use(%4)
+     ```
+     to:
+     ```
+      %3 = tensor.extract_slice %2[...] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+      %1, %4 = scf.for %arg1 = %c0 to %c768 step %c512 iter_args(%arg0 = %0, %arg1 = %3) -> (tensor<?x3072xf32>, tensor<?x3072xf32>) {
+        ...
+        %t0 = tensor.extract_slice %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+        %t1 = linalg.matmul {disc.transform.name = "dot_general"} ins(...) outs(%t0 : tensor<?x3072xf32>) -> tensor<?x3072xf32>
+        %t2 = tensor.insert_slice %t1 into %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> into tensor<?x3072xf32>
+        %t3 = tensor.extract_slice %arg1[0, 0] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+        %pred = ... // is last iteration?
+        %t4 = disc_linalg_ext.conditional_generic {indexing_maps = [#map5, #map6, #map7, #map6], iterator_types = ["parallel", "parallel"]} ins(%pred, ..., %t2, ...) outs(%t3 : tensor<?x3072xf32>) attrs {disc.device = "cpu", disc.transform.name = "maximum"} {
+        ^bb0(%in: f32, %in_5: f32, %in_6: f32, %out: f32):
+          %12 = arith.addf %in_5, %in_6 : f32
+          %13 = arith.maxf %in, %12 : f32
+          linalg.yield %13 : f32
+        } -> tensor<?x3072xf32>
+        scf.yield %t2, %t4 : tensor<?x3072xf32>, tensor<?x3072xf32>
+      }
+      use(%4)
+     ```
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       PDL_Operation:$loop);
+  let results = (outs PDL_Operation:$tiled_target, PDL_Operation:$fused_loop);
+
+  let assemblyFormat = [{
+    attr-dict $target `into` $loop
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

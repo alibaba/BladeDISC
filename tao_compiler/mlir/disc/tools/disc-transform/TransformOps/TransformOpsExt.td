@@ -729,4 +729,54 @@ def ReductionInputFuseOp : Op<Transform_Dialect, "disc.reduction_input_fuse",
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
 
+def VectorizeConditionalGenericOp : Op<Transform_Dialect, "disc.vectorize_conditional_generic",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Vectorize the given conditional generic op and return the generated if op.
+
+    Suppose the conditional generic op has static shape.
+
+    Example:
+     convert from:
+     ```
+       %pred = ... : i1
+       %in0 = ... : tensor<8x12xf32>
+       disc_linalg_ext.conditional_generic ins(%pred, %in0 : ...) outs(... : tensor<8x12xf32>) {
+       ^bb0(%arg0 : i1, %arg1 : f32, %arg2 : f32):
+         %t0 = arith.addf %arg1, %arg1 : f32
+         disc_linalg_ext.yield %t0 : f32
+       }
+     ```
+     to (replace v0 with v1 and remove v0):
+     ```
+      %pred = ... : i1
+      %in0 = ... : tensor<8x12xf32>
+      %v0 = vector.transfer_read %in0 ...
+      %out = scf.if %pred {
+        %v1 = arith.addf %v0, %v0 : vector<8x12xf32>
+        scf.yield %v1 : vector<8x12xf32>
+      } else {
+        scf.yield %v0 : vector<8x12xf32>
+      }
+     ```
+
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

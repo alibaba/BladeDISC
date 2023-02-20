@@ -45,6 +45,10 @@ function ci_build() {
       COMMON_SETUP_ARGS="--platform_alibaba"
     fi
 
+    if [ "$TORCH_BLADE_BUILD_ON_YITIAN" = "ON" ]; then
+      COMMON_SETUP_ARGS+=" --target_cpu_arch='armv8.6-a-sve2'"
+    fi
+
     if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
       export TORCH_BLADE_BUILD_TENSORRT=${TORCH_BLADE_BUILD_TENSORRT:-ON}
       export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}

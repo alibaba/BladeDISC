@@ -955,6 +955,8 @@ class ShapePropagator : public PropertyPropBase {
             "aten::bitwise_not(Tensor self) -> Tensor",
             "aten::neg(Tensor self) -> Tensor",
             "aten::sigmoid(Tensor self) -> Tensor",
+            "aten::silu(Tensor self) -> Tensor",
+            "aten::silu_(Tensor self) -> Tensor",
 #if PYTORCH_VERSION_GE(1, 7)
             "aten::logit(Tensor self, float? eps=None) -> Tensor",
 #endif

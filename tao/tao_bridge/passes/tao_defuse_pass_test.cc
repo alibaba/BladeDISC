@@ -213,7 +213,7 @@ Status Defuse(std::unique_ptr<Graph>* graph) {
   opt_options.graph = graph;
 
   std::unique_ptr<TaoPassOptions> opts = absl::make_unique<TaoPassOptions>();
-  TaoDefusePass pass(opts->use_tvm);
+  TaoDefusePass pass;
   // pass.set_opts(opts);
   return pass.Run(opt_options);
 }
@@ -253,19 +253,11 @@ TEST(TaoDefusePassTest, Base) {
   Node* relu_node = FindNodeByName(*g, "fusedconv2d_Relu");
 
   TaoPassOptions opts;
-  if (opts.use_tvm) {
-    EXPECT_EQ(node_cnt, 9);
-    EXPECT_NE(conv_node, nullptr);
-    EXPECT_NE(bn_node, nullptr);
-    EXPECT_NE(relu_node, nullptr);
-  } else {
-    EXPECT_EQ(node_cnt, 7);
-    EXPECT_EQ(conv_node, nullptr);
-    EXPECT_EQ(bn_node, nullptr);
-    EXPECT_EQ(relu_node, nullptr);
-  }
+  EXPECT_EQ(node_cnt, 9);
+  EXPECT_NE(conv_node, nullptr);
+  EXPECT_NE(bn_node, nullptr);
+  EXPECT_NE(relu_node, nullptr);
 }
-
 }  // namespace
 }  // namespace tao
 }  // namespace tensorflow

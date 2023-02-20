@@ -76,7 +76,7 @@ struct TaoDumperOptions {
   // __CAP_ALL_ENVS__ to capture all visible environment variables.
   bool cap_all_envs{false};
   std::unordered_set<std::string> cap_more_envs{"PATH", "LD_LIBRARY_PATH",
-                                                "LD_PRELOAD", "TVM_DUMP_PROTO"};
+                                                "LD_PRELOAD"};
 };
 
 // Get the globally singleton of TaoDumperOptions.

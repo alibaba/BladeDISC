@@ -58,24 +58,12 @@ namespace tao {
 
 class TaoCloneConstantsForBetterClusteringPass : public GraphOptimizationPass {
  public:
-  TaoCloneConstantsForBetterClusteringPass(
-      bool use_tvm, bool clone_const_for_fakequant = false)
-      : GraphOptimizationPass() {
-    use_tvm_ = use_tvm;
-    clone_const_for_fakequant_ = clone_const_for_fakequant;
-  }
+  TaoCloneConstantsForBetterClusteringPass() : GraphOptimizationPass() {}
 
   Status Run(const GraphOptimizationPassOptions& options) override;
-  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {
-    if (opt) {
-      use_tvm_ = opt->use_tvm;
-    }
-  }
+  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {}
 
  private:
-  bool use_tvm_;
-  bool clone_const_for_fakequant_;
-
   Status CloneSmallHostConstantInputs(
       Graph* g, const std::unordered_set<string>& name_set, Node* n);
   string GenerateUniqueName(const std::unordered_set<string>& name_set,
@@ -85,6 +73,7 @@ class TaoCloneConstantsForBetterClusteringPass : public GraphOptimizationPass {
 
   int unique_name_counter_ = 0;
 };
+
 }  // namespace tao
 }  // namespace tensorflow
 

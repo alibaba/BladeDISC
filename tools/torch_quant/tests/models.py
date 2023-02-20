@@ -9,15 +9,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import partial
+
 import torch
 import torch.nn as nn
 from torch_quant.graph import GraphModContext
 from torch_quant.module import fx_trace
+from torch_quant.observer import Observer
 
 
 def create_ctx(model: nn.Module) -> GraphModContext:
     mapping = fx_trace(model)
-    return GraphModContext(mapping[''].gm, mapping[''].m)
+    dummy_observer = partial(Observer, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric)
+    return GraphModContext(mapping[''].gm, mapping[''].m, dummy_observer, dummy_observer, dummy_observer)
 
 
 class SubModule(nn.Module):

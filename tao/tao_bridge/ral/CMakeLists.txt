@@ -150,12 +150,6 @@ if(${TAO_ROCM})
   endforeach()
 endif()
 
-if(${TAO_ENABLE_PATINE})
-  list(APPEND RAL_SRCS
-    "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_patine.cc"
-  )
-endif()
-
 if(${TAO_ENABLE_MKLDNN})
   list(APPEND RAL_SRCS
     "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.cc"
@@ -169,11 +163,6 @@ endif()
 include_directories(".")
 
 add_library(ral OBJECT ${RAL_SRCS} ${RAL_CU_SRCS})
-
-# PatineClient
-if(${TAO_ENABLE_PATINE})
-  target_link_libraries(ral PRIVATE patine_client)
-endif()
 
 if(${ENABLE_BLADE_GEMM})
   include_directories(${PLATFORM_ALIBABA_DIR}/blade_gemm/include)

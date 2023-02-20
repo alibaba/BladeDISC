@@ -68,6 +68,8 @@ class QuantizerTest(unittest.TestCase):
         model = SimpleModule()
         quantizer = Quantizer(backend=backend)
         dummy_input = torch.randn((1, 2, 5, 5))
+        calib_model = quantizer.calib(model)
+        calib_model(dummy_input)
 
         quant_model = quantizer.quantize(model)
         quant_output = quant_model(dummy_input)

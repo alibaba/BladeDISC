@@ -1779,6 +1779,111 @@ DiagnosedSilenceableFailure ConvertPaddingPlaceholderToConstOp::applyToOne(
   return DiagnosedSilenceableFailure(success());
 }
 
+//===---------------------------------------------------------------------===//
+// LinalgEagerlyBackwardInitTensorOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+OpOperand* backwardToFindValidValueToToReuse(OpOperand* v) {
+  if (!v || !llvm::hasSingleElement(v->get().getUsers())) return nullptr;
+  auto definingOp = v->get().getDefiningOp<linalg::LinalgOp>();
+  if (!definingOp) return nullptr;
+  int64_t resultIdx = v->get().cast<OpResult>().getResultNumber();
+  auto initOperand = definingOp.getDpsInitOperand(resultIdx);
+  if (!definingOp.payloadUsesValueFromOperand(initOperand)) return initOperand;
+  return backwardToFindValidValueToToReuse(initOperand);
+}
+
+}  // namespace
+
+DiagnosedSilenceableFailure LinalgEagerlyBackwardInitTensorOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto linalgOp = dyn_cast<linalg::LinalgOp>(target);
+  if (!linalgOp)
+    return mlir::emitDefiniteFailure(target, "applies only to linalgOp");
+
+  if (linalgOp.getNumParallelLoops() != linalgOp.getNumLoops())
+    return mlir::emitDefiniteFailure(target,
+                                     "not support reduction loop a.t.m.");
+
+  if (linalgOp.getNumDpsInits() != 1)
+    return mlir::emitDefiniteFailure(target,
+                                     "not support multi outputs a.t.m.");
+
+  auto initOperand = linalgOp.getDpsInitOperand(0);
+  auto affineMap = linalgOp.getMatchingIndexingMap(initOperand);
+  if (!affineMap.isPermutation())
+    return mlir::emitDefiniteFailure(
+        target, "only support permutation mapping for result");
+  if (linalgOp.payloadUsesValueFromOperand(initOperand))
+    return mlir::emitDefiniteFailure(
+        target, "Not support if the result is used by the payload.");
+
+  OpOperand* candidateOperand;
+  OpOperand* rootCandidateOperand;
+  for (auto operand : linalgOp.getDpsInputOperands()) {
+    if (linalgOp.getMatchingIndexingMap(operand) != affineMap) continue;
+    candidateOperand = operand;
+    rootCandidateOperand = backwardToFindValidValueToToReuse(candidateOperand);
+    if (rootCandidateOperand) break;
+  }
+
+  // Early return if no valid candidates.
+  if (!rootCandidateOperand) {
+    results.assign({target});
+    return DiagnosedSilenceableFailure(success());
+  }
+
+  OpBuilder b(target);
+  rootCandidateOperand->getOwner()->replaceUsesOfWith(
+      rootCandidateOperand->get(), initOperand->get());
+  SmallVector<Value> newInputs;
+  SmallVector<AffineMap> newIndexingMaps;
+  SmallVector<Value> newOutputs{candidateOperand->get()};
+  for (auto operand : linalgOp.getDpsInputOperands()) {
+    if (operand == candidateOperand) continue;
+    newInputs.push_back(operand->get());
+    newIndexingMaps.push_back(linalgOp.getMatchingIndexingMap(operand));
+  }
+  // for the new init operand
+  newIndexingMaps.push_back(affineMap);
+  SmallVector<StringRef> iterators = linalgOp.getIteratorTypesArray();
+  SmallVector<Type> resultTypes = linalgOp.hasTensorSemantics()
+                                      ? TypeRange(ValueRange(newOutputs))
+                                      : TypeRange{};
+  SmallVector<NamedAttribute> attrs;
+  for (auto attr : linalgOp->getAttrs()) {
+    if (attr.getName().getValue().starts_with("disc"))
+      attrs.push_back(std::move(attr));
+  }
+
+  auto bodyBuilder = [&](OpBuilder& innerBuilder, Location loc,
+                         ValueRange operands) {
+    BlockAndValueMapping mapping;
+    int64_t operandIdx = candidateOperand->getOperandNumber();
+    if (operandIdx > 0)
+      mapping.map(linalgOp.getBlock()->getArguments().take_front(operandIdx),
+                  operands.take_front(operandIdx));
+    if (operandIdx + 1 < linalgOp.getBlock()->getArguments().size())
+      mapping.map(
+          linalgOp.getBlock()->getArguments().drop_front(operandIdx + 1),
+          operands.drop_front(operandIdx));
+    mapping.map(linalgOp.getBlock()->getArgument(operandIdx), operands.back());
+    for (Operation& op : *linalgOp.getBlock()) {
+      innerBuilder.clone(op, mapping);
+    }
+  };
+
+  auto genericOp = b.create<linalg::GenericOp>(
+      linalgOp.getLoc(), resultTypes, newInputs, newOutputs, newIndexingMaps,
+      iterators, bodyBuilder, attrs);
+  target->replaceAllUsesWith(genericOp->getResults());
+  results.assign({genericOp.getOperation()});
+  return DiagnosedSilenceableFailure(success());
+}
+
 }  // namespace transform_dialect
 
 void registerTransformDialectCommonExtension(DialectRegistry& registry) {

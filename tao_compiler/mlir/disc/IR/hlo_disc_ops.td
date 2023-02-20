@@ -23,7 +23,7 @@ include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir-hlo/Dialect/mhlo/IR/hlo_ops_common.td"
 include "mlir-hlo/Dialect/mhlo/IR/hlo_utils.td"
-include "external/org_tensorflow/tensorflow/compiler/mlir/disc/IR/hlo_disc_enums.td"
+include "mlir/disc/IR/hlo_disc_enums.td"
 
 def HLODISC_Dialect : Dialect {
   let name = "mhlo_disc";
@@ -348,7 +348,7 @@ def HLO_SparseSegmentReductionOp: HLODISC_ShapedInterfaceOp<"sparse_segment_redu
     HLO_FpTensor:$data,
     HLO_I32OrI64Tensor:$indices,
     HLO_I32OrI64Tensor:$segment_ids,
-    DefaultValuedAttr<BoolAttr, "true">:$is_mean
+    DefaultValuedAttr<HLO_ReductionModeEnum, "ReductionModeEnum::Mean">:$reduction_mode
   );
 
   let results = (outs

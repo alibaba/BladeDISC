@@ -24,6 +24,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_base.td"
 include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_structs.td"
 include "mlir-hlo/Dialect/lhlo/IR/lhlo_structured_interface.td"
+include "mlir/disc/IR/lhlo_disc_enums.td"
 
 def LHLODISC_Dialect : Dialect {
   let name = "lmhlo_disc";
@@ -220,7 +221,7 @@ def LHLO_SparseSegmentReductionOp : LHLODISC_Op<"sparse_segment_reduction", []> 
     Arg<LHLO_FpBuffer, "", [MemRead]>:$data,
     Arg<LHLO_IntBuffer, "", [MemRead]>:$indices,
     Arg<LHLO_IntBuffer, "", [MemRead]>:$segment_ids,
-    DefaultValuedAttr<BoolAttr, "false">:$is_mean,
+    DefaultValuedAttr<LHLO_ReductionModeEnum, "ReductionModeEnum::Mean">:$reduction_mode,
     Arg<LHLO_FpBuffer, "", [MemWrite]>:$output
   );
 }

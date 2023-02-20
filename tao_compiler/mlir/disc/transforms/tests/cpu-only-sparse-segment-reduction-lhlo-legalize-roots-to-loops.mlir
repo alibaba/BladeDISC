@@ -27,7 +27,7 @@ func.func @sparse_segment_mean(
   // CHECK:     memref.store %[[V11]], %{{.*}}[%[[V7]], %[[ARG5]]] : memref<?x?xf32, "cpu">
   // CHECK:   }
   // CHECK: }
-  "lmhlo_disc.sparse_segment_reduction"(%input1, %input2, %input3, %out1) {disc.device = "cpu", is_mean = true} : (memref<?x?xf32, "cpu">, memref<?xi32, "cpu">, memref<?xi32, "cpu">, memref<?x?xf32, "cpu">) -> ()
+  "lmhlo_disc.sparse_segment_reduction"(%input1, %input2, %input3, %out1) {disc.device = "cpu", reduction_mode = 0} : (memref<?x?xf32, "cpu">, memref<?xi32, "cpu">, memref<?xi32, "cpu">, memref<?x?xf32, "cpu">) -> ()
   // CHECK: return %[[OUT1]] : memref<?x?xf32, "cpu">
   return %out1 : memref<?x?xf32, "cpu">
 }
@@ -56,7 +56,7 @@ func.func @sparse_segment_sum(
   // CHECK:   memref.store %[[V7]], %{{.*}}[%[[V4]], %[[ARG5]]] : memref<?x?xf32, "cpu">
   // CHECK:   scf.yield
   // CHECK: }
-  "lmhlo_disc.sparse_segment_reduction"(%input1, %input2, %input3, %out1) {disc.device = "cpu", is_mean = false} : (memref<?x?xf32, "cpu">, memref<?xi32, "cpu">, memref<?xi32, "cpu">, memref<?x?xf32, "cpu">) -> ()
+  "lmhlo_disc.sparse_segment_reduction"(%input1, %input2, %input3, %out1) {disc.device = "cpu", reduction_mode = 1} : (memref<?x?xf32, "cpu">, memref<?xi32, "cpu">, memref<?xi32, "cpu">, memref<?x?xf32, "cpu">) -> ()
   // CHECK: return %[[OUT1]] : memref<?x?xf32, "cpu">
   return %out1 : memref<?x?xf32, "cpu">
 }

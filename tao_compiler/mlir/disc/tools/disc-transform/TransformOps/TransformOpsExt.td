@@ -575,4 +575,53 @@ def LinalgEagerlyBackwardInitTensorOp : Op<Transform_Dialect, "disc.linalg.eager
   }];
 }
 
+// mainly copied from mlir community, adding support to fuse through
+// iter_args for normal scf.for ops.
+
+def DISCFuseIntoContainingOp :
+    Op<Transform_Dialect, "disc.fuse_into_containing_op",
+      [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+       DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{Fuse a producer into a containing operation.}];
+
+  let summary = [{
+    Fuses the `producer_op` into the `containing_op`.
+    Returns a handle to the fused ops.
+
+    The producer is typically a slice of a tileable op (i.e., implements
+    TilingInterface). In that case, this transform computes the accessed
+    producer slice inside of the containing op ("tile and fuse"). Otherwise,
+    the entire producer is cloned inside the containing op ("clone and fuse").
+
+    The containing op handle must be associated with exactly one payload op. The
+    producer op handle may be associated with multiple payload ops. This
+    transform fuses producers one-by-one, always picking an unspecified producer
+    that has at least one use inside the containing op among the
+    producers.
+
+    Note: If a producer has multiple uses inside the containing op, it is
+    currently tiled and/or cloned multiple times into the containing op.
+    TODO: Reuse already fused OpResults instead of tiling/cloning a second time
+    when possible. Fuse producers according to a topological sorting to achieve
+    the largest amount of reuse.
+
+    #### Return modes
+
+    If at least one producer could not be fused, this operation fails silently.
+    This is the case when tiling fails or when no producer op could be found
+    among the remaining producers that has at least one use within the
+    containing op. I.e., "producers" that are not consumed within the containing
+    op are rejected by this operation.
+
+    This operation reads and frees the producer handle.
+    This operation reads the containing op handle.
+  }];
+
+  let arguments = (ins PDL_Operation:$producer_op,
+                       PDL_Operation:$containing_op);
+  let results = (outs PDL_Operation:$fused_op);
+  let assemblyFormat = "$producer_op `into` $containing_op attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

@@ -36,6 +36,8 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Constraint CheckTorchConstantIntList(v : Value);
   Constraint CheckTorchValueTensorLiteral(v : Value);
   Constraint CheckTorchTensorElemType(v: Value, type_str: Attr);
+  Constraint CheckTorchQkvWeightEqual(q: Value, k: Value, v: Value);
+  
 
   Rewrite CreateTorchCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
   Rewrite ConvertTorchConstantIntListToI64DenseElemsAttr(cst: Value) -> Attr;
@@ -509,6 +511,9 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
       "GetTorchSizeFromTensor", getTorchSizeFromTensor);
   pdlPatterns.registerRewriteFunction(
       "GetTorchIntFromIntList", getTorchIntFromIntList);
+  pdlPatterns.registerRewriteFunction(
+      "ConvertTorchConstantFloatToFloatAttr",
+      convertTorchConstantFloatToFloatAttr);
   pdlPatterns.registerRewriteFunction("GetTorchTensorType", getTorchTensorType);
   pdlPatterns.registerRewriteFunction(
       "GetTorchQuantizedTensorType", getTorchQuantizedTensorType);

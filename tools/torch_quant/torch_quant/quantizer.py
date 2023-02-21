@@ -48,7 +48,6 @@ DEFAULT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
     Backend.FBGEMM: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
 }
 
-
 DEFAULT_W_OB_CTR = {
     # According to the url below, PyTorch's reference module does not support
     # symmetric quantization, which is confusing...

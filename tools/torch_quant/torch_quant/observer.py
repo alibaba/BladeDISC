@@ -12,7 +12,7 @@
 import logging
 from abc import ABC
 from functools import partial
-from typing import NamedTuple, Tuple
+from typing import NamedTuple, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -31,6 +31,7 @@ class QParams(NamedTuple):
     dtype: torch.dtype
     scale: torch.Tensor
     zero_point: torch.Tensor
+    ch_axis: int = -1  # -1 corresponding to per-tensor
 
 
 def check_min_max_valid(min_val: torch.Tensor, max_val: torch.Tensor) -> bool:
@@ -87,7 +88,7 @@ def pre_load_state_dict_hook(
 
 
 class Observer(torch.nn.Module, ABC):
-    def __init__(self, dtype, qscheme, ch_axis=-1, **kwargs) -> None:
+    def __init__(self, dtype: torch.dtype, qscheme: torch.qscheme, ch_axis: int = -1, **kwargs) -> None:
         super().__init__()
         self.dtype = dtype
         self.qscheme = qscheme
@@ -96,6 +97,7 @@ class Observer(torch.nn.Module, ABC):
             raise ValueError('Symmetric quantization requires signed dtype.')
         self.q_min, self.q_max = calc_quant_min_max(self.bit, self.signed)
         self.register_buffer('eps', torch.tensor([torch.finfo(torch.float32).eps]))
+        # TODO: to support dp & ddp, we should use tensor for observe and fake_quant.
         self.observe = True
         self.fake_quant = True
         self.ch_axis = ch_axis
@@ -113,7 +115,8 @@ class Observer(torch.nn.Module, ABC):
     def qparams(self) -> QParams:
         return QParams(qscheme=self.qscheme, dtype=self.dtype,
                        scale=self.scale,
-                       zero_point=self.zero_point)
+                       zero_point=self.zero_point,
+                       ch_axis=self.ch_axis)
 
     def _calculate_qparams(self, min_val, max_val) -> Tuple[torch.Tensor, torch.Tensor]:
         if not check_min_max_valid(min_val, max_val):
@@ -158,6 +161,9 @@ class Observer(torch.nn.Module, ABC):
             f'calc qparams: {self.min_val=}, {self.max_val=}, {self.q_min=}, {self.q_max=}, {self.bit=}, {self.signed=}, {scale=}, {zero_point=}')
         return scale, zero_point
 
+    @classmethod
+    def from_qparams(cls, qparams: QParams):
+        raise RuntimeError(f"Instantiating a {type(cls)} from QParams is not implemented")
 
 def toggle_observer(root: nn.Module, *, observe: bool, fake_quant: bool) -> None:
     for m in root.modules():
@@ -259,7 +265,6 @@ class BiasObserver(Observer):
         super().__init__(dtype, qscheme, w_ob.ch_axis, **kwargs)
         self.w_ob = w_ob
         self.act_ob = act_ob
-
         self.register_buffer("scale", torch.tensor(1.))
         self.register_buffer("zero_point", torch.tensor(0, dtype=torch.int32))
 
@@ -279,3 +284,121 @@ class BiasObserver(Observer):
                 return torch.fake_quantize_per_tensor_affine(x, self.scale, self.zero_point, self.q_min, self.q_max)
         else:
             return x
+
+
+class FakeQuantizeLearnablePerChannelAffine(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, scale, zero_point, ch_axis, quant_min, quant_max, grad_scale_factor):
+        return torch._fake_quantize_learnable_per_channel_affine(
+            x, scale, zero_point, ch_axis, quant_min, quant_max, grad_scale_factor
+        )
+
+    @staticmethod
+    def symbolic(g, x, scale, zero_point, ch_axis, quant_min, quant_max, grad_scale_factor):
+        # This is for torchscript generating by tracing.
+        return g.op(
+            "::FakeQuantizeLearnablePerChannelAffine",
+            x, scale, zero_point,
+            ch_axis_i=ch_axis, quant_min_i=quant_min, quant_max_i=quant_max
+        )
+
+
+class FakeQuantizeLearnablePerTensorAffine(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, scale, zero_point, quant_min, quant_max, grad_scale_factor):
+        return torch._fake_quantize_learnable_per_tensor_affine(
+            x, scale, zero_point, quant_min, quant_max, grad_scale_factor
+        )
+
+    @staticmethod
+    def symbolic(g, x, scale, zero_point, quant_min, quant_max, grad_scale_factor):
+        # This is for torchscript generating by tracing.
+        return g.op(
+            "::FakeQuantizeLearnablePerTensorAffine",
+            x, scale, zero_point, quant_min_i=quant_min, quant_max_i=quant_max
+        )
+
+
+class LSQObserver(Observer):
+    def __init__(self,
+                 ch_axis=0,
+                 dtype: torch.dtype = torch.qint8,
+                 qscheme: torch.qscheme = torch.per_tensor_symmetric,
+                 init_scale: Optional[torch.tensor] = None,
+                 init_zp: Optional[torch.tensor] = None,
+                 **kwargs) -> None:
+        super().__init__(dtype, qscheme, ch_axis, **kwargs)
+        self.register_buffer('eps', torch.tensor([torch.finfo(torch.float32).eps]))
+        self.scale = nn.Parameter(torch.tensor([1.]))
+        self.zero_point = nn.Parameter(torch.tensor([0.]))
+
+        if init_scale is not None:
+            if self.per_channel:
+                self.scale.data = torch.ones_like(init_scale)
+            self.scale.data.copy_(init_scale)
+        if init_zp is not None:
+            if self.per_channel:
+                self.zero_point.data = torch.zeros_like(init_zp).float()
+            self.zero_point.data.copy_(init_zp)
+
+    def forward(self, x):
+        if self.fake_quant:
+            if self.symmetric:
+                self.zero_point.data.zero_()
+            else:
+                self.zero_point.data.clamp_(self.q_min, self.q_max).float()
+
+            # TODO(bohua.cbh): figure out if per-channel grad_scale_factor
+            # is beneficial.
+            grad_scale_factor = 1.0 / ((self.q_max * x.numel()) ** 0.5)
+
+            # torch.autograd.Function can be traced, but the torchscript cannot be
+            # serialized locally. Unless, it is registered as a torch custom class
+            # and the forward/serialize/deserialize functions are implemented. So we
+            # implement three modes here to support different situations:
+            # 1. "not torch.jit.is_tracing()" means the model are in ptq/qat mode.
+            # 2. "torch.onnx.is_in_onnx_export()" means we are exporting the model to onnx
+            # under the format required by some backends.
+            # 3. Otherwise, we are exporting the model to torchscript with fake quant and
+            # convert it to quantized torchscript using Blade.
+            # Note: make sure that is_in_onnx_export() has a higher priority.
+            if self.per_channel:
+                if not torch.jit.is_tracing():
+                    x = torch._fake_quantize_learnable_per_channel_affine(
+                        x, self.scale, self.zero_point, self.ch_axis,
+                        self.q_min, self.q_max, grad_scale_factor)
+                elif torch.onnx.is_in_onnx_export():
+                    x = FakeQuantizeLearnablePerChannelAffine.apply(
+                        x, self.scale, self.zero_point, self.ch_axis,
+                        self.q_min, self.q_max, grad_scale_factor
+                    )
+                else:
+                    # for torch versions earlier than 1.10, we should use torch.long
+                    x = torch.fake_quantize_per_channel_affine(
+                        x, self.scale.data, self.zero_point.data.to(torch.int32),
+                        self.ch_axis, self.q_min, self.q_max
+                    )
+            else:
+                if not torch.jit.is_tracing():
+                    x = torch._fake_quantize_learnable_per_tensor_affine(
+                        x, self.scale, self.zero_point,
+                        self.q_min, self.q_max, grad_scale_factor)
+                elif torch.onnx.is_in_onnx_export():
+                    x = FakeQuantizeLearnablePerTensorAffine.apply(
+                        x, self.scale, self.zero_point,
+                        self.q_min, self.q_max, grad_scale_factor)
+                else:
+                    x = torch.fake_quantize_per_tensor_affine(
+                        x, float(self.scale), int(self.zero_point),
+                        self.q_min, self.q_max
+                    )
+        return x
+
+    @classmethod
+    def from_qparams(cls, qparams: QParams):
+        return cls(
+            ch_axis=qparams.ch_axis,
+            dtype=qparams.dtype,
+            qscheme=qparams.qscheme,
+            init_scale=qparams.scale,
+            init_zp=qparams.zero_point)

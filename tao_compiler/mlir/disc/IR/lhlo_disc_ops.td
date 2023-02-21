@@ -24,6 +24,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_base.td"
 include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_structs.td"
 include "mlir-hlo/Dialect/lhlo/IR/lhlo_structured_interface.td"
+include "mlir/disc/IR/lhlo_disc_enums.td"
 
 def LHLODISC_Dialect : Dialect {
   let name = "lmhlo_disc";
@@ -211,15 +212,16 @@ def LHLO_SparseFillEmptyRowsOp : LHLODISC_Op<"sparse_fill_empty_rows", []> {
   );
 }
 
-def LHLO_SparseSegmentMeanOp : LHLODISC_Op<"sparse_segment_mean", []> {
-  let summary = "One-to-one mapping of TF_SparseSegmentMeanOp";
+def LHLO_SparseSegmentReductionOp : LHLODISC_Op<"sparse_segment_reduction", []> {
+  let summary = "One-to-one mapping of TF_SparseSegmentMeanOp or TF_SparseSegmentSumOp";
   let description = [{
-    See tf's sparse_segment_mean operator.
+    See tf's sparse_segment_mean or sparse_segment_sum operator.
   }];
   let arguments = (ins
     Arg<LHLO_FpBuffer, "", [MemRead]>:$data,
     Arg<LHLO_IntBuffer, "", [MemRead]>:$indices,
     Arg<LHLO_IntBuffer, "", [MemRead]>:$segment_ids,
+    DefaultValuedAttr<LHLO_ReductionModeEnum, "ReductionModeEnum::Mean">:$reduction_mode,
     Arg<LHLO_FpBuffer, "", [MemWrite]>:$output
   );
 }

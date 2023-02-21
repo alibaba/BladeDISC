@@ -1393,11 +1393,32 @@ class ConvertSparseSegmentMeanOp
   LogicalResult matchAndRewrite(TF::SparseSegmentMeanOp op,
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
+    auto reduction_mode_attr = mlir::mhlo_disc::ReductionModeEnumAttr::get(
+        rewriter.getContext(), mlir::mhlo_disc::ReductionModeEnum::Mean);
     auto hlo_sparse_segment_mean =
-        rewriter.create<mhlo_disc::SparseSegmentMeanOp>(
+        rewriter.create<mhlo_disc::SparseSegmentReductionOp>(
             loc, op.output().getType(), op.data(), op.indices(),
-            op.segment_ids());
+            op.segment_ids(), reduction_mode_attr);
     rewriter.replaceOp(op, hlo_sparse_segment_mean.getResult());
+    return success();
+  }
+};
+
+class ConvertSparseSegmentSumOp
+    : public OpRewritePattern<TF::SparseSegmentSumOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::SparseSegmentSumOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op.getLoc();
+    auto reduction_mode_attr = mlir::mhlo_disc::ReductionModeEnumAttr::get(
+        rewriter.getContext(), mlir::mhlo_disc::ReductionModeEnum::Sum);
+    auto hlo_sparse_segment_sum =
+        rewriter.create<mhlo_disc::SparseSegmentReductionOp>(
+            loc, op.output().getType(), op.data(), op.indices(),
+            op.segment_ids(), reduction_mode_attr);
+    rewriter.replaceOp(op, hlo_sparse_segment_sum.getResult());
     return success();
   }
 };
@@ -1536,6 +1557,7 @@ void PrepareTFPass::runOnOperation() {
       ConvertSparseReshapeOp,
       ConvertSparseFillEmptyRowsOp,
       ConvertSparseSegmentMeanOp,
+      ConvertSparseSegmentSumOp,
       ConvertWhereOp
   >(ctx);
 

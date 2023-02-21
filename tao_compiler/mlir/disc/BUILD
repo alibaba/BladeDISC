@@ -2453,6 +2453,26 @@ cc_library(
 )
 
 gentbl_cc_library(
+    name = "lmhlo_disc_enums_inc_gen",
+    compatible_with = get_compatible_with_cloud(),
+    tbl_outs = [
+        (
+            ["-gen-enum-decls"],
+            "IR/lhlo_disc_enums.h.inc",
+        ),
+        (
+            ["-gen-enum-defs"],
+            "IR/lhlo_disc_enums.cc.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "IR/lhlo_disc_enums.td",
+    deps = [
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
+    ],
+)
+
+gentbl_cc_library(
     name = "lmhlo_disc_ops_inc_gen",
     compatible_with = get_compatible_with_cloud(),
     strip_include_prefix = "",
@@ -2469,8 +2489,12 @@ gentbl_cc_library(
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/lhlo_disc_ops.td",
     deps = [
-        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
-    ],
+        ":lmhlo_disc_enums_inc_gen",
+    ] + if_torch_disc(
+        ["@mlir-hlo//:hlo_ops_td_files"],
+        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"]
+    )
+
 )
 
 cc_library(
@@ -2484,6 +2508,7 @@ cc_library(
         "IR/lhlo_disc_ops.h",
     ],
     deps = [
+        ":lmhlo_disc_enums_inc_gen",
         ":lmhlo_disc_ops_inc_gen",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo_ops_structs_inc_gen",

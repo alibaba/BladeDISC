@@ -837,13 +837,13 @@ LogicalResult SparseFillEmptyRowsOp::verify() {
 }
 
 //===----------------------------------------------------------------------===//
-// SparseSegmentMeanOp
+// SparseSegmentReductionOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult SparseSegmentMeanOp::reifyReturnTypeShapes(
+LogicalResult SparseSegmentReductionOp::reifyReturnTypeShapes(
     OpBuilder& builder, ValueRange operands,
     SmallVectorImpl<Value>& reifiedReturnShapes) {
-  SparseSegmentMeanOp::Adaptor adaptor(operands);
+  SparseSegmentReductionOp::Adaptor adaptor(operands);
   Location loc = this->getLoc();
   auto data_type = adaptor.getData().getType().cast<RankedTensorType>();
   auto indices_type = adaptor.getIndices().getType().cast<RankedTensorType>();
@@ -873,7 +873,7 @@ LogicalResult SparseSegmentMeanOp::reifyReturnTypeShapes(
   return success();
 }
 
-LogicalResult SparseSegmentMeanOp::verify() {
+LogicalResult SparseSegmentReductionOp::verify() {
   auto data_type = this->getData().getType().dyn_cast<RankedTensorType>();
   auto indices_type = this->getIndices().getType().dyn_cast<RankedTensorType>();
   auto segment_ids_type =

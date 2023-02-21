@@ -31,6 +31,7 @@ limitations under the License.
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "mlir/disc/IR/lhlo_disc_enums.h.inc"
 
 namespace mlir {
 

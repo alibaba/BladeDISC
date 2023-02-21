@@ -1,4 +1,5 @@
-# Copyright 2022 The BladeDISC Authors. All rights reserved.
+#!/bin/bash
+# Copyright 2023 The BladeDISC Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -9,4 +10,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from torch_quant.version import __version__
+set -ex
+pip install -r requirements-dev.txt
+python -m unittest discover -s tests
+python setup.py bdist_wheel
+pip install --find-links=dist torch_quant
+python -c 'import sys; del sys.path[0]; import torch_quant; print(torch_quant.__version__)'

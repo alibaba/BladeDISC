@@ -1,4 +1,4 @@
-# Copyright 2022 The BladeDISC Authors. All rights reserved.
+# Copyright 2023 The BladeDISC Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -9,4 +9,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from torch_quant.version import __version__
+from setuptools import find_packages, setup
+from torch_quant import version
+
+setup(
+    name='torch_quant',
+    version=version.__version__,
+    author='Alibaba PAI Team',
+    description='PyTorch Quantization Toolkit For BladeDISC',
+    url='https://github.com/alibaba/BladeDISC',
+    packages=find_packages(include=["torch_quant*"]),
+    install_requires=[],
+    zip_safe=False,
+)

@@ -1274,8 +1274,7 @@ MemRefType<int8_t, NDims> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
     MemRefType<int32_t, 1> weightZeroPoints, MemRefType<float, 0> resultScales,
     MemRefType<int32_t, 0> resultZeroPoints, void* customAttrs) {
   CpuTimer timer("ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel");
-  int64_t resultSizes[NDims];
-  std::fill(resultSizes, resultSizes + NDims, 0);
+  int64_t resultSizes[NDims] = {0};
   if (isEmptyMemref(input) || isEmptyMemref(weight) || isEmptyMemref(bias)) {
     TAO_VLOG(1)
         << "ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel: early return for "
@@ -1332,8 +1331,6 @@ MemRefType<int8_t, NDims> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
   gemmResultSizes[1] = n;
   int64_t gemmInputSizes[2] = {m, k};
   auto gemmResult = assignMemRef<int8_t, 2>(data, gemmResultSizes);
-
-  // auto result = assignMemRef<int8_t, 2>(data, resultSizes);
 
   ideep::tensor input_t{dims{m, k}, ideep::data_type::s8,
                         tp_a ? format_tag::ba : format_tag::ab, input.data};
@@ -1416,8 +1413,7 @@ MemRefType<int8_t, NDims> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
     MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
     void* customAttrs) {
   CpuTimer timer("ral_pdll_qgemm_onednn_s8_s8_s8_per_channel");
-  int64_t resultSizes[NDims];
-  std::fill(resultSizes, resultSizes + NDims, 0);
+  int64_t resultSizes[NDims] = {0};
   if (isEmptyMemref(input) || isEmptyMemref(weight)) {
     TAO_VLOG(1)
         << "ral_pdll_qgemm_onednn_s8_s8_s8_per_channel: early return for "

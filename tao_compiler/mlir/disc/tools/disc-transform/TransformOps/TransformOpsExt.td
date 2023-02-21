@@ -535,4 +535,44 @@ def ConvertPaddingPlaceholderToConstOp : Op<Transform_Dialect, "disc.convert_pad
   }];
 }
 
+def LinalgEagerlyBackwardInitTensorOp : Op<Transform_Dialect, "disc.linalg.eagerly_backward_init_tensor",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Given a linalg op `A`, eagerly backward its init tensor to its producers. The function of such primitive
+    is to reuse underline buffer.
+
+    Eamples:
+    ```
+      %0 = linalg.generic { indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]}
+        ins(%arg0, %arg1) outs(%arg2)
+      %1 = linalg.generic { indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]}
+        ins(%0, %0) outs(%arg3)
+    ```
+    After conversion:
+    ```
+      %0 = linalg.generic { indexing_maps = [#map1, #map1], iterator_types = ["parallel", "parallel"]}
+        ins(%arg0, %arg1) outs(%arg3) // Note here use the final output buffer directly
+      %1 = linalg.generic { indexing_maps = [#map1], iterator_types = ["parallel", "parallel"]}
+        ins() outs(%0) // Note here: we promote %0 to be an output operand (thus can be read + write).
+    ```
+
+    Returns the result const op.
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

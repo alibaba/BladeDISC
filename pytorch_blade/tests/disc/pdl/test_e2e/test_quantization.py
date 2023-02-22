@@ -225,6 +225,14 @@ class TestX86CPULiner(X86CPUDiscPdlQuantizationE2ETestCase):
         model = Model().eval().to(self.device)
         self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
 
+        inp = torch.randn(1, 2, 64).to(self.device)
+        model = Model().eval().to(self.device)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+
+        inp = torch.randn(1, 2, 3, 64).to(self.device)
+        model = Model().eval().to(self.device)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+
     def test_s8s8s8_per_channel_without_bias(self):
         class Model(nn.Module):
             def __init__(self):
@@ -272,6 +280,15 @@ class TestX86CPULiner(X86CPUDiscPdlQuantizationE2ETestCase):
         inp = torch.randn(1, 64).to(self.device)
         model = Model().eval().to(self.device)
         self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+
+        inp = torch.randn(1, 2, 64).to(self.device)
+        model = Model().eval().to(self.device)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+
+        inp = torch.randn(1, 2, 3, 64).to(self.device)
+        model = Model().eval().to(self.device)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+
 
 @unittest.skipIf(TORCH_VERSION < (1, 9),
                  "The patterns corresponding to pytorch before version "
@@ -329,7 +346,7 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
         ]
         pdll_files = ",".join(pdll_files)
         self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=model.output_scale)
-    
+
     def test_s8s8s8_f32bias_per_tensor_three_rank_verify(self):
         class Model(nn.Module):
             def __init__(self):
@@ -382,6 +399,7 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
         ]
         pdll_files = ",".join(pdll_files)
         self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=model.output_scale)
+
 
 if __name__ == "__main__":
     unittest.main()

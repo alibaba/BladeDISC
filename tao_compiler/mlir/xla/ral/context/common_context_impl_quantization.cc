@@ -1265,20 +1265,21 @@ void ral_qgemm_onednn_s8_s8_s8_per_channel(
   timer.Stop();
 }
 
-MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
+template <int NDims>
+MemRefType<int8_t, NDims> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
     ExecutionContext* ctx, opaque_t /*stream_handle*/,
-    MemRefType<int8_t, 2> input, MemRefType<int8_t, 2> weight,
+    MemRefType<int8_t, NDims> input, MemRefType<int8_t, 2> weight,
     MemRefType<float, 1> bias, MemRefType<float, 0> inputScales,
     MemRefType<int32_t, 0> inputZeroPoints, MemRefType<float, 1> weightScales,
     MemRefType<int32_t, 1> weightZeroPoints, MemRefType<float, 0> resultScales,
     MemRefType<int32_t, 0> resultZeroPoints, void* customAttrs) {
   CpuTimer timer("ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel");
-  int64_t resultSizes[2] = {0, 0};
+  int64_t resultSizes[NDims] = {0};
   if (isEmptyMemref(input) || isEmptyMemref(weight) || isEmptyMemref(bias)) {
     TAO_VLOG(1)
         << "ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel: early return for "
            "empty tensor";
-    return assignMemRef<int8_t, 2>(nullptr, resultSizes);
+    return assignMemRef<int8_t, NDims>(nullptr, resultSizes);
   }
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(input); ++i) {
@@ -1301,8 +1302,19 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
   auto& dictAttr = attr->as<DictPDLAttr>();
   bool tp_a = dictAttr.get("transpose_a").as<BoolPDLAttr>().getValue();
   bool tp_b = dictAttr.get("transpose_b").as<BoolPDLAttr>().getValue();
-  int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
-  int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
+  int64_t m = 1;
+  int64_t k;
+  if (tp_a) {
+    for (int i = NDims - 1; i > 0; i--) {
+      m = m * input.sizes[i];
+    }
+    k = input.sizes[0];
+  } else {
+    for (int i = 0; i < NDims - 1; i++) {
+      m = m * input.sizes[i];
+    }
+    k = input.sizes[NDims - 1];
+  }
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE,
                      "mismatch contraction dim for "
@@ -1314,7 +1326,11 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
   resultSizes[1] = n;
   auto driver = ctx->getDriver<cpu::CPUDriver>(cpu::CPUDriver::name());
   auto data = static_cast<int8_t*>(driver->alloc(ctx, m * n * sizeof(int8_t)));
-  auto result = assignMemRef<int8_t, 2>(data, resultSizes);
+  int64_t gemmResultSizes[2];
+  gemmResultSizes[0] = m;
+  gemmResultSizes[1] = n;
+  int64_t gemmInputSizes[2] = {m, k};
+  auto gemmResult = assignMemRef<int8_t, 2>(data, gemmResultSizes);
 
   ideep::tensor input_t{dims{m, k}, ideep::data_type::s8,
                         tp_a ? format_tag::ba : format_tag::ab, input.data};
@@ -1323,7 +1339,7 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
   ideep::tensor bias_t{dims{1, n}, ideep::data_type::f32, format_tag::ab,
                        bias.data};
   ideep::tensor output_t{dims{m, n}, ideep::data_type::s8, format_tag::ab,
-                         result.data};
+                         gemmResult.data};
 
   std::vector<float> input_scales({inputScales.data[0]});
   std::vector<int32_t> input_zero_point({inputZeroPoints.data[0]});
@@ -1365,6 +1381,18 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
     ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
                                                 packed_bias, output_t);
   }
+  if (tp_a) {
+    for (int i = NDims - 1; i > 0; i--) {
+      resultSizes[i] = input.sizes[i];
+    }
+    resultSizes[0] = n;
+  } else {
+    for (int i = 0; i < NDims - 1; i++) {
+      resultSizes[i] = input.sizes[i];
+    }
+    resultSizes[NDims - 1] = n;
+  }
+  auto result = assignMemRef<int8_t, NDims>(gemmResult.data, resultSizes);
 
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(result); ++i) {
@@ -1376,20 +1404,21 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
   return result;
 }
 
-MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
+template <int NDims>
+MemRefType<int8_t, NDims> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
     ExecutionContext* ctx, opaque_t /*stream_handle*/,
-    MemRefType<int8_t, 2> input, MemRefType<int8_t, 2> weight,
+    MemRefType<int8_t, NDims> input, MemRefType<int8_t, 2> weight,
     MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
     MemRefType<float, 1> weightScales, MemRefType<int32_t, 1> weightZeroPoints,
     MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
     void* customAttrs) {
   CpuTimer timer("ral_pdll_qgemm_onednn_s8_s8_s8_per_channel");
-  int64_t resultSizes[2] = {0, 0};
+  int64_t resultSizes[NDims] = {0};
   if (isEmptyMemref(input) || isEmptyMemref(weight)) {
     TAO_VLOG(1)
         << "ral_pdll_qgemm_onednn_s8_s8_s8_per_channel: early return for "
            "empty tensor";
-    return assignMemRef<int8_t, 2>(nullptr, resultSizes);
+    return assignMemRef<int8_t, NDims>(nullptr, resultSizes);
   }
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(input); ++i) {
@@ -1409,8 +1438,19 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
   auto& dictAttr = attr->as<DictPDLAttr>();
   bool tp_a = dictAttr.get("transpose_a").as<BoolPDLAttr>().getValue();
   bool tp_b = dictAttr.get("transpose_b").as<BoolPDLAttr>().getValue();
-  int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
-  int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
+  int64_t m = 1;
+  int64_t k;
+  if (tp_a) {
+    for (int i = NDims - 1; i > 0; i--) {
+      m = m * input.sizes[i];
+    }
+    k = input.sizes[0];
+  } else {
+    for (int i = 0; i < NDims - 1; i++) {
+      m = m * input.sizes[i];
+    }
+    k = input.sizes[NDims - 1];
+  }
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE,
                      "mismatch contraction dim for "
@@ -1422,14 +1462,19 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
   resultSizes[1] = n;
   auto driver = ctx->getDriver<cpu::CPUDriver>(cpu::CPUDriver::name());
   auto data = static_cast<int8_t*>(driver->alloc(ctx, m * n * sizeof(int8_t)));
-  auto result = assignMemRef<int8_t, 2>(data, resultSizes);
+
+  int64_t gemmResultSizes[2];
+  gemmResultSizes[0] = m;
+  gemmResultSizes[1] = n;
+  int64_t gemmInputSizes[2] = {m, k};
+  auto gemmResult = assignMemRef<int8_t, 2>(data, gemmResultSizes);
 
   ideep::tensor input_t{dims{m, k}, ideep::data_type::s8,
                         tp_a ? format_tag::ba : format_tag::ab, input.data};
   ideep::tensor weight_t{dims{k, n}, ideep::data_type::s8,
                          tp_b ? format_tag::ba : format_tag::ab, weight.data};
   ideep::tensor output_t{dims{m, n}, ideep::data_type::s8, format_tag::ab,
-                         result.data};
+                         gemmResult.data};
 
   std::vector<float> input_scales({inputScales.data[0]});
   std::vector<int32_t> input_zero_point({inputZeroPoints.data[0]});
@@ -1464,6 +1509,18 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
     ideep::matmul_forward::compute<true, false>(param, input_t, packed_weight,
                                                 output_t);
   }
+  if (tp_a) {
+    for (int i = NDims - 1; i > 0; i--) {
+      resultSizes[i] = input.sizes[i];
+    }
+    resultSizes[0] = n;
+  } else {
+    for (int i = 0; i < NDims - 1; i++) {
+      resultSizes[i] = input.sizes[i];
+    }
+    resultSizes[NDims - 1] = n;
+  }
+  auto result = assignMemRef<int8_t, NDims>(gemmResult.data, resultSizes);
 
   if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(result); ++i) {
@@ -1503,9 +1560,17 @@ TAO_RAL_API("ral_pdll_qgemm", "cpu",
 #if defined(TAO_X86)
 TAO_RAL_API("ral_qgemm", "cpu", ral_qgemm_onednn_s8_s8_s8_per_channel);
 TAO_RAL_API("ral_pdll_qgemm", "cpu",
-            ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel);
+            ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel<2>);
 TAO_RAL_API("ral_pdll_qgemm", "cpu",
-            ral_pdll_qgemm_onednn_s8_s8_s8_per_channel);
+            ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel<3>);
+TAO_RAL_API("ral_pdll_qgemm", "cpu",
+            ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel<4>);
+TAO_RAL_API("ral_pdll_qgemm", "cpu",
+            ral_pdll_qgemm_onednn_s8_s8_s8_per_channel<2>);
+TAO_RAL_API("ral_pdll_qgemm", "cpu",
+            ral_pdll_qgemm_onednn_s8_s8_s8_per_channel<3>);
+TAO_RAL_API("ral_pdll_qgemm", "cpu",
+            ral_pdll_qgemm_onednn_s8_s8_s8_per_channel<4>);
 #endif  // TAO_X86
 
 }  // namespace ral

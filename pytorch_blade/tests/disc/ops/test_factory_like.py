@@ -18,7 +18,7 @@ from tests.disc.testing_base import DiscTestCase
 
 class TestFactoryLikes(DiscTestCase):
 
-    def _test_factory_like(self, func, d0: int, d1: int, d_or_val: int, rtol: float=1e-6, atol: float=1e-3):
+    def _test_factory_like(self, func, d0: int, d1: int, d_or_val: int, numeric_checkable=True, expect_str=None):
         class TestModel(torch.nn.Module):
 
             def __init__(self, device):
@@ -28,8 +28,11 @@ class TestFactoryLikes(DiscTestCase):
             def forward(self, d0: int, d1: int, d_or_val: int):
                 return func(d0, d1, d_or_val, device=self.device)
 
-        model = torch.jit.script(TestModel(self.device))
-        self._test_cvt_to_disc(model, (d0, d1, d_or_val), rtol=rtol, atol=atol)
+        if numeric_checkable:
+            model = torch.jit.script(TestModel(self.device))
+            self._test_cvt_to_disc(model, (d0, d1, d_or_val))
+        else:
+            self._test_torchscipte_to_mhlo(func.graph, expect_str)
 
     def test_factory_likes(self):
         self._test_factory_like(torch.zeros, 2, 2, 3)
@@ -54,8 +57,8 @@ class TestFactoryLikes(DiscTestCase):
             return
 
         @torch.jit.script
-        def empty(d0: int, d1: int, val: int, device: torch.device):
-            return torch.empty([d0, d1], device=device)
+        def empty_int(d0: int, d1: int, val: int, device: torch.device):
+            return torch.empty([d0, d1], dtype=torch.int32, device=device)
 
         @torch.jit.script
         def empty_dtype(d0: int, d1: int, val: int, device: torch.device):
@@ -63,8 +66,23 @@ class TestFactoryLikes(DiscTestCase):
                               dtype=torch.float32, device=device)
 
         # results are not numeric checkable
-        self._test_factory_like(empty, 2, 2, 3, rtol=1e+6, atol=1e+6)
-        self._test_factory_like(empty_dtype, 2, 2, 3, rtol=1e+6, atol=1e+6)
+        empty_int_expect_str = """
+module {
+    # CHECK: mhlo.constant dense<1>
+    # CHECK: mhlo.dynamic_broadcast_in_dim
+    # CHECK: tensor<?x?xi32>
+}
+        """
+        self._test_factory_like(empty_int, 2, 2, 3, numeric_checkable=False, expect_str=empty_int_expect_str)
+
+        empty_dtype_expect_str = """
+module {
+    # CHECK: mhlo.constant dense<1.000000e+00>
+    # CHECK: mhlo.dynamic_broadcast_in_dim
+    # CHECK: tensor<?x?xf32>
+}
+        """
+        self._test_factory_like(empty_dtype, 2, 2, 3, numeric_checkable=False, expect_str=empty_dtype_expect_str)
 
 if __name__ == "__main__":
     unittest.main()

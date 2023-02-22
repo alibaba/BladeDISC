@@ -29,3 +29,6 @@ third_party/bazel/blade_service_common/blade_service_common_workspace.bzl.tpl
 *.egg-info
 build/
 .pytest_cache
+tao_compiler/mlir/xla/ral/bladnn_caller.cc
+tao_compiler/mlir/xla/ral/bladnn_caller.h
+tao_compiler/mlir/xla/ral/context/stream_executor_expand_impl.cc

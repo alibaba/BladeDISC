@@ -32,7 +32,9 @@
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 #include "bladnn/bladnn.h"
+#include "tensorflow/compiler/mlir/xla/ral/bladnn_caller.h"
 #endif
+
 namespace tao {
 namespace ral {
 

@@ -29,6 +29,8 @@
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 
+const int kCHECKN = 100000;
+
 namespace tao {
 namespace ral {
 namespace gpu {
@@ -310,7 +312,8 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
   }
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-  {
+  if (!checkExpiredEveryN(kCHECKN)) {
+    TAO_VLOG(1) << "call bladnn::gemm";
     auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
     auto stream =
         static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
@@ -429,7 +432,7 @@ void ral_qgemm(
   float beta = 0.0f;
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-  {
+  if (!checkExpiredEveryN(kCHECKN)) {
     auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
     auto stream =
         static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
@@ -541,7 +544,7 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
   }
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-  {
+  if (!checkExpiredEveryN(kCHECKN)) {
     auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
     auto stream =
         static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
@@ -1547,70 +1550,73 @@ bool ral_conv_bladnn(ExecutionContext* ctx, void* stream_handle,
                      MemRefType<T, N> input, MemRefType<T, N> kernel,
                      MemRefType<int32_t, 1> padding, MemRefType<T, N> output,
                      MemRefType<int32_t, 1> metadata, float alpha = 1.0) {
-  // nchw=0123 iohw=0123
-  // const std::vector<int32_t> nchw_oihw_layout = {0, 1, 2, 3, 1, 0,
-  //                                                2, 3, 0, 1, 2, 3};
-  // const std::vector<int32_t> nhwc_hwio_layout = {0, 3, 1, 2, 2, 3,
-  //                                                0, 1, 0, 3, 1, 2};
-  const std::vector<int32_t> nhwc_ohwi_layout = {0, 3, 1, 2, 3, 0,
-                                                 1, 2, 0, 3, 1, 2};
-  if (layout_match(nhwc_ohwi_layout, metadata)) {
-    auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
-    auto stream =
-        static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
-    void* s = stream->implementation()->GpuStreamHack();
-    int32_t n = input.sizes[0];
-    assert(n == output.sizes[0]);
-    T* a_data = input.data;
-    T* b_data = kernel.data;
-    T* c_data = output.data;
-    int32_t ic = 0;
-    int32_t oc = 0;
-    int32_t ih = 0;
-    int32_t iw = 0;
-    int32_t oh = 0;
-    int32_t ow = 0;
-    int32_t kh = 0;
-    int32_t kw = 0;
-    int32_t ki = 0;
-    int32_t ko = 0;
-    ih = input.sizes[1];
-    iw = input.sizes[2];
-    ic = input.sizes[3];
-    ko = kernel.sizes[0];
-    kh = kernel.sizes[1];
-    kw = kernel.sizes[2];
-    ki = kernel.sizes[3];
-    oh = output.sizes[1];
-    ow = output.sizes[2];
-    oc = output.sizes[3];
-    assert(ko == oc);
-    int pad_h = padding.data[0];
-    int pad_w = padding.data[2];
-    size_t offset = N * 3;
-    int stride_h = metadata.data[offset++];
-    int stride_w = metadata.data[offset++];
-    int dilation_h = metadata.data[offset++];
-    int dilation_w = metadata.data[offset++];
-    bool is_depthwise = false;
-    int32_t groups = 1;
-    if (ic != ki) {
-      assert(ki == 1);
-      is_depthwise = true;
-      groups = ic;
+  if (!checkExpiredEveryN(kCHECKN)) {
+    // nchw=0123 iohw=0123
+    // const std::vector<int32_t> nchw_oihw_layout = {0, 1, 2, 3, 1, 0,
+    //                                                2, 3, 0, 1, 2, 3};
+    // const std::vector<int32_t> nhwc_hwio_layout = {0, 3, 1, 2, 2, 3,
+    //                                                0, 1, 0, 3, 1, 2};
+    const std::vector<int32_t> nhwc_ohwi_layout = {0, 3, 1, 2, 3, 0,
+                                                   1, 2, 0, 3, 1, 2};
+    if (layout_match(nhwc_ohwi_layout, metadata)) {
+      auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+      auto stream =
+          static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+      void* s = stream->implementation()->GpuStreamHack();
+      int32_t n = input.sizes[0];
+      assert(n == output.sizes[0]);
+      T* a_data = input.data;
+      T* b_data = kernel.data;
+      T* c_data = output.data;
+      int32_t ic = 0;
+      int32_t oc = 0;
+      int32_t ih = 0;
+      int32_t iw = 0;
+      int32_t oh = 0;
+      int32_t ow = 0;
+      int32_t kh = 0;
+      int32_t kw = 0;
+      int32_t ki = 0;
+      int32_t ko = 0;
+      ih = input.sizes[1];
+      iw = input.sizes[2];
+      ic = input.sizes[3];
+      ko = kernel.sizes[0];
+      kh = kernel.sizes[1];
+      kw = kernel.sizes[2];
+      ki = kernel.sizes[3];
+      oh = output.sizes[1];
+      ow = output.sizes[2];
+      oc = output.sizes[3];
+      assert(ko == oc);
+      int pad_h = padding.data[0];
+      int pad_w = padding.data[2];
+      size_t offset = N * 3;
+      int stride_h = metadata.data[offset++];
+      int stride_w = metadata.data[offset++];
+      int dilation_h = metadata.data[offset++];
+      int dilation_w = metadata.data[offset++];
+      bool is_depthwise = false;
+      int32_t groups = 1;
+      if (ic != ki) {
+        assert(ki == 1);
+        is_depthwise = true;
+        groups = ic;
+      }
+      auto conv_kind = bladnn::ConvKind::kFprop;
+      auto data_layout = bladnn::Layout::kNHWC;
+      auto kernel_layout = bladnn::Layout::kNHWC;
+      const float beta = 0.0f;
+      bladnn::Dtype dtype = toBlaDNNDtype<T>();
+      bool ret = false;
+      ret = bladnn::conv2d(s, dtype, dtype, conv_kind, data_layout, kernel_layout,
+                           n, ih, iw, ic, ko, kh, kw, oh, ow, pad_h, pad_w,
+                           stride_h, stride_w, dilation_h, dilation_w, groups,
+                           &alpha, a_data, b_data, &beta, c_data, c_data);
+      return ret;
     }
-    auto conv_kind = bladnn::ConvKind::kFprop;
-    auto data_layout = bladnn::Layout::kNHWC;
-    auto kernel_layout = bladnn::Layout::kNHWC;
-    const float beta = 0.0f;
-    bladnn::Dtype dtype = toBlaDNNDtype<T>();
-    bool ret = false;
-    ret = bladnn::conv2d(s, dtype, dtype, conv_kind, data_layout, kernel_layout,
-                         n, ih, iw, ic, ko, kh, kw, oh, ow, pad_h, pad_w,
-                         stride_h, stride_w, dilation_h, dilation_w, groups,
-                         &alpha, a_data, b_data, &beta, c_data, c_data);
-    return ret;
   }
+
   return false;
 }
 #endif

@@ -312,6 +312,7 @@ cc_library(
     ]) + if_disc_aarch64([
         "context/common_context_impl_acl.cc",
     ]) + if_blade_gemm([
+        "bladnn_caller.cc",
         "context/stream_executor_expand_impl.cc",
     ]),
     hdrs = [
@@ -323,6 +324,8 @@ cc_library(
         "context/common_context_impl_quantization.h",
     ]) + if_disc_aarch64([
         "context/common_context_impl_acl.h",
+    ]) + if_blade_gemm([
+        "bladnn_caller.h",
     ]),
     copts = [
         "-fopenmp",

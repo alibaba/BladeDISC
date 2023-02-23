@@ -102,7 +102,7 @@ if [ ${#FIELDS[@]} -eq 0 ]; then
 fi
 
 # performance anaysis
-python3 results_anaysis.py -t ${results} -i ${oss_dir} -p ${RELATED_DIFF_PERCENT} -f "${FIELDS[@]}"
+python3 results_analysis.py -t ${results} -i ${oss_dir} -p ${RELATED_DIFF_PERCENT} -f "${FIELDS[@]}"
 
 if [ -f "ISSUE.md" ]; then
     wget ${oss_link}/download/github/$GH -O gh && chmod +x ./gh && \

@@ -690,6 +690,8 @@ struct CudnnConvParams {
   std::vector<int64_t> metadata;
 #if TENSORFLOW_USE_ROCM
   std::optional<uint64_t> workspace_size;
+#else
+  absl::optional<uint64_t> workspace_size;
 #endif
   DataLayout input_dl;
   FilterLayout filter_dl;
@@ -1298,14 +1300,27 @@ Status RunCudnnConvolution(CudnnConvParams& params,
   AlgorithmConfig algorithm{AlgorithmDesc(
       params.algo_id, params.tensor_ops_enabled, params.workspace_size)};
 #else
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 4) || TF_MAJOR_VERSION > 2
+  absl::optional<uint64_t> workspace_size;
+  if (!profile_result) {
+    workspace_size = params.workspace_size;
+  }
+  AlgorithmConfig algorithm{
+      AlgorithmDesc(params.algo_id, params.tensor_ops_enabled, workspace_size)};
+#else
   AlgorithmConfig algorithm{
       AlgorithmDesc(params.algo_id, params.tensor_ops_enabled)};
+#endif
 #endif
 
 #if TENSORFLOW_USE_ROCM
   if (profile_result) {
     algorithm.set_scratch_size(profile_result->scratch_size());
   } else {
+    algorithm.set_scratch_size(params.best_result_bytes_used);
+  }
+#else
+  if (!profile_result) {
     algorithm.set_scratch_size(params.best_result_bytes_used);
   }
 #endif
@@ -1523,6 +1538,10 @@ bool PickBestAlgorithm(CudnnConvParams& params,
     params.algo_id = best_result.algorithm().algo_id();
     params.tensor_ops_enabled = best_result.algorithm().tensor_ops_enabled();
     params.best_result_bytes_used = best_result_bytes_used;
+#ifndef TENSORFLOW_USE_ROCM and \
+    ((TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 4) || TF_MAJOR_VERSION > 2)
+    params.workspace_size = best_result_bytes_used;
+#endif
   }
 
   return true;

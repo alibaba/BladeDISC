@@ -596,3 +596,8 @@ def DiscTransformLegalizeToLoopPass : Pass<"disc-transform-legalize-to-loop", "m
            /*default=*/"false", "perform expensive checks to better report errors in the transform IR.">,
   ];
 }
+
+def DiscSparseOpRewriterPass : Pass<"disc-sparse-op-rewriter", "mlir::func::FuncOp"> {
+  let summary = "Rewrite sparse op for possible fusion";
+  let constructor = "createDiscSparseOpRewriterPass()";
+}

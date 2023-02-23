@@ -1778,7 +1778,26 @@ cc_library(
     alwayslink = 1,
 )
 
-
+cc_library(
+    name = "disc_sparse_op_rewriter",
+    srcs = ["transforms/disc_sparse_op_rewriter.cc"],
+    deps = [
+        ":disc_pdl_utils",
+        ":disc_shape_optimization_utils",
+        ":mhlo_disc",
+        ":pass_details",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
 
 cc_library(
     name = "disc_dense_to_sparse",
@@ -2137,6 +2156,7 @@ cc_library(
         ":disc_cpu_map_parallel_loop",
         ":disc_duplicate_computation_for_fusion",
         ":disc_dynamic_slice_converter",
+        ":disc_sparse_op_rewriter",
         ":disc_flatten_memref_access",
         ":disc_for_loop_unroll_interleave",
         ":disc_fuse_splat_const",

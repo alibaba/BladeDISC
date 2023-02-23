@@ -93,6 +93,7 @@ static const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite GetAttrOrDefault(op : Op, key : Attr, value : Attr) -> (Attr);
 
   Constraint CheckConstantTensor(v : Value);
+  Constraint CheckConstantTensorValueIs(v : Value, expected : Attr);
   Rewrite IsConstantTensor(v : Value) -> Attr;
 )pdll";
 
@@ -227,6 +228,23 @@ static LogicalResult checkConstantTensor(PatternRewriter& rewriter,
   return matchPattern(v, m_Constant(&denseAttr)) ? success() : failure();
 }
 
+static LogicalResult checkConstantTensorValueIs(PatternRewriter& rewriter,
+                                                ArrayRef<PDLValue> values) {
+  assert(values.size() == 2);
+  auto v = values[0].cast<Value>();
+  APInt val;
+  bool is_constant = matchPattern(v, m_ConstantInt(&val));
+  if (is_constant) {
+    int64_t constant_val = static_cast<int64_t>(val.getSExtValue());
+    int64_t expected_val = static_cast<int64_t>(
+        values[1].cast<Attribute>().cast<IntegerAttr>().getInt());
+    if (constant_val == expected_val) {
+      return success();
+    }
+  }
+  return failure();
+}
+
 static void isConstantTensor(PatternRewriter& rewriter, PDLResultList& results,
                              ArrayRef<PDLValue> values) {
   assert(values.size() == 1);
@@ -299,6 +317,8 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
 
   pdlPatterns.registerConstraintFunction("CheckConstantTensor",
                                          checkConstantTensor);
+  pdlPatterns.registerConstraintFunction("CheckConstantTensorValueIs",
+                                         checkConstantTensorValueIs);
 
   if (callback) callback(pdlPatterns);
 }

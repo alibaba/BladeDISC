@@ -1611,12 +1611,9 @@ bool ral_conv_bladnn(ExecutionContext* ctx, void* stream_handle,
     int stride_w = metadata.data[offset++];
     int dilation_h = metadata.data[offset++];
     int dilation_w = metadata.data[offset++];
-    bool is_depthwise = false;
     int32_t groups = 1;
     if (ic != ki) {
-      assert(ki == 1);
-      is_depthwise = true;
-      groups = ic;
+      return false;
     }
     auto conv_kind = bladnn::ConvKind::kFprop;
     auto data_layout = bladnn::Layout::kNHWC;

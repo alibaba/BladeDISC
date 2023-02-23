@@ -29,8 +29,8 @@ class MinMaxObserverTest(unittest.TestCase):
         clip_val = torch.max(-min_val_neg, max_val_pos)
         scale = clip_val / (float(127 + 128) / 2)
         ob(dummy_data)
-        self.assertTrue(torch.equal(torch.tensor([scale]), ob.qparams.scale))
-        self.assertTrue(torch.equal(torch.tensor([0], dtype=torch.int32), ob.qparams.zero_point))
+        self.assertTrue(torch.equal(torch.tensor(scale), ob.qparams.scale))
+        self.assertTrue(torch.equal(torch.tensor(0, dtype=torch.int32), ob.qparams.zero_point))
 
 
 class PerChannelMinMaxObserverTest(unittest.TestCase):

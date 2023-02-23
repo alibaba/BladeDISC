@@ -108,7 +108,7 @@ class Observer(torch.nn.Module, ABC):
         if self.symmetric and not self.signed:
             raise ValueError('Symmetric quantization requires signed dtype.')
         self.q_min, self.q_max = calc_quant_min_max(self.bit, self.signed)
-        self.register_buffer('eps', torch.tensor([torch.finfo(torch.float32).eps]))
+        self.register_buffer('eps', torch.tensor(torch.finfo(torch.float32).eps))
         # TODO: to support dp & ddp, we should use tensor for observe and fake_quant.
         self.observe = True
         self.fake_quant = True
@@ -154,21 +154,6 @@ class Observer(torch.nn.Module, ABC):
             zero_point = q_min - torch.round(min_val_neg / scale).to(torch.int32)
             zero_point = torch.clamp(zero_point, q_min, q_max)
 
-        # For scalar values, cast them to Tensors of size 1 to keep the shape
-        # consistent with default values in FakeQuantize.
-        if len(scale.shape) == 0:
-            # TODO: switch to scale.item() after adding JIT support
-            scale = torch.tensor([float(scale)], dtype=scale.dtype, device=device)
-        if len(zero_point.shape) == 0:
-            # TODO: switch to zero_point.item() after adding JIT support
-            zero_point = torch.tensor(
-                [int(zero_point)], dtype=zero_point.dtype, device=device
-            )
-            if self.qscheme == torch.per_channel_affine_float_qparams:
-                zero_point = torch.tensor(
-                    [float(zero_point)], dtype=zero_point.dtype, device=device
-                )
-
         LOGGER.debug(
             f'calc qparams: {self.min_val=}, {self.max_val=}, {self.q_min=}, {self.q_max=}, {self.bit=}, {self.signed=}, {scale=}, {zero_point=}')
         return scale, zero_point
@@ -203,8 +188,8 @@ class MinMaxObserver(Observer):
         super().__init__(dtype, qscheme, **kwargs)
         self.register_buffer("min_val", torch.tensor(float("inf")))
         self.register_buffer("max_val", torch.tensor(float("-inf")))
-        self.register_buffer("scale", torch.tensor([1.]))
-        self.register_buffer("zero_point", torch.tensor([0], dtype=torch.int32))
+        self.register_buffer("scale", torch.tensor(1.))
+        self.register_buffer("zero_point", torch.tensor(0, dtype=torch.int32))
 
     def forward(self, x):
         if self.observe:

@@ -19,8 +19,7 @@ import torch.nn as nn
 import torch.nn.quantized as nnq
 import torch.nn.quantized._reference as nnqr
 from torch.fx import GraphModule, Node
-from torch.quantization import (DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS,
-                                QConfig)
+from torch.quantization import DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS, QConfig
 from torch_quant.observed_module import OB_MODULE_MAPPING
 from torch_quant.observer import Observer
 
@@ -69,7 +68,7 @@ class GraphModContext:
                  bias_ob_ctr: Callable[..., Observer]) -> None:
         self.gm = gm
         self.root = root
-        self.modules = dict(self.root.named_modules())
+        self.modules = dict(self.root.named_modules(remove_duplicate=False))
         self.act_ob_ctr = act_ob_ctr
         self.w_ob_ctr = w_ob_ctr
         self.bias_ob_ctr = bias_ob_ctr
@@ -119,7 +118,7 @@ class GraphModContext:
         _register_buffer(self.root, full_path, cloned)
 
     def get_or_create_module(self, full_path: str, constructor: Callable[[], nn.Module]) -> nn.Module:
-        for n, m in self.root.named_modules():
+        for n, m in self.root.named_modules(remove_duplicate=False):
             if n == full_path:
                 _add_module(self.gm, full_path, m)
                 return m

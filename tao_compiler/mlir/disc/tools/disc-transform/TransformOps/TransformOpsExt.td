@@ -683,4 +683,50 @@ def ReductionOutputFuseOp : Op<Transform_Dialect, "disc.reduction_output_fuse",
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
 
+def ReductionInputFuseOp : Op<Transform_Dialect, "disc.reduction_input_fuse",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Given a linalg op, input fuse it into the reduction loop.
+
+    Returns the fused linalg op and the new loop op.
+
+    Example:
+     convert from:
+     ```
+      %0 = linalg.fill(%init)
+      %1 = scf.for %arg1 = %c0 to %c768 step %c512 iter_args(%arg0 = %0) -> (tensor<?x3072xf32>) {
+        ...
+        %t0 = tensor.extract_slice %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+        %t1 = linalg.matmul {disc.transform.name = "dot_general"} ins(...) outs(%t0 : tensor<?x3072xf32>) -> tensor<?x3072xf32>
+        %t2 = tensor.insert_slice %t1 into %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> into tensor<?x3072xf32>
+        scf.yield %t2 : tensor<?x3072xf32>
+      }
+      use(%0)
+     ```
+     to:
+     ```
+      %1 = scf.for %arg1 = %c0 to %c768 step %c512 iter_args(%arg0 = %0) -> (tensor<?x3072xf32>) {
+        ...
+        %pred = ... // is first iteration?
+        %t0 = disc_linalg_ext.conditional_generic ins(%pred) outs(%arg0)
+        %t1 = tensor.extract_slice %t0[0, 0] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+        %t2 = linalg.matmul {disc.transform.name = "dot_general"} ins(...) outs(%t1 : tensor<?x3072xf32>) -> tensor<?x3072xf32>
+        %t3 = tensor.insert_slice %t2 into %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> into tensor<?x3072xf32>
+        scf.yield %t3 : tensor<?x3072xf32>
+      }
+      use(%0)
+     ```
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       PDL_Operation:$loop);
+  let results = (outs PDL_Operation:$tiled_target, PDL_Operation:$fused_loop);
+
+  let assemblyFormat = [{
+    attr-dict $target `into` $loop
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

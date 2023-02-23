@@ -2374,6 +2374,93 @@ DiagnosedSilenceableFailure ReductionOutputFuseOp::apply(
   return DiagnosedSilenceableFailure(success());
 }
 
+//===---------------------------------------------------------------------===//
+// ReductionInputFuseOp
+//===---------------------------------------------------------------------===//
+
+void ReductionInputFuseOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::consumesHandle({this->getOperation()->getOperand(0)}, effects);
+  transform::consumesHandle({this->getOperation()->getOperand(1)}, effects);
+  transform::producesHandle(this->getOperation()->getResults(), effects);
+  transform::modifiesPayload(effects);
+}
+
+DiagnosedSilenceableFailure ReductionInputFuseOp::apply(
+    transform::TransformResults& results, transform::TransformState& state) {
+  ArrayRef<Operation*> targetOps = state.getPayloadOps(getTarget());
+  if (targetOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one target but got ")
+           << targetOps.size();
+  Operation* target = targetOps[0];
+  auto linalgOp = dyn_cast<linalg::LinalgOp>(target);
+  if (!linalgOp)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the target is a linalg op");
+
+  ArrayRef<Operation*> loopOps = state.getPayloadOps(getLoop());
+  if (loopOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one loop but got ")
+           << loopOps.size();
+  auto forOp = dyn_cast<scf::ForOp>(loopOps[0]);
+  if (!forOp)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the loop to a for op");
+
+  if (linalgOp->getNumResults() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the target has one result");
+
+  auto iterOperands = forOp.getIterOperands();
+  auto argIt = llvm::find(iterOperands, linalgOp->getResult(0));
+  if (argIt == iterOperands.end())
+    return mlir::emitDefiniteFailure(
+        this->getOperation(),
+        "expect the result of target is the iter arg of the loop.");
+  Value iterArg = forOp.getRegionIterArg(argIt - iterOperands.begin());
+  auto iterArgUsers = iterArg.getUsers();
+  auto userIt = llvm::find_if(iterArgUsers, [&](Operation* user) {
+    auto sliceOp = dyn_cast<tensor::ExtractSliceOp>(user);
+    return sliceOp && forOp->isProperAncestor(sliceOp);
+  });
+  if (userIt == iterArgUsers.end())
+    return mlir::emitDefiniteFailure(
+        this->getOperation(),
+        "could not find candidate extract_slice of target in the loop.");
+  auto sliceOp = cast<tensor::ExtractSliceOp>(*userIt);
+
+  OpBuilder b(sliceOp);
+  forOp->setOperand(
+      forOp.getNumControlOperands() + (argIt - iterOperands.begin()),
+      linalgOp.getDpsInitOperands().front()->get());
+  auto clonedTarget = b.clone(*target);
+  clonedTarget->replaceUsesOfWith(linalgOp.getDpsInitOperands().front()->get(),
+                                  iterArg);
+  auto tileableTarget = cast<TilingInterface>(clonedTarget);
+  FailureOr<Value> tiledTarget = tileableTarget.generateResultTileValue(
+      b, 0, sliceOp.getMixedOffsets(), sliceOp.getMixedSizes());
+  if (failed(tiledTarget)) {
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "failed to tile target op\n");
+  }
+  Operation* tiledOp = tiledTarget->getDefiningOp();
+  Value pred =
+      b.create<arith::CmpIOp>(tiledOp->getLoc(), arith::CmpIPredicate::eq,
+                              forOp.getInductionVar(), forOp.getLowerBound());
+  auto conditionalGenericOp = convertGenericOpToConditionalGenericOp(
+      b, pred, cast<linalg::LinalgOp>(tiledOp));
+  if (!conditionalGenericOp) {
+    return mlir::emitDefiniteFailure(
+        this->getOperation(), "failed to build conditional_generic op\n");
+  }
+  sliceOp->replaceAllUsesWith(conditionalGenericOp->getResults());
+  results.set(getTiledTarget().cast<OpResult>(), {conditionalGenericOp});
+  results.set(getFusedLoop().cast<OpResult>(), {forOp});
+  return DiagnosedSilenceableFailure(success());
+}
+
 }  // namespace transform_dialect
 
 void registerTransformDialectCommonExtension(DialectRegistry& registry) {

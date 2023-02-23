@@ -22,8 +22,8 @@ class TestHistogramObserver(unittest.TestCase):
         inp = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float)
         oup = obs(inp)
         self.assertTrue(torch.equal(oup, inp))
-        target_scale = torch.tensor([0.01960018463432789])
-        target_zp = torch.tensor([0], dtype=torch.int32)
+        target_scale = torch.tensor(0.01960018463432789)
+        target_zp = torch.tensor(0, dtype=torch.int32)
         self.assertTrue(torch.equal(target_scale, obs.scale))
         self.assertTrue(torch.equal(target_zp, obs.zero_point))
         target_fake_quant_output = torch.fake_quantize_per_tensor_affine(

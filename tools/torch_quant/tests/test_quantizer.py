@@ -15,6 +15,7 @@ import unittest
 import torch
 from parameterized import parameterized
 from tests.models import SimpleModule
+from torch_quant.observer import toggle_observer
 from torch_quant.quantizer import Backend, Quantizer
 
 
@@ -80,6 +81,20 @@ class QuantizerTest(unittest.TestCase):
             loaded = torch.jit.load(tmp_file.name)
         loaded_output = loaded(dummy_input)
         torch.testing.assert_close(quant_output, loaded_output)
+
+    def test_calib_and_quantize_with_bias_observer(self):
+        dummy_input = torch.randn((1, 2, 5, 5))
+        model = SimpleModule()
+        quantizer = Quantizer(backend=Backend.DISC)
+        calib_model = quantizer.calib(model)
+        calib_model(dummy_input)
+
+        toggle_observer(calib_model, observe=False, fake_quant=True)
+        out1 = calib_model(dummy_input)
+
+        fake_quant_model = quantizer.quantize(model)
+        out2 = fake_quant_model(dummy_input)
+        self.assertTrue(torch.equal(out1, out2))
 
 
 if __name__ == '__main__':

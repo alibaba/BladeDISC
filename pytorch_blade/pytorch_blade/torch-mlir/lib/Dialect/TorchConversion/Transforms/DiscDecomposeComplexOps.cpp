@@ -84,6 +84,22 @@ class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
       ConversionPatternRewriter& rewriter) const override;
 };
 
+llvm::Optional<int64_t> getMaxIndexFromItemOps(OperatorOp op) {
+  int64_t maxIndex = -1;
+  for (Operation* user : op.getResult(0).getUsers()) {
+    if (mlir::isa<Aten__Getitem__TOp>(user)) {
+      int64_t indexInt;
+      auto indexValue = user->getOperand(1);
+      if (!matchPattern(indexValue, m_TorchConstantInt(&indexInt)))
+        return llvm::None;
+      maxIndex = std::max(maxIndex, indexInt);
+    } else {
+      return llvm::None;
+    }
+  }
+  return maxIndex;
+}
+
 LogicalResult decomposeSplits(
     ConversionPatternRewriter& rewriter,
     OperatorOp op,
@@ -91,9 +107,8 @@ LogicalResult decomposeSplits(
     Value dim,
     int64_t chunks,
     bool keepDim = true) {
-  if (chunks < 0) {
+  if (chunks < 0)
     return failure();
-  }
   int64_t dimInt;
   if (!matchPattern(dim, m_TorchConstantInt(&dimInt)))
     return rewriter.notifyMatchFailure(op, "unknown dim");
@@ -219,6 +234,12 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
       if (inputShape[dimInt] != ShapedType::kDynamicSize && chunkSizeInt > 0) {
         chunksInt = inputShape[dimInt] / chunkSizeInt;
       }
+    }
+    if (chunksInt < 0) {
+      // inference result number according to the max index of aten.item ops.
+      auto maxItemIndex = getMaxIndexFromItemOps(op);
+      if (maxItemIndex)
+        chunksInt = maxItemIndex.value() + 1;
     }
     return decomposeSplits(rewriter, op, chunkSize, dim, chunksInt);
   } else if ("aten.chunk" == name) {

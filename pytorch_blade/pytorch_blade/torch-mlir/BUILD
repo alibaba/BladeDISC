@@ -58,6 +58,7 @@ cc_library(
         "lib/Dialect/TorchConversion/Transforms/DiscConvertTorchToDiscMhlo.cpp",
         "lib/Dialect/TorchConversion/Transforms/UpgradeLegacyOps.cpp",
         "lib/Dialect/TorchConversion/Transforms/VerifyMhloBackendContract.cpp",
+        "lib/Dialect/TorchConversion/Transforms/DiscSimplifyPatterns.cpp",
     ],
     hdrs = [
         "include/torch-mlir/Conversion/MhloPasses.h",

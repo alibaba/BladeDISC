@@ -68,6 +68,7 @@ std::unique_ptr<OperationPass<func::FuncOp>> createApplyDiscPdlPatternsPass(
     const std::string& pdll_files = "",
     const std::string& pdll_include_dirs = "");
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertTorchToMhloPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscSimplifyPatternsPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscDecomposeComplexOpsPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertTorchToDiscMhlo();
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscUpgradeLegacyOpsPass();

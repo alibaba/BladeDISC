@@ -58,6 +58,10 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   // Add decompose passes
   pm.addNestedPass<func::FuncOp>(createDiscDecomposeComplexOpsPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  // Add simplify patterns pass
+  pm.addNestedPass<func::FuncOp>(createDiscSimplifyPatternsPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+
   pm.addNestedPass<func::FuncOp>(
       Torch::createDecomposeComplexOpsPass(/*legalOps*/ {}));
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());

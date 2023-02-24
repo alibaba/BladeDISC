@@ -1,5 +1,6 @@
 import contextlib
 import os
+import time
 from inspect import signature
 
 import torch
@@ -29,6 +30,21 @@ def set_env(**environ):
     finally:
         os.environ.clear()
         os.environ.update(old_environ)
+
+
+@torch.no_grad()
+def benchmark(model, inp):
+    warmup = 5
+    bench = 10
+    for _ in range(warmup):
+        model(*inp)
+
+    start = time.time()
+    for _ in range(bench):
+        model(*inp)
+    end = time.time()
+    ms = (end - start) * 1000 / bench
+    print(f"avg ms: {ms}")
 
 
 @torch.no_grad()
@@ -67,13 +83,27 @@ def calibrate(model, dataloader, device):
         if idx == calib_step:
             return
 
+
+def get_dummy_input():
+    batch = 1
+    seq_len = 128
+    input_ids = torch.randint(
+        100, 1000, (batch, seq_len), dtype=torch.int64, device="cpu")
+    attention_mask = torch.ones_like(input_ids)
+    token_type_ids = torch.zeros_like(input_ids)
+    dummy_input = (input_ids, attention_mask, token_type_ids)
+    return dummy_input
+
+
 set_seed(0)
 MODEL_ID = "M-FAC/bert-mini-finetuned-mrpc"
 TASK_NAME = "mrpc"
 REVISION = "main"
+device = "cpu"
 
 print('load dataset...')
 raw_datasets = load_dataset("glue", TASK_NAME)
+print('prepare bert-mini model...')
 config = AutoConfig.from_pretrained(
     MODEL_ID,
     revision=REVISION,
@@ -97,12 +127,31 @@ def preprocess_function(x):
 
 raw_datasets = raw_datasets.map(preprocess_function, batched=True)
 eval_dataset = raw_datasets["validation"]
-
 eval_dataloader = DataLoader(eval_dataset, batch_size=1, collate_fn=default_data_collator)
-evaluate(model, eval_dataloader, "cpu")
+# Firstly, we evaluate the accuracy of the origin fp32 model.
+# You will get the result like:
+# ************************
+# evaluation result:
+#   accuracy   =   0.8113
+#   f1         =   0.8651
+# ************************
+evaluate(model, eval_dataloader, device)
+
+# optimize the model using DISC on fp32 precision
+dummy_input = get_dummy_input()
+fp32_torchscript_model = torch.jit.trace(model, dummy_input)
+fp32_disc_model = optimize(fp32_torchscript_model, True, dummy_input)
+# Then, we evaluate the accuracy of the DISC optimized fp32 model.
+# You will get the result like:
+# ************************
+# evaluation result:
+#   accuracy   =   0.8113
+#   f1         =   0.8651
+# ************************
+evaluate(fp32_disc_model, eval_dataloader, device)
 
 
-# quantization
+# optimize the model using DISC on INT8 precision
 class HFTracerWrapper(HFTracer):
     def __init__(self, input_names, **kwargs):
         super().__init__(**kwargs)
@@ -117,40 +166,41 @@ class HFTracerWrapper(HFTracer):
 
 
 tracer = HFTracerWrapper(["input_ids", "attention_mask", "token_type_ids"])
-
-input_ids = torch.randint(
-    100, 1000, (1, 128), dtype=torch.int64, device="cpu")
-attention_mask = torch.ones_like(input_ids)
-token_type_ids = torch.zeros_like(input_ids)
-dummy_input = (input_ids, attention_mask, token_type_ids)
-traced_model = torch.jit.trace(model, dummy_input)
-torch.jit.save(traced_model, "bert_mini.fp32.torchscript")
-
-opt_model = optimize(traced_model, True, dummy_input)
-print(opt_model.inlined_graph)
-torch.jit.save(opt_model, "bert_mini.fp32.disc.torchscript")
-
-
 quantizer = Quantizer(tracer=tracer, backend=Backend.DISC)
+# Convert the nn.Module to fx.Module and modify the inference
+# graph to meet the needs of convert it the int8 model.
 calib_model = quantizer.calib(model)
-calibrate(calib_model, eval_dataloader, "cpu")
+# Do calibration on the fx.Module and collect the quantization information.
+calibrate(calib_model, eval_dataloader, device)
 
+# Convert the fx.Module to torchscript with fake-quant on it.
 fake_quant_model = quantizer.quantize(model)
-evaluate(fake_quant_model, eval_dataloader, "cpu")
-
 traced_model = torch.jit.trace(fake_quant_model, dummy_input)
 
+# Convert the torchscript with fake-quant to the real quantized DISC optimized model.
+# Get the pdll files for optimization, which define the quantization patterns.
+level = 3
+par_dir = (os.path.pardir,) * level
+disc_root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), *par_dir))
+pdll_files = os.path.join(disc_root_path, "pytorch_blade/tests/disc/pdl/pdll_files/")
+disc_torch_pdll_files = [
+    os.path.join(pdll_files, "common/fake_quant.pdll"),
+    os.path.join(pdll_files, "cpu/dequant_gemm_quant.pdll")
+]
+env_var = {}
+env_var["DISC_TORCH_PDL_FILES"] = ",".join(disc_torch_pdll_files)
+# Set some config to enable quantization optimization
 cfg = Config()
 cfg.enable_int8 = True
 cfg.disc_cluster_max_iter_count = 100
-DISC_TORCH_PDL_FILES = [
-    "/workspace/codes/BladeDISC/pytorch_blade/tests/disc/pdl/pdll_files/common/fake_quant.pdll",
-    "/workspace/codes/BladeDISC/pytorch_blade/tests/disc/pdl/pdll_files/cpu/dequant_gemm_quant.pdll"
-]
-env_var = {}
-env_var["DISC_TORCH_PDL_FILES"] = ",".join(DISC_TORCH_PDL_FILES)
+# optimize the model through the DISC optimization interface
 with set_env(**env_var), cfg:
-    opt_model = optimize(traced_model, True, dummy_input)
-    print(opt_model.inlined_graph)
-torch.jit.save(opt_model, "bert_mini.int8.disc.torchscript")
-evaluate(opt_model, eval_dataloader, "cpu")
+    int8_disc_model = optimize(traced_model, True, dummy_input)
+    print(int8_disc_model.inlined_graph)
+# evaluate the real quantized DISC model
+evaluate(int8_disc_model, eval_dataloader, device)
+
+# benchmark the origin model, DISC fp32 model and disc int8 model
+benchmark(model, dummy_input)
+benchmark(fp32_disc_model, dummy_input)
+benchmark(int8_disc_model, dummy_input)

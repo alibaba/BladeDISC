@@ -96,8 +96,7 @@ LogicalResult comprehensiveBufferizeDeallocationFn(OpBuilder& builder,
 
 LogicalResult comprehensiveBufferizeCopyFn(OpBuilder& builder, Location loc,
                                            Value from, Value to) {
-  createLinalgCopyOp(builder, loc, from, to);
-  return success();
+  return success(createLinalgCopyOp(builder, loc, from, to) != nullptr);
 }
 
 OneShotBufferizationOptions getBufferizationOptions() {
@@ -557,6 +556,63 @@ struct FoldXferReadOfXferWriterPattern
   }
 };
 
+/// convert:
+///   %0 = vector.transfer_read %0, %cst : vector<8x12xf32>
+///   %1 = arith.select %pred, %0, %vector_cst : vector<8x12xf32>
+///   %2 = vector.transfer_write %1, %0[...]
+///   %3 = vector.transfer_read %0[...], %cst : vector<8x12xf32>
+///   use(%3)
+/// to:
+///   %0 = vector.transfer_read %0, %cst : vector<8x12xf32>
+///   %1 = arith.select %pred, %0, %vector_cst : vector<8x12xf32>
+///   use(%1)
+struct FoldXferReadOfXferWriterWithSelectPattern
+    : public OpRewritePattern<vector::TransferReadOp> {
+  using OpRewritePattern<vector::TransferReadOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::TransferReadOp op,
+                                PatternRewriter& rewriter) const override {
+    // Find xfer write op
+    auto writeOp = op.getSource().getDefiningOp<vector::TransferWriteOp>();
+    if (!writeOp || writeOp.getVector().getType() != op->getResult(0).getType())
+      return failure();
+
+    // Find select op
+    auto selectOp = writeOp.getVector().getDefiningOp<arith::SelectOp>();
+    if (!selectOp ||
+        selectOp->getResult(0).getType() != op->getResult(0).getType())
+      return failure();
+
+    // find const op and another xfer read op
+    auto prevReadOp =
+        selectOp->getOperand(1).getDefiningOp<vector::TransferReadOp>();
+    auto vectorConstOp =
+        selectOp->getOperand(2).getDefiningOp<arith::ConstantOp>();
+    if (!vectorConstOp || !prevReadOp) {
+      prevReadOp =
+          selectOp->getOperand(2).getDefiningOp<vector::TransferReadOp>();
+      vectorConstOp =
+          selectOp->getOperand(1).getDefiningOp<arith::ConstantOp>();
+    }
+    if (!vectorConstOp || !prevReadOp) return failure();
+    auto denseAttr = vectorConstOp.getValue().cast<DenseElementsAttr>();
+    if (!denseAttr.isSplat()) return failure();
+
+    // check the first read op and the second read have the same padding value
+    if (op.getPadding() != prevReadOp.getPadding()) return failure();
+
+    // check the padding value for xfer read op is a const
+    auto scalarConstOp = op.getPadding().getDefiningOp<arith::ConstantOp>();
+    if (!scalarConstOp) return failure();
+
+    if (*denseAttr.getValues<Attribute>().begin() != scalarConstOp.getValue())
+      return failure();
+
+    rewriter.replaceOp(op, selectOp->getResults());
+    return success();
+  }
+};
+
 static void addAllRegisteredCanonicalizationPatterns(
     RewritePatternSet& patterns) {
   MLIRContext* ctx = patterns.getContext();
@@ -574,6 +630,7 @@ static void addAllRegisteredCanonicalizationPatterns(
   patterns.insert<FoldMultiLevelPackOfConstantWrapperPattern>(ctx);
   patterns.insert<FoldTensorExtractOfConstantWrapperPattern>(ctx);
   patterns.insert<FoldXferReadOfXferWriterPattern>(ctx);
+  patterns.insert<FoldXferReadOfXferWriterWithSelectPattern>(ctx);
 }
 
 }  // namespace
@@ -2420,16 +2477,22 @@ DiagnosedSilenceableFailure ReductionInputFuseOp::apply(
         this->getOperation(),
         "expect the result of target is the iter arg of the loop.");
   Value iterArg = forOp.getRegionIterArg(argIt - iterOperands.begin());
-  auto iterArgUsers = iterArg.getUsers();
-  auto userIt = llvm::find_if(iterArgUsers, [&](Operation* user) {
-    auto sliceOp = dyn_cast<tensor::ExtractSliceOp>(user);
-    return sliceOp && forOp->isProperAncestor(sliceOp);
-  });
-  if (userIt == iterArgUsers.end())
+  tensor::ExtractSliceOp sliceOp;
+  auto numCandidateSliceOp =
+      llvm::count_if(iterArg.getUsers(), [&](Operation* user) -> bool {
+        if (!forOp->isProperAncestor(user)) return false;
+        if (auto candidate = dyn_cast<tensor::ExtractSliceOp>(user)) {
+          return sliceOp = candidate;
+        }
+        return false;
+      });
+  if (numCandidateSliceOp != 1) {
     return mlir::emitDefiniteFailure(
-        this->getOperation(),
-        "could not find candidate extract_slice of target in the loop.");
-  auto sliceOp = cast<tensor::ExtractSliceOp>(*userIt);
+        this->getOperation(), (Twine("only support one candidate extract_slice "
+                                     "of target in the loop but got") +
+                               Twine(numCandidateSliceOp))
+                                  .str());
+  }
 
   OpBuilder b(sliceOp);
   forOp->setOperand(
@@ -2458,6 +2521,196 @@ DiagnosedSilenceableFailure ReductionInputFuseOp::apply(
   sliceOp->replaceAllUsesWith(conditionalGenericOp->getResults());
   results.set(getTiledTarget().cast<OpResult>(), {conditionalGenericOp});
   results.set(getFusedLoop().cast<OpResult>(), {forOp});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// VectorizeConditionalGenericOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+Operation* convertConditionalGenericOpToGenericOp(OpBuilder& b,
+                                                  linalg::LinalgOp linalgOp) {
+  SmallVector<Value> inputs = linalgOp.getDpsInputOperands();
+  inputs.erase(inputs.begin());
+  SmallVector<Value> outputs = linalgOp.getDpsInitOperands();
+  SmallVector<AffineMap> indexingMaps = linalgOp.getIndexingMapsArray();
+  indexingMaps.erase(indexingMaps.begin());
+  SmallVector<StringRef> iterators = linalgOp.getIteratorTypesArray();
+  SmallVector<Type> resultTypes = linalgOp.hasTensorSemantics()
+                                      ? TypeRange(ValueRange(outputs))
+                                      : TypeRange{};
+  SmallVector<NamedAttribute> attrs;
+  for (auto attr : linalgOp->getAttrs()) {
+    if (attr.getName().getValue().starts_with("disc"))
+      attrs.push_back(std::move(attr));
+  }
+  auto bodyBuilder = [&](OpBuilder& innerBuilder, Location loc,
+                         ValueRange operands) {
+    BlockAndValueMapping mapping;
+    mapping.map(linalgOp.getBlock()->getArguments().drop_front(), operands);
+    for (Operation& op : linalgOp.getBlock()->without_terminator()) {
+      innerBuilder.clone(op, mapping);
+    }
+    SmallVector<Value> newResults;
+    for (Value v : linalgOp.getBlock()->getTerminator()->getOperands()) {
+      newResults.push_back(mapping.lookupOrDefault(v));
+    }
+    innerBuilder.create<linalg::YieldOp>(
+        linalgOp.getBlock()->getTerminator()->getLoc(), newResults);
+  };
+  auto genericOp = b.create<linalg::GenericOp>(linalgOp.getLoc(), resultTypes,
+                                               inputs, outputs, indexingMaps,
+                                               iterators, bodyBuilder, attrs);
+  return genericOp;
+}
+
+}  // namespace
+
+DiagnosedSilenceableFailure VectorizeConditionalGenericOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto genericOp = dyn_cast<disc_linalg_ext::ConditionalGenericOp>(target);
+  if (!genericOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to ConditionalGenericOp");
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = genericOp->getLoc();
+  Value pred = genericOp->getOperand(0);
+  auto linalgOp = cast<linalg::LinalgOp>(target);
+
+  // 0, check and collect init tensor types
+  SmallVector<Type> resultTensorTypes;
+  for (auto init : linalgOp.getDpsInitOperands()) {
+    auto ty = init->get().getType().dyn_cast<RankedTensorType>();
+    if (!ty || !ty.hasStaticShape()) {
+      return mlir::emitDefiniteFailure(
+          this->getOperation(),
+          "expect the result of target op has ranked tensor type with static "
+          "shape\n");
+    }
+    resultTensorTypes.push_back(ty);
+  }
+
+  // 0, build init loop like following:
+  // ```
+  //   scf.if %pred {
+  //     disc_linalg_ext.conditional_generic ...
+  //   } else {
+  //     // simply forward init operands to outputs
+  //     linalg.generic ...
+  //   }
+  // ```
+  rewriter.setInsertionPoint(target);
+  auto ifOp = rewriter.create<scf::IfOp>(loc, resultTensorTypes, pred, true);
+
+  rewriter.setInsertionPointToStart(ifOp.thenBlock());
+  auto thenTarget = dyn_cast<linalg::LinalgOp>(
+      convertConditionalGenericOpToGenericOp(rewriter, linalgOp));
+  rewriter.create<scf::YieldOp>(loc, thenTarget->getResults());
+  rewriter.setInsertionPoint(thenTarget);
+  if (failed(linalg::vectorize(rewriter, thenTarget)))
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "failed to vectorize the then target\n");
+
+  rewriter.setInsertionPointToStart(ifOp.elseBlock());
+  auto elseTarget = dyn_cast<linalg::LinalgOp>(
+      convertConditionalGenericOpToGenericOp(rewriter, linalgOp));
+  elseTarget.getBlock()->getTerminator()->setOperands(
+      elseTarget.getRegionOutputArgs());
+  SmallVector<Operation*> toDeleteOps;
+  for (auto& op : llvm::reverse(elseTarget.getBlock()->without_terminator())) {
+    toDeleteOps.push_back(&op);
+  }
+  for (Operation* op : toDeleteOps) op->erase();
+  // simply forward init input tensors to corresponding outputs in the else
+  // branch.
+  rewriter.create<scf::YieldOp>(loc, elseTarget->getResults());
+  rewriter.setInsertionPoint(elseTarget);
+  if (failed(linalg::vectorize(rewriter, elseTarget)))
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "failed to vectorize the else target\n");
+
+  rewriter.setInsertionPointAfter(ifOp);
+
+  // 1, replace the return type of ifOp: from tensor type to vector type
+  SmallVector<Type> resultVectorTypes;
+  SmallVector<Value> resultVectorValues;
+  DenseMap<int, Operation*> resultIdx2writeOpMap;
+  DenseMap<Operation*, int> writeOp2resultIdxMap;
+  for (auto [idx, val] :
+       llvm::enumerate(ifOp.elseBlock()->getTerminator()->getOperands())) {
+    auto xferWriteOp = val.getDefiningOp<vector::TransferWriteOp>();
+    if (!xferWriteOp) {
+      return mlir::emitDefiniteFailure(
+          this->getOperation(),
+          "failed to find xfer write op after vectorization\n");
+    }
+    resultVectorValues.push_back(xferWriteOp.getVector());
+    resultVectorTypes.push_back(xferWriteOp.getVector().getType());
+    resultIdx2writeOpMap[idx] = xferWriteOp;
+    writeOp2resultIdxMap[xferWriteOp] = idx;
+  }
+
+  auto vectorIfOp =
+      rewriter.create<scf::IfOp>(loc, resultVectorTypes, pred, true);
+  DenseMap<Value, Value> initTensor2LoadedVectorMap;
+  Operation* moveAfterAnchor = vectorIfOp;
+  for (auto& op :
+       llvm::make_early_inc_range(ifOp.elseBlock()->without_terminator())) {
+    if (auto xferWriteOp = dyn_cast<vector::TransferWriteOp>(&op)) {
+      op.moveAfter(moveAfterAnchor);
+      op.replaceUsesOfWith(xferWriteOp.getVector(),
+                           vectorIfOp->getResult(writeOp2resultIdxMap[&op]));
+      moveAfterAnchor = &op;
+    } else {
+      auto initArgs = linalgOp.getDpsInitOperands();
+      auto xferReadOp = dyn_cast<vector::TransferReadOp>(&op);
+      bool readFromInitArg =
+          xferReadOp && llvm::find_if(initArgs, [&](OpOperand* operand) {
+                          return operand->get() == xferReadOp.getSource();
+                        }) != initArgs.end();
+      if (!xferReadOp || readFromInitArg) op.moveBefore(ifOp);
+      if (readFromInitArg) {
+        initTensor2LoadedVectorMap[xferReadOp.getSource()] =
+            xferReadOp->getResult(0);
+      }
+    }
+  }
+  rewriter.setInsertionPointToStart(vectorIfOp.elseBlock());
+  rewriter.create<scf::YieldOp>(loc, resultVectorValues);
+  rewriter.setInsertionPointToStart(vectorIfOp.thenBlock());
+  resultVectorValues.clear();
+  for (auto [idx, val] :
+       llvm::enumerate(ifOp.thenBlock()->getTerminator()->getOperands())) {
+    auto xferWriteOp = val.getDefiningOp<vector::TransferWriteOp>();
+    if (!xferWriteOp) {
+      return mlir::emitDefiniteFailure(
+          this->getOperation(),
+          "failed to find xfer write op after vectorization\n");
+    }
+    resultVectorValues.push_back(xferWriteOp.getVector());
+  }
+  auto yieldOp = rewriter.create<scf::YieldOp>(loc, resultVectorValues);
+  for (auto& op :
+       llvm::make_early_inc_range(ifOp.thenBlock()->without_terminator())) {
+    op.moveBefore(yieldOp);
+    auto xferReadOp = dyn_cast<vector::TransferReadOp>(&op);
+    if (!xferReadOp) continue;
+    auto it = initTensor2LoadedVectorMap.find(xferReadOp.getSource());
+    if (it != initTensor2LoadedVectorMap.end())
+      xferReadOp->getResult(0).replaceAllUsesWith(it->second);
+  }
+  for (auto& e : resultIdx2writeOpMap) {
+    target->getResult(e.first).replaceAllUsesWith(e.second->getResult(0));
+  }
+  ifOp->erase();
+
+  results.assign({vectorIfOp.getOperation()});
   return DiagnosedSilenceableFailure(success());
 }
 

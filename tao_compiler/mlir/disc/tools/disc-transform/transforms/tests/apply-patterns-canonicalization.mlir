@@ -127,3 +127,25 @@ transform.structured.canonicalized_sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.apply_patterns %arg1 {canonicalization}
 }
+
+// -----
+
+// CHECK-LABEL: @FoldXferReadOfXferWriterWithSelectPattern
+// CHECK-SAME: (%[[ARG0:.*]]: i1, %[[ARG1:.*]]: tensor<?x?xf32>)
+func.func @FoldXferReadOfXferWriterWithSelectPattern(%pred: i1, %arg0: tensor<?x?xf32>) -> vector<8x12xf32> {
+  // CHECK: %[[T0:.*]] = arith.select %[[ARG0]]
+  // CHECK: return %[[T0]]
+  %cst = arith.constant 0.000000e+00 : f32
+  %c0 = arith.constant 0 : index
+  %cst_0 = arith.constant dense<0.000000e+00> : vector<8x12xf32>
+  %0 = vector.transfer_read %arg0[%c0, %c0], %cst : tensor<?x?xf32>, vector<8x12xf32>
+  %1 = arith.select %pred, %cst_0, %0 : vector<8x12xf32>
+  %2 = vector.transfer_write %1, %arg0[%c0, %c0] : vector<8x12xf32>, tensor<?x?xf32>
+  %3 = vector.transfer_read %2[%c0, %c0], %cst : tensor<?x?xf32>, vector<8x12xf32>
+  return %3 : vector<8x12xf32>
+}
+
+transform.structured.canonicalized_sequence failures(propagate) {
+^bb1(%arg1: !pdl.operation):
+  transform.disc.apply_patterns %arg1 {canonicalization}
+}

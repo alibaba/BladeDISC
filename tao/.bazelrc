@@ -37,7 +37,7 @@ build:disc --config=release_base
 
 build:disc_cpu --config=disc --cxxopt=-DTAO_CPU_ONLY
 build:disc_x86 --config=disc_cpu --config=release_cpu_linux --cxxopt=-DTAO_X86 --define disc_x86=true
-build:disc_aarch64 --config=disc_cpu --cxxopt=-DTAO_AARCH64 --define disc_aarch64=true --linkopt="-Xlinker --stub-group-size -Xlinker 10000000" --experimental_local_memory_estimate --jobs=10
+build:disc_aarch64 --config=disc_cpu --cxxopt=-DTAO_AARCH64 --define disc_aarch64=true --linkopt="-Xlinker --stub-group-size -Xlinker 10000000" --experimental_local_memory_estimate --local_ram_resources=HOST_RAM*.5 --local_cpu_resources=HOST_CPUS*.5
 build:disc_cuda --config=disc --config=cuda
 build:disc_dcu --config=disc --config=dcu
 build:disc_rocm --config=disc --config=rocm

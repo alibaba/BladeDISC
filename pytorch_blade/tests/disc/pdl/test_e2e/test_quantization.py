@@ -163,7 +163,7 @@ class TestAArch64CPULinear(AArch64CPUDiscPdlQuantizationE2ETestCase):
                  "The patterns corresponding to pytorch before version "
                  "1.9.0 has not yet been implemented ")
 class TestX86CPULiner(X86CPUDiscPdlQuantizationE2ETestCase):
-    def test_s8s8s8s32_per_channel_with_bias(self):
+    def test_s8s8s8f32_per_channel_with_bias(self):
         class Model(nn.Module):
             def __init__(self):
                 super().__init__()
@@ -210,6 +210,67 @@ class TestX86CPULiner(X86CPUDiscPdlQuantizationE2ETestCase):
                 else:
                     bias = self.bias
                 x = F.linear(x, weight, bias=bias)
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.output_scale, self.output_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                return x
+
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "dequant_gemm_quant.pdll")
+        ]
+        pdll_files = ",".join(pdll_files)
+        inp = torch.randn(1, 64).to(self.device)
+        model = Model().eval().to(self.device)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+
+        inp = torch.randn(1, 2, 64).to(self.device)
+        model = Model().eval().to(self.device)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+
+        inp = torch.randn(1, 2, 3, 64).to(self.device)
+        model = Model().eval().to(self.device)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+
+    def test_s8s8s8s32_per_channel_with_bias(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.input_scale = 0.1
+                self.input_zero_point = 0
+                self.output_scale = 0.2
+                self.output_zero_point = 0
+                self.register_buffer("weight_scale", torch.randn(64))
+                self.register_buffer("weight_zero_point",
+                                     torch.zeros(64).to(zero_point_dtype))
+                self.register_buffer("bias_zero_point",
+                                     torch.zeros(64).to(zero_point_dtype))
+                self.weight_quant_min = -128
+                self.weight_quant_max = 127
+                self.activation_quant_min = -128
+                self.activation_quant_max = 127
+                self.bias_quant_min = -2**31
+                self.bias_quant_max = 2**31 - 1
+                self.register_buffer("weight", torch.randn(64, 64))
+                self.register_buffer("bias", torch.randn(64))
+                self.ch_axis = 0
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.input_scale, self.input_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                weight = torch.fake_quantize_per_channel_affine(
+                    self.weight, self.weight_scale, self.weight_zero_point,
+                    self.ch_axis, self.weight_quant_min, self.weight_quant_max
+                )
+                bias_scale = self.input_scale * self.weight_scale
+                quant_bias = torch.fake_quantize_per_channel_affine(
+                    self.bias, bias_scale, self.bias_zero_point,
+                    self.ch_axis, self.bias_quant_min, self.bias_quant_max
+                )
+                x = F.linear(x, weight, bias=quant_bias)
                 x = torch.fake_quantize_per_tensor_affine(
                     x, self.output_scale, self.output_zero_point,
                     self.activation_quant_min, self.activation_quant_max

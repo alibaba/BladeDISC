@@ -16,6 +16,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type, Union
 
 import torch
 import torch_blade
+from makefun import create_function
 from transformers import (AutoConfig, AutoFeatureExtractor, AutoTokenizer,
                           FeatureExtractionMixin, Pipeline, PretrainedConfig,
                           PreTrainedModel, PreTrainedTokenizer, ProcessorMixin)
@@ -183,7 +184,7 @@ def _default_device() -> torch.device:
     return torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 
 
-class BladeModel(PreTrainedModel):
+class WrapperModel(PreTrainedModel):
     def __init__(self, opt_model: torch.jit.ScriptModule, info: ModelInfo) -> None:
         super().__init__(info.config)
 
@@ -197,6 +198,16 @@ class BladeModel(PreTrainedModel):
         outputs = self.opt_model(*model_args)
         return ModelOutput({k: v for k, v in zip(self.info.output_names, outputs)})
 
+    @staticmethod
+    def create_wrapper_model(opt_model: torch.jit.ScriptModule, info: ModelInfo) -> 'WrapperModel':
+        class_name = f'{info.model_class.__name__}BladeWrapper'
+        wrapper_class = type(class_name, (WrapperModel, info.model_class,), {
+            'forward': create_function(signature(info.model_class.forward), WrapperModel.forward)
+        })
+        LOGGER.debug(
+            f'create wrapper class {wrapper_class.__name__} for {info.model_class.__name__}')
+        return wrapper_class(opt_model, info)
+
 
 def create_model(task: Optional[str] = None, id_or_path: Optional[str] = None,
                  preprocessor: Optional[Preprocessor] = None,
@@ -207,12 +218,19 @@ def create_model(task: Optional[str] = None, id_or_path: Optional[str] = None,
     return model, info
 
 
+def trace_model(model: PreTrainedModel, info: ModelInfo, amp: bool = False) -> torch.jit.ScriptModule:
+    tracable = Tracable(model, [], info.default_kwargs, amp=amp)
+    return torch.jit.trace(tracable.eval(), _kwargs_to_args(
+        info.input_order, **info.dummy_inputs), strict=False)
+
+
 def optimize(task: Optional[str] = None, id_or_path: Optional[str] = None,
              model: Optional[PreTrainedModel] = None,
              preprocessor: Optional[Preprocessor] = None,
              skip_compile: bool = False, amp: bool = False,
              device: Optional[torch.device] = None,
-             model_kwargs: Dict[str, Any] = None) -> BladeModel:
+             model_kwargs: Optional[Dict[str, Any]] = None,
+             forward_default_kwargs: Optional[Dict[str, Any]] = None) -> WrapperModel:
     if device is None:
         device = _default_device()
 
@@ -230,13 +248,13 @@ def optimize(task: Optional[str] = None, id_or_path: Optional[str] = None,
         info = load_model_info(
             task=task, config=model.config, preprocessor=preprocessor)
 
+    if forward_default_kwargs:
+        info.default_kwargs.update(forward_default_kwargs)
     model.to(device)
     for k, v in info.dummy_inputs.items():
         info.dummy_inputs[k] = v.to(device)
 
-    tracable = Tracable(model, [], info.default_kwargs, amp=amp)
-    traced = torch.jit.trace(tracable.eval(), _kwargs_to_args(
-        info.input_order, **info.dummy_inputs), strict=False)
+    traced = trace_model(model, info, amp=amp)
 
     if skip_compile:
         opt_model = traced
@@ -248,7 +266,7 @@ def optimize(task: Optional[str] = None, id_or_path: Optional[str] = None,
             opt_model = torch_blade.optimize(
                 traced, model_inputs=_kwargs_to_args(info.input_order, **info.dummy_inputs))
 
-    return BladeModel(opt_model, info)
+    return WrapperModel.create_wrapper_model(opt_model, info)
 
 
 def pipeline(
@@ -258,7 +276,8 @@ def pipeline(
     feature_extractor: Optional[Union[str, PreTrainedFeatureExtractor]] = None,
     use_fast: bool = True,
     device: Optional[torch.device] = None,
-    model_kwargs: Dict[str, Any] = None,
+    model_kwargs: Optional[Dict[str, Any]] = None,
+    forward_default_kwargs: Optional[Dict[str, Any]] = None,
     skip_compile: bool = False,
     **kwargs,
 ) -> Pipeline:
@@ -269,10 +288,14 @@ def pipeline(
     preprocessor = tokenizer or feature_extractor
     if isinstance(model, PreTrainedModel):
         blade_model = optimize(task=task, model=model, preprocessor=preprocessor,
-                               device=device, model_kwargs=model_kwargs, skip_compile=skip_compile)
+                               device=device, model_kwargs=model_kwargs,
+                               forward_default_kwargs=forward_default_kwargs,
+                               skip_compile=skip_compile)
     elif model is None or isinstance(model, str):
         blade_model = optimize(task=task, id_or_path=model, preprocessor=preprocessor,
-                               device=device, model_kwargs=model_kwargs, skip_compile=skip_compile)
+                               device=device, model_kwargs=model_kwargs,
+                               forward_default_kwargs=forward_default_kwargs,
+                               skip_compile=skip_compile)
     else:
         raise ValueError('model should be str|PretrainedModel|None')
 

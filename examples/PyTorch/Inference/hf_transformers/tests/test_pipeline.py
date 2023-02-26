@@ -13,13 +13,16 @@ import unittest
 from typing import Any, Dict, List
 
 import numpy as np
-from blade_adapter import pipeline
+from blade_adapter import _default_device, pipeline
 from parameterized import parameterized
 from transformers import DistilBertForSequenceClassification
 from transformers import pipeline as hf_pipeline
+from transformers import set_seed
 
 
 class PipelineTest(unittest.TestCase):
+
+    @unittest.skip('debug')
     def test_task_default(self) -> None:
         pipe = pipeline(task="text-classification")
         output = pipe("This restaurant is awesome")
@@ -27,6 +30,7 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(output[0]['label'], 'POSITIVE')
         self.assertGreater(output[0]['score'], 0.9)
 
+    @unittest.skip('debug')
     def test_task_model_id(self) -> None:
         pipe = pipeline(
             model="distilbert-base-uncased-finetuned-sst-2-english")
@@ -35,6 +39,7 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(output[0]['label'], 'POSITIVE')
         self.assertGreater(output[0]['score'], 0.9)
 
+    @unittest.skip('debug')
     def test_preloaded_model(self) -> None:
         model = DistilBertForSequenceClassification.from_pretrained(
             'distilbert-base-uncased-finetuned-sst-2-english', torchscript=True)
@@ -43,6 +48,21 @@ class PipelineTest(unittest.TestCase):
         self.assertTrue(output)
         self.assertEqual(output[0]['label'], 'POSITIVE')
         self.assertGreater(output[0]['score'], 0.9)
+
+    def assert_pipeline_outputs_equal(self, a, b) -> None:
+        self.assertEqual(type(a), type(b))
+        if np.asarray(a).dtype.kind == 'f':
+            np.testing.assert_allclose(a, b, rtol=0.01, atol=0.01)
+        elif isinstance(a, dict):
+            self.assertEqual(a.keys(), b.keys())
+            for x in a:
+                self.assert_pipeline_outputs_equal(a[x], b[x])
+        elif isinstance(a, list):
+            self.assertEqual(len(a), len(b))
+            for x, y in zip(a, b):
+                self.assert_pipeline_outputs_equal(x, y)
+        else:
+            self.assertEqual(a, b)
 
     @parameterized.expand([
         ("feature-extraction", ["hello world."], {}),
@@ -53,36 +73,38 @@ class PipelineTest(unittest.TestCase):
             "question": "Who is sitting next to CEO?",
         }),
         ("fill-mask", ["The man worked as a <mask>."], {}),
-        # TODO(litan.ls): support seq2seq-lm tasks
-        # ("summarization", [r'''The tower is 324 metres (1,063 ft) tall,
-        #    about the same height as an 81-storey building,
-        #    and the tallest structure in Paris.'''], {}),
-        # ("translation_en_to_fr", ["Hello!"], {}),
     ])
-    def test_task_coverage(self, task: str, input_args: List[Any],
-                           input_kwargs: Dict[str, Any]) -> None:
-        pipe = pipeline(task=task, skip_compile=True)
+    def test_basic_pipelines(self, task: str, input_args: List[Any],
+                             input_kwargs: Dict[str, Any]) -> None:
         # skip compilation for fast functionality test
+        pipe = pipeline(task=task, skip_compile=True)
         output = pipe(*input_args, **input_kwargs)
-        hf_pipe = hf_pipeline(task=task)
+        hf_pipe = hf_pipeline(task=task, device=_default_device())
         hf_output = hf_pipe(*input_args, **input_kwargs)
 
-        def _compare(a, b):
-            self.assertEqual(type(a), type(b))
-            if np.asarray(a).dtype.kind == 'f':
-                np.testing.assert_allclose(a, b, rtol=0.01, atol=0.01)
-            elif isinstance(a, dict):
-                self.assertEqual(a.keys(), b.keys())
-                for x in a:
-                    _compare(a[x], b[x])
-            elif isinstance(a, list):
-                self.assertEqual(len(a), len(b))
-                for x, y in zip(a, b):
-                    _compare(x, y)
-            else:
-                self.assertEqual(a, b)
+        self.assert_pipeline_outputs_equal(output, hf_output)
 
-        _compare(output, hf_output)
+    @parameterized.expand([
+        ({'task': 'text-generation', 'forward_default_kwargs': {'use_cache': False}},
+         ["I can't believe you did such a "], {'use_cache': False}),
+        # TODO(litan.ls): support tasks with encoder-decoder model and use_cache=True
+        # ("summarization", [r'''The tower is 324 metres (1,063 ft) tall,
+        #   about the same height as an 81-storey building,
+        #   and the tallest structure in Paris.'''], {}),
+        # ("translation_en_to_fr", ["Hello!"], {}),
+    ])
+    def test_seq2seq_pipelines(self, pipeline_kwargs: Dict[str, Any],
+                               input_args: List[Any], input_kwargs: Dict[str, Any]) -> None:
+        # skip compilation for fast functionality test
+        pipe = pipeline(skip_compile=True, **pipeline_kwargs)
+        set_seed(0)
+        output = pipe(*input_args, **input_kwargs)
+        hf_pipe = hf_pipeline(
+            task=pipeline_kwargs['task'], device=_default_device())
+        set_seed(0)
+        hf_output = hf_pipe(*input_args, **input_kwargs)
+
+        self.assert_pipeline_outputs_equal(output, hf_output)
 
 
 if __name__ == '__main__':

@@ -173,11 +173,15 @@ transform_dialect::FoldProducerExtractSliceOp buildFoldProducerExtractSlice(
 
 transform::PadOp buildPadOp(OpBuilder& b, Location& loc, Value target,
                             ArrayRef<int64_t> paddingDimensions,
-                            int64_t numOperands) {
+                            int64_t numOperands,
+                            ArrayRef<Type> paddingTypes = {}) {
   auto pdlType = pdl::OperationType::get(b.getContext());
   // TODO(wyzero): support other types.
   SmallVector<Attribute> paddingAttrs(numOperands,
                                       b.getZeroAttr(b.getF32Type()));
+  for (auto [idx, type] : llvm::enumerate(paddingTypes)) {
+    paddingAttrs[idx] = b.getZeroAttr(type);
+  }
   return b.create<transform::PadOp>(loc, pdlType, target,
                                     b.getArrayAttr(paddingAttrs),
                                     b.getI64ArrayAttr(paddingDimensions),
@@ -271,6 +275,44 @@ buildConvertPaddingPlaceholderToConstOp(OpBuilder& b, Location& loc,
                                         Value target) {
   auto pdlType = pdl::OperationType::get(b.getContext());
   return b.create<transform_dialect::ConvertPaddingPlaceholderToConstOp>(
+      loc, pdlType, target);
+}
+
+transform_dialect::LinalgEagerlyBackwardInitTensorOp
+buildLinalgEagerlyBackwardInitTensorOp(OpBuilder& b, Location& loc,
+                                       Value target) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::LinalgEagerlyBackwardInitTensorOp>(
+      loc, pdlType, target);
+}
+
+transform_dialect::DISCFuseIntoContainingOp buildDISCFuseIntoContainingOp(
+    OpBuilder& b, Location& loc, Value target, Value anchor) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::DISCFuseIntoContainingOp>(loc, pdlType,
+                                                               target, anchor);
+}
+
+transform_dialect::ReductionOutputFuseOp buildReductionOutputFuseOp(
+    OpBuilder& b, Location& loc, Value target, Value loop) {
+  SmallVector<Type> pdlTypes(2, pdl::OperationType::get(b.getContext()));
+  return b.create<transform_dialect::ReductionOutputFuseOp>(loc, pdlTypes,
+                                                            target, loop);
+}
+
+transform_dialect::ReductionInputFuseOp buildReductionInputFuseOp(OpBuilder& b,
+                                                                  Location& loc,
+                                                                  Value target,
+                                                                  Value loop) {
+  SmallVector<Type> pdlTypes(2, pdl::OperationType::get(b.getContext()));
+  return b.create<transform_dialect::ReductionInputFuseOp>(loc, pdlTypes,
+                                                           target, loop);
+}
+
+transform_dialect::VectorizeConditionalGenericOp
+buildVectorizeConditionalGenericOp(OpBuilder& b, Location& loc, Value target) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::VectorizeConditionalGenericOp>(
       loc, pdlType, target);
 }
 
@@ -595,12 +637,10 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
     rootHandle = buildMatchOp(b, loc, variant, {}, nameMap[rootOp]);
   }
 
-  // split root ops.
   auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, rootHandle, {1, 1});
   Value forEachThreadLoop = forEachThreadOp->getResult(0);
-  Value tiledRoot = forEachThreadOp->getResult(1);
+  rootHandle = forEachThreadOp->getResult(1);
 
-  // build handle to target dot op.
   Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
   auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
   Value fill = matmulSplitOp->getResult(0);
@@ -617,13 +657,45 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
   // TODO(wyzero): query cpuinfo.
   int64_t hardwareVectorSizeInBytes = 4;
 
+  // supposed loop order:
+  //  loop_m0
+  //   loop_n0
+  //    loop_m1
+  //     loop_n1
+  //      loop_k0 {
+  //        inner_most_gemm
+  //      }
+  bool m0Skipped = (M != ShapedType::kDynamicSize && M <= M0);
+  bool n0Skipped = (N != ShapedType::kDynamicSize && N <= N0);
+  bool m1Skipped = (M != ShapedType::kDynamicSize && M <= M1);
+  bool n1Skipped = (N != ShapedType::kDynamicSize && N <= N1);
+  bool k0Skipped = (K != ShapedType::kDynamicSize && K <= K0);
+
+  // for very small m or n
+  if (m1Skipped || n1Skipped) {
+    // TODO(wyzero): finetune the schedule for small m or n
+    buildTileOp(b, loc, matmul, {1, 1, 1}, {0, 2, 1});
+    variant = buildRunCanonicalizer(b, loc, variant);
+    variant = buildDISCBufferize(b, loc, variant);
+    b.create<transform::YieldOp>(loc);
+    return success();
+  }
+
   // first level tile and fuse matmul and fill op.
-  auto tileOp1 = buildTileOp(b, loc, tiledRoot, {M0, N0}, {0, 1});
-  matmul = buildFuseIntoContainingOp(b, loc, matmul, tileOp1->getResult(1));
-  fill = buildFuseIntoContainingOp(b, loc, fill, tileOp1->getResult(1));
+  if (!m0Skipped) {
+    auto tileOp1 = buildTileOp(b, loc, rootHandle, {M0, N0}, {0, 1});
+    rootHandle = tileOp1->getResult(0);
+    matmul = buildFuseIntoContainingOp(b, loc, matmul, tileOp1->getResult(1));
+    fill = buildFuseIntoContainingOp(b, loc, fill, tileOp1->getResult(1));
+  } else if (!n0Skipped) {
+    auto tileOp1 = buildTileOp(b, loc, rootHandle, {M0, N0}, {0, 1});
+    rootHandle = tileOp1->getResult(0);
+    matmul = buildFuseIntoContainingOp(b, loc, matmul, tileOp1->getResult(2));
+    fill = buildFuseIntoContainingOp(b, loc, fill, tileOp1->getResult(2));
+  }
 
   // second level tile and fuse matmul and fill op.
-  auto tileOp2 = buildTileOp(b, loc, tileOp1->getResult(0), {M1, N1}, {0, 1});
+  auto tileOp2 = buildTileOp(b, loc, rootHandle, {M1, N1}, {0, 1});
   // pad root ops to register level size (static size).
   int64_t numOperandsUpperBound = fusionPattern.getOperands().size() +
                                   fusionPattern.getResults().size() +
@@ -667,27 +739,9 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
                     (K == ShapedType::kDynamicSize || K > K0) &&
                     (N == ShapedType::kDynamicSize || N > N0));
   if (packInput) {
-    // supposed loop order:
-    //  loop_m0
-    //   loop_n0
-    //    loop_m1
-    //     loop_n1
-    //      loop_k0 {
-    //        inner_most_gemm
-    //      }
     // We want to cache the packed A below loop_m0 and above loop_n0.
     // Thus the initial loop_level is 4.
-    int loopLevel = 4;
-    // in case:
-    // - the size of dimension N <= N0, then loop_n0 will be folded.
-    loopLevel -= (N != ShapedType::kDynamicSize && N <= N0);
-    // - the size of dimension M <= M1, then loop_m1 will be folded.
-    loopLevel -= (M != ShapedType::kDynamicSize && M <= M1);
-    // - the size of dimension N <= N1, then loop_n1 will be folded.
-    loopLevel -= (N != ShapedType::kDynamicSize && N <= N1);
-    // - the size of dimension K <= K0, then loop_k0 will be folded.
-    loopLevel -= (K != ShapedType::kDynamicSize && K <= K0);
-
+    int loopLevel = 4 - n0Skipped - m1Skipped - n1Skipped - k0Skipped;
     if (loopLevel <= 0) {
       return m->emitError()
              << "failed to cache the packed input due to loopLevel = "
@@ -1007,6 +1061,295 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
   return success();
 }
 
+class Aarch64GEMMLargeKScheduleWithEpilogueFactory
+    : public Aarch64GEMMLargeKScheduleFactory {
+ public:
+  using Aarch64GEMMLargeKScheduleFactory::Aarch64GEMMLargeKScheduleFactory;
+  bool checkFusionPatternProperties(PatternDescription&) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+};
+
+bool Aarch64GEMMLargeKScheduleWithEpilogueFactory::checkFusionPatternProperties(
+    PatternDescription& pd) {
+  auto& fusionPattern = pd.getFusionPattern();
+  auto& rootOps = fusionPattern.getRootOps();
+  // Only support single output a.t.m.
+  if (rootOps.size() != 1) return false;
+
+  auto dominantOp = fusionPattern.getDominantOp();
+  return rootOps[0] != dominantOp && isa<lmhlo::DotGeneralOp>(dominantOp);
+}
+
+LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
+    PatternDescription& pd, ModuleOp m) {
+  OpBuilder b(m);
+  b.setInsertionPointToStart(&m.getBodyRegion().front());
+  Location loc = m.getLoc();
+  MLIRContext* ctx = m->getContext();
+  auto seqOp = b.create<transform_ext::CanonicalizedSequenceOp>(
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{});
+  seqOp.getBody().push_back(new Block);
+  auto& bodyBlock = seqOp.getBody().front();
+  auto pdlOpType = pdl::OperationType::get(ctx);
+  bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
+  b.setInsertionPointToStart(&bodyBlock);
+  Value variant = bodyBlock.getArgument(0);
+
+  auto& fusionPattern = pd.getFusionPattern();
+  auto nameMap = TransformNameAssigner(fusionPattern.getOpList()).getNameMap();
+  auto dotOp =
+      dyn_cast_or_null<lmhlo::DotGeneralOp>(fusionPattern.getDominantOp());
+  if (!dotOp) {
+    return m->emitError() << "expect dot_general op as dominant\n";
+  }
+  Value lhs = dotOp->getOperand(0);
+  Value rhs = dotOp->getOperand(1);
+  auto lhsTy = lhs.getType().cast<MemRefType>();
+  auto rhsTy = rhs.getType().cast<MemRefType>();
+  if (lhsTy.getRank() != 2 || rhsTy.getRank() != 2) {
+    return m->emitError() << "only support rank 2 GEMM a.t.m.\n";
+  }
+
+  auto dimNumbers = dotOp.getDotDimensionNumbers();
+  auto lhsContractingDims = dimNumbers.getLhsContractingDimensions();
+  auto rhsContractingDims = dimNumbers.getRhsContractingDimensions();
+  if (lhsContractingDims.size() != 1 || rhsContractingDims.size() != 1) {
+    return m->emitError() << "only support exactly 1 contract dim\n";
+  }
+  bool lhsTranspose = (lhsContractingDims[0] == lhsTy.getRank() - 2);
+  bool rhsTranspose = (rhsContractingDims[0] == rhsTy.getRank() - 1);
+  int64_t M = lhsTranspose ? lhsTy.getShape()[lhsTy.getRank() - 1]
+                           : lhsTy.getShape()[lhsTy.getRank() - 2];
+  int64_t K = lhsTranspose ? lhsTy.getShape()[lhsTy.getRank() - 2]
+                           : lhsTy.getShape()[lhsTy.getRank() - 1];
+  int64_t N = rhsTranspose ? rhsTy.getShape()[rhsTy.getRank() - 2]
+                           : rhsTy.getShape()[rhsTy.getRank() - 1];
+
+  if (fusionPattern.getRootOps().size() != 1) {
+    return m->emitError() << "only support single output a.t.m.\n";
+  }
+  Operation* rootOp = fusionPattern.getRootOps()[0];
+  Value rootHandle = buildMatchOp(b, loc, variant, {}, nameMap[rootOp]);
+
+  // merge elemwise ops in case there are many.
+  SmallVector<Value> otherElemOpHandles;
+  for (Operation* op : fusionPattern.getOpList()) {
+    if (op == rootOp || op == dotOp.getOperation()) continue;
+    otherElemOpHandles.push_back(
+        buildMatchOp(b, loc, variant, {}, nameMap[op]));
+  }
+  if (!otherElemOpHandles.empty()) {
+    buildLinalgFuseProducersOp(b, loc, rootHandle, otherElemOpHandles);
+    rootHandle = buildMatchOp(b, loc, variant, {}, nameMap[rootOp]);
+  }
+  rootHandle = buildLinalgEagerlyBackwardInitTensorOp(b, loc, rootHandle);
+
+  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, rootHandle, {1, 1});
+  Value forEachThreadLoop = forEachThreadOp->getResult(0);
+  rootHandle = forEachThreadOp->getResult(1);
+
+  // build handle to target dot op.
+  Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
+  auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
+  Value fill = matmulSplitOp->getResult(0);
+  Value matmul = matmulSplitOp->getResult(1);
+  matmul = buildFuseIntoContainingOp(b, loc, matmul, forEachThreadLoop);
+  fill = buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+
+  // first level tile size for dimension m
+  int64_t M0 = 288, M1 = 8;
+  // first/second level tile size for dimension n
+  int64_t N0 = 204, N1 = 12;
+  // first/second level tile size for dimension k
+  int64_t K0 = 512, K1 = 1;
+  // TODO(wyzero): query cpuinfo.
+  int64_t hardwareVectorSizeInBytes = 4;
+
+  // Check if we need to pad dimension `m/n/k` if input or weight is packed
+  bool mIsPadded = (M1 != 1) && (M == ShapedType::kDynamicSize ||
+                                 (M > M0 && (M % M0 != 0 || M0 % M1 != 0)) ||
+                                 (M <= M0 && M > M1 && M % M1 != 0));
+  bool nIsPadded = (N1 != 1) && (N == ShapedType::kDynamicSize ||
+                                 (N > N0 && (N % N0 != 0 || N0 % N1 != 0)) ||
+                                 (N <= N0 && N > N1 && N % N1 != 0));
+  bool kIsPadded = (K1 != 1) && (K == ShapedType::kDynamicSize ||
+                                 (K > K0 && (K % K0 != 0 || K0 % K1 != 0)) ||
+                                 (K <= K0 && K > K1 && K % K1 != 0));
+
+  // Check if we need to pack the input:
+  bool packInput = ((M == ShapedType::kDynamicSize || M >= M1) &&
+                    (K == ShapedType::kDynamicSize || K > K0) &&
+                    (N == ShapedType::kDynamicSize || N > N0));
+  // supposed loop order:
+  //  loop_m0
+  //   loop_k0
+  //    loop_n0
+  //     loop_m1
+  //      loop_n1
+  //       loop_k1 {
+  //         inner_most_gemm
+  //       }
+  // in case:
+  // - the size of dimension K <= K0, then loop_k0 will be folded.
+  bool m0Skipped = (M != ShapedType::kDynamicSize && M <= M0);
+  // - the size of dimension K <= K0, then loop_k0 will be folded.
+  bool k0Skipped = (K != ShapedType::kDynamicSize && K <= K0);
+  // - the size of dimension N <= N0, then loop_n0 will be folded.
+  bool n0Skipped = (N != ShapedType::kDynamicSize && N <= N0);
+  // - the size of dimension M <= M1, then loop_m1 will be folded.
+  bool m1Skipped = (M != ShapedType::kDynamicSize && M <= M1);
+  // - the size of dimension N <= N1, then loop_n1 will be folded.
+  bool n1Skipped = (N != ShapedType::kDynamicSize && N <= N1);
+  // - the size of dimension K <= K0, then loop_k0 will be folded.
+  bool k1Skipped = (K != ShapedType::kDynamicSize && K <= K1);
+
+  // for very small m and n
+  if (m1Skipped || n1Skipped || k1Skipped) {
+    buildTileOp(b, loc, matmul, {1, 1, 1}, {0, 2, 1});
+    variant = buildRunCanonicalizer(b, loc, variant);
+    variant = buildDISCBufferize(b, loc, variant);
+    b.create<transform::YieldOp>(loc);
+    return success();
+  }
+
+  if (!m0Skipped) {
+    auto tileM0 = buildTileOp(b, loc, rootHandle, {M0}, {0, 1});
+    rootHandle = tileM0->getResult(0);
+    Value loopM0 = tileM0->getResult(1);
+    variant = buildRunCanonicalizer(b, loc, variant);
+    matmul = buildDISCFuseIntoContainingOp(b, loc, matmul, loopM0);
+    fill = buildDISCFuseIntoContainingOp(b, loc, fill, loopM0);
+  }
+
+  if (!k0Skipped) {
+    auto tileK0 = buildTileOp(b, loc, matmul, {0, 0, K0}, {0, 1, 2});
+    matmul = tileK0->getResult(0);
+    auto outputFuseOp =
+        buildReductionOutputFuseOp(b, loc, rootHandle, tileK0->getResult(1));
+    rootHandle = outputFuseOp->getResult(0);
+    auto inputFuseOp =
+        buildReductionInputFuseOp(b, loc, fill, outputFuseOp->getResult(1));
+    fill = inputFuseOp->getResult(0);
+    variant = buildRunCanonicalizer(b, loc, variant);
+  }
+
+  if (!n0Skipped) {
+    auto tileN0 = buildTileOp(b, loc, rootHandle, {0, N0}, {0, 1});
+    rootHandle = tileN0->getResult(0);
+    Value loopN0 = tileN0->getResult(1);
+    variant = buildRunCanonicalizer(b, loc, variant);
+    matmul = buildDISCFuseIntoContainingOp(b, loc, matmul, loopN0);
+    fill = buildDISCFuseIntoContainingOp(b, loc, fill, loopN0);
+  }
+
+  auto tileM1 = buildTileOp(b, loc, rootHandle, {M1, 0}, {0, 1});
+  rootHandle = tileM1->getResult(0);
+  Value loopM1 = tileM1->getResult(1);
+  variant = buildRunCanonicalizer(b, loc, variant);
+  matmul = buildDISCFuseIntoContainingOp(b, loc, matmul, loopM1);
+  fill = buildDISCFuseIntoContainingOp(b, loc, fill, loopM1);
+
+  auto tileN1 = buildTileOp(b, loc, rootHandle, {0, N1}, {0, 1});
+  rootHandle = tileN1->getResult(0);
+  Value loopN1 = tileN1->getResult(1);
+  variant = buildRunCanonicalizer(b, loc, variant);
+  // pad root ops to register level size (static size).
+  int64_t numOperandsUpperBound = fusionPattern.getOperands().size() +
+                                  fusionPattern.getResults().size() +
+                                  fusionPattern.getInternalResults().size() + 2;
+  SmallVector<Type> paddingTypes;
+  if (!k0Skipped) paddingTypes.push_back(b.getIntegerType(1));
+  rootHandle = buildPadOp(b, loc, rootHandle, {0, 1}, numOperandsUpperBound,
+                          paddingTypes);
+  auto padForRootOp = buildMatchOp(b, loc, variant, {"tensor.pad"});
+  buildReplaceConstPaddingValueOp(b, loc, padForRootOp, "kAny");
+  matmul = buildDISCFuseIntoContainingOp(b, loc, matmul, loopN1);
+  fill = buildDISCFuseIntoContainingOp(b, loc, fill, loopN1);
+
+  auto tileK1 = buildTileOp(b, loc, matmul, {0, 0, K1}, {0, 1, 2});
+  matmul = tileK1->getResult(0);
+  variant = buildRunCanonicalizer(b, loc, variant);
+  Value weightSlice = buildGetProducerOfOperand(b, loc, matmul, 1);
+  buildFoldProducerExtractSlice(b, loc, weightSlice, 2);
+  // pad to match the requirement of hardware vector/tensor instruction.
+  matmul = buildPadOp(b, loc, matmul, {0, 1, 2}, 3);
+  fill = buildPadOp(b, loc, fill, {0, 1}, 3, paddingTypes);
+  Value padForInput = buildGetProducerOfOperand(b, loc, matmul, 0);
+  Value padForWeight = buildGetProducerOfOperand(b, loc, matmul, 1);
+
+  if (packInput) {
+    // We want to cache the packed A below loop_k0 and above loop_n0.
+    // Thus the initial loop_level is 4.
+    int loopLevel = 4 - n0Skipped - m1Skipped - n1Skipped - k1Skipped;
+    if (loopLevel <= 0) {
+      return m->emitError()
+             << "failed to cache the packed input due to loopLevel = "
+             << loopLevel << " is invalid\n";
+    }
+    auto loopN0 = buildGetParentForOp(b, loc, padForInput, loopLevel);
+    bool inputIsPadded = mIsPadded || kIsPadded;
+    SmallVector<int64_t> tileSizes;
+    SmallVector<int64_t> permutation;
+    if (lhsTranspose) {
+      tileSizes = {K1, M1};
+      permutation = {2, 0, 1, 3};
+    } else {
+      tileSizes = {M1, K1};
+      permutation = {0, 2, 3, 1};
+    }
+    buildCacheRead(b, loc, padForInput, loopN0, {1, 1}, tileSizes,
+                   inputIsPadded, permutation);
+  }
+
+  // Check if we need to pack the weight, one of the following conditions:
+  // - if M, N and K are both dynamic, we always pad input a.t.m.
+  // - if N is known and N >= N0 && N0 > N1
+  bool packWeight = ((K == ShapedType::kDynamicSize || K > K1) &&
+                     (N == ShapedType::kDynamicSize || N > N1));
+  if (packWeight) {
+    bool weightIsPadded = nIsPadded || kIsPadded;
+    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    SmallVector<int64_t> tileSizes;
+    SmallVector<int64_t> permutation;
+    if (rhsTranspose) {
+      tileSizes = {N1, K1};
+      permutation = {0, 2, 3, 1};
+    } else {
+      tileSizes = {K1, N1};
+      permutation = {2, 0, 1, 3};
+    }
+    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+                   weightIsPadded, permutation);
+  }
+
+  variant = buildRunCanonicalizer(b, loc, variant);
+  Value multiLevelPackOps =
+      buildMatchOp(b, loc, variant, {"disc_linalg_ext.multi_level_pack"});
+  buildLowerMultiLevelPackToLoop(b, loc, multiLevelPackOps);
+  variant = buildRunCanonicalizer(b, loc, variant);
+
+  Value conditionalOps =
+      buildMatchOp(b, loc, variant, {"disc_linalg_ext.conditional_generic"});
+  buildVectorizeConditionalGenericOp(b, loc, conditionalOps);
+  variant = buildRunCanonicalizer(b, loc, variant);
+  Value func = buildMatchOp(b, loc, variant, {"func.func"});
+  buildVectorize(b, loc, func, true);
+  variant = buildRunCanonicalizer(b, loc, variant);
+  auto placeholderOps = buildMatchOp(
+      b, loc, variant, {"disc_linalg_ext.padding_value_placeholder"}, {});
+  buildConvertPaddingPlaceholderToConstOp(b, loc, placeholderOps);
+  variant = buildRunCanonicalizer(b, loc, variant);
+
+  variant = buildDISCBufferize(b, loc, variant);
+  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
+                    "linalg-copy", true, "eltwise", false);
+  buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
+                    "linalg-copy", true, "eltwise", false);
+  variant = buildDecomposeVectors(b, loc, variant, hardwareVectorSizeInBytes);
+  b.create<transform::YieldOp>(loc);
+  return success();
+}
+
 DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, kDefaultScheduleFactoryPriority,
                         Aarch64GEMMDefaultScheduleFactory,
                         ArrayRef<StringRef>{kDefaultScheduleFactoryTag});
@@ -1018,6 +1361,10 @@ DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 10,
 DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 100,
                         Aarch64GEMMLargeKScheduleFactory,
                         ArrayRef<StringRef>{"large_k"});
+
+DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 110,
+                        Aarch64GEMMLargeKScheduleWithEpilogueFactory,
+                        ArrayRef<StringRef>{"large_k_epilogue"});
 
 }  // namespace
 

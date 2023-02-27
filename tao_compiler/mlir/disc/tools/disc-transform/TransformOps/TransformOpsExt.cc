@@ -2335,12 +2335,6 @@ DiagnosedSilenceableFailure ReductionOutputFuseOp::apply(
   auto yieldOp = cast<scf::YieldOp>(newForOp.getBody()->getTerminator());
   auto insertSliceOp =
       yieldOp->getOperand(forResultIdx).getDefiningOp<tensor::InsertSliceOp>();
-  if (!insertSliceOp) {
-    return mlir::emitDefiniteFailure(
-        this->getOperation(),
-        "insert_slice op not found for target result of for op\n");
-  }
-
   b.setInsertionPoint(yieldOp);
   for (auto [idx, val] : llvm::enumerate(yieldOp->getOperands())) {
     auto it = forResultToLinalgInitOperandMap.find(idx);
@@ -2348,22 +2342,24 @@ DiagnosedSilenceableFailure ReductionOutputFuseOp::apply(
       mapping.map(forOp->getResult(idx), val);
       continue;
     }
-    auto insertOp = val.getDefiningOp<tensor::InsertSliceOp>();
-    if (!insertOp)
-      return mlir::emitDefiniteFailure(
-          this->getOperation(),
-          "insert_slice op not found for target result of for op\n");
-    mapping.map(forOp->getResult(idx), insertOp->getOperand(0));
+    if (auto insertOp = val.getDefiningOp<tensor::InsertSliceOp>()) {
+      mapping.map(forOp->getResult(idx), insertOp->getOperand(0));
+    } else {
+      mapping.map(forOp->getResult(idx), val);
+    }
   }
   auto clonedTarget = b.clone(*target, mapping);
-  auto tileableTarget = cast<TilingInterface>(clonedTarget);
-  FailureOr<Value> tiledTarget = tileableTarget.generateResultTileValue(
-      b, 0, insertSliceOp.getMixedOffsets(), insertSliceOp.getMixedSizes());
-  if (failed(tiledTarget)) {
-    return mlir::emitDefiniteFailure(this->getOperation(),
-                                     "failed to tile target op\n");
+  Operation* tiledOp = clonedTarget;
+  if (insertSliceOp) {
+    auto tileableTarget = cast<TilingInterface>(clonedTarget);
+    FailureOr<Value> tiledTarget = tileableTarget.generateResultTileValue(
+        b, 0, insertSliceOp.getMixedOffsets(), insertSliceOp.getMixedSizes());
+    if (failed(tiledTarget)) {
+      return mlir::emitDefiniteFailure(this->getOperation(),
+                                       "failed to tile target op\n");
+    }
+    tiledOp = tiledTarget->getDefiningOp();
   }
-  Operation* tiledOp = tiledTarget->getDefiningOp();
   Value iv = newForOp.getInductionVar();
   Value nextIv =
       b.create<arith::AddIOp>(tiledOp->getLoc(), iv, newForOp.getStep());
@@ -2383,8 +2379,12 @@ DiagnosedSilenceableFailure ReductionOutputFuseOp::apply(
       newResults.push_back(val);
       continue;
     }
-    Value initValue = newForOp.getRegionIterArg(idx);
     Value updateValue = conditionalGenericOp->getResult(it->second);
+    if (!insertSliceOp) {
+      newResults.push_back(updateValue);
+      continue;
+    }
+    Value initValue = newForOp.getRegionIterArg(idx);
     newResults.push_back(b.create<tensor::InsertSliceOp>(
                               tiledOp->getLoc(), updateValue, initValue,
                               insertSliceOp.getMixedOffsets(),
@@ -2397,6 +2397,10 @@ DiagnosedSilenceableFailure ReductionOutputFuseOp::apply(
        llvm::enumerate(conditionalGenericOp->getResults())) {
     auto it = linalgInitOperandToForResultMap.find(idx);
     if (it != linalgInitOperandToForResultMap.end()) continue;
+    if (!insertSliceOp) {
+      newResults.push_back(updateValue);
+      continue;
+    }
     Value initValue = newForOp.getRegionIterArgs()
                           .drop_front(forOp.getRegionIterArgs().size() +
                                       nonFusedInitOperandIdx++)
@@ -2486,29 +2490,38 @@ DiagnosedSilenceableFailure ReductionInputFuseOp::apply(
         }
         return false;
       });
-  if (numCandidateSliceOp != 1) {
+  if (numCandidateSliceOp > 1) {
     return mlir::emitDefiniteFailure(
-        this->getOperation(), (Twine("only support one candidate extract_slice "
-                                     "of target in the loop but got") +
-                               Twine(numCandidateSliceOp))
-                                  .str());
+        this->getOperation(),
+        (Twine("only support at most one candidate extract_slice "
+               "of target in the loop but got") +
+         Twine(numCandidateSliceOp))
+            .str());
   }
 
-  OpBuilder b(sliceOp);
+  OpBuilder b(target->getContext());
+  if (sliceOp)
+    b.setInsertionPoint(sliceOp);
+  else
+    b.setInsertionPoint(forOp.getBody(), forOp.getBody()->begin());
+
   forOp->setOperand(
       forOp.getNumControlOperands() + (argIt - iterOperands.begin()),
       linalgOp.getDpsInitOperands().front()->get());
   auto clonedTarget = b.clone(*target);
   clonedTarget->replaceUsesOfWith(linalgOp.getDpsInitOperands().front()->get(),
                                   iterArg);
-  auto tileableTarget = cast<TilingInterface>(clonedTarget);
-  FailureOr<Value> tiledTarget = tileableTarget.generateResultTileValue(
-      b, 0, sliceOp.getMixedOffsets(), sliceOp.getMixedSizes());
-  if (failed(tiledTarget)) {
-    return mlir::emitDefiniteFailure(this->getOperation(),
-                                     "failed to tile target op\n");
+  Operation* tiledOp = clonedTarget;
+  if (sliceOp) {
+    auto tileableTarget = cast<TilingInterface>(clonedTarget);
+    FailureOr<Value> tiledTarget = tileableTarget.generateResultTileValue(
+        b, 0, sliceOp.getMixedOffsets(), sliceOp.getMixedSizes());
+    if (failed(tiledTarget)) {
+      return mlir::emitDefiniteFailure(this->getOperation(),
+                                       "failed to tile target op\n");
+    }
+    tiledOp = tiledTarget->getDefiningOp();
   }
-  Operation* tiledOp = tiledTarget->getDefiningOp();
   Value pred =
       b.create<arith::CmpIOp>(tiledOp->getLoc(), arith::CmpIPredicate::eq,
                               forOp.getInductionVar(), forOp.getLowerBound());
@@ -2518,7 +2531,12 @@ DiagnosedSilenceableFailure ReductionInputFuseOp::apply(
     return mlir::emitDefiniteFailure(
         this->getOperation(), "failed to build conditional_generic op\n");
   }
-  sliceOp->replaceAllUsesWith(conditionalGenericOp->getResults());
+  if (sliceOp) {
+    sliceOp->replaceAllUsesWith(conditionalGenericOp->getResults());
+  } else {
+    iterArg.replaceAllUsesExcept(conditionalGenericOp->getResult(0),
+                                 {conditionalGenericOp});
+  }
   results.set(getTiledTarget().cast<OpResult>(), {conditionalGenericOp});
   results.set(getFusedLoop().cast<OpResult>(), {forOp});
   return DiagnosedSilenceableFailure(success());

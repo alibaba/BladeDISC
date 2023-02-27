@@ -53,12 +53,6 @@ def _add_module(root: nn.Module, full_path: str, module: nn.Module) -> None:
     parent, name = _locate_parent(root, full_path)
     parent.add_module(name, module)
 
-def _override_module(root: nn.Module, full_path: str, module: nn.Module) -> None:
-    parent, name = _locate_parent(root, full_path)
-    if not hasattr(parent, name):
-        raise RuntimeError(f"There is no module named {name}.")
-    delattr(parent, name)
-    parent.add_module(name, module)
 
 def _register_buffer(root: nn.Module, full_path: str, tensor: torch.Tensor) -> None:
     parent, name = _locate_parent(root, full_path)
@@ -127,8 +121,11 @@ class GraphModContext:
     def get_or_create_module(self, full_path: str, constructor: Callable[[], nn.Module]) -> nn.Module:
         for n, m in self.root.named_modules(remove_duplicate=False):
             if n == full_path:
-                # If an observer module with the same full_path already exists, get its QParams and
-                # use it to instantiate the new observer.
+                # If the following conditions are met:
+                # 1. An observer module with the same full_path already exists
+                # 2. The existing observer have is qparams
+                # 3. The observer corresponding to the constructor has a from_qparams class method
+                # then a new observer will be instantiated.
                 if hasattr(m, "qparams") and hasattr(constructor.func, "from_qparams"):
                     m = constructor.func.from_qparams(m.qparams)
                 self.add_module(full_path, m)

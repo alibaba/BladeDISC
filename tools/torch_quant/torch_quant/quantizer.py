@@ -91,7 +91,7 @@ class Quantizer:
             ctx.modify_graph([
                 set_qconfig,
                 insert_act_observer,
-                partial(quantizable_module_to_observed, is_observe_bias=True),
+                partial(quantizable_module_to_observed, is_observe_bias=False),
             ])
         else:
             ctx.modify_graph([set_qconfig, insert_act_observer])

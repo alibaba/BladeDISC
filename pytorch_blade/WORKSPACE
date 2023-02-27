@@ -177,6 +177,6 @@ load("@org_tensorflow//tensorflow:workspace0.bzl", "tf_workspace0")
 
 tf_workspace0()
 
-load("org_disc_compiler//build_tools/bazel:workspace.bzl", "disc_compiler_workspace")
+load("@org_disc_compiler//build_tools/bazel:workspace.bzl", "disc_compiler_workspace")
 
 disc_compiler_workspace()

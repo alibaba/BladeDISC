@@ -33,6 +33,7 @@ limitations under the License.
 #include "mlir/Tools/PDLL/ODS/Context.h"
 #include "mlir/Tools/PDLL/Parser/Parser.h"
 #include "mlir/disc/IR/hlo_disc_ops.h"
+#include "mlir/disc/disc_util.h"
 #include "tensorflow/tsl/platform/default/logging.h"
 
 #define DEBUG_TYPE "disc-pdl-utils"
@@ -91,10 +92,13 @@ static const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite SetAttr(op : Op, key : Attr, value : Attr);
   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
   Rewrite GetAttrOrDefault(op : Op, key : Attr, value : Attr) -> (Attr);
+  Rewrite SetOperand(op : Op, index : Attr, value: Value);
 
   Constraint CheckConstantTensor(v : Value);
   Constraint CheckConstantTensorValueIs(v : Value, expected : Attr);
   Rewrite IsConstantTensor(v : Value) -> Attr;
+  Rewrite CreateSparseSegmentReduction(tag : Attr, inputs : ValueRange, outputs : ValueRange, reduction_mode : Attr) -> (op: Op, new_outputs : ValueRange);
+  Constraint CheckSliceOpAttribute(slice_attr : Attr, limit : Attr, start : Attr, strides : Attr);
 )pdll";
 
 // Combines the `chunkBuffer` with some pre-defined helper function prototypes.
@@ -220,6 +224,35 @@ static void createCustomCall(PatternRewriter& rewriter, PDLResultList& results,
   results.push_back(ValueRange(vs));
 }
 
+static void createSparseSegmentReduction(PatternRewriter& rewriter,
+                                         PDLResultList& results,
+                                         ArrayRef<PDLValue> values) {
+  assert(values.size() == 4);
+
+  auto tag = values[0].cast<Attribute>().cast<StringAttr>().getValue();
+  auto& vs = getThreadLocalValueRangeStorage(tag);
+  vs.clear();
+  auto inputs = values[1].cast<ValueRange>();
+  auto outputs = values[2].cast<ValueRange>();
+  auto reduction_attr =
+      values[3].cast<Attribute>().cast<mhlo_disc::ReductionModeEnumAttr>();
+
+  SmallVector<Type> outputTypes;
+  for (Value v : outputs) outputTypes.push_back(v.getType());
+  assert(outputTypes.size() == 2);
+  assert(inputs.size() == 4);
+  auto ctx = (*outputs.begin()).getContext();
+  Operation* op =
+      rewriter.create<mhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(
+          (*outputs.begin()).getLoc(), outputTypes[0], outputTypes[1],
+          inputs[0], inputs[1], inputs[2], inputs[3], reduction_attr);
+
+  for (Value out : op->getResults()) vs.push_back(out);
+
+  results.push_back(op);
+  results.push_back(ValueRange(vs));
+}
+
 static LogicalResult checkConstantTensor(PatternRewriter& rewriter,
                                          ArrayRef<PDLValue> values) {
   assert(values.size() == 1);
@@ -241,6 +274,44 @@ static LogicalResult checkConstantTensorValueIs(PatternRewriter& rewriter,
     if (constant_val == expected_val) {
       return success();
     }
+  }
+  return failure();
+}
+
+static LogicalResult checkSliceOpAttribute(PatternRewriter& rewriter,
+                                           ArrayRef<PDLValue> values) {
+  assert(values.size() == 4);
+  auto slice_attr = values[0].cast<Attribute>().cast<DictionaryAttr>();
+  auto slice_limit = disc_ral::ConvertDenseIntAttr(
+      slice_attr.getAs<DenseIntElementsAttr>("limit_indices"));
+  auto slice_start = disc_ral::ConvertDenseIntAttr(
+      slice_attr.getAs<DenseIntElementsAttr>("start_indices"));
+  auto slice_strides = disc_ral::ConvertDenseIntAttr(
+      slice_attr.getAs<DenseIntElementsAttr>("strides"));
+  auto expected_limit = disc_ral::ConvertArrayAttrToInt(
+      values[1].cast<Attribute>().cast<ArrayAttr>());
+  auto expected_start = disc_ral::ConvertArrayAttrToInt(
+      values[2].cast<Attribute>().cast<ArrayAttr>());
+  auto expected_strides = disc_ral::ConvertArrayAttrToInt(
+      values[3].cast<Attribute>().cast<ArrayAttr>());
+  auto check_all_equal = [&](std::vector<int64_t> origin,
+                             std::vector<int64_t> expected) {
+    if (origin.size() != expected.size()) {
+      VLOG(2) << origin.size() << " " << expected.size();
+      return false;
+    }
+    for (int i = 0; i < origin.size(); ++i) {
+      if (origin[i] != expected[i]) {
+        VLOG(2) << origin[i] << " " << expected[i];
+        return false;
+      }
+    }
+    return true;
+  };
+  if (check_all_equal(slice_limit, expected_limit) &&
+      check_all_equal(slice_start, expected_start) &&
+      check_all_equal(slice_strides, expected_strides)) {
+    return success();
   }
   return failure();
 }
@@ -288,9 +359,18 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
         StringRef key = keyAttr.cast<StringAttr>().getValue();
         return op->hasAttr(key) ? op->getAttr(key) : valueAttr;
       });
+  pdlPatterns.registerRewriteFunction(
+      "SetOperand", [](PatternRewriter& rewriter, PDLResultList& results,
+                       ArrayRef<PDLValue> values) {
+        auto op = values[0].cast<Operation*>();
+        auto index = values[1].cast<Attribute>().cast<IntegerAttr>().getInt();
+        op->setOperand(index, values[2].cast<Value>());
+      });
   pdlPatterns.registerRewriteFunction("CreateCustomCall", createCustomCall);
   pdlPatterns.registerRewriteFunction("PackValue_0", packValues<0>);
   pdlPatterns.registerRewriteFunction("IsConstantTensor", isConstantTensor);
+  pdlPatterns.registerRewriteFunction("CreateSparseSegmentReduction",
+                                      createSparseSegmentReduction);
 
 #define REGISTER_PACK_AND_UNPACK(N)                                    \
   pdlPatterns.registerRewriteFunction("PackValue_" #N, packValues<N>); \
@@ -319,6 +399,8 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
                                          checkConstantTensor);
   pdlPatterns.registerConstraintFunction("CheckConstantTensorValueIs",
                                          checkConstantTensorValueIs);
+  pdlPatterns.registerConstraintFunction("CheckSliceOpAttribute",
+                                         checkSliceOpAttribute);
 
   if (callback) callback(pdlPatterns);
 }

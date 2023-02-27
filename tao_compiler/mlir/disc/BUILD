@@ -1954,6 +1954,7 @@ cc_library(
     srcs = ["transforms/disc_pdl_utils.cc"],
     hdrs = ["transforms/disc_pdl_utils.h"],
     deps = [
+        ":disc_util",
         ":mhlo_disc",
         "@org_tensorflow//tensorflow/tsl/platform:logging",
         "@llvm-project//llvm:Support",

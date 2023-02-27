@@ -356,6 +356,27 @@ def HLO_SparseSegmentReductionOp: HLODISC_ShapedInterfaceOp<"sparse_segment_redu
   );
 }
 
+def HLO_SparseSegmentReductionWithEmptyRowsOp : HLODISC_ShapedInterfaceOp<"sparse_segment_reduction_with_empty_rows", [Pure]> {
+  let summary = "This is combination of sparse_fill_empty_rows + sparse_segment_mean/sum";
+  let description = [{
+    This is specialized op only used for inference case.
+    In traning scenario, these 2 ops should not be fused, since `reverse_index_map`
+    is needed for backward computation.
+  }];
+  let arguments = (ins
+    HLO_FpTensor:$data,
+    HLO_I32OrI64Tensor:$indices,
+    HLO_I32OrI64Tensor:$unfilled_segment_ids,
+    TensorOf<[I64]>:$dense_shape, // needed for output shape computation
+    DefaultValuedAttr<HLO_ReductionModeEnum, "ReductionModeEnum::Mean">:$reduction_mode
+  );
+
+  let results = (outs
+    HLO_FpTensor:$output,
+    TensorOf<[I1]>:$empty_row_indicator
+  );
+}
+
 def HLO_WhereOp : HLODISC_ShapedInterfaceOp<"where", [Pure]> {
   let summary = "One-to-one mapping of TF_WhereOp";
   let description = [{

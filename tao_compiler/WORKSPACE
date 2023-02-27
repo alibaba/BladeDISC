@@ -1,4 +1,4 @@
-workspace(name = "disc_compiler")
+workspace(name = "org_disc_compiler")
 
 local_repository(
     name = "org_tensorflow",

@@ -1,0 +1,25 @@
+diff --git a/lib/Dialect/LinalgTransform/IR/StructuredTransformOpsExt.cpp b/iree-dialects/lib/Dialect/LinalgTransform/IR/StructuredTransformOpsExt.cpp
+index 3a09c0297..e9f03a5c3 100644
+--- a/lib/Dialect/LinalgTransform/IR/StructuredTransformOpsExt.cpp
++++ b/lib/Dialect/LinalgTransform/IR/StructuredTransformOpsExt.cpp
+@@ -590,7 +590,6 @@ forgetUnnecessaryHandles(transform::TransformState &state,
+         return !handlesUsedAfterTransform[handle];
+       });
+       if (allHandlesUnused) {
+-        listener->removeMappings(payload);
+         seen.insert(payload);
+       }
+     }
+@@ -603,10 +602,11 @@ forgetUnnecessaryHandles(transform::TransformState &state,
+     for (Operation *payload : state.getPayloadOps(result)) {
+       if (!payload || seen.contains(payload))
+         continue;
+-      listener->removeMappings(payload);
+       seen.insert(payload);
+     }
+   }
++
++  for (Operation* payload : seen) listener->removeMappings(payload);
+ }
+
+ DiagnosedSilenceableFailure transform_ext::CanonicalizedSequenceOp::apply(

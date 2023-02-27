@@ -67,7 +67,6 @@ build:disc_aarch64 --config=disc_cpu
 build:disc_aarch64 --config=mkl_aarch64
 build:disc_aarch64 --cxxopt=-DTAO_AARCH64
 build:disc_aarch64 --define disc_aarch64=true
-build:disc_aarch64 --linkopt="-Xlinker --stub-group-size -Xlinker 10000000"
 build:disc_aarch64 --action_env BUILD_WITH_AARCH64=1
 build:disc_cuda --config=disc --config=cuda
 build:disc_dcu --config=disc --config=dcu

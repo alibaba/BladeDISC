@@ -153,6 +153,8 @@ class BazelBuild(TorchBladeBuild):
         if running_on_ci():
             self.configs += ["--config=ci_build"]
 
+        self.configs += ["--linkopt='-fuse-ld=gold -Xlinker --stub-group-size -Xlinker 10000000'"]
+
         root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
         self.configs += [
             build_tao_compiler_add_flags_platform_alibaba_cached(root_dir, ""),

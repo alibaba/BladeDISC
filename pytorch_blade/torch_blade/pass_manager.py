@@ -295,7 +295,9 @@ def _jit_pass_remove_nograd(graph):
     remove_no_grad(graph)
     torch._C._jit_pass_dce(graph)
 
+def _jit_pass_fix_lora(graph):
 
+    
 def _jit_pass_clean_script(graph):
     def remove_raise_exception(outer_block):
         node_list = [n for n in outer_block.nodes()]
@@ -362,7 +364,9 @@ def _optimize_common(c_module):
         c_module = tools.freeze_module(c_module, presv_attrs, disableShapePeephole=not static_shape)
         torch._C._jit_pass_remove_dropout(c_module)
         _fixup_for_dynamic_shape(cfg, c_module)
+        
         graph = c_module.forward.graph
+        tools.patch_lora(graph)
         _jit_pass_remove_nograd(graph)
         _jit_pass_freeze_requires_grad(graph)
         if hasattr(torch._C, "_jit_pass_fold_frozen_conv_bn"):

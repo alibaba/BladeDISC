@@ -22,6 +22,7 @@
 #include "compiler/jit/torch/const_loop_unroll.h"
 #include "compiler/jit/torch/eliminate_redundant_permutations.h"
 #include "compiler/jit/torch/freeze_module.h"
+#include "compiler/jit/torch/patch_lora.h"
 #include "compiler/jit/torch/onnx.h"
 
 #include "compiler/jit/fusion.h"
@@ -101,6 +102,7 @@ void initToolsBindings(py::module& m) {
       py::arg("preserveParameters") = false,
       py::arg("disableShapePeephole") = true);
 
+  tools.def("patch_lora", &torch::blade::patch_lora);
   tools.def("_jit_pass_onnx", torch::blade::ToONNX);
   tools.def(
       "subgraph_input_name_mangle", &torch::blade::subgraph_input_name_mangle);

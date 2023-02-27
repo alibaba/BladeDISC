@@ -41,6 +41,20 @@ cc_library(
     alwayslink = True,
 )
 
+cc_library(
+    name = "patch_lora",
+    srcs = ["patch_lora.cpp",
+    ],
+    hdrs = [
+	    "patch_lora.h",
+    ],
+    deps = [
+        "//pytorch_blade/common_utils:torch_blade_macros",
+        "@local_org_torch//:libtorch",
+    ],
+    alwayslink = True,
+)
+
 cc_test(
     name = "shape_analysis_test",
     srcs = [

@@ -58,6 +58,7 @@ cc_library(
         ":tool_funcs",
         "//pytorch_blade/compiler/jit/torch:shape_analysis",
         "//pytorch_blade/compiler/jit/torch:freeze_module",
+        "//pytorch_blade/compiler/jit/torch:patch_lora",
         "//pytorch_blade/common_utils:torch_blade_common",
         "@local_org_torch//:libtorch",
     ],

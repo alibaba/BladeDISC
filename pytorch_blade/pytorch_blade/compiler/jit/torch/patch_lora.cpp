@@ -18,28 +18,31 @@ namespace torch {
 namespace blade {
 using namespace ::torch::jit;
 
-
-bool markLoraInputs(Block* b){
-int64_t weight_index = 0;
-for (Node* n : b->nodes()) {
-    if(node->kind() == aten::dropout && node->input(0)->node->kind() == aten::add && node->input(0)->node->input(0)->node->kind() == aten::mul && node->input(0)->node->input(1)->node->kind() == aten::linear){
-        auto to_out_up = node->input(0)->node->input(1)->node->input(0)->node;
-        auto to_out_down = to_out_up->input(0)->node;
-        // add down.wight to inputs
-        auto down_weights = b->addInput( "down_weights" + std::string(weight_index));
-        auto up_weights = b->addInput( "up_weights" + std::string(weight_index));
-        to_out_up->replaceInput(1, up_weights);
-        to_down->replaceInput(1, down_weights);
-        weight_index++;
-
+bool markLoraInputs(Block* b) {
+  int64_t weight_index = 0;
+  for (Node* node : b->nodes()) {
+    if (node->kind() == aten::dropout &&
+        node->input(0)->node()->kind() == aten::add &&
+        node->input(0)->node()->input(0)->node()->kind() == aten::mul &&
+        node->input(0)->node()->input(1)->node()->kind() == aten::linear) {
+      auto to_out_up =
+          node->input(0)->node()->input(1)->node()->input(0)->node();
+      auto to_out_down = to_out_up->input(0)->node();
+      // add down.wight to inputs
+      auto down_weights =
+          b->addInput("down_weights" + std::to_string(weight_index));
+      auto up_weights =
+          b->addInput("up_weights" + std::to_string(weight_index));
+      to_out_up->replaceInput(1, up_weights);
+      to_out_down->replaceInput(1, down_weights);
+      weight_index++;
     }
   }
-return true;
+  return true;
 }
 
-
-bool markLoraInputs(Graph* graph){
-    return markLoraInputs(graph->block());
+bool markLoraInputs(Graph* graph) {
+  return markLoraInputs(graph->block());
 }
 } // namespace blade
 } // namespace torch

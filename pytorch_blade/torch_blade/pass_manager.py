@@ -366,7 +366,7 @@ def _optimize_common(c_module):
         _fixup_for_dynamic_shape(cfg, c_module)
         
         graph = c_module.forward.graph
-        tools.patch_lora(graph)
+        tools.mark_lora_inputs(graph)
         _jit_pass_remove_nograd(graph)
         _jit_pass_freeze_requires_grad(graph)
         if hasattr(torch._C, "_jit_pass_fold_frozen_conv_bn"):

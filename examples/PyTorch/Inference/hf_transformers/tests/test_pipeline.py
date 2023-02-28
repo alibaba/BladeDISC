@@ -13,6 +13,7 @@ import unittest
 from typing import Any, Dict, List
 
 import numpy as np
+import torch
 from blade_adapter import _default_device, pipeline
 from parameterized import parameterized
 from transformers import DistilBertForSequenceClassification
@@ -87,7 +88,18 @@ class PipelineTest(unittest.TestCase):
     @parameterized.expand([
         ({'task': 'text-generation', 'forward_default_kwargs': {'use_cache': False}},
          ["I can't believe you did such a "], {'use_cache': False}),
-        # TODO(litan.ls): support tasks with encoder-decoder model and use_cache=True
+        ({
+            'task': 'text-generation',
+            'example_inputs': {
+                'input_ids': torch.tensor([[123, 456]], dtype=torch.int64),
+                # kv cache as tuple: ((k, v),) * num_layers, k/v shape: [batch, head, seq_len, head_dim]
+                'past_key_values': lambda: ((torch.empty((1, 12, 0, 768//12), dtype=torch.float), ) * 2, ) * 12,
+                'attention_mask': torch.tensor([[1, 1]], dtype=torch.int32),
+            },
+            'output_names': ['logits', 'past_key_values'],
+            'forward_default_kwargs': {'use_cache': True}
+        }, ["I can't believe you did such a "], {'use_cache': True})
+        # TODO(litan.ls): support tasks with encoder-decoder model
         # ("summarization", [r'''The tower is 324 metres (1,063 ft) tall,
         #   about the same height as an 81-storey building,
         #   and the tallest structure in Paris.'''], {}),
@@ -95,7 +107,12 @@ class PipelineTest(unittest.TestCase):
     ])
     def test_seq2seq_pipelines(self, pipeline_kwargs: Dict[str, Any],
                                input_args: List[Any], input_kwargs: Dict[str, Any]) -> None:
-        # skip compilation for fast functionality test
+        # disable torch jit to avoid dynamic shape overhead
+        torch._C._jit_set_profiling_executor(False)
+        torch._C._jit_set_profiling_mode(False)
+        torch._C._jit_set_texpr_fuser_enabled(False)
+        torch._C._jit_set_nvfuser_enabled(False)
+        # skip blade compilation for fast functionality test
         pipe = pipeline(skip_compile=True, **pipeline_kwargs)
         set_seed(0)
         output = pipe(*input_args, **input_kwargs)

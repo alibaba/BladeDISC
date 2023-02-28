@@ -25,7 +25,7 @@ class OptimizeTest(unittest.TestCase):
         self.assertRaises(ValueError, optimize)
 
     def _eval_models(self, blade_model: WrapperModel, eager_model: PreTrainedModel) -> None:
-        inputs = blade_model.info.dummy_inputs
+        inputs = blade_model.info.example_inputs
         blade_outputs = blade_model(**inputs)
         eager_outputs = eager_model(**inputs)
         self.assertTrue(blade_outputs)
@@ -62,9 +62,9 @@ class OptimizeTest(unittest.TestCase):
 
     def test_task_and_model(self):
         eager_model = AutoModelForMaskedLM.from_pretrained('bert-base-uncased')
-        tracable_model = AutoModelForMaskedLM.from_pretrained(
+        traceable_model = AutoModelForMaskedLM.from_pretrained(
             'bert-base-uncased', torchscript=True)
-        blade_model = optimize(task='fill-mask', model=tracable_model)
+        blade_model = optimize(task='fill-mask', model=traceable_model)
         device = torch.device(
             'cuda') if torch.cuda.is_available() else torch.device('cpu')
         eager_model.to(device).eval()

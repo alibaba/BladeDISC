@@ -11,6 +11,7 @@
 
 import unittest
 
+import torch
 from blade_adapter import load_model_info
 from transformers import (AutoConfig, BartForConditionalGeneration,
                           BertForMaskedLM, DistilBertForSequenceClassification,
@@ -46,6 +47,25 @@ class LoadModelInfoTest(unittest.TestCase):
         self.assertIs(info.config, config)
         self.assertEqual(info.config._name_or_path, info.id_or_path)
         self.assertIs(info.model_class, BartForConditionalGeneration)
+
+    def test_example_inputs(self) -> None:
+        self.assertRaises(ValueError, load_model_info, task='text-generation', example_inputs={
+            'wrong_input_key': torch.Tensor([0])
+        })
+        default_info = load_model_info(task='text-generation')
+        info = load_model_info(task='text-generation', example_inputs={
+            'input_ids': torch.tensor([[1234]], dtype=torch.int64),
+        })
+        self.assertNotEqual(
+            info.example_inputs['input_ids'].shape, default_info.example_inputs['input_ids'].shape)
+
+    def test_output_names(self) -> None:
+        default_info = load_model_info(task='text-generation')
+        self.assertEqual(default_info.output_names, ['logits'])
+        info = load_model_info(task='text-generation', output_names=[
+            'logits', 'past_key_values'
+        ])
+        self.assertNotEqual(default_info.output_names, info.output_names)
 
 
 if __name__ == '__main__':

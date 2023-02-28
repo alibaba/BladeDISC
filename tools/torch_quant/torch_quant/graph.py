@@ -184,7 +184,7 @@ def insert_act_observer(ctx: GraphModContext) -> None:
     ctx.gm.recompile()
 
 
-def quantizable_module_to_observed(ctx: GraphModContext, is_observe_bias: bool = False) -> None:
+def quantizable_module_to_observed(ctx: GraphModContext) -> None:
     """
     Replace quantizable modules with observed version.
 

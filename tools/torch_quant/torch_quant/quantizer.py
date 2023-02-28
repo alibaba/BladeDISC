@@ -90,16 +90,10 @@ class Quantizer:
     def __init__(self, module_filter: Optional[ModuleFilter] = None,
                  backend: Backend = Backend.REFERENCE,
                  tracer: Optional[Tracer] = None,
-                 act_ob_ctr: Optional[Callable[..., Observer]] = None,
-                 w_ob_ctr: Optional[Callable[..., Observer]] = None,
-                 bias_ob_ctr: Optional[Callable[..., Observer]] = None,
                  ) -> None:
         self.module_filter = module_filter
         self.backend = backend
         self.tracer = tracer
-        # self.act_ob_ctr = act_ob_ctr or DEFAULT_ACT_OB_CTR[backend]
-        # self.w_ob_ctr = w_ob_ctr or DEFAULT_W_OB_CTR[backend]
-        # self.bias_ob_ctr = bias_ob_ctr or DEFAULT_BIAS_OB_CTR
 
     def calib_gm(self, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes) -> None:
         ctx = GraphModContext(gm, root, ob_types.act_ob_ctr, ob_types.w_ob_ctr, ob_types.bias_ob_ctr)

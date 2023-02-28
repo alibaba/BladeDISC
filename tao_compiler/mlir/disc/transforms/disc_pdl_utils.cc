@@ -34,7 +34,6 @@ limitations under the License.
 #include "mlir/Tools/PDLL/ODS/Context.h"
 #include "mlir/Tools/PDLL/Parser/Parser.h"
 #include "mlir/disc/IR/hlo_disc_ops.h"
-#include "mlir/disc/disc_util.h"
 #include "tensorflow/tsl/platform/default/logging.h"
 
 #define DEBUG_TYPE "disc-pdl-utils"
@@ -49,6 +48,21 @@ SmallVector<Value>& getThreadLocalValueRangeStorage(StringRef tag) {
   thread_local static auto valueRangeMap =
       new std::unordered_map<std::string, SmallVector<Value>>{};
   return (*valueRangeMap)[tag.str()];
+}
+
+std::vector<int64_t> ConvertArrayAttrToInt(mlir::ArrayAttr array_attr) {
+  SmallVector<float, 4> values;
+  values.reserve(array_attr.getValue().size());
+  for (Attribute val : array_attr.getValue()) {
+    values.push_back(static_cast<int64_t>(val.cast<IntegerAttr>().getInt()));
+  }
+  return {values.begin(), values.end()};
+}
+
+std::vector<int64_t> ConvertDenseIntAttr(
+    mlir::DenseIntElementsAttr attr) {
+  auto values = attr.getValues<int64_t>();
+  return {values.begin(), values.end()};
 }
 
 namespace {
@@ -299,17 +313,17 @@ static LogicalResult checkSliceOpAttribute(PatternRewriter& rewriter,
                                            ArrayRef<PDLValue> values) {
   assert(values.size() == 4);
   auto slice_attr = values[0].cast<Attribute>().cast<DictionaryAttr>();
-  auto slice_limit = disc_ral::ConvertDenseIntAttr(
+  auto slice_limit = ConvertDenseIntAttr(
       slice_attr.getAs<DenseIntElementsAttr>("limit_indices"));
-  auto slice_start = disc_ral::ConvertDenseIntAttr(
+  auto slice_start = ConvertDenseIntAttr(
       slice_attr.getAs<DenseIntElementsAttr>("start_indices"));
-  auto slice_strides = disc_ral::ConvertDenseIntAttr(
+  auto slice_strides = ConvertDenseIntAttr(
       slice_attr.getAs<DenseIntElementsAttr>("strides"));
-  auto expected_limit = disc_ral::ConvertArrayAttrToInt(
+  auto expected_limit = ConvertArrayAttrToInt(
       values[1].cast<Attribute>().cast<ArrayAttr>());
-  auto expected_start = disc_ral::ConvertArrayAttrToInt(
+  auto expected_start = ConvertArrayAttrToInt(
       values[2].cast<Attribute>().cast<ArrayAttr>());
-  auto expected_strides = disc_ral::ConvertArrayAttrToInt(
+  auto expected_strides = ConvertArrayAttrToInt(
       values[3].cast<Attribute>().cast<ArrayAttr>());
   auto check_all_equal = [&](std::vector<int64_t> origin,
                              std::vector<int64_t> expected) {

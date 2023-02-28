@@ -915,6 +915,89 @@ LogicalResult SparseSegmentReductionOp::verify() {
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// SparseSegmentReductionWithEmptyRowsOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult SparseSegmentReductionWithEmptyRowsOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  SparseSegmentReductionWithEmptyRowsOp::Adaptor adaptor(operands);
+  Location loc = this->getLoc();
+  auto data_type = adaptor.getData().getType().cast<RankedTensorType>();
+  auto indices_type = adaptor.getIndices().getType().cast<RankedTensorType>();
+  auto input_rank = data_type.getRank();
+  SmallVector<Value, 2> output_shape_values;
+  SmallVector<Value, 2> empty_rows_indicator_shape_values;
+  Value idx_zero = builder.create<arith::ConstantIndexOp>(loc, 0);
+  // dense shape should be rank 2 here, other wise we should multiply
+  // dim 0 ~ rank-1.
+  Value dense_rows = builder.create<arith::IndexCastOp>(
+      loc, builder.getIndexType(),
+      builder.create<tensor::ExtractOp>(loc, operands[3], idx_zero));
+  output_shape_values.push_back(dense_rows);
+
+  for (auto i = 1; i < input_rank; i++) {
+    output_shape_values.push_back(
+        builder.create<tensor::DimOp>(loc, operands[0], i));
+  }
+  Value output_shape =
+      builder.create<tensor::FromElementsOp>(loc, output_shape_values);
+  reifiedReturnShapes.push_back(output_shape);
+
+  empty_rows_indicator_shape_values.push_back(dense_rows);
+  Value empty_rows_indicator_shape =
+      builder.create<tensor::FromElementsOp>(loc, output_shape_values);
+  reifiedReturnShapes.push_back(empty_rows_indicator_shape);
+  return success();
+}
+
+LogicalResult SparseSegmentReductionWithEmptyRowsOp::verify() {
+  auto data_type = this->getData().getType().dyn_cast<RankedTensorType>();
+  auto indices_type = this->getIndices().getType().dyn_cast<RankedTensorType>();
+  auto segment_ids_type =
+      this->getUnfilledSegmentIds().getType().dyn_cast<RankedTensorType>();
+
+  if (!data_type || !indices_type || !segment_ids_type) {
+    return failure();
+  }
+
+  if (indices_type.getRank() != 2) {
+    return this->emitOpError() << "indices should be a matrix";
+  }
+  if (segment_ids_type.getRank() != 1) {
+    return this->emitOpError() << "unfilled_segment_ids should be a vector";
+  }
+
+  // only support for rank 2, now
+  // TODO(lanbo.llb): support other rank
+  if (data_type.getRank() != 2) {
+    return this->emitOpError()
+           << "input must be matrix since other rank is not supported";
+  }
+
+  auto output_type = this->getOutput().getType().dyn_cast<RankedTensorType>();
+  if (!output_type) {
+    return failure();
+  }
+
+  if (output_type.getRank() != data_type.getRank()) {
+    return this->emitOpError() << "output must have the same rank as input";
+  }
+
+  auto indicator_type =
+      this->getEmptyRowIndicator().getType().dyn_cast<RankedTensorType>();
+  if (!indicator_type) {
+    return failure();
+  }
+
+  if (indicator_type.getRank() != 1) {
+    return this->emitOpError() << "empty_row_indicator must be a vector";
+  }
+
+  return success();
+}
+
 // CustomCallV2Op
 //===----------------------------------------------------------------------===//
 

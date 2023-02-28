@@ -1243,9 +1243,11 @@ gentbl_cc_library(
     ],
     includes=["external/org_tensorflow"],
     deps = [
-        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
         "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
-    ],
+    ] + if_torch_disc(
+        ["@mlir-hlo//:hlo_ops_td_files"],
+        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"]
+    ),
 )
 
 cc_library(
@@ -2307,9 +2309,10 @@ gentbl_cc_library(
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/hlo_disc_enums.td",
-    deps = [
-        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
-    ],
+    deps = if_torch_disc(
+        ["@mlir-hlo//:hlo_ops_td_files"],
+        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"]
+    )
 )
 
 gentbl_cc_library(
@@ -2487,9 +2490,10 @@ gentbl_cc_library(
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/lhlo_disc_enums.td",
-    deps = [
-        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
-    ],
+    deps = if_torch_disc(
+        ["@mlir-hlo//:hlo_ops_td_files"],
+        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"]
+    )
 )
 
 gentbl_cc_library(
@@ -2514,7 +2518,6 @@ gentbl_cc_library(
         ["@mlir-hlo//:hlo_ops_td_files"],
         ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"]
     )
-
 )
 
 cc_library(
@@ -2680,9 +2683,10 @@ gentbl_cc_library(
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/disc_shape_ops.td",
-    deps = [
-        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
-    ],
+    deps = if_torch_disc(
+        ["@mlir-hlo//:hlo_ops_td_files"],
+        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"]
+    ),
 )
 
 cc_library(
@@ -2733,9 +2737,10 @@ gentbl_cc_library(
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/disc_ral_ops.td",
-    deps = [
-        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
-    ],
+    deps = if_torch_disc(
+        ["@mlir-hlo//:hlo_ops_td_files"],
+        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"]
+    ),
 )
 
 cc_library(

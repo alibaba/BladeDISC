@@ -126,6 +126,118 @@ std::string getSparseReshapePDLPattern() {
   return preDefinedPatterns;
 }
 
+// rewrite sparse_fill_empty_rows + sparse_segment_reduction
+// to sparse_segment_reduction_with_empty_rows
+std::string getSparseSegmentReductionPDLPattern() {
+  std::string preDefinedPatterns;
+  preDefinedPatterns += R"pdll(
+    Pattern SparseSegmentReductionRewritePattern {
+      /// match phase: define the pattern
+      let c0 = op<arith.constant> {value = attr<"0 : index">} -> (type<"index">);
+      let c2 = op<arith.constant> {value = attr<"2 : index">} -> (type<"index">);
+      let sparse_fill_empty_rows = op<mhlo_disc.sparse_fill_empty_rows>(
+          indices: Value,
+          values: Value,
+          output_shape: Value,
+          default_value: Value
+      );
+      let extracted = op<tensor.extract>(
+          sparse_fill_empty_rows.4,
+          c0
+      );
+      let casted = op<arith.index_cast>(
+          extracted.0
+      );
+      let from_elements = op<tensor.from_elements>(
+          casted.0,
+          c2
+      );
+      let slice = op<mhlo.real_dynamic_slice>(
+          sparse_fill_empty_rows.0,
+          cst_1: Value,
+          from_elements.0,
+          cst_2: Value
+      );
+      let from_elements_1 = op<tensor.from_elements>(
+          casted.0
+      );
+      let slice_1 = op<mhlo.real_dynamic_slice>(
+          sparse_fill_empty_rows.1,
+          cst_3: Value,
+          from_elements_1.0,
+          cst_4: Value
+      );
+      // ids[:, 0] lowering to {some arith ops + real_dynamic_slice}
+      let slice_op_attr : Attr;
+      let slice_id = op<mhlo.real_dynamic_slice>(
+          slice.0,
+          cst: Value,
+          from_elements_2: Value,
+          cst_0: Value
+      ) {
+        kDiscSliceOpStaticKnownInfo = slice_op_attr
+      };
+      let reshape = op<mhlo.dynamic_reshape>(
+          slice_id.0,
+          from_elements_3: Value
+      );
+      let reduction_attr : Attr;
+      let sparse_segment_reduction = op<mhlo_disc.sparse_segment_reduction>(
+          data: Value,
+          slice_1.0,
+          reshape.0
+      ) {
+        reduction_mode = reduction_attr
+      };
+      let bcast_attr : Attr;
+      let broadcast = op<mhlo.dynamic_broadcast_in_dim>(
+          sparse_fill_empty_rows.2,
+          broadcast_shape: Value
+      ) {
+        broadcast_dimensions = bcast_attr
+      };
+      /// check constant tensor values
+      CheckConstantTensorValueIs(default_value, attr<"0">);
+      // (TODO): maybe check tensor rank?
+      CheckConstantTensorValueIs(cst, attr<"0">);
+      CheckConstantTensorValueIs(cst_0, attr<"1">);
+      CheckConstantTensorValueIs(cst_1, attr<"0">);
+      CheckConstantTensorValueIs(cst_2, attr<"1">);
+      CheckConstantTensorValueIs(cst_3, attr<"0">);
+      CheckConstantTensorValueIs(cst_4, attr<"1">);
+      // check slice op attr
+      CheckSliceOpAttribute(slice_op_attr, attr<"[-2, 1]">, attr<"[0, 0]">, attr<"[1, 1]">);
+
+      // rewrite phase
+      rewrite broadcast with {
+        let inputs = PackValue_4(
+            attr<"\"in\"">,
+            data,
+            indices,
+            values,
+            output_shape
+        );
+        let outputs = PackValue_2(
+            attr<"\"out\"">,
+            sparse_segment_reduction.0,
+            sparse_fill_empty_rows.2
+        );
+        let sparse_seg_reduction = CreateSparseSegmentReduction(
+            attr<"\"op\"">,
+            inputs,
+            outputs,
+            reduction_attr);
+        let rs = UnpackValue_2(sparse_seg_reduction.new_outputs);
+
+        replace sparse_segment_reduction with rs.0;
+        let new_bcast = CloneOpWithNewOperand(broadcast, rs.1, sparse_fill_empty_rows.2);
+        replace broadcast with new_bcast;
+      };
+    }
+  )pdll";
+  return preDefinedPatterns;
+}
+
 struct DiscSparseOpRewriterPass
     : public DiscSparseOpRewriterPassBase<DiscSparseOpRewriterPass> {
   void runOnOperation() override;
@@ -135,8 +247,11 @@ void DiscSparseOpRewriterPass::runOnOperation() {
   // Setup rewriter patterns.
   MLIRContext& ctx = getContext();
   RewritePatternSet patterns(&ctx);
-  // sparse reshape pattern
+  // rewrite sparse reshape
   populateDiscPdlPatternsFromString(&patterns, getSparseReshapePDLPattern());
+  // rewrite sparse segment reduction
+  populateDiscPdlPatternsFromString(&patterns,
+                                    getSparseSegmentReductionPDLPattern());
 
   if (failed(
           applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {

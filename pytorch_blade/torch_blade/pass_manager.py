@@ -326,6 +326,8 @@ def _set_annotate_args(c_module, annotations):
         # skip the 1th self input value
         if idx == 0:
             continue
+        if idx > len(annotations):
+            break
         input_dims, _ = annotations[idx-1]
         tools.set_tensor_shape(input, input_dims)
 
@@ -358,12 +360,10 @@ def _optimize_common(c_module):
     if not is_training:
         # optimization passes only work in eval mode
         presv_attrs = cfg.preserved_attributes
-        tools.mark_lora_inputs(c_module.forward.graph)
+        # should before freeze_module
+        tools._jit_pass_mark_lora_inputs(c_module.forward.graph)
         c_module = tools.freeze_module(c_module, presv_attrs, disableShapePeephole=not static_shape)
         
-        # should before dropout
-        
-        # import ipdb; ipdb.set_trace()
         torch._C._jit_pass_remove_dropout(c_module)
         _fixup_for_dynamic_shape(cfg, c_module)
         

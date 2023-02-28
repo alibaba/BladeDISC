@@ -102,7 +102,7 @@ void initToolsBindings(py::module& m) {
       py::arg("preserveParameters") = false,
       py::arg("disableShapePeephole") = true);
 
-  tools.def("mark_lora_inputs", &torch::blade::markLoraInputs);
+  tools.def("_jit_pass_mark_lora_inputs", &torch::blade::markLoraInputs);
   tools.def("_jit_pass_onnx", torch::blade::ToONNX);
   tools.def(
       "subgraph_input_name_mangle", &torch::blade::subgraph_input_name_mangle);

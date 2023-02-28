@@ -114,23 +114,32 @@ bool markLoraInputs(Block* b) {
 
       std::string index = std::to_string(weight_index);
 
-      auto to_q_down_weights = b->addInput("to_q_down_weights_" + index);
-      auto to_q_up_weights = b->addInput("to_q_up_weights_" + index);
+      auto to_q_down_weights = b->addInput("to_q_down_weights_" + index)
+                                   ->setType(to_q_down->input(1)->type());
+      auto to_q_up_weights = b->addInput("to_q_up_weights_" + index)
+                                 ->setType(to_q_up->input(1)->type());
+
       to_q_down->input(1)->replaceAllUsesWith(to_q_down_weights);
       to_q_up->input(1)->replaceAllUsesWith(to_q_up_weights);
 
-      auto to_k_down_weights = b->addInput("to_k_down_weights_" + index);
-      auto to_k_up_weights = b->addInput("to_k_up_weights_" + index);
+      auto to_k_down_weights = b->addInput("to_k_down_weights_" + index)
+                                   ->setType(to_k_down->input(1)->type());
+      auto to_k_up_weights = b->addInput("to_k_up_weights_" + index)
+                                 ->setType(to_k_up->input(1)->type());
       to_k_down->input(1)->replaceAllUsesWith(to_k_down_weights);
       to_k_up->input(1)->replaceAllUsesWith(to_k_up_weights);
 
-      auto to_v_down_weights = b->addInput("to_v_down_weights_" + index);
-      auto to_v_up_weights = b->addInput("to_v_up_weights_" + index);
+      auto to_v_down_weights = b->addInput("to_v_down_weights_" + index)
+                                   ->setType(to_v_down->input(1)->type());
+      auto to_v_up_weights = b->addInput("to_v_up_weights_" + index)
+                                 ->setType(to_v_up->input(1)->type());
       to_v_down->input(1)->replaceAllUsesWith(to_v_down_weights);
       to_v_up->input(1)->replaceAllUsesWith(to_v_up_weights);
 
-      auto to_out_down_weights = b->addInput("to_out_down_weights_" + index);
-      auto to_out_up_weights = b->addInput("to_out_up_weights_" + index);
+      auto to_out_down_weights = b->addInput("to_out_down_weights_" + index)
+                                     ->setType(to_out_down->input(1)->type());
+      auto to_out_up_weights = b->addInput("to_out_up_weights_" + index)
+                                   ->setType(to_out_up->input(1)->type());
       to_out_down->input(1)->replaceAllUsesWith(to_out_down_weights);
       to_out_up->input(1)->replaceAllUsesWith(to_out_up_weights);
 

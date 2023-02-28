@@ -22,6 +22,7 @@ def _recursive_optimize(model):
     if isinstance(model, torch.jit.ScriptModule):
         optimized_c_module = _optimize_common(model._c)
         model._reconstruct(optimized_c_module)
+        return 
         optimizaiton_func = OptPipelines.pipelines[cfg.optimization_pipeline]
         optimizaiton_func(model)
     else:

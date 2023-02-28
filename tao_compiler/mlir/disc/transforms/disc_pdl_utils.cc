@@ -59,8 +59,7 @@ std::vector<int64_t> ConvertArrayAttrToInt(mlir::ArrayAttr array_attr) {
   return {values.begin(), values.end()};
 }
 
-std::vector<int64_t> ConvertDenseIntAttr(
-    mlir::DenseIntElementsAttr attr) {
+std::vector<int64_t> ConvertDenseIntAttr(mlir::DenseIntElementsAttr attr) {
   auto values = attr.getValues<int64_t>();
   return {values.begin(), values.end()};
 }
@@ -317,14 +316,14 @@ static LogicalResult checkSliceOpAttribute(PatternRewriter& rewriter,
       slice_attr.getAs<DenseIntElementsAttr>("limit_indices"));
   auto slice_start = ConvertDenseIntAttr(
       slice_attr.getAs<DenseIntElementsAttr>("start_indices"));
-  auto slice_strides = ConvertDenseIntAttr(
-      slice_attr.getAs<DenseIntElementsAttr>("strides"));
-  auto expected_limit = ConvertArrayAttrToInt(
-      values[1].cast<Attribute>().cast<ArrayAttr>());
-  auto expected_start = ConvertArrayAttrToInt(
-      values[2].cast<Attribute>().cast<ArrayAttr>());
-  auto expected_strides = ConvertArrayAttrToInt(
-      values[3].cast<Attribute>().cast<ArrayAttr>());
+  auto slice_strides =
+      ConvertDenseIntAttr(slice_attr.getAs<DenseIntElementsAttr>("strides"));
+  auto expected_limit =
+      ConvertArrayAttrToInt(values[1].cast<Attribute>().cast<ArrayAttr>());
+  auto expected_start =
+      ConvertArrayAttrToInt(values[2].cast<Attribute>().cast<ArrayAttr>());
+  auto expected_strides =
+      ConvertArrayAttrToInt(values[3].cast<Attribute>().cast<ArrayAttr>());
   auto check_all_equal = [&](std::vector<int64_t> origin,
                              std::vector<int64_t> expected) {
     if (origin.size() != expected.size()) {

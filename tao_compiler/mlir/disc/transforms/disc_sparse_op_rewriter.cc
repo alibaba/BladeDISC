@@ -230,7 +230,8 @@ std::string getSparseSegmentReductionPDLPattern() {
         let rs = UnpackValue_2(sparse_seg_reduction.new_outputs);
 
         replace sparse_segment_reduction with rs.0;
-        SetOperand(broadcast, attr<"0">, rs.1);
+        let new_bcast = CloneOpWithNewOperand(broadcast, rs.1, sparse_fill_empty_rows.2);
+        replace broadcast with new_bcast;
       };
     }
   )pdll";

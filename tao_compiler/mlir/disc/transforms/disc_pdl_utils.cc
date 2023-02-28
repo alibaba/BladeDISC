@@ -22,6 +22,7 @@ limitations under the License.
 #include "llvm/Support/ToolOutputFile.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
+#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Parser/Parser.h"
@@ -92,12 +93,12 @@ static const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite SetAttr(op : Op, key : Attr, value : Attr);
   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
   Rewrite GetAttrOrDefault(op : Op, key : Attr, value : Attr) -> (Attr);
-  Rewrite SetOperand(op : Op, index : Attr, value: Value);
 
   Constraint CheckConstantTensor(v : Value);
   Constraint CheckConstantTensorValueIs(v : Value, expected : Attr);
   Rewrite IsConstantTensor(v : Value) -> Attr;
   Rewrite CreateSparseSegmentReduction(tag : Attr, inputs : ValueRange, outputs : ValueRange, reduction_mode : Attr) -> (op: Op, new_outputs : ValueRange);
+  Rewrite CloneOpWithNewOperand(op : Op, new_operand : Value, old_operand : Value) -> Op;
   Constraint CheckSliceOpAttribute(slice_attr : Attr, limit : Attr, start : Attr, strides : Attr);
 )pdll";
 
@@ -253,6 +254,22 @@ static void createSparseSegmentReduction(PatternRewriter& rewriter,
   results.push_back(ValueRange(vs));
 }
 
+static void cloneOpWithNewOperand(PatternRewriter& rewriter,
+                                  PDLResultList& results,
+                                  ArrayRef<PDLValue> values) {
+  assert(values.size() == 3);
+
+  auto origin_op = values[0].cast<Operation*>();
+  auto new_operand = values[1].cast<Value>();
+  auto old_operand = values[2].cast<Value>();
+
+  BlockAndValueMapping mapping;
+  mapping.map(old_operand, new_operand);
+  rewriter.setInsertionPoint(origin_op);
+  Operation* op = rewriter.clone(*origin_op, mapping);
+  results.push_back(op);
+}
+
 static LogicalResult checkConstantTensor(PatternRewriter& rewriter,
                                          ArrayRef<PDLValue> values) {
   assert(values.size() == 1);
@@ -359,18 +376,13 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
         StringRef key = keyAttr.cast<StringAttr>().getValue();
         return op->hasAttr(key) ? op->getAttr(key) : valueAttr;
       });
-  pdlPatterns.registerRewriteFunction(
-      "SetOperand", [](PatternRewriter& rewriter, PDLResultList& results,
-                       ArrayRef<PDLValue> values) {
-        auto op = values[0].cast<Operation*>();
-        auto index = values[1].cast<Attribute>().cast<IntegerAttr>().getInt();
-        op->setOperand(index, values[2].cast<Value>());
-      });
   pdlPatterns.registerRewriteFunction("CreateCustomCall", createCustomCall);
   pdlPatterns.registerRewriteFunction("PackValue_0", packValues<0>);
   pdlPatterns.registerRewriteFunction("IsConstantTensor", isConstantTensor);
   pdlPatterns.registerRewriteFunction("CreateSparseSegmentReduction",
                                       createSparseSegmentReduction);
+  pdlPatterns.registerRewriteFunction("CloneOpWithNewOperand",
+                                      cloneOpWithNewOperand);
 
 #define REGISTER_PACK_AND_UNPACK(N)                                    \
   pdlPatterns.registerRewriteFunction("PackValue_" #N, packValues<N>); \

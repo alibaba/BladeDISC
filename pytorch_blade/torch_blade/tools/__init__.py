@@ -15,6 +15,7 @@ from .._torch_blade._tools import *
 from .._torch_blade._tools import _jit_pass_onnx
 from .._torch_blade._tools import _jit_pass_lower_simple_tuples
 from .._torch_blade._tools import _jit_pass_const_loop_unrolling
+from .._torch_blade._tools import _jit_pass_mark_lora_inputs
 
 
 @contextlib.contextmanager

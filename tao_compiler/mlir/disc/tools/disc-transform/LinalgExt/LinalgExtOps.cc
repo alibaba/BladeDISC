@@ -22,6 +22,8 @@
 #include "mlir/Dialect/Affine/Utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
+#include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
@@ -829,6 +831,144 @@ static void registerOne(MLIRContext* ctx) {
 void registerTilingInterfaceExternalModels(DialectRegistry& registry) {
   registry.addExtension(+[](MLIRContext* ctx, DISCLinalgExtDialect* dialect) {
     registerOne<ConditionalGenericOp>(ctx);
+  });
+}
+
+//===----------------------------------------------------------------------===//
+// External Model for implementing `BufferizableOpInterface` for `LinalgOp`s.
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+/// Generic conversion for any DestinationStyleOpInterface on tensors.
+static LogicalResult bufferizeDestinationStyleOpInterface(
+    RewriterBase& rewriter, DestinationStyleOpInterface op,
+    const bufferization::BufferizationOptions& options) {
+  // Take a guard before anything else.
+  OpBuilder::InsertionGuard g(rewriter);
+  rewriter.setInsertionPoint(op);
+
+  // Nothing to do. This op is already bufferized.
+  if (op.hasBufferSemantics()) return success();
+
+  // Ensure op has only tensors. Allow mixed tensor-buffer mode on a per-need
+  // basis.
+  if (!op.hasTensorSemantics())
+    return op->emitError() << "op does not have tensor semantics";
+
+  // New input operands for the cloned op.
+  SmallVector<Value> newInputBuffers;
+  newInputBuffers.reserve(op.getNumDpsInputs());
+  for (OpOperand* opOperand : op.getDpsInputOperands()) {
+    if (op.isScalar(opOperand)) {
+      newInputBuffers.push_back(opOperand->get());
+      continue;
+    }
+    FailureOr<Value> buffer = getBuffer(rewriter, opOperand->get(), options);
+    if (failed(buffer)) return failure();
+    newInputBuffers.push_back(*buffer);
+  }
+
+  // New output operands for the cloned op.
+  SmallVector<Value> newOutputBuffers;
+  for (OpResult opResult : op->getOpResults()) {
+    OpOperand* opOperand = op.getDpsInitOperand(opResult.getResultNumber());
+    FailureOr<Value> resultBuffer =
+        getBuffer(rewriter, opOperand->get(), options);
+    if (failed(resultBuffer)) return failure();
+    newOutputBuffers.push_back(*resultBuffer);
+  }
+
+  // Merge input/output operands.
+  SmallVector<Value> newOperands = newInputBuffers;
+  newOperands.append(newOutputBuffers.begin(), newOutputBuffers.end());
+
+  // Set insertion point now that potential alloc/dealloc are introduced.
+  rewriter.setInsertionPoint(op);
+  // Clone the op, but use the new operands. Move the existing block into the
+  // new op. Since the new op does not have any tensor results, it does not
+  // return anything.
+  assert(op->getNumRegions() == 1 && "expected that op has 1 region");
+  auto newOp = cast<DestinationStyleOpInterface>(op.cloneWithoutRegions(
+      rewriter, op.getLoc(), /*resultTypes=*/TypeRange{}, newOperands));
+  rewriter.inlineRegionBefore(op->getRegion(0), newOp->getRegion(0),
+                              newOp->getRegion(0).begin());
+
+  // Replace the results of the old op with the new output buffers.
+  bufferization::replaceOpWithBufferizedValues(rewriter, op, newOutputBuffers);
+
+  return success();
+}
+
+/// Bufferization of linalg.generic. Replace with a new linalg.generic that
+/// operates entirely on memrefs.
+template <typename OpTy>
+struct LinalgOpInterface
+    : public bufferization::BufferizableOpInterface::ExternalModel<
+          LinalgOpInterface<OpTy>, OpTy> {
+  bool bufferizesToMemoryRead(Operation* op, OpOperand& opOperand,
+                              const bufferization::AnalysisState& state) const {
+    // Operand is read if it is used in the computation.
+    auto genericOp = cast<linalg::LinalgOp>(op);
+    return genericOp.payloadUsesValueFromOperand(&opOperand);
+  }
+
+  bool bufferizesToMemoryWrite(
+      Operation* op, OpOperand& opOperand,
+      const bufferization::AnalysisState& state) const {
+    // Operand is written to if it has an aliasing OpResult.
+    auto bufferizableOp = cast<bufferization::BufferizableOpInterface>(op);
+    return !bufferizableOp.getAliasingOpResult(opOperand, state).empty();
+  }
+
+  SmallVector<OpOperand*> getAliasingOpOperand(
+      Operation* op, OpResult opResult,
+      const bufferization::AnalysisState& state) const {
+    auto genericOp = cast<DestinationStyleOpInterface>(op);
+
+    // The i-th OpResult may alias with the i-th "out" tensor.
+    return {genericOp.getDpsInitOperand(opResult.getResultNumber())};
+  }
+
+  SmallVector<OpResult> getAliasingOpResult(
+      Operation* op, OpOperand& opOperand,
+      const bufferization::AnalysisState& state) const {
+    auto genericOp = cast<DestinationStyleOpInterface>(op);
+
+    // The i-th "out" tensor may alias with the i-th OpResult.
+    if (genericOp.isDpsInit(&opOperand))
+      return {genericOp.getTiedOpResult(&opOperand)};
+    return {};
+  }
+
+  bufferization::BufferRelation bufferRelation(
+      Operation* op, OpResult opResult,
+      const bufferization::AnalysisState& state) const {
+    return bufferization::BufferRelation::Equivalent;
+  }
+
+  LogicalResult bufferize(
+      Operation* op, RewriterBase& rewriter,
+      const bufferization::BufferizationOptions& options) const {
+    return bufferizeDestinationStyleOpInterface(
+        rewriter, cast<DestinationStyleOpInterface>(op), options);
+  }
+};
+
+/// Helper structure that iterates over all LinalgOps in `OpTys` and registers
+/// the `BufferizableOpInterface` with each of them.
+template <typename... Ops>
+struct LinalgOpInterfaceHelper {
+  static void registerOpInterface(MLIRContext* ctx) {
+    (Ops::template attachInterface<LinalgOpInterface<Ops>>(*ctx), ...);
+  }
+};
+
+}  // namespace
+
+void registerBufferizableOpInterfaceExternalModels(DialectRegistry& registry) {
+  registry.addExtension(+[](MLIRContext* ctx, DISCLinalgExtDialect* dialect) {
+    LinalgOpInterfaceHelper<ConditionalGenericOp>::registerOpInterface(ctx);
   });
 }
 

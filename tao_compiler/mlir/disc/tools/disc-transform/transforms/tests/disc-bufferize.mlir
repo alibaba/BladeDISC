@@ -108,3 +108,31 @@ transform.structured.canonicalized_sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.bufferize %arg1
 }
+
+// -----
+
+#map0 = affine_map<(d0, d1) -> ()>
+#map1 = affine_map<(d0, d1) -> (d1)>
+#map2 = affine_map<(d0, d1) -> (d0, d1)>
+
+// CHECK-LABEL: @bufferize_conditional_generic
+// CHECK-SAME: (%[[ARG0:.*]]: i1, %[[ARG1:.*]]: memref<f32>, %[[ARG2:.*]]: memref<12xf32>, %[[ARG3:.*]]: memref<8x12xf32>)
+func.func @bufferize_conditional_generic(
+    %pred : i1, %arg0: tensor<f32>, %arg1 : tensor<12xf32>, %arg2 : tensor<8x12xf32>) -> tensor<8x12xf32> {
+  // CHECK: disc_linalg_ext.conditional_generic
+  // CHECK-SAME: ins(%[[ARG0]], %[[ARG1]], %[[ARG2]] : i1, memref<f32>, memref<12xf32>)
+  // CHECK-SAME: outs(%[[ARG3]] : memref<8x12xf32>)
+  %out = disc_linalg_ext.conditional_generic {indexing_maps = [#map0, #map0, #map1, #map2], iterator_types = ["parallel", "parallel"]}
+      ins(%pred, %arg0, %arg1 : i1, tensor<f32>, tensor<12xf32>) outs(%arg2 : tensor<8x12xf32>) attrs =  {disc.device = "cpu", disc.transform.name = "maximum"} {
+  ^bb0(%in: i1, %in_1: f32, %in_2: f32, %out: f32):
+    %t0 = arith.addf %out, %in_2 : f32
+    %t1 = arith.maxf %in_1, %t0 : f32
+    disc_linalg_ext.yield %t1 : f32
+  } -> tensor<8x12xf32>
+  return %out : tensor<8x12xf32>
+}
+
+transform.structured.canonicalized_sequence failures(propagate) {
+^bb1(%arg1: !pdl.operation):
+  transform.disc.bufferize %arg1
+}

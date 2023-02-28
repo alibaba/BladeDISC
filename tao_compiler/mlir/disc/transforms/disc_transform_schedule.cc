@@ -316,6 +316,21 @@ buildVectorizeConditionalGenericOp(OpBuilder& b, Location& loc, Value target) {
       loc, pdlType, target);
 }
 
+transform_dialect::SplitVectorTransferIntoFullAndPartialOp
+buildSplitVectorTransferIntoFullAndPartialOp(OpBuilder& b, Location& loc,
+                                             Value target) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::SplitVectorTransferIntoFullAndPartialOp>(
+      loc, pdlType, target);
+}
+
+transform_dialect::LowerConditionalGenericOp buildLowerConditionalGenericOp(
+    OpBuilder& b, Location& loc, Value target) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::LowerConditionalGenericOp>(loc, pdlType,
+                                                                target);
+}
+
 class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
   explicit ParsedFromFileScheduleFactory(int64_t id, PatternKind kind,
@@ -1242,28 +1257,16 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
     fill = buildDISCFuseIntoContainingOp(b, loc, fill, loopN0);
   }
 
-  auto tileM1 = buildTileOp(b, loc, rootHandle, {M1, 0}, {0, 1});
-  rootHandle = tileM1->getResult(0);
+  auto tileM1 = buildTileOp(b, loc, matmul, {M1, 0}, {0, 1});
+  matmul = tileM1->getResult(0);
   Value loopM1 = tileM1->getResult(1);
   variant = buildRunCanonicalizer(b, loc, variant);
-  matmul = buildDISCFuseIntoContainingOp(b, loc, matmul, loopM1);
   fill = buildDISCFuseIntoContainingOp(b, loc, fill, loopM1);
 
-  auto tileN1 = buildTileOp(b, loc, rootHandle, {0, N1}, {0, 1});
-  rootHandle = tileN1->getResult(0);
+  auto tileN1 = buildTileOp(b, loc, matmul, {0, N1}, {0, 1});
+  matmul = tileN1->getResult(0);
   Value loopN1 = tileN1->getResult(1);
   variant = buildRunCanonicalizer(b, loc, variant);
-  // pad root ops to register level size (static size).
-  int64_t numOperandsUpperBound = fusionPattern.getOperands().size() +
-                                  fusionPattern.getResults().size() +
-                                  fusionPattern.getInternalResults().size() + 2;
-  SmallVector<Type> paddingTypes;
-  if (!k0Skipped) paddingTypes.push_back(b.getIntegerType(1));
-  rootHandle = buildPadOp(b, loc, rootHandle, {0, 1}, numOperandsUpperBound,
-                          paddingTypes);
-  auto padForRootOp = buildMatchOp(b, loc, variant, {"tensor.pad"});
-  buildReplaceConstPaddingValueOp(b, loc, padForRootOp, "kAny");
-  matmul = buildDISCFuseIntoContainingOp(b, loc, matmul, loopN1);
   fill = buildDISCFuseIntoContainingOp(b, loc, fill, loopN1);
 
   auto tileK1 = buildTileOp(b, loc, matmul, {0, 0, K1}, {0, 1, 2});
@@ -1273,6 +1276,8 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   buildFoldProducerExtractSlice(b, loc, weightSlice, 2);
   // pad to match the requirement of hardware vector/tensor instruction.
   matmul = buildPadOp(b, loc, matmul, {0, 1, 2}, 3);
+  SmallVector<Type> paddingTypes;
+  if (!k0Skipped) paddingTypes.push_back(b.getIntegerType(1));
   fill = buildPadOp(b, loc, fill, {0, 1}, 3, paddingTypes);
   Value padForInput = buildGetProducerOfOperand(b, loc, matmul, 0);
   Value padForWeight = buildGetProducerOfOperand(b, loc, matmul, 1);
@@ -1328,24 +1333,31 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   buildLowerMultiLevelPackToLoop(b, loc, multiLevelPackOps);
   variant = buildRunCanonicalizer(b, loc, variant);
 
-  Value conditionalOps =
-      buildMatchOp(b, loc, variant, {"disc_linalg_ext.conditional_generic"});
-  buildVectorizeConditionalGenericOp(b, loc, conditionalOps);
+  Value fillConditionalOps = buildMatchOp(
+      b, loc, variant, {"disc_linalg_ext.conditional_generic"}, nameMap[dotOp]);
+  buildVectorizeConditionalGenericOp(b, loc, fillConditionalOps);
   variant = buildRunCanonicalizer(b, loc, variant);
   Value func = buildMatchOp(b, loc, variant, {"func.func"});
   buildVectorize(b, loc, func, true);
   variant = buildRunCanonicalizer(b, loc, variant);
-  auto placeholderOps = buildMatchOp(
-      b, loc, variant, {"disc_linalg_ext.padding_value_placeholder"}, {});
-  buildConvertPaddingPlaceholderToConstOp(b, loc, placeholderOps);
-  variant = buildRunCanonicalizer(b, loc, variant);
 
   variant = buildDISCBufferize(b, loc, variant);
+  variant = buildRunCanonicalizer(b, loc, variant);
+
+  Value conditionalOps =
+      buildMatchOp(b, loc, variant, {"disc_linalg_ext.conditional_generic"});
+  buildLowerConditionalGenericOp(b, loc, conditionalOps);
+
   buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
                     "linalg-copy", true, "eltwise", false);
   buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
                     "linalg-copy", true, "eltwise", false);
   variant = buildDecomposeVectors(b, loc, variant, hardwareVectorSizeInBytes);
+  variant = buildRunCanonicalizer(b, loc, variant);
+  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
+                    "linalg-copy", true, "eltwise", false);
+  buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
+                    "linalg-copy", true, "eltwise", false);
   b.create<transform::YieldOp>(loc);
   return success();
 }

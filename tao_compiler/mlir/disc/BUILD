@@ -2133,6 +2133,28 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_duplicate_computation_after_fusion",
+    srcs = ["transforms/disc_duplicate_computation_after_fusion.cc"],
+    deps = [
+        ":disc_shape_optimization_utils",
+        ":disc_util",
+        ":fusion_utils",
+        ":pass_details",
+        ":placement_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//llvm:Core",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TransformUtils",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -2156,6 +2178,7 @@ cc_library(
         ":disc_convert_fake_quant_op",
         ":disc_custom_call_rewriter",
         ":disc_cpu_map_parallel_loop",
+        ":disc_duplicate_computation_after_fusion",
         ":disc_duplicate_computation_for_fusion",
         ":disc_dynamic_slice_converter",
         ":disc_sparse_op_rewriter",
@@ -2171,7 +2194,7 @@ cc_library(
         ":disc_lower_tf",
         ":disc_lower_quantize_and_dequantize",
         ":disc_lower_to_library_call",
-	":disc_mhlo_cse",
+        ":disc_mhlo_cse",
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
         ":disc_outline_cpu_kernel",

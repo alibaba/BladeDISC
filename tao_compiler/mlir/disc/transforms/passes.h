@@ -309,6 +309,11 @@ createDiscTransformLegalizeToLoopPass(bool gpuEnabled = false,
                                       const std::string& filename = "",
                                       bool expensiveCheck = false);
 
+// Duplicate and fuse some computation into their fusion consumer to reduce
+// memory footprint.
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscDuplicateComputationAfterFusionPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

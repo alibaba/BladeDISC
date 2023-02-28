@@ -70,6 +70,8 @@ int main(int argc, char** argv) {
       transform_ext::StructuredTransformOpsExtension>();
   mlir::disc_ral::disc_linalg_ext::registerTilingInterfaceExternalModels(
       registry);
+  mlir::disc_ral::disc_linalg_ext::
+      registerBufferizableOpInterfaceExternalModels(registry);
 
   return failed(mlir::MlirOptMain(argc, argv, "MLIR HLO pass driver\n",
                                   registry,

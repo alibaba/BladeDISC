@@ -76,6 +76,9 @@ bool isSupportedBcast(Operation* op, ShapeAnalysis& shapeAnalysisBase) {
 }
 
 bool TransformBasedCpuFusionStrategy::isFusible(Operation* op) {
+  if (!useTransformGEMMEpilogueFusionSchedule()) {
+    return isSupportedDot(op) || isa<lmhlo::ConstantOp>(op);
+  }
   return isSupportedDot(op) || isElementWise(op) || isBcastOp(op) ||
          isa<lmhlo::ConstantOp>(op);
 }

@@ -59,6 +59,7 @@ SmallVector<T> interchange(ArrayRef<T> elements,
 }
 
 void registerTilingInterfaceExternalModels(DialectRegistry& registry);
+void registerBufferizableOpInterfaceExternalModels(DialectRegistry& registry);
 
 }  // namespace disc_linalg_ext
 }  // namespace disc_ral

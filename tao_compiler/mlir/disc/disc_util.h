@@ -126,6 +126,9 @@ bool useHorizontalFusion();
 // Returns true if `DISC_ENABLE_TRANSFORM_SCHEDULE` is true.
 bool useTransformSchedule();
 
+// Returns true if `DISC_ENABLE_TRANSFORM_GEMM_EPILOGUE_FUSION` is true.
+bool useTransformGEMMEpilogueFusionSchedule();
+
 // Returns true if `DISC_FAKE_QUANT_TO_QUANT_AND_DEQUANT` is true
 bool lowerFakeQuantToQuantAndDequant();
 

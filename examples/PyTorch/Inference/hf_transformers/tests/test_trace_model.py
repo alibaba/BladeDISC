@@ -24,8 +24,8 @@ class TraceModelTest(unittest.TestCase):
     def test_trace_converage(self, id_or_path: str) -> None:
         model, info = create_model(id_or_path=id_or_path, torchscript=True)
         traced = trace_model(model, info)
-        golden_outputs = model(**info.dummy_inputs)
-        inputs = _kwargs_to_args(info.input_order, **info.dummy_inputs)
+        golden_outputs = model(**info.example_inputs)
+        inputs = _kwargs_to_args(info.input_order, **info.example_inputs)
         traced_outputs = traced(*inputs)
         self.assertEqual(len(golden_outputs), len(traced_outputs))
         for a, b in zip(golden_outputs, traced_outputs):

@@ -11,7 +11,7 @@
 
 from enum import Enum
 from functools import partial
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, NamedTuple, Optional
 
 import torch
 import torch.nn as nn
@@ -68,6 +68,24 @@ DEFAULT_QAT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
 }
 
 
+class ObserverTypes(NamedTuple):
+    act_ob_ctr: Callable[..., Observer]
+    w_ob_ctr: Callable[..., Observer]
+    bias_ob_ctr: Optional[Callable[..., Observer]] = None
+
+def get_observer_types(
+        act_ob_ctr: Optional[Callable[..., Observer]],
+        w_ob_ctr: Optional[Callable[..., Observer]],
+        bias_ob_ctr: Optional[Callable[..., Observer]],
+        default_act_ob_ctr: Callable[..., Observer],
+        default_w_ob_ctr: Callable[..., Observer],
+        default_bias_ob_ctr: Optional[Callable[..., Observer]]):
+    act_ob_ctr = act_ob_ctr or default_act_ob_ctr
+    w_ob_ctr = w_ob_ctr or default_w_ob_ctr
+    bias_ob_ctr = bias_ob_ctr or default_bias_ob_ctr
+    return ObserverTypes(act_ob_ctr=act_ob_ctr, w_ob_ctr=w_ob_ctr, bias_ob_ctr=bias_ob_ctr)
+
+
 class Quantizer:
     def __init__(self, module_filter: Optional[ModuleFilter] = None,
                  backend: Backend = Backend.REFERENCE,
@@ -79,33 +97,39 @@ class Quantizer:
         self.module_filter = module_filter
         self.backend = backend
         self.tracer = tracer
-        self.act_ob_ctr = act_ob_ctr or DEFAULT_ACT_OB_CTR[backend]
-        self.w_ob_ctr = w_ob_ctr or DEFAULT_W_OB_CTR[backend]
-        self.bias_ob_ctr = bias_ob_ctr or DEFAULT_BIAS_OB_CTR
+        # self.act_ob_ctr = act_ob_ctr or DEFAULT_ACT_OB_CTR[backend]
+        # self.w_ob_ctr = w_ob_ctr or DEFAULT_W_OB_CTR[backend]
+        # self.bias_ob_ctr = bias_ob_ctr or DEFAULT_BIAS_OB_CTR
 
-    def calib_gm(self, gm: GraphModule, root: nn.Module) -> None:
-        ctx = GraphModContext(gm, root, self.act_ob_ctr,
-                              self.w_ob_ctr, self.bias_ob_ctr)
+    def calib_gm(self, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes) -> None:
+        ctx = GraphModContext(gm, root, ob_types.act_ob_ctr, ob_types.w_ob_ctr, ob_types.bias_ob_ctr)
         # TODO(litan.ls): unify graph modification for different backends
         if self.backend == Backend.DISC:
             ctx.modify_graph([
                 set_qconfig,
                 insert_act_observer,
-                partial(quantizable_module_to_observed, is_observe_bias=False),
+                partial(quantizable_module_to_observed, is_observe_bias=True),
             ])
         else:
             ctx.modify_graph([set_qconfig, insert_act_observer])
         toggle_observer(gm, observe=True, fake_quant=False)
 
-    def calib(self, model: nn.Module) -> nn.Module:
+    def calib(self, model: nn.Module,
+              act_ob_ctr: Optional[Callable[..., Observer]] = None,
+              w_ob_ctr: Optional[Callable[..., Observer]] = None,
+              bias_ob_ctr: Optional[Callable[..., Observer]] = None,
+              ) -> nn.Module:
+        ob_types = get_observer_types(
+            act_ob_ctr, w_ob_ctr, bias_ob_ctr,
+            DEFAULT_ACT_OB_CTR[self.backend], DEFAULT_W_OB_CTR[self.backend],
+            DEFAULT_BIAS_OB_CTR)
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
         for x in trace_mapping.values():
-            self.calib_gm(x.gm, x.m)
+            self.calib_gm(x.gm, x.m, ob_types)
         return copy_and_replace(model, trace_mapping)
 
-    def qat_gm(self, gm: GraphModule, root: nn.Module) -> None:
-        ctx = GraphModContext(gm, root, DEFAULT_QAT_ACT_OB_CTR[self.backend],
-                              DEFAULT_QAT_W_OB_CTR, None)
+    def qat_gm(self, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes) -> None:
+        ctx = GraphModContext(gm, root, ob_types.act_ob_ctr, ob_types.w_ob_ctr, ob_types.bias_ob_ctr)
         ctx.modify_graph([
             set_qconfig,
             insert_act_observer,
@@ -115,17 +139,22 @@ class Quantizer:
             partial(quantizable_module_to_observed, is_observe_bias=False)])
         toggle_observer(gm, observe=False, fake_quant=True)
 
-    def qat(self, model: nn.Module) -> nn.Module:
+    def qat(self, model: nn.Module,
+            act_ob_ctr: Optional[Callable[..., Observer]] = None,
+            w_ob_ctr: Optional[Callable[..., Observer]] = None,
+            bias_ob_ctr: Optional[Callable[..., Observer]] = None,
+            ) -> nn.Module:
+        ob_types = get_observer_types(
+            act_ob_ctr, w_ob_ctr, bias_ob_ctr,
+            DEFAULT_QAT_ACT_OB_CTR[self.backend], DEFAULT_QAT_W_OB_CTR,
+            None)
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
         for x in trace_mapping.values():
-            self.qat_gm(x.gm, x.m)
+            self.qat_gm(x.gm, x.m, ob_types)
         return copy_and_replace(model, trace_mapping)
 
     def quantize_gm(self, gm: GraphModule, root: nn.Module) -> None:
-        ctx = GraphModContext(gm, root, self.act_ob_ctr,
-                              self.w_ob_ctr, self.bias_ob_ctr)
-        # TODO: for x86 disc backend, the bias does not need to be
-        # fake-quantized while for aarch64 disc backend， it needs.
+        ctx = GraphModContext(gm, root, is_override_module=False, is_override_qconfig=False)
         if self.backend == Backend.DISC:
             ctx.modify_graph([
                 set_qconfig,

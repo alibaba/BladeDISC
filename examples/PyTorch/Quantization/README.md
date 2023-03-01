@@ -55,7 +55,9 @@ To build and install `torch_blade` package, please refer to
 
 #### Run the example
 ```shell
-python bert_ptq.py
+# use OMP_NUM_THREADS to control the number of cpu cores to use
+OMP_NUM_THREADS=1 python bert_ptq.py
 ```
 
 #### Performance results
+TBD

@@ -82,6 +82,7 @@ def evaluate(model, dataloader, device):
 
 @torch.no_grad()
 def calibrate(model, dataloader, device):
+    print("running calibration ...")
     calib_step = 10
     model.eval().to(device)
     for idx, batch in enumerate(dataloader):
@@ -97,7 +98,7 @@ def calibrate(model, dataloader, device):
 
 def get_dummy_input():
     batch = 6
-    seq_len = 128
+    seq_len = 64
     input_ids = torch.randint(
         100, 1000, (batch, seq_len), dtype=torch.int64, device="cpu")
     attention_mask = torch.ones_like(input_ids)
@@ -107,18 +108,22 @@ def get_dummy_input():
 
 
 set_seed(0)
+# model for quantization
 MODEL_ID = "M-FAC/bert-mini-finetuned-mrpc"
-TASK_NAME = "mrpc"
 REVISION = "main"
+# dataset and task for evaluating the accuracy of the quantized model
+DATASET_NAME = "glue"
+TASK_NAME = "mrpc"
+# target platform to run the quantized model
 device = "cpu"
 
 print('load dataset...')
-raw_datasets = load_dataset("glue", TASK_NAME)
-print('prepare bert-mini model...')
+raw_datasets = load_dataset(DATASET_NAME, TASK_NAME)
+print('prepare the model...')
 config = AutoConfig.from_pretrained(
     MODEL_ID,
     revision=REVISION,
-    torchscript=True
+    torchscript=True  # BladeDISC use torchscript as input, so we should enable this
 )
 tokenizer = AutoTokenizer.from_pretrained(
     MODEL_ID,
@@ -175,11 +180,11 @@ class HFTracerWrapper(HFTracer):
         }
         return super().trace(root, concrete_args=concrete_args, **kwargs)
 
-
+# should use huggingface tracer to transform the model to fx model
 tracer = HFTracerWrapper(["input_ids", "attention_mask", "token_type_ids"])
 quantizer = Quantizer(tracer=tracer, backend=Backend.DISC)
 # Convert the nn.Module to fx.Module and modify the inference
-# graph to meet the needs of convert it the int8 model.
+# graph to meet the needs of converting it to the DISC int8 model.
 calib_model = quantizer.calib(model)
 # Do calibration on the fx.Module and collect the quantization information.
 calibrate(calib_model, eval_dataloader, device)

@@ -60,3 +60,61 @@ func.func @sparse_segment_sum(
   // CHECK: return %[[OUT1]] : memref<?x?xf32, "cpu">
   return %out1 : memref<?x?xf32, "cpu">
 }
+
+// -----
+
+// CHECK-LABEL: @sparse_segment_mean_with_empty_rows
+func.func @sparse_segment_mean_with_empty_rows(
+    %arg0: memref<?x?xf32, "cpu">,
+    %arg1: memref<?xi64, "cpu">,
+    %arg2: memref<?x2xi64, "cpu">,
+    %arg3: memref<?xi64, "cpu">,
+    %output: memref<?x?xf32, "cpu">,
+    %empty_row_indicator: memref<?xi1, "cpu">)
+-> (memref<?x?xf32, "cpu">,
+    memref<?xi1, "cpu">) {
+  // CHECK: scf.parallel
+  // CHECK: scf.if %{{.*}} {
+  // CHECK:   memref.store %{{.*}}, %{{.*}}[%{{.*}}] : memref<?xi1, "cpu">
+  // CHECK:   %[[V7:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK:   %[[V8:.*]] = memref.load %{{.*}}[%{{.*}}] : memref<?xf32, "cpu">
+  // CHECK:   %[[V9:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK:   %[[V10:.*]] = arith.divf %[[V9]], %[[V8]] : f32
+  // CHECK:   %[[V11:.*]] = arith.addf %[[V7]], %[[V10]] : f32
+  // CHECK:   memref.store %[[V11]], %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK: } else {
+  // CHECK:   memref.store %{{.*}}, %{{.*}}[%{{.*}}] : memref<?xi1, "cpu">
+  // CHECK:   %[[V7:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK:   memref.store %[[V7]], %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK: }
+  "lmhlo_disc.sparse_segment_reduction_with_empty_rows"(%arg0, %arg1, %arg2, %arg3, %output, %empty_row_indicator) {reduction_mode = 0 : i64} : (memref<?x?xf32, "cpu">, memref<?xi64, "cpu">, memref<?x2xi64, "cpu">, memref<?xi64, "cpu">, memref<?x?xf32, "cpu">, memref<?xi1, "cpu">) -> ()
+  return %output, %empty_row_indicator : memref<?x?xf32, "cpu">, memref<?xi1, "cpu">
+}
+
+// -----
+
+// CHECK-LABEL: @sparse_segment_sum_with_empty_rows
+func.func @sparse_segment_sum_with_empty_rows(
+    %arg0: memref<?x?xf32, "cpu">,
+    %arg1: memref<?xi64, "cpu">,
+    %arg2: memref<?x2xi64, "cpu">,
+    %arg3: memref<?xi64, "cpu">,
+    %output: memref<?x?xf32, "cpu">,
+    %empty_row_indicator: memref<?xi1, "cpu">)
+-> (memref<?x?xf32, "cpu">,
+    memref<?xi1, "cpu">) {
+  // CHECK: scf.parallel
+  // CHECK: scf.if %{{.*}} {
+  // CHECK:   memref.store %{{.*}}, %{{.*}}[%{{.*}}] : memref<?xi1, "cpu">
+  // CHECK:   %[[V7:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK:   %[[V8:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK:   %[[V9:.*]] = arith.addf %[[V7]], %[[V8]] : f32
+  // CHECK:   memref.store %[[V9]], %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK: } else {
+  // CHECK:   memref.store %{{.*}}, %{{.*}}[%{{.*}}] : memref<?xi1, "cpu">
+  // CHECK:   %[[V7:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK:   memref.store %[[V7]], %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK: }
+  "lmhlo_disc.sparse_segment_reduction_with_empty_rows"(%arg0, %arg1, %arg2, %arg3, %output, %empty_row_indicator) {reduction_mode = 1 : i64} : (memref<?x?xf32, "cpu">, memref<?xi64, "cpu">, memref<?x2xi64, "cpu">, memref<?xi64, "cpu">, memref<?x?xf32, "cpu">, memref<?xi1, "cpu">) -> ()
+  return %output, %empty_row_indicator : memref<?x?xf32, "cpu">, memref<?xi1, "cpu">
+}

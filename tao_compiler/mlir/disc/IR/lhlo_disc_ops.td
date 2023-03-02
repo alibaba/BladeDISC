@@ -226,6 +226,22 @@ def LHLO_SparseSegmentReductionOp : LHLODISC_Op<"sparse_segment_reduction", []> 
   );
 }
 
+def LHLO_SparseSegmentReductionWithEmptyRowsOp : LHLODISC_Op<"sparse_segment_reduction_with_empty_rows", []> {
+  let summary = "This is combination of sparse_fill_empty_rows + sparse_segment_mean/sum";
+  let description = [{
+    Since fuse 2 thses ops is difficult when these 2 both contains many loops after legalize-to-roots pass, however we can greatly simplify the computation in current impl.
+  }];
+  let arguments = (ins
+    Arg<LHLO_FpBuffer, "", [MemRead]>:$data,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$indices,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$unfilled_segment_ids,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$dense_shape,
+    DefaultValuedAttr<LHLO_ReductionModeEnum, "ReductionModeEnum::Mean">:$reduction_mode,
+    Arg<LHLO_FpBuffer, "", [MemWrite]>:$output,
+    Arg<LHLO_PredBuffer, "", [MemWrite]>:$empty_row_indicator
+  );
+}
+
 def LHLO_WhereOp : LHLODISC_Op<"where", []> {
   let summary = "One-to-one mapping of TF_WhereOp";
   let description = [{

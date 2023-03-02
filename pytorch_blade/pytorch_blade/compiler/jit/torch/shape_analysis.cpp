@@ -1930,6 +1930,39 @@ class ShapePropagator : public PropertyPropBase {
           return {};
         }};
 
+    static const register_formula_for dims_squeeze_ops{
+        {
+            "aten::squeeze.dims(Tensor(a) self, int[] dim) -> Tensor(a)",
+        },
+        [](Node* node) -> type_vec_t {
+          if (auto squeeze_dims = constant_as<c10::List<int64_t>>(
+                  node->namedInput(attr::dim))) {
+            if (auto type = node->input(0)->type()->cast<TensorType>()) {
+              auto rank = type->symbolic_sizes().sizes().value().size();
+              std::vector<int64_t> new_sizes;
+              for (int i = 0; i < rank; ++i) {
+                auto sym_dim_size = getSymDimSize(type, i);
+                if (!sym_dim_size.is_static())
+                  return {};
+                bool squeeze_dim = false;
+                if (sym_dim_size.static_size() == 1) {
+                  for (int k = 0; k < squeeze_dims.value().size(); ++k) {
+                    auto s_dim = squeeze_dims.value()[k];
+                    if (s_dim == i) {
+                      squeeze_dim = true;
+                      break;
+                    }
+                  }
+                }
+                if (!squeeze_dim)
+                  new_sizes.push_back(sym_dim_size.static_size());
+              }
+              return {type->withSizes(new_sizes)};
+            }
+          }
+          return {};
+        }};
+
     // Requirements:
     //   dims           : equal to number of elements in size
     //   scalar type    : equal to value of dtype
@@ -2266,29 +2299,30 @@ class ShapePropagator : public PropertyPropBase {
             "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)")) {
       if (auto type = input_type(0)) {
         node->outputs()[0]->setType(type);
-        auto normalized_shape =
-            node->get<c10::List<int64_t>>(attr::normalized_shape).value();
-        const size_t axis = type->dim().value() - normalized_shape.size();
-        std::vector<ShapeSymbol> stat_shape;
-        int64_t dims = axis + type->dim().value();
-        for (const auto idx : c10::irange(axis)) {
-          auto dimSize = type->symbolic_sizes()[idx];
-          if (dimSize.is_static())
-            // NB(xiafei.qiuxf): use static_size() rather than value() for
-            // backward compatability. static_size() CHECKs is_static(), it's
-            // safe here.
-            stat_shape.emplace_back(
-                ShapeSymbol::fromStaticSize(dimSize.static_size()));
-          else
-            stat_shape.emplace_back(ShapeSymbol::newSymbol());
+        if (auto m =
+                determineListSize(node->namedInput(attr::normalized_shape))) {
+          const size_t axis = type->dim().value() - m.value();
+          std::vector<ShapeSymbol> stat_shape;
+          for (const auto idx : c10::irange(axis)) {
+            auto dimSize = type->symbolic_sizes()[idx];
+            if (dimSize.is_static())
+              // NB(xiafei.qiuxf): use static_size() rather than value() for
+              // backward compatability. static_size() CHECKs is_static(), it's
+              // safe here.
+              stat_shape.emplace_back(
+                  ShapeSymbol::fromStaticSize(dimSize.static_size()));
+            else
+              stat_shape.emplace_back(ShapeSymbol::newSymbol());
+          }
+          for (const auto idx C10_UNUSED :
+               c10::irange(axis, type->dim().value())) {
+            //(void)idx; // Suppress unused variable warning
+            stat_shape.emplace_back(ShapeSymbol::fromStaticSize(1));
+          }
+          SymbolicShape symblicShape(stat_shape);
+          node->outputs()[1]->setType(type->withSymbolicShapes(symblicShape));
+          node->outputs()[2]->setType(type->withSymbolicShapes(symblicShape));
         }
-        for (const auto idx : c10::irange(axis, type->dim().value())) {
-          (void)idx; // Suppress unused variable warning
-          stat_shape.emplace_back(ShapeSymbol::fromStaticSize(1));
-        }
-        SymbolicShape symblicShape(stat_shape);
-        node->outputs()[1]->setType(type->withSymbolicShapes(symblicShape));
-        node->outputs()[2]->setType(type->withSymbolicShapes(symblicShape));
       }
       return true;
 #endif

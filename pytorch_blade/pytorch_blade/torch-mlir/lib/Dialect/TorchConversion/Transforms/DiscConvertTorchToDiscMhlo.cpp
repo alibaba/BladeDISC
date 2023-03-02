@@ -9,6 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "lib/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -239,6 +240,61 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
     return success();
   }
 
+  LogicalResult convertSqueezeDimsOp(
+      OperatorOp op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const {
+    auto operands = adaptor.operands();
+    auto self = operands[0];
+    auto selfTy = self.getType().template cast<RankedTensorType>();
+    auto rank = selfTy.getRank();
+    SmallVector<int64_t> squeezeDims;
+    if (!matchPattern(op.getOperand(1), m_TorchConstantIntList(squeezeDims))) {
+      return rewriter.notifyMatchFailure(op, "non-int dim list unsupported");
+    }
+
+    SmallVector<int64_t, 4> dims;
+    for (int i = 0; i < rank; ++i) {
+      auto shape = selfTy.getShape()[i];
+      if (shape == ShapedType::kDynamicSize)
+        return rewriter.notifyMatchFailure(
+            op, "the size of the dimension being squeezed is can't be unknown");
+
+      bool squeeze = false;
+      if (shape == 1) {
+        for (int k = 0; k < squeezeDims.size(); ++k) {
+          if (squeezeDims[k] == i) {
+            squeeze = true;
+            break;
+          }
+        }
+      }
+      if (!squeeze)
+        dims.push_back(i);
+    }
+    auto torchMlirResultTy =
+        op.getResult(0).getType().dyn_cast<ValueTensorType>();
+    if (dims.size() == 0) {
+      rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(
+          op, getTypeConverter()->convertType(torchMlirResultTy), self);
+      return success();
+    }
+    auto newDimSizesInfo =
+        mhlo::getDimSizesOfTensor(rewriter, op, self, dims, 32);
+    if (failed(newDimSizesInfo))
+      return rewriter.notifyMatchFailure(
+          op, "failed to get dimension sizes of the input");
+    auto newDimSizes = *newDimSizesInfo;
+    auto mhloShape =
+        rewriter.create<tensor::FromElementsOp>(op.getLoc(), newDimSizes);
+    rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
+        op,
+        getTypeConverter()->convertType(torchMlirResultTy),
+        self,
+        mhloShape);
+    return success();
+  }
+
   LogicalResult matchAndRewrite(
       OperatorOp op,
       OpAdaptor adaptor,
@@ -252,6 +308,8 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       return convertQuantizationRelatedOp(op, adaptor, rewriter);
     } else if (name == customCallName) {
       return convertCustomCallOp(op, adaptor, rewriter);
+    } else if (name == "aten.squeeze.dims") {
+      return convertSqueezeDimsOp(op, adaptor, rewriter);
     } else {
       auto emitter = op.emitError();
       emitter.append(

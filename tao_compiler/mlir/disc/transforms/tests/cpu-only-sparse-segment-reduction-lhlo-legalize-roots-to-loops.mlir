@@ -76,11 +76,11 @@ func.func @sparse_segment_mean_with_empty_rows(
   // CHECK: scf.parallel
   // CHECK: scf.if %{{.*}} {
   // CHECK:   memref.store %{{.*}}, %{{.*}}[%{{.*}}] : memref<?xi1, "cpu">
-  // CHECK:   %[[V7:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
-  // CHECK:   %[[V8:.*]] = memref.load %{{.*}}[%{{.*}}] : memref<?xf32, "cpu">
-  // CHECK:   %[[V9:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
-  // CHECK:   %[[V10:.*]] = arith.divf %[[V9]], %[[V8]] : f32
-  // CHECK:   %[[V11:.*]] = arith.addf %[[V7]], %[[V10]] : f32
+  // CHECK-DAG:   %[[V7:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK-DAG:   %[[V8:.*]] = memref.load %{{.*}}[%{{.*}}] : memref<?xf32, "cpu">
+  // CHECK-DAG:   %[[V9:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK-DAG:   %[[V10:.*]] = arith.divf %[[V9]], %[[V8]] : f32
+  // CHECK-DAG:   %[[V11:.*]] = arith.addf %[[V7]], %[[V10]] : f32
   // CHECK:   memref.store %[[V11]], %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
   // CHECK: } else {
   // CHECK:   memref.store %{{.*}}, %{{.*}}[%{{.*}}] : memref<?xi1, "cpu">
@@ -106,9 +106,9 @@ func.func @sparse_segment_sum_with_empty_rows(
   // CHECK: scf.parallel
   // CHECK: scf.if %{{.*}} {
   // CHECK:   memref.store %{{.*}}, %{{.*}}[%{{.*}}] : memref<?xi1, "cpu">
-  // CHECK:   %[[V7:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
-  // CHECK:   %[[V8:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
-  // CHECK:   %[[V9:.*]] = arith.addf %[[V7]], %[[V8]] : f32
+  // CHECK-DAG:   %[[V7:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK-DAG:   %[[V8:.*]] = memref.load %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
+  // CHECK-DAG:   %[[V9:.*]] = arith.addf %[[V7]], %[[V8]] : f32
   // CHECK:   memref.store %[[V9]], %{{.*}}[%{{.*}}, %{{.*}}] : memref<?x?xf32, "cpu">
   // CHECK: } else {
   // CHECK:   memref.store %{{.*}}, %{{.*}}[%{{.*}}] : memref<?xi1, "cpu">

@@ -831,7 +831,8 @@ void FusionPattern::findOpsOfSkeletonGroup(
                                      !xroot_members.contains(input_op);
       if (existing_group_op_set.contains(input_op) &&
           !shmem_cached_ops.contains(input_op) &&
-          !all_skeletons.contains(input_op)) {
+          !all_skeletons.contains(input_op) &&
+          !isa<lmhlo::ConstantOp>(input_op)) {
         auto output = input_op->getOperand(input_op->getNumOperands() - 1);
         int collapsed_tile_dim = getCollapsedTileDim(output);
         auto output_type = output.getType().cast<MemRefType>();

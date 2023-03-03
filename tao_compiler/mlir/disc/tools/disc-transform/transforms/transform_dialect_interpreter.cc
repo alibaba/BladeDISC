@@ -92,6 +92,7 @@ void addTransformDialectDependentDialects(DialectRegistry& registry) {
   scf::registerTransformDialectExtension(registry);
   registerTransformDialectCommonExtension(registry);
   disc_linalg_ext::registerTilingInterfaceExternalModels(registry);
+  disc_linalg_ext::registerBufferizableOpInterfaceExternalModels(registry);
 }
 
 namespace {

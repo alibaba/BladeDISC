@@ -779,4 +779,88 @@ def VectorizeConditionalGenericOp : Op<Transform_Dialect, "disc.vectorize_condit
   }];
 }
 
+def SplitVectorTransferIntoFullAndPartialOp : Op<Transform_Dialect, "disc.split_vector_transfer_into_full_and_partial",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Split a vector.transfer operation into an in-bounds (i.e., no out-of-bounds masking) fastpath and a slowpath.
+
+    Returns the xfer op if no needs to split, otherwise returns the warpper if op for full version and partial version.
+
+    /// Example (a 2-D vector.transfer_read):
+    /// ```
+    ///    %1 = vector.transfer_read %0[...], %pad : memref<A...>, vector<...>
+    /// ```
+    /// is transformed into:
+    /// ```
+    ///    %1:3 = scf.if (%inBounds) {
+    ///      // fastpath, direct cast
+    ///      memref.cast %A: memref<A...> to compatibleMemRefType
+    ///      scf.yield %view : compatibleMemRefType, index, index
+    ///    } else {
+    ///      // slowpath, not in-bounds vector.transfer or linalg.copy.
+    ///      memref.cast %alloc: memref<B...> to compatibleMemRefType
+    ///      scf.yield %4 : compatibleMemRefType, index, index
+    //     }
+    ///    %0 = vector.transfer_read %1#0[%1#1, %1#2] {in_bounds = [true ... true]}
+    /// ```
+    /// where `alloc` is a top of the function alloca'ed buffer of one vector.
+
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def LowerConditionalGenericOp : Op<Transform_Dialect, "disc.lower_conditional_generic",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Lower the conditional_generic op to a scf.if + linalg.generic op.
+
+    Note the this transform primitive supposes the conditional_generic has been bufferized.
+
+    Returns the generated linalg.generic op.
+
+    /// Example:
+    /// ```
+    ///    %1 = disc_linalg_ext.conditional_generic ins(%pred, ...), outs(...)
+    /// ```
+    /// is transformed into:
+    /// ```
+    ///    scf.if (%pred) {
+    ///      linalg.generic ins(...) outs(...)
+    ///      scf.yield %view
+    ///    }
+    /// ```
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

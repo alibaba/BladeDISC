@@ -229,6 +229,17 @@ bool useTransformSchedule() {
   return enabled;
 }
 
+// Returns true if `DISC_ENABLE_TRANSFORM_GEMM_EPILOGUE_FUSION` is true.
+bool useTransformGEMMEpilogueFusionSchedule() {
+  static bool enabled = []() {
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_TRANSFORM_GEMM_EPILOGUE_FUSION",
+                                   enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
 bool lowerFakeQuantToQuantAndDequant() {
   static bool enabled = []() {
     bool enabled = false;

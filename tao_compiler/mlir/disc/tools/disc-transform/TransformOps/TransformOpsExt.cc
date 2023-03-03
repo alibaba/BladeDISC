@@ -30,12 +30,14 @@
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
+#include "mlir/Interfaces/VectorInterfaces.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/MathExtras.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
@@ -613,6 +615,255 @@ struct FoldXferReadOfXferWriterWithSelectPattern
   }
 };
 
+Operation* getAutomaticAllocationScope(Operation* op) {
+  // Find the closest surrounding allocation scope that is not a known looping
+  // construct (putting alloca's in loops doesn't always lower to deallocation
+  // until the end of the loop).
+  Operation* scope = nullptr;
+  for (Operation* parent = op->getParentOp(); parent != nullptr;
+       parent = parent->getParentOp()) {
+    if (parent->hasTrait<OpTrait::AutomaticAllocationScope>()) scope = parent;
+    if (scope && !isa<scf::ForOp, AffineForOp>(scope)) break;
+  }
+  return scope;
+}
+
+/// Given two MemRefTypes `aT` and `bT`, return a MemRefType to which both can
+/// be cast. If the MemRefTypes don't have the same rank or are not strided,
+/// return null; otherwise:
+///   1. if `aT` and `bT` are cast-compatible, return `aT`.
+///   2. else return a new MemRefType obtained by iterating over the shape and
+///   strides and:
+///     a. keeping the ones that are static and equal across `aT` and `bT`.
+///     b. using a dynamic shape and/or stride for the dimensions that don't
+///        agree.
+MemRefType getCastCompatibleMemRefType(MemRefType aT, MemRefType bT) {
+  if (memref::CastOp::areCastCompatible(aT, bT)) return aT;
+  if (aT.getRank() != bT.getRank()) return MemRefType();
+  int64_t aOffset, bOffset;
+  SmallVector<int64_t, 4> aStrides, bStrides;
+  if (failed(getStridesAndOffset(aT, aStrides, aOffset)) ||
+      failed(getStridesAndOffset(bT, bStrides, bOffset)) ||
+      aStrides.size() != bStrides.size())
+    return MemRefType();
+
+  ArrayRef<int64_t> aShape = aT.getShape(), bShape = bT.getShape();
+  int64_t resOffset;
+  SmallVector<int64_t, 4> resShape(aT.getRank(), 0),
+      resStrides(bT.getRank(), 0);
+  for (int64_t idx = 0, e = aT.getRank(); idx < e; ++idx) {
+    resShape[idx] =
+        (aShape[idx] == bShape[idx]) ? aShape[idx] : ShapedType::kDynamicSize;
+    resStrides[idx] = (aStrides[idx] == bStrides[idx])
+                          ? aStrides[idx]
+                          : ShapedType::kDynamicStrideOrOffset;
+  }
+  resOffset =
+      (aOffset == bOffset) ? aOffset : ShapedType::kDynamicStrideOrOffset;
+  return MemRefType::get(
+      resShape, aT.getElementType(),
+      StridedLayoutAttr::get(aT.getContext(), resOffset, resStrides));
+}
+
+/// convert:
+///   %0 = vector.transfer_read %src, %cst : vector<8x12xf32>
+///   %1 = arith.select %pred, %0, %vector_cst : vector<8x12xf32>
+///   use(%1)
+/// to:
+///   %0 = memref.alloca() : memref<8x12xf32>
+///   %buffer = scf.if %pred -> memref<?x?xf32> {
+///     scf.yield %src
+///   else {
+///     scf.yield %0
+///   }
+///   %1 = vector.transfer_read %buffer, %cst : vector<8x12xf32>
+///   use(%1)
+///
+/// Note that we need this pattern because we observed that lowered assemble
+/// code of arith.select is very slow.
+struct SelectOfXferReadAndConstToFillPattern
+    : public OpRewritePattern<arith::SelectOp> {
+  using OpRewritePattern<arith::SelectOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(arith::SelectOp selectOp,
+                                PatternRewriter& rewriter) const override {
+    auto vectorTy = selectOp->getResult(0).getType().dyn_cast<VectorType>();
+    if (!vectorTy) return failure();
+
+    // find const op and xfer read op
+    auto xferReadOp =
+        selectOp->getOperand(1).getDefiningOp<vector::TransferReadOp>();
+    auto vectorConstOp =
+        selectOp->getOperand(2).getDefiningOp<arith::ConstantOp>();
+    bool thenIsConst = false;
+    if (!vectorConstOp || !xferReadOp) {
+      xferReadOp =
+          selectOp->getOperand(2).getDefiningOp<vector::TransferReadOp>();
+      vectorConstOp =
+          selectOp->getOperand(1).getDefiningOp<arith::ConstantOp>();
+      thenIsConst = true;
+    }
+    if (!vectorConstOp || !xferReadOp) return failure();
+
+    // check type is compatible
+    auto srcTy = xferReadOp.getSource().getType().dyn_cast<MemRefType>();
+    if (!srcTy) return failure();
+    auto memrefTy =
+        MemRefType::get(vectorTy.getShape(), vectorTy.getElementType());
+    auto castTy = getCastCompatibleMemRefType(srcTy, memrefTy);
+    if (!castTy) return failure();
+
+    auto denseAttr = vectorConstOp.getValue().cast<DenseElementsAttr>();
+    if (!denseAttr.isSplat()) return failure();
+
+    // check the padding value for xfer read op is a const
+    auto scalarConstOp =
+        xferReadOp.getPadding().getDefiningOp<arith::ConstantOp>();
+    if (!scalarConstOp) return failure();
+
+    if (*denseAttr.getValues<Attribute>().begin() != scalarConstOp.getValue())
+      return failure();
+
+    Operation* scope = getAutomaticAllocationScope(selectOp);
+    if (!scope) return failure();
+
+    Location loc = selectOp.getLoc();
+    RewriterBase::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&scope->getRegion(0).front());
+    Value newInitBuffer = rewriter.create<memref::AllocaOp>(
+        loc, memrefTy, ValueRange{}, rewriter.getI64IntegerAttr(64));
+    rewriter.create<linalg::FillOp>(loc, ValueRange{xferReadOp.getPadding()},
+                                    ValueRange{newInitBuffer});
+
+    rewriter.setInsertionPoint(selectOp.getOperation());
+    auto ifOp = rewriter.create<scf::IfOp>(loc, TypeRange{castTy},
+                                           selectOp->getOperand(0), true);
+    rewriter.setInsertionPointToStart(ifOp.thenBlock());
+    Value thenResult =
+        rewriter
+            .create<memref::CastOp>(
+                loc, castTy,
+                thenIsConst ? newInitBuffer : xferReadOp.getSource())
+            ->getResult(0);
+    rewriter.create<scf::YieldOp>(loc, thenResult);
+    rewriter.setInsertionPointToStart(ifOp.elseBlock());
+    Value elseResult =
+        rewriter
+            .create<memref::CastOp>(
+                loc, castTy,
+                !thenIsConst ? newInitBuffer : xferReadOp.getSource())
+            ->getResult(0);
+    rewriter.create<scf::YieldOp>(loc, elseResult);
+
+    rewriter.setInsertionPointAfter(ifOp);
+    BlockAndValueMapping mapping;
+    mapping.map(xferReadOp.getSource(), ifOp->getResult(0));
+    auto clonedXferReadOp = rewriter.clone(*xferReadOp.getOperation(), mapping);
+
+    rewriter.replaceOp(selectOp, clonedXferReadOp->getResults());
+    return success();
+  }
+};
+
+template <typename T>
+SmallVector<int64_t> getVectorSliceOpOffset(T op) {
+  SmallVector<int64_t> offsets;
+  if (op->hasAttr("offsets")) {
+    for (Attribute attr : op->template getAttrOfType<ArrayAttr>("offsets")) {
+      offsets.push_back(attr.cast<IntegerAttr>().getInt());
+    }
+  } else {
+    assert(op->hasAttr("position"));
+    for (Attribute attr : op->template getAttrOfType<ArrayAttr>("position")) {
+      offsets.push_back(attr.cast<IntegerAttr>().getInt());
+    }
+  }
+  return offsets;
+}
+
+bool checkMajorDimsAllOnes(VectorType ty) {
+  if (ty.getRank() <= 0) return false;
+  for (int64_t d = 0; d < ty.getRank() - 1; ++d) {
+    if (ty.getShape()[d] != 1) return false;
+  }
+  return true;
+}
+
+struct VectorExtractStridedSliceOfInsertStridedSliceFold
+    : public OpRewritePattern<vector::ExtractStridedSliceOp> {
+  using OpRewritePattern<vector::ExtractStridedSliceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::ExtractStridedSliceOp extractStridedOp,
+                                PatternRewriter& rewriter) const override {
+    // check only trivial stirdes
+    if (extractStridedOp.hasNonUnitStrides()) return failure();
+
+    // check the result vector shape match pattern: vector<1x1x...xVecxelemType>
+    auto vectorTy = extractStridedOp->getResult(0).getType().cast<VectorType>();
+    if (!checkMajorDimsAllOnes(vectorTy)) return failure();
+
+    // check the offset for the last dim is divisible by the result vector size.
+    auto extractOffsets = getVectorSliceOpOffset(extractStridedOp);
+    if (extractOffsets.back() % vectorTy.getShape()[vectorTy.getRank() - 1] !=
+        0)
+      return failure();
+
+    Value targetValue;
+    SmallVector<int64_t> targetOffsets = extractOffsets;
+    Operation* sourceOp = extractStridedOp.getVector().getDefiningOp();
+    while (sourceOp && !targetValue) {
+      if (auto insertStridedOp =
+              dyn_cast<vector::InsertStridedSliceOp>(sourceOp)) {
+        if (insertStridedOp.hasNonUnitStrides()) return failure();
+        if (targetOffsets == getVectorSliceOpOffset(insertStridedOp)) {
+          auto ty = insertStridedOp.getSourceVectorType();
+          if (!checkMajorDimsAllOnes(ty)) return failure();
+          if (ty.getShape()[ty.getRank() - 1] !=
+              vectorTy.getShape()[vectorTy.getRank() - 1])
+            return failure();
+          targetValue = insertStridedOp.getSource();
+        } else {
+          sourceOp = insertStridedOp.getDest().getDefiningOp();
+        }
+      } else if (auto insertOp = dyn_cast<vector::InsertOp>(sourceOp)) {
+        bool match = true;
+        auto insertOffsets = getVectorSliceOpOffset(insertOp);
+        SmallVector<int64_t> newTargetOffsets;
+        for (int64_t i = 0; match && i < targetOffsets.size(); ++i) {
+          if (i < insertOffsets.size()) {
+            match &= (insertOffsets[i] == targetOffsets[i]);
+          } else {
+            newTargetOffsets.push_back(targetOffsets[i]);
+          }
+        }
+
+        if (match) {
+          sourceOp = insertOp.getSource().getDefiningOp();
+          std::swap(targetOffsets, newTargetOffsets);
+        } else {
+          sourceOp = insertOp.getDest().getDefiningOp();
+        }
+      } else if (auto extractOp = dyn_cast<vector::ExtractOp>(sourceOp)) {
+        auto newTargetOffsets = getVectorSliceOpOffset(extractOp);
+        newTargetOffsets.append(targetOffsets);
+        sourceOp = extractOp.getVector().getDefiningOp();
+        std::swap(newTargetOffsets, targetOffsets);
+      } else {
+        return failure();
+      }
+    }
+
+    if (!targetValue) return failure();
+    if (targetValue.getType() != vectorTy) {
+      targetValue = rewriter.create<vector::ShapeCastOp>(
+          extractStridedOp.getLoc(), vectorTy, targetValue);
+    }
+    rewriter.replaceOp(extractStridedOp, targetValue);
+
+    return success();
+  }
+};
+
 static void addAllRegisteredCanonicalizationPatterns(
     RewritePatternSet& patterns) {
   MLIRContext* ctx = patterns.getContext();
@@ -631,6 +882,8 @@ static void addAllRegisteredCanonicalizationPatterns(
   patterns.insert<FoldTensorExtractOfConstantWrapperPattern>(ctx);
   patterns.insert<FoldXferReadOfXferWriterPattern>(ctx);
   patterns.insert<FoldXferReadOfXferWriterWithSelectPattern>(ctx);
+  patterns.insert<SelectOfXferReadAndConstToFillPattern>(ctx);
+  patterns.insert<VectorExtractStridedSliceOfInsertStridedSliceFold>(ctx);
 }
 
 }  // namespace
@@ -1215,47 +1468,6 @@ DiagnosedSilenceableFailure LowerMultiLevelPackToLoopOp::applyToOne(
 // InlineReductionInitializer
 //===---------------------------------------------------------------------===//
 
-namespace {
-
-/// Given two MemRefTypes `aT` and `bT`, return a MemRefType to which both can
-/// be cast. If the MemRefTypes don't have the same rank or are not strided,
-/// return null; otherwise:
-///   1. if `aT` and `bT` are cast-compatible, return `aT`.
-///   2. else return a new MemRefType obtained by iterating over the shape and
-///   strides and:
-///     a. keeping the ones that are static and equal across `aT` and `bT`.
-///     b. using a dynamic shape and/or stride for the dimensions that don't
-///        agree.
-MemRefType getCastCompatibleMemRefType(MemRefType aT, MemRefType bT) {
-  if (memref::CastOp::areCastCompatible(aT, bT)) return aT;
-  if (aT.getRank() != bT.getRank()) return MemRefType();
-  int64_t aOffset, bOffset;
-  SmallVector<int64_t, 4> aStrides, bStrides;
-  if (failed(getStridesAndOffset(aT, aStrides, aOffset)) ||
-      failed(getStridesAndOffset(bT, bStrides, bOffset)) ||
-      aStrides.size() != bStrides.size())
-    return MemRefType();
-
-  ArrayRef<int64_t> aShape = aT.getShape(), bShape = bT.getShape();
-  int64_t resOffset;
-  SmallVector<int64_t, 4> resShape(aT.getRank(), 0),
-      resStrides(bT.getRank(), 0);
-  for (int64_t idx = 0, e = aT.getRank(); idx < e; ++idx) {
-    resShape[idx] =
-        (aShape[idx] == bShape[idx]) ? aShape[idx] : ShapedType::kDynamicSize;
-    resStrides[idx] = (aStrides[idx] == bStrides[idx])
-                          ? aStrides[idx]
-                          : ShapedType::kDynamicStrideOrOffset;
-  }
-  resOffset =
-      (aOffset == bOffset) ? aOffset : ShapedType::kDynamicStrideOrOffset;
-  return MemRefType::get(
-      resShape, aT.getElementType(),
-      StridedLayoutAttr::get(aT.getContext(), resOffset, resStrides));
-}
-
-}  // namespace
-
 void InlineReductionInitializerOp::getEffects(
     SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
   transform::consumesHandle({this->getOperation()->getOperand(0)}, effects);
@@ -1556,6 +1768,114 @@ struct DecomposeVectorInOutsOfForOp : public OpRewritePattern<scf::ForOp> {
   vector::UnrollVectorOptions options_;
 };
 
+struct DecomposeVectorInOutsOfIfOp : public OpRewritePattern<scf::IfOp> {
+  explicit DecomposeVectorInOutsOfIfOp(
+      MLIRContext* context, const vector::UnrollVectorOptions& options,
+      PatternBenefit benefit = 1)
+      : mlir::OpRewritePattern<scf::IfOp>(context, benefit),
+        options_(options) {}
+
+  struct VectorDecomposeInfo {
+    VectorType dstVecType;
+    int64_t startIdx;
+    int64_t numSubVectors;
+    SmallVector<SmallVector<int64_t>> strides;
+    SmallVector<SmallVector<int64_t>> offsets;
+  };
+
+  LogicalResult matchAndRewrite(scf::IfOp ifOp,
+                                PatternRewriter& rewriter) const final {
+    Location loc = ifOp.getLoc();
+    if (failed(options_.filterConstraint(ifOp))) return failure();
+    auto maybeTargetShape = options_.nativeShape(ifOp);
+    if (!maybeTargetShape) return failure();
+    auto& targetShape = *maybeTargetShape;
+
+    int numNewOuts = 0;
+    VectorType targetVectorType;
+    DenseMap<int, VectorDecomposeInfo> candidateValueMap;
+    SmallVector<Type> newResultTypes;
+    for (const auto& en : llvm::enumerate(ifOp->getResults())) {
+      auto ty = en.value().getType().dyn_cast<VectorType>();
+      Optional<SmallVector<int64_t>> maybeShapeRatio;
+      if (!ty ||
+          !(maybeShapeRatio = computeShapeRatio(ty.getShape(), targetShape)) ||
+          llvm::all_of(*maybeShapeRatio, [](int64_t v) { return v == 1; })) {
+        ++numNewOuts;
+        newResultTypes.push_back(en.value().getType());
+        continue;
+      }
+      // TODO(wyzero): support multiple iter args with different vector type.
+      if (targetVectorType && targetVectorType != ty) return failure();
+      targetVectorType = ty;
+      auto& item = candidateValueMap[en.index()];
+      item.dstVecType = ty;
+      item.numSubVectors = computeMaxLinearIndex(*maybeShapeRatio);
+      item.startIdx = numNewOuts;
+      SmallVector<int64_t> strides(targetShape.size(), 1);
+      for (int i = 0; i < item.numSubVectors; ++i) {
+        auto offsets = getVectorOffset(ty.getShape(), targetShape, i);
+        item.strides.push_back(strides);
+        item.offsets.push_back(offsets);
+        newResultTypes.push_back(
+            VectorType::get(targetShape, ty.getElementType()));
+        ++numNewOuts;
+      }
+    }
+
+    if (candidateValueMap.empty() || ifOp.getElseRegion().empty())
+      return failure();
+    scf::IfOp newIfOp = rewriter.create<scf::IfOp>(loc, newResultTypes,
+                                                   ifOp.getCondition(), true);
+
+    auto cloneAndUpdateRegion = [&](Region& src, Region& dst) {
+      dst.takeBody(src);
+      SmallVector<Value> newResults;
+      auto yieldOp = dst.front().getTerminator();
+      rewriter.setInsertionPoint(yieldOp);
+      for (auto [idx, val] : llvm::enumerate(yieldOp->getOperands())) {
+        auto it = candidateValueMap.find(idx);
+        if (it == candidateValueMap.end()) newResults.push_back(val);
+        auto& item = it->second;
+        for (int i = 0; i < item.numSubVectors; ++i) {
+          newResults.push_back(rewriter.create<vector::ExtractStridedSliceOp>(
+              loc, val, item.offsets[i], targetShape, item.strides[i]));
+        }
+      }
+      yieldOp->setOperands(newResults);
+    };
+
+    cloneAndUpdateRegion(ifOp.getThenRegion(), newIfOp.getThenRegion());
+    cloneAndUpdateRegion(ifOp.getElseRegion(), newIfOp.getElseRegion());
+
+    // merge the return values of new if op.
+    rewriter.setInsertionPointAfter(newIfOp);
+    size_t resultIdx = 0;
+    SmallVector<Value> newResults;
+    for (auto [idx, val] : llvm::enumerate(ifOp->getResults())) {
+      auto it = candidateValueMap.find(idx);
+      if (it == candidateValueMap.end()) {
+        newResults.push_back(newIfOp->getResult(resultIdx++));
+        continue;
+      }
+      auto& item = it->second;
+      Value mergedVec = rewriter.create<arith::ConstantOp>(
+          loc, item.dstVecType, rewriter.getZeroAttr(item.dstVecType));
+      for (int subIdx = 0; subIdx < item.numSubVectors; ++subIdx) {
+        mergedVec = rewriter.create<vector::InsertStridedSliceOp>(
+            loc, newIfOp->getResult(resultIdx++), mergedVec,
+            item.offsets[subIdx], item.strides[subIdx]);
+      }
+      newResults.push_back(mergedVec);
+    }
+    rewriter.replaceOp(ifOp, newResults);
+    return success();
+  }
+
+ private:
+  vector::UnrollVectorOptions options_;
+};
+
 }  // namespace
 
 void DecomposeVectorsOp::build(OpBuilder& builder, OperationState& result,
@@ -1591,8 +1911,8 @@ DiagnosedSilenceableFailure DecomposeVectorsOp::applyToOne(
                    this->getVectorSize() ==
                0;
   };
-  auto getVectorTypeOfForOp = [&](Operation* op) -> VectorType {
-    if (!isa<scf::ForOp>(op)) return nullptr;
+  auto getVectorTypeOfForOrIfOp = [&](Operation* op) -> VectorType {
+    if (!isa<scf::ForOp, scf::IfOp>(op)) return nullptr;
     VectorType vectorTy;
     for (auto ty : op->getResultTypes()) {
       if (!isTargetType(ty)) continue;
@@ -1602,19 +1922,20 @@ DiagnosedSilenceableFailure DecomposeVectorsOp::applyToOne(
     return vectorTy;
   };
   options.setFilterConstraint([&](Operation* op) {
-    if (getVectorTypeOfForOp(op)) return success();
+    if (getVectorTypeOfForOrIfOp(op)) return success();
     if (isa<vector::TransferReadOp, vector::TransferWriteOp>(op))
       return success();
     if (op->getNumResults() != 1) return failure();
     if (op->getDialect()->getTypeID() != TypeID::get<vector::VectorDialect>() &&
-        op->getDialect()->getTypeID() != TypeID::get<arith::ArithDialect>())
+        op->getDialect()->getTypeID() != TypeID::get<arith::ArithDialect>() &&
+        op->getDialect()->getTypeID() != TypeID::get<math::MathDialect>())
       return failure();
     return success(isTargetType(op->getResult(0).getType()));
   });
   vector::UnrollVectorOptions::NativeShapeFnType nativeShapeFn =
       [&](Operation* op) -> Optional<SmallVector<int64_t, 4>> {
     VectorType targetVectorTy;
-    if (auto vectorTy = getVectorTypeOfForOp(op)) {
+    if (auto vectorTy = getVectorTypeOfForOrIfOp(op)) {
       targetVectorTy = vectorTy;
     } else if (isa<vector::TransferWriteOp>(op)) {
       targetVectorTy = op->getOperand(0).getType().cast<VectorType>();
@@ -1628,6 +1949,7 @@ DiagnosedSilenceableFailure DecomposeVectorsOp::applyToOne(
   options.setNativeShapeFn(nativeShapeFn);
   vector::populateVectorUnrollPatterns(patterns, options);
   patterns.insert<DecomposeVectorInOutsOfForOp>(ctx, options);
+  patterns.insert<DecomposeVectorInOutsOfIfOp>(ctx, options);
 
   // some clean up patterns.
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
@@ -2729,6 +3051,80 @@ DiagnosedSilenceableFailure VectorizeConditionalGenericOp::applyToOne(
   ifOp->erase();
 
   results.assign({vectorIfOp.getOperation()});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// SplitVectorTransferIntoFullAndPartialOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+static LogicalResult splitFullAndPartialTransferPrecondition(
+    VectorTransferOpInterface xferOp) {
+  // TODO: support 0-d corner case.
+  if (xferOp.getTransferRank() == 0) return failure();
+
+  // TODO: expand support to these 2 cases.
+  if (!xferOp.permutation_map().isMinorIdentity()) return failure();
+  // Must have some out-of-bounds dimension to be a candidate for splitting.
+  if (!xferOp.hasOutOfBoundsDim()) return failure();
+  return success();
+}
+
+}  // namespace
+
+DiagnosedSilenceableFailure SplitVectorTransferIntoFullAndPartialOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto xferOp = dyn_cast<VectorTransferOpInterface>(target);
+  if (!xferOp) {
+    return mlir::emitDefiniteFailure(
+        target, "applies only to vector transfer like ops.");
+  }
+
+  if (failed(splitFullAndPartialTransferPrecondition(xferOp))) {
+    results.assign({xferOp.getOperation()});
+    return DiagnosedSilenceableFailure(success());
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  scf::IfOp ifOp;
+  vector::VectorTransformsOptions options;
+  options.setVectorTransferSplit(vector::VectorTransferSplit::LinalgCopy);
+
+  if (failed(vector::splitFullAndPartialTransfer(rewriter, xferOp, options,
+                                                 &ifOp))) {
+    return mlir::emitDefiniteFailure(target, "failed to split xfer ops.");
+  }
+  results.assign({ifOp.getOperation()});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// LowerConditionalGenericOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure LowerConditionalGenericOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto cgOp = dyn_cast<disc_linalg_ext::ConditionalGenericOp>(target);
+  if (!cgOp) {
+    return mlir::emitDefiniteFailure(
+        target, "applies only to disc_linalg_ext.conditional_generic.");
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  rewriter.setInsertionPoint(target);
+  scf::IfOp ifOp =
+      rewriter.create<scf::IfOp>(cgOp->getLoc(), cgOp->getOperand(0), false);
+  rewriter.setInsertionPointToStart(ifOp.thenBlock());
+  auto genericOp = convertConditionalGenericOpToGenericOp(
+      rewriter, dyn_cast<linalg::LinalgOp>(target));
+  rewriter.eraseOp(target);
+  results.assign({genericOp});
   return DiagnosedSilenceableFailure(success());
 }
 

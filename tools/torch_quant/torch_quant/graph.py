@@ -12,14 +12,17 @@
 import logging
 from collections import defaultdict
 from functools import partial
-from typing import Any, Callable, Dict, Iterable, Set, Tuple, Type
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import torch
 import torch.nn as nn
+import torch.nn.intrinsic as nni
+import torch.nn.intrinsic.quantized as nniq
 import torch.nn.quantized as nnq
 import torch.nn.quantized._reference as nnqr
 from torch.fx import GraphModule, Node
 from torch.quantization import DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS, QConfig
+from torch_quant.module import ModuleFilter
 from torch_quant.observed_module import OB_MODULE_MAPPING
 from torch_quant.observer import Observer
 
@@ -30,6 +33,8 @@ QUANTIZABLE_MODULE_TYPES = (
     nn.Conv2d,
     nn.Conv3d,
     nn.Linear,
+    nni.LinearReLU,
+    nni.ConvReLU2d,
 )
 
 REF_TO_QUANT_MAP = {
@@ -37,6 +42,16 @@ REF_TO_QUANT_MAP = {
     nnqr.Conv2d: nnq.Conv2d,
     nnqr.Conv3d: nnq.Conv3d,
     nnqr.Linear: nnq.Linear,
+}
+
+FUSION_PATTERNS = {
+    (nn.Linear, nn.ReLU): nni.LinearReLU,
+    (nn.Conv2d, nn.ReLU): nni.ConvReLU2d,
+}
+
+FUSED_REF_TO_QUANT_MAP = {
+    nni.LinearReLU: (nnqr.Linear, nniq.LinearReLU),
+    nni.ConvReLU2d: (nnqr.Conv2d, nniq.ConvReLU2d),
 }
 
 
@@ -65,13 +80,35 @@ class GraphModContext:
     def __init__(self, gm: GraphModule, root: nn.Module,
                  act_ob_ctr: Callable[..., Observer],
                  w_ob_ctr: Callable[..., Observer],
-                 bias_ob_ctr: Callable[..., Observer]) -> None:
+                 bias_ob_ctr: Callable[..., Observer],
+                 module_filter: Optional[ModuleFilter]) -> None:
         self.gm = gm
         self.root = root
         self.modules = dict(self.root.named_modules(remove_duplicate=False))
         self.act_ob_ctr = act_ob_ctr
         self.w_ob_ctr = w_ob_ctr
         self.bias_ob_ctr = bias_ob_ctr
+        self.module_filter = module_filter
+
+    @property
+    def quantizable_module_types(self) -> List[nn.Module]:
+        try:
+            return self._quantizable_module_types
+        except AttributeError:
+            types = QUANTIZABLE_MODULE_TYPES
+            if self.module_filter.include_op_types:
+                types = list(set(types) & set(self.module_filter.include_op_types))
+            elif self.module_filter.exclude_op_types:
+                types = list(set(types) - set(self.module_filter.exclude_op_types))
+            self._quantizable_module_types = types
+            return self._quantizable_module_types
+
+    def is_quantizable(self, module_name: str) -> bool:
+        if self.module_filter.include_names:
+            return module_name in self.module_filter.include_names
+        if self.module_filter.exclude_names:
+            return module_name not in self.module_filter.exclude_names
+        return True
 
     def modify_graph(self, passes: Iterable[GraphModPass]) -> None:
         for p in passes:
@@ -133,20 +170,44 @@ class GraphModContext:
 # set QConfig to quantizable modules so we can reuse nn.intrinsic/qat modules
 # TODO(litan.ls): support other observer type and dtype
 def set_qconfig(ctx: GraphModContext) -> None:
-    for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
-        m = ctx.modules.get(node.target)
-        m.qconfig = QConfig(activation=None, weight=ctx.w_ob_ctr)
+    for node in ctx.nodes_by_module_type(ctx.quantizable_module_types):
+        if ctx.is_quantizable(node.target):
+            m = ctx.modules.get(node.target)
+            m.qconfig = QConfig(activation=None, weight=ctx.w_ob_ctr)
+
+
+def fuse_modules(ctx: GraphModContext) -> None:
+    """ Fuse modules for quantization
+    Fuses only the following sequence of modules:
+        Linear + ReLU -> LinearRelu
+        Conv2d + ReLU -> Conv2dRelu
+    """
+    # TODO(wanchen.swc): refactor this code to support other fusion patterns
+    for fusion_pattern, fused_type in FUSION_PATTERNS.items():
+        for last_nd in ctx.nodes_by_module_type([fusion_pattern[1]]):
+            last_mod = ctx.modules.get(last_nd.target)
+            first_nd = last_nd.args[0]
+            if first_nd.op != 'call_module':
+                continue
+            first_mod = ctx.modules.get(first_nd.target)
+            if type(first_mod) != fusion_pattern[0]:
+                continue
+            last_nd.replace_all_uses_with(first_nd)
+            ctx.gm.graph.erase_node(last_nd)
+            fused_mod = fused_type(first_mod, last_mod)
+            ctx.replace_module(first_nd.target, fused_mod)
 
 
 def insert_act_observer(ctx: GraphModContext) -> None:
     # key: activation node to be observed, value: consumers of observed activation
     # note that not all consumers of original activation need consum observed activation.
     act_nodes: Dict[Node, Set[Node]] = defaultdict(set)
-    for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
-        for arg in node.args:
-            if isinstance(arg, Node):
-                act_nodes[arg].add(node)
-        act_nodes[node].update(node.users)
+    for node in ctx.nodes_by_module_type(ctx.quantizable_module_types):
+        if ctx.is_quantizable(node.target):
+            for arg in node.args:
+                if isinstance(arg, Node):
+                    act_nodes[arg].add(node)
+            act_nodes[node].update(node.users)
     for act in act_nodes:
         # TODO(litan.ls): act.op == call_method
         if act.op == 'call_function':
@@ -176,7 +237,9 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
     Args:
         ctx (GraphModContext): Context object for graph modification.
     """
-    for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
+    for node in ctx.nodes_by_module_type(ctx.quantizable_module_types):
+        if not ctx.is_quantizable(node.target):
+            continue
         src = ctx.modules[node.target]
         dst_type = OB_MODULE_MAPPING.get(type(src))
         if dst_type is None:
@@ -213,8 +276,14 @@ def observer_to_qdq(ctx: GraphModContext) -> None:
 
 
 def quantizable_module_to_ref(ctx: GraphModContext) -> None:
-    for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
+    for node in ctx.nodes_by_module_type(ctx.quantizable_module_types):
+        if not ctx.is_quantizable(node.target):
+            continue
         src = ctx.modules[node.target]
+        fused_module = None
+        if isinstance(src, nn.intrinsic._FusedModule):
+            fused_module= src
+            src = fused_module[0]
         dst_type = DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS.get(
             type(src))
         if dst_type is None:
@@ -222,9 +291,21 @@ def quantizable_module_to_ref(ctx: GraphModContext) -> None:
                 f'module type {type(src)} is not supported for static quantization.')
         w_ob = src.qconfig.weight()
         w_ob(src.weight)
-        dst = dst_type.from_float(src, w_ob.qparams._asdict())
+        # change symmetric to affine since we do not have symmetric quantized Tensor
+        # https://github.com/pytorch/pytorch/blob/v1.13.1/torch/ao/quantization/utils.py#L141
+        wq_dict = w_ob.qparams._asdict()
+        sym_to_aff_map = {
+            torch.per_tensor_symmetric: torch.per_tensor_affine,
+            torch.per_channel_symmetric: torch.per_channel_affine,
+        }
+        wq_dict['qscheme'] = sym_to_aff_map.get(wq_dict['qscheme'], wq_dict['qscheme'])
+        wq_dict['axis'] = wq_dict.pop('ch_axis')
+        dst = dst_type.from_float(src, wq_dict)
         # TODO(litan.ls): copy forward hooks
-        ctx.replace_module(node.target, dst)
+        if fused_module is None:
+            ctx.replace_module(node.target, dst)
+        else:
+            fused_module[0] = dst
         LOGGER.debug(f'to_ref: {node.target}({type(src)}->{dst_type})')
     ctx.gm.recompile()
 
@@ -240,13 +321,18 @@ def q_ref_dq_to_fbgemm(ctx: GraphModContext) -> None:
         ref_node = q_node.args[0]
         LOGGER.debug(f'ref_node: {ref_node.target}')
         ref = ctx.modules.get(ref_node.target)
-        if type(ref) not in REF_TO_QUANT_MAP:
+        if type(ref) in REF_TO_QUANT_MAP:
+            dst_type = REF_TO_QUANT_MAP[type(ref)]
+        elif type(ref) in FUSED_REF_TO_QUANT_MAP:
+            inner_ref_type, dst_type = FUSED_REF_TO_QUANT_MAP[type(ref)]
+            if type(ref[0]) != inner_ref_type:
+                continue
+        else:
             continue
         dq_node = ref_node.args[0]
         LOGGER.debug(f'dq_node: {dq_node.target}')
         if dq_node.op != 'call_method' or dq_node.target != 'dequantize':
             continue
-        dst_type = REF_TO_QUANT_MAP[type(ref)]
         scale = ctx.get_attr(q_node.args[1].target)
         zero_point = ctx.get_attr(q_node.args[2].target)
         dst = dst_type.from_reference(ref, scale, zero_point)

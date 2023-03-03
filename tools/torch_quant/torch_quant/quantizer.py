@@ -19,6 +19,7 @@ from torch.fx import GraphModule, Tracer
 from torch_quant.graph import (
     GraphModContext,
     fold_qdq,
+    fuse_modules,
     insert_act_observer,
     observer_to_qdq,
     q_ref_dq_to_fbgemm,
@@ -75,9 +76,12 @@ class Quantizer:
         self.w_ob_ctr = w_ob_ctr or DEFAULT_W_OB_CTR[backend]
         self.bias_ob_ctr = bias_ob_ctr or DEFAULT_BIAS_OB_CTR
 
-    def calib_gm(self, gm: GraphModule, root: nn.Module) -> None:
-        ctx = GraphModContext(gm, root, self.act_ob_ctr,
-                              self.w_ob_ctr, self.bias_ob_ctr)
+    def calib_gm(self, gm: GraphModule, root: nn.Module, name: str) -> None:
+        module_filter = self.module_filter or ModuleFilter()
+        module_filter = module_filter.submodule_filter(name)
+        ctx = GraphModContext(
+            gm, root, self.act_ob_ctr, self.w_ob_ctr, self.bias_ob_ctr, module_filter
+        )
         # TODO(litan.ls): unify graph modification for different backends
         if self.backend == Backend.DISC:
             ctx.modify_graph([
@@ -86,18 +90,21 @@ class Quantizer:
                 quantizable_module_to_observed,
             ])
         else:
-            ctx.modify_graph([set_qconfig, insert_act_observer])
+            ctx.modify_graph([set_qconfig, fuse_modules, insert_act_observer])
         toggle_observer(gm, observe=True, fake_quant=False)
 
     def calib(self, model: nn.Module) -> nn.Module:
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
-        for x in trace_mapping.values():
-            self.calib_gm(x.gm, x.m)
+        for name, traced in trace_mapping.items():
+            self.calib_gm(traced.gm, traced.m, name)
         return copy_and_replace(model, trace_mapping)
 
-    def quantize_gm(self, gm: GraphModule, root: nn.Module) -> None:
-        ctx = GraphModContext(gm, root, self.act_ob_ctr,
-                              self.w_ob_ctr, self.bias_ob_ctr)
+    def quantize_gm(self, gm: GraphModule, root: nn.Module, name: str) -> None:
+        module_filter = self.module_filter or ModuleFilter()
+        module_filter = module_filter.submodule_filter(name)
+        ctx = GraphModContext(
+            gm, root, self.act_ob_ctr, self.w_ob_ctr, self.bias_ob_ctr, module_filter
+        )
         if self.backend == Backend.DISC:
             ctx.modify_graph([
                 set_qconfig,
@@ -109,6 +116,7 @@ class Quantizer:
         elif self.backend == Backend.REFERENCE:
             ctx.modify_graph([
                 set_qconfig,
+                fuse_modules,
                 insert_act_observer,
                 observer_to_qdq,
                 quantizable_module_to_ref,
@@ -116,6 +124,7 @@ class Quantizer:
         elif self.backend == Backend.FBGEMM:
             ctx.modify_graph([
                 set_qconfig,
+                fuse_modules,
                 insert_act_observer,
                 observer_to_qdq,
                 quantizable_module_to_ref,
@@ -124,9 +133,11 @@ class Quantizer:
             ])
         else:
             raise ValueError(f'Unsupported backend {self.backend.name}')
+        # remove unused modules (e.g. observers) or the following tracing might fail
+        ctx.gm.delete_all_unused_submodules()
 
     def quantize(self, model: nn.Module) -> nn.Module:
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
-        for x in trace_mapping.values():
-            self.quantize_gm(x.gm, x.m)
+        for name, traced in trace_mapping.items():
+            self.quantize_gm(traced.gm, traced.m, name)
         return copy_and_replace(model, trace_mapping)

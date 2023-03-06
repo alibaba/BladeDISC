@@ -65,10 +65,9 @@ int main(int argc, char** argv) {
                   mlir::linalg::transform::LinalgTransformDialect,
                   mlir::iree_compiler::IREE::Input::IREEInputDialect>();
 
-  /* tanyo: fixme
   registry.addExtensions<
       mlir::iree_compiler::IREE::LinalgExt::LinalgExtTransformOpsExtension,
-      transform_ext::StructuredTransformOpsExtension>();*/
+      mlir::transform_ext::StructuredTransformOpsExtension>();
   mlir::disc_ral::disc_linalg_ext::registerTilingInterfaceExternalModels(
       registry);
   mlir::disc_ral::disc_linalg_ext::

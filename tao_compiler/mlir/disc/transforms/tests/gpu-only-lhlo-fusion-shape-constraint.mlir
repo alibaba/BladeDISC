@@ -26,8 +26,8 @@ func.func @simple_kloop_fusion(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?x
   "lmhlo.add"(%3, %4, %5) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   return %5 : memref<?x?xf32, "gpu">
 }
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return
 }
@@ -59,8 +59,8 @@ func.func @simple_multi_output_kloop_fusion(%arg0: memref<?x?xf32, "gpu">, %arg1
   "lmhlo.add"(%3, %4, %5) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   return %3, %5 : memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">
 }
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return
 }
@@ -102,10 +102,10 @@ func.func @simple_multi_output_kloop_fusion_with_reorder(%arg0: memref<?x?xf32, 
   return %5, %7, %8 : memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">
 }
 
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return
 }
@@ -151,11 +151,11 @@ func.func @same_num_elements_multi_output_kloop_fusion(%arg0: memref<?x?xf32, "g
   return %7, %10 : memref<?x?xf32, "gpu">, memref<?x?x?xf32, "gpu">
 }
 
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S4", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S4", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   %0 = "disc_shape.dim"() {name = @S0} : () -> index
   %1 = "disc_shape.dim"() {name = @S1} : () -> index
@@ -253,8 +253,8 @@ func.func @kloop_fusion_with_dealloc(%arg0: memref<?x?xf32, "gpu">, %arg1: memre
   memref.dealloc %7 : memref<?x?xf32, "gpu">
   return %6, %8 : memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">
 }
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return
 }
@@ -288,8 +288,8 @@ func.func @simple_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "
   } ) {dimensions = dense<[0]> : tensor<1xi64>} : (memref<?x?xf32, "gpu">, memref<f32, "gpu">, memref<?xf32, "gpu">) -> ()
   return %4: memref<?xf32, "gpu">
 }
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return
 }
@@ -323,8 +323,8 @@ func.func @multi_outputs_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?
   } ) {dimensions = dense<[0]> : tensor<1xi64>} : (memref<?x?xf32, "gpu">, memref<f32, "gpu">, memref<?xf32, "gpu">) -> ()
   return %3, %4: memref<?x?xf32, "gpu">, memref<?xf32, "gpu">
 }
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return
 }
@@ -372,8 +372,8 @@ func.func @row_red_and_row_red_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memr
   } ) {dimensions = dense<[1]> : tensor<1xi64>} : (memref<?x?xf32, "gpu">, memref<f32, "gpu">, memref<?xf32, "gpu">) -> ()
   return %5, %6: memref<?xf32, "gpu">, memref<?xf32, "gpu">
 }
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return
 }
@@ -421,8 +421,8 @@ func.func @row_red_and_col_red_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memr
   } ) {dimensions = dense<[0]> : tensor<1xi64>} : (memref<?x?xf32, "gpu">, memref<f32, "gpu">, memref<?xf32, "gpu">) -> ()
   return %5, %6: memref<?xf32, "gpu">, memref<?xf32, "gpu">
 }
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return
 }
@@ -477,8 +477,8 @@ func.func @reduce_should_not_have_consumer_in_the_fusion(%arg0: memref<?x?xf32, 
   memref.dealloc %7 : memref<?xf32, "gpu">
   return %5, %8 : memref<?x?xf32, "gpu">, memref<?xf32, "gpu">
 }
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return
 }
@@ -532,10 +532,10 @@ func.func @kstitch_fusion_mean(%arg0: memref<?x?x?xf32, "gpu">) -> memref<?x?xf3
   // STITCH-SAME: disc.fusion_type = "kRowReduction"
   return %17 : memref<?x?xf32, "gpu">
 }
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   %0 = "disc_shape.dim"() {name = @S0} : () -> index
   %1 = "disc_shape.dim"() {name = @S1} : () -> index

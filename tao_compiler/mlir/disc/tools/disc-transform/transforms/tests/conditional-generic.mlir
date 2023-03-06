@@ -22,8 +22,8 @@ func.func @tile_conditional_generic(%pred : i1, %arg0: tensor<?x?xf32>) -> tenso
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0
-  %1, %loops:2 = transform.structured.tile %0 [288, 512]
+  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %1, %loops:2 = transform.structured.tile %0 [288, 512] : (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation)
 }
 
 // -----
@@ -53,9 +53,9 @@ func.func @fuse_into_containing_op_conditional_generic(
 
 transform.structured.canonicalized_sequence failures(propagate) {
   ^bb0(%arg0: !pdl.operation):
-    %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0
-    %1 = transform.structured.match ops{["linalg.matmul"]} in %arg0
-    %2, %loops:2 = transform.structured.tile %1 [2, 3]
+    %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+    %1 = transform.structured.match ops{["linalg.matmul"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+    %2, %loops:2 = transform.structured.tile %1 [2, 3] : (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation)
     transform.structured.fuse_into_containing_op %0 into %loops#0
 }
 
@@ -89,7 +89,7 @@ func.func @pad_conditional_generic(%pred : i1, %arg1 : index, %arg2 : index, %ar
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0
+  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1 = transform.structured.pad %0 {padding_dimensions = [0, 1], padding_values = [0 : i1, 0.000000e+00 : f32]}
 }
 

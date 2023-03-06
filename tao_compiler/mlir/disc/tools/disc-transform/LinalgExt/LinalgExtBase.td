@@ -28,6 +28,7 @@ def DISCLinalgExt_Dialect : Dialect {
   let hasCanonicalizer = 1;
   let hasConstantMaterializer = 1;
   let useDefaultAttributePrinterParser = 0;
+  let dependentDialects = ["linalg::LinalgDialect"];
 }
 
 //===----------------------------------------------------------------------===//

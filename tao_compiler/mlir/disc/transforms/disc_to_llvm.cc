@@ -1222,7 +1222,8 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
     ConversionTarget target(*ctx);
     target.addLegalDialect<LLVM::LLVMDialect>();
     target.addIllegalDialect<arith::ArithDialect, gpu::GPUDialect,
-                             disc_ral::RalDialect, math::MathDialect>();
+                             disc_ral::RalDialect, math::MathDialect,
+                             memref::MemRefDialect, vector::VectorDialect>();
     // Mark modules as legal.
     target.addLegalOp<ModuleOp, gpu::GPUModuleOp>();
     // Do not look into gpu modules, only consider host-side.

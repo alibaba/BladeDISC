@@ -11,6 +11,6 @@ func.func @convert_padding_placeholder_to_const() -> f32 {
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %placeholder = transform.structured.match ops{["disc_linalg_ext.padding_value_placeholder"]} in %arg0
+  %placeholder = transform.structured.match ops{["disc_linalg_ext.padding_value_placeholder"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   transform.disc.convert_padding_placeholder_to_const %placeholder
 }

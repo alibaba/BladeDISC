@@ -22,8 +22,8 @@ limitations under the License.
 #include "llvm/Support/ToolOutputFile.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/DialectRegistry.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
@@ -213,6 +213,7 @@ static LogicalResult unpackValues(PatternRewriter& rewriter,
                  << numResults << "\n";
     return failure();
   }
+  return success();
 }
 
 static LogicalResult createCustomCall(PatternRewriter& rewriter,
@@ -243,9 +244,9 @@ static LogicalResult createCustomCall(PatternRewriter& rewriter,
   return success();
 }
 
-static void createSparseSegmentReduction(PatternRewriter& rewriter,
-                                         PDLResultList& results,
-                                         ArrayRef<PDLValue> values) {
+static LogicalResult createSparseSegmentReduction(PatternRewriter& rewriter,
+                                                  PDLResultList& results,
+                                                  ArrayRef<PDLValue> values) {
   assert(values.size() == 4);
 
   auto tag = values[0].cast<Attribute>().cast<StringAttr>().getValue();
@@ -270,22 +271,24 @@ static void createSparseSegmentReduction(PatternRewriter& rewriter,
 
   results.push_back(op);
   results.push_back(ValueRange(vs));
+  return success();
 }
 
-static void cloneOpWithNewOperand(PatternRewriter& rewriter,
-                                  PDLResultList& results,
-                                  ArrayRef<PDLValue> values) {
+static LogicalResult cloneOpWithNewOperand(PatternRewriter& rewriter,
+                                           PDLResultList& results,
+                                           ArrayRef<PDLValue> values) {
   assert(values.size() == 3);
 
   auto origin_op = values[0].cast<Operation*>();
   auto new_operand = values[1].cast<Value>();
   auto old_operand = values[2].cast<Value>();
 
-  BlockAndValueMapping mapping;
+  IRMapping mapping;
   mapping.map(old_operand, new_operand);
   rewriter.setInsertionPoint(origin_op);
   Operation* op = rewriter.clone(*origin_op, mapping);
   results.push_back(op);
+  return success();
 }
 
 static LogicalResult checkConstantTensor(PatternRewriter& rewriter,
@@ -296,7 +299,6 @@ static LogicalResult checkConstantTensor(PatternRewriter& rewriter,
   return matchPattern(v, m_Constant(&denseAttr)) ? success() : failure();
 }
 
-<<<<<<< HEAD
 static LogicalResult checkConstantTensorValueIs(PatternRewriter& rewriter,
                                                 ArrayRef<PDLValue> values) {
   assert(values.size() == 2);

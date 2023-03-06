@@ -1,4 +1,4 @@
-// RUN: disc-opt -split-input-file -pass-pipeline='func.func(disc-fusion{gpu-enabled=false fusion-strategy=stitch})' %s | FileCheck %s --check-prefix=SPARSE
+// RUN: disc-opt -split-input-file -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=false fusion-strategy=stitch}))' %s | FileCheck %s --check-prefix=SPARSE
 
 // SPARSE-LABEL: @where_input_fusion
 func.func @where_input_fusion(

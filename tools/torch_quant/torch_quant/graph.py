@@ -152,9 +152,10 @@ class GraphModContext:
 # set QConfig to quantizable modules so we can reuse nn.intrinsic/qat modules
 # TODO(litan.ls): support other observer type and dtype
 def set_qconfig(ctx: GraphModContext) -> None:
+    is_override_qconfig = ctx.is_override_qconfig
     for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
         m = ctx.modules.get(node.target)
-        if ctx.is_override_qconfig:
+        if is_override_qconfig:
             m.qconfig = QConfig(activation=None, weight=ctx.w_ob_ctr)
 
 
@@ -195,7 +196,6 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
 
     Args:
         ctx (GraphModContext): Context object for graph modification.
-        is_observe_bias (bool): Whether bias should be observed
     """
     for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
         src = ctx.modules[node.target]

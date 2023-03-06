@@ -82,7 +82,8 @@ def _compile_torchscript(graph):
             # RUN: disc_compiler_main input_mlir_file.mlir output_file.so
             # redirect stdout to devnull
             subprocess.check_call(
-                [mhlo_compile_cmd, inp_mlir_file.name, out_file_name, "--multi-cc-support", "--mlir-elide-elementsattrs-if-larger=8"],
+                # [mhlo_compile_cmd, inp_mlir_file.name, out_file_name, "--multi-cc-support", "--mlir-elide-elementsattrs-if-larger=8"],
+                [mhlo_compile_cmd, inp_mlir_file.name, out_file_name, "--mlir-elide-elementsattrs-if-larger=8"],
                 stdout=devnull,
                 stderr=devnull,
                 env=env,

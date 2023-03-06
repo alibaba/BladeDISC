@@ -164,6 +164,8 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::sub_inplace", // use aten namespace to work with PyTorch mutation pass
       "aten::mul_inplace", // use aten namespace to work with PyTorch mutation pass
       "aten::div_inplace", // use aten namespace to work with PyTorch mutation pass
+      "aten::upsample_nearest2d",
+      "torch_blade::conv2d_weight_nhwc",
       "torch_blade::fake_quant"
     };
 

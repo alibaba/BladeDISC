@@ -778,9 +778,9 @@ class ShapePropagator : public PropertyPropBase {
         return;
       }
       case prim::GetAttr: {
-        auto cls = node->input()->type()->expect<ClassType>();
-        // propagate any type specializations encoded in the type of the class
-        node->output()->setType(cls->getAttribute(node->s(attr::name)));
+        // auto cls = node->input()->type()->expect<ClassType>();
+        // // propagate any type specializations encoded in the type of the class
+        // node->output()->setType(cls->getAttribute(node->s(attr::name)));
         return;
       }
       case aten::_unwrap_optional: {

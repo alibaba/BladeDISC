@@ -69,6 +69,38 @@ at::List<at::Tensor> EngineClass::Fallback(const at::List<at::Tensor>& inputs) {
   return ret.toTensorList();
 }
 
+void DumpReplayCode(const std::string& fname, int num_inputs) {
+   const std::string& import_str = R"(
+import torch
+import torch_blade
+from torch_blade.clustering.support_fusion_group import min_group_nodes
+)";
+
+  std::string load_inputs = "inputs = [torch.load(f'{i}.pt') for i in range(0, ";
+  load_inputs += std::to_string(num_inputs) + ")]";
+
+  const std::string& codes = R"(
+model = torch.jit.load('graph.pt').eval()
+
+opt_cfg = torch_blade.Config()
+opt_cfg.enable_fp16 = True
+opt_cfg.customize_op_black_list = []
+
+with opt_cfg, min_group_nodes(1), torch.no_grad():
+    opt_model = torch_blade.optimize(model, True, tuple(inputs))
+
+with open('code.model.py', 'w') as f: f.write(model.code)
+with open('code.opt_model.py', 'w') as f: f.write(opt_model.code)
+
+out = opt_model(*inputs)
+)";
+  auto chars = import_str + load_inputs + codes;
+
+  std::ofstream ofstream(fname);
+  ofstream.write(chars.data(), chars.size());
+  ofstream.close();
+}
+
 at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
   if (GetRecordClusterIOFlag()) {
     // Note:
@@ -88,7 +120,7 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
       ivalues.emplace_back(input);
 
     torch::blade::DumpIValues(ivalues, dump_path);
-
+    DumpReplayCode(dump_path + "/replay.py", ivalues.size());
     auto graph_fname = dump_path + "/graph.pt";
     auto module = GetFallback();
     const auto method_name =
@@ -114,8 +146,10 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
   // do inference
   const auto& enable_error_fallback =
       env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_ENABLE_ERROR_FALLBACK", false);
+  const auto& force_fallback =
+      env::ReadBoolFromEnvVar("TORCH_BLADE_FORCE_FALLBACK", false);
 
-  if (engine_->ShouldFallback(inputs)) {
+  if (engine_->ShouldFallback(inputs) or force_fallback) {
     outputs = Fallback(inputs);
   } else {
     try {

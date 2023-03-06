@@ -37,6 +37,19 @@ WRAPPER_MULDIV_TENSOR(div_);
 
 #undef WRAPPER_MULDIV_TENSOR
 #undef WRAPPER_ADDSUB_TENSOR
+
+at::Tensor wrapper_conv2d_weight_nhwc(
+    const Tensor& input_,
+    const Tensor& weight_nhwc,
+    const c10::optional<Tensor>& bias_opt,
+    IntArrayRef stride,
+    IntArrayRef padding,
+    IntArrayRef dilation,
+    int64_t groups) {
+  auto weight = weight_nhwc.permute({0, 3, 1, 2});
+  return at::conv2d(
+      input_, weight, bias_opt, stride, padding, dilation, groups);
+}
 } // namespace
 
 namespace {
@@ -47,6 +60,8 @@ namespace {
           .catchAllKernel(&wrapper_##func)              \
           .aliasAnalysis(AliasAnalysisKind::FROM_SCHEMA))
 
+// NOTE: binary math ops, use namespace aten to leverage PyTorch remove mutation
+// passes
 C10_REGISTER_OP(
     add_,
     "aten::add_inplace_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)");
@@ -74,6 +89,11 @@ C10_REGISTER_OP(
 C10_REGISTER_OP(
     div,
     "aten::div_inplace.Tensor(Tensor self, Tensor other) -> Tensor");
+
+// NOTE: used to lowering conv layout
+C10_REGISTER_OP(
+    conv2d_weight_nhwc,
+    "torch_blade::conv2d_weight_nhwc(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor");
 
 #undef C10_REGISTER_OP
 } // namespace

@@ -95,22 +95,26 @@ bool markLoraInputs(Block* b) {
               ->node();
       auto to_k_down = to_k_up->input(0)->node();
 
-      std::cout << "to_out_up: " << to_out_up->kind().toQualString()
-                << std::endl;
-      std::cout << "to_out_down: " << to_out_down->kind().toQualString()
-                << std::endl;
-      std::cout << "to_v_up: " << to_v_up->kind().toQualString() << std::endl;
-      std::cout << "to_v_down: " << to_v_down->kind().toQualString()
-                << std::endl;
-      std::cout << "to_q_up: " << to_q_up->kind().toQualString() << std::endl;
-      std::cout << "to_q_down: " << to_q_down->kind().toQualString()
-                << std::endl;
-      std::cout << "to_k_up: " << to_k_up->kind().toQualString() << std::endl;
-      std::cout << "to_k_down: " << to_k_down->kind().toQualString()
-                << std::endl;
-      std::cout << "bmmNode: " << bmmNode->kind().toQualString() << std::endl;
-      std::cout << "baddbmmNode: " << baddbmmNode->kind().toQualString()
-                << std::endl;
+      // std::cout << "to_out_up: " << to_out_up->kind().toQualString()
+      //           << std::endl;
+      // std::cout << "to_out_down: " << to_out_down->kind().toQualString()
+      //           << std::endl;
+      // std::cout << "to_v_up: " << to_v_up->kind().toQualString() <<
+      // std::endl; std::cout << "to_v_down: " <<
+      // to_v_down->kind().toQualString()
+      //           << std::endl;
+      // std::cout << "to_q_up: " << to_q_up->kind().toQualString() <<
+      // std::endl; std::cout << "to_q_down: " <<
+      // to_q_down->kind().toQualString()
+      //           << std::endl;
+      // std::cout << "to_k_up: " << to_k_up->kind().toQualString() <<
+      // std::endl; std::cout << "to_k_down: " <<
+      // to_k_down->kind().toQualString()
+      //           << std::endl;
+      // std::cout << "bmmNode: " << bmmNode->kind().toQualString() <<
+      // std::endl; std::cout << "baddbmmNode: " <<
+      // baddbmmNode->kind().toQualString()
+      //           << std::endl;
 
       std::string index = std::to_string(weight_index);
 

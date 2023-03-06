@@ -190,6 +190,7 @@ class Config(ConfigContext):
         self._annotate_args: List[Optional[ArgAnnotation]] = []
         self._experimental_subgraph_conversion_parallelism = 1
         self._force_gpu_constants_to_device = ''
+        self._mark_lora_inputs = False
 
     @property
     def optimization_pipeline(self):
@@ -614,3 +615,17 @@ class Config(ConfigContext):
         assert isinstance(val, str), "device should be str, got {}".format(type(val))
         assert val.startswith('cuda:') or val == "cuda", "device should be cuda device, got {}".format(val)
         self._force_gpu_constants_to_device = val
+
+    @property
+    def mark_lora_inputs(self):
+        """The flag to mark lora as inputs
+
+        :type: bool
+        :default: False
+        """
+        return self._mark_lora_inputs
+
+    @mark_lora_inputs.setter
+    def mark_lora_inputs(self, val):
+        assert isinstance(val, bool), "mark_lora_inputs should be bool, got {}".format(type(val))
+        self._mark_lora_inputs = val

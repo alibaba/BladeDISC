@@ -361,7 +361,8 @@ def _optimize_common(c_module):
         # optimization passes only work in eval mode
         presv_attrs = cfg.preserved_attributes
         # should before freeze_module
-        tools._jit_pass_mark_lora_inputs(c_module.forward.graph)
+        if cfg.mark_lora_inputs:
+            tools._jit_pass_mark_lora_inputs(c_module.forward.graph)
         c_module = tools.freeze_module(c_module, presv_attrs, disableShapePeephole=not static_shape)
         
         torch._C._jit_pass_remove_dropout(c_module)

@@ -96,6 +96,23 @@ class QuantizerTest(unittest.TestCase):
         out2 = fake_quant_model(dummy_input)
         self.assertTrue(torch.equal(out1, out2))
 
+    def test_calib_quantize_qat_quantize_state_equal(self):
+        dummy_input = torch.randn((1, 2, 5, 5))
+        model = SimpleModule()
+        quantizer = Quantizer(backend=Backend.DISC)
+        calib_model = quantizer.calib(model)
+        calib_model(dummy_input)
+        fake_quant_model1 = quantizer.quantize(model)
+        out1 = fake_quant_model1(dummy_input)
+
+        qat_model = quantizer.qat(model)
+        out2 = qat_model(dummy_input)
+        self.assertTrue(torch.equal(out1, out2))
+
+        quant_model = quantizer.quantize(model)
+        out3 = quant_model(dummy_input)
+        self.assertTrue(torch.equal(out2, out3))
+
 
 if __name__ == '__main__':
     unittest.main()

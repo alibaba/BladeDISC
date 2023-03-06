@@ -4238,7 +4238,8 @@ LogicalResult lowerWithScheduleSparseReshapeOpCPU(
   // }
   {
     auto alloc = b.create<memref::AllocOp>(
-        loc, MemRefType::get({-1}, b.getIntegerType(64)), new_rank);
+        loc, MemRefType::get({ShapedType::kDynamic}, b.getIntegerType(64)),
+        new_rank);
     shape_accum = alloc.getResult();
 
     Value reverse_end = b.create<arith::SubIOp>(loc, new_rank, one);
@@ -4438,7 +4439,8 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
   {
     auto alloc = b.create<memref::AllocOp>(
         loc,
-        MemRefType::get({-1}, b.getIntegerType(64), MemRefLayoutAttrInterface(),
+        MemRefType::get({ShapedType::kDynamic}, b.getIntegerType(64),
+                        MemRefLayoutAttrInterface(),
                         StringAttr::get(sparse_fill_empty_rows_op->getContext(),
                                         placement_utils::kCpu)),
         num_rows);
@@ -4743,7 +4745,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
     {
       auto alloc = b.create<memref::AllocOp>(
           loc,
-          MemRefType::get({-1}, output_type.getElementType(),
+          MemRefType::get({ShapedType::kDynamic}, output_type.getElementType(),
                           MemRefLayoutAttrInterface(),
                           StringAttr::get(context, placement_utils::kCpu)),
           num_results);
@@ -4955,7 +4957,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
   // memset(row_value_count, 0, dense_rows * sizeof(int));
   auto alloc = b.create<memref::AllocOp>(
       loc,
-      MemRefType::get({-1}, output_type.getElementType(),
+      MemRefType::get({ShapedType::kDynamic}, output_type.getElementType(),
                       MemRefLayoutAttrInterface(),
                       StringAttr::get(context, placement_utils::kCpu)),
       dense_rows);

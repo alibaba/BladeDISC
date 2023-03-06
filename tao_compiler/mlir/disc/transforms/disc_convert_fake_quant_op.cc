@@ -123,15 +123,27 @@ struct QuantizedConvLikeOpConverter
           return quantizedInput;
         };
 
+    DenseIntElementsAttr conv_window_stride;
+    DenseIntElementsAttr conv_padding;
+    DenseIntElementsAttr conv_lhs_dilation;
+    DenseIntElementsAttr conv_rhs_dilation;
+    DenseElementsAttr conv_window_reversal;
+    if (convOp.getWindowStrides())
+      conv_window_stride = *convOp.getWindowStrides();
+    if (convOp.getPadding()) conv_padding = *convOp.getPadding();
+    if (convOp.getLhsDilation()) conv_lhs_dilation = *convOp.getLhsDilation();
+    if (convOp.getRhsDilation()) conv_rhs_dilation = *convOp.getRhsDilation();
+    if (convOp.getWindowReversal())
+      conv_window_reversal = *convOp.getWindowReversal();
+
     Value quantizedInput = buildQuantizedOpFromFakeQuantOp(inputFakeQuantOp);
     Value quantizedWeight = buildQuantizedOpFromFakeQuantOp(weightFakeQuantOp);
     Value quantizedConv = rewriter.create<mhlo_disc::QuantizedDynamicConvOp>(
         loc, buildQuantizedTensorType(op), quantizedInput, quantizedWeight,
         padding, inputFakeQuantOp.getScale(), inputFakeQuantOp.getZeroPoint(),
         weightFakeQuantOp.getScale(), weightFakeQuantOp.getZeroPoint(),
-        op.getScale(), op.getZeroPoint(), *convOp.getWindowStrides(),
-        *convOp.getPadding(), *convOp.getLhsDilation(),
-        *convOp.getRhsDilation(), *convOp.getWindowReversal(),
+        op.getScale(), op.getZeroPoint(), conv_window_stride, conv_padding,
+        conv_lhs_dilation, conv_rhs_dilation, conv_window_reversal,
         convOp.getDimensionNumbers(), convOp.getFeatureGroupCount(),
         convOp.getBatchGroupCount(), op.getUseSymmetric(),
         weightFakeQuantOp.getAxis(), op.getUseDynamic());

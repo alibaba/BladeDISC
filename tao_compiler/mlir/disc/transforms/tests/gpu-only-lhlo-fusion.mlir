@@ -438,7 +438,7 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
     "lmhlo.real_dynamic_slice"(%6, %2, %9, %0, %10) {disc.device = "gpu"} : (memref<?x64xf32, "gpu">, memref<2xindex, "cpu">, memref<2xindex, "cpu">, memref<2xindex, "cpu">, memref<?x32xf32, "gpu">) -> ()
     return %8, %10 : memref<?x32xf32, "gpu">, memref<?x32xf32, "gpu">
   }
-  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
   "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = true, knownNonSizeZero = true, sym_name = "C32", value = 32 : i64} : () -> ()
   "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = true, knownNonSizeZero = true, sym_name = "C64", value = 64 : i64} : () -> ()
   func.func @shape_constraint_graph() {

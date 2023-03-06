@@ -130,16 +130,15 @@ void DiscTransformDialectInterpreterPass::runOnOperation() {
     for (auto op : module.getBody()->getOps<transform::TransformOpInterface>())
       b.clone(*op);
 
-    /* tanyo: fixme
     // Apply the transform IR.
     for (auto op :
          transformModule.getBody()->getOps<transform::TransformOpInterface>()) {
       if (failed(transform::applyTransforms(
-              module, op,
+              module, op, {},
               transform::TransformOptions().enableExpensiveChecks(
                   enableExpensiveChecks_))))
         return signalPassFailure();
-    } */
+    }
   } else {
     // parse transform ops from a standalone file.
     OwningOpRef<ModuleOp> transformModule;
@@ -152,13 +151,11 @@ void DiscTransformDialectInterpreterPass::runOnOperation() {
     for (auto op : transformModule.get()
                        .getBody()
                        ->getOps<transform::TransformOpInterface>()) {
-      /* tanyo: fixme
       if (failed(transform::applyTransforms(
-              module, op,
+              module, op, {},
               transform::TransformOptions().enableExpensiveChecks(
                   enableExpensiveChecks_))))
         return signalPassFailure();
-      */
     }
   }
 }

@@ -217,10 +217,26 @@ transform_dialect::DISCBufferizeOp buildDISCBufferize(OpBuilder& b,
   return b.create<transform_dialect::DISCBufferizeOp>(loc, pdlType, target);
 }
 
-void buildLowerVectors(OpBuilder& b, Location& loc, ArrayRef<int64_t> stages,
-                       ::mlir::vector::LowerVectorsOptions& options) {
-  // b.create<transform::LowerVectorsOp>(
-  //     loc, b.getI64ArrayAttr(stages), options);
+vector::LowerVectorsOptions getDefaultLowerVectorsOptions() {
+  vector::LowerVectorsOptions options;
+  options.setVectorTransformsOptions(
+      vector::VectorContractLowering::OuterProduct);
+  options.setVectorMultiReductionLowering(
+      vector::VectorMultiReductionLowering::InnerParallel);
+  options.setVectorTransposeLowering(vector::VectorTransposeLowering::EltWise);
+  options.setVectorTransferSplit(vector::VectorTransferSplit::LinalgCopy);
+  options.setTransposeAVX2Lowering(false);
+  options.setUnrollVectorTransfers(true);
+  return options;
+}
+
+transform_dialect::DISCLowerVectorsOp buildLowerVectors(
+    OpBuilder& b, Location& loc, Value target,
+    const vector::LowerVectorsOptions& options =
+        getDefaultLowerVectorsOptions()) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::DISCLowerVectorsOp>(loc, pdlType, target,
+                                                         options);
 }
 
 SplitHandlesOp buildSplitHandlesOp(OpBuilder& b, Location& loc, Value target,
@@ -550,19 +566,7 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
   variant = buildRunCanonicalizer(b, loc, variant);
   variant = buildDISCBufferize(b, loc, variant);
 
-  ::mlir::vector::LowerVectorsOptions options;
-  options.setVectorTransformsOptions(
-      ::mlir::vector::VectorContractLowering::OuterProduct);
-  options.setVectorMultiReductionLowering(
-      ::mlir::vector::VectorMultiReductionLowering::InnerParallel);
-  options.setVectorTransposeLowering(
-      ::mlir::vector::VectorTransposeLowering::EltWise);
-  options.setVectorTransferSplit(
-      ::mlir::vector::VectorTransferSplit::LinalgCopy);
-  options.setTransposeAVX2Lowering(false);
-  options.setUnrollVectorTransfers(true);
-  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, options);
-  buildLowerVectors(b, loc, {5, 6, 7}, options);
+  variant = buildLowerVectors(b, loc, variant);
   b.create<transform::YieldOp>(loc);
   return success();
 }
@@ -647,6 +651,7 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
   }
   if (!otherElemOpHandles.empty()) {
     buildLinalgFuseProducersOp(b, loc, rootHandle, otherElemOpHandles);
+    variant = buildRunCanonicalizer(b, loc, variant);
     rootHandle = buildMatchOp(b, loc, variant, {}, nameMap[rootOp]);
   }
 
@@ -813,12 +818,7 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
   buildConvertPaddingPlaceholderToConstOp(b, loc, placeholderOps);
   variant = buildDISCBufferize(b, loc, variant);
 
-  /* tanyo: fixme
-  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
-                    "linalg-copy", true, "eltwise", false);
-  buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
-                    "linalg-copy", true, "eltwise", false);
-                    */
+  variant = buildLowerVectors(b, loc, variant);
   // de-compose large size vector operations
   variant = buildDecomposeVectors(b, loc, variant, hardwareVectorSizeInBytes);
   b.create<transform::YieldOp>(loc);
@@ -1067,20 +1067,7 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
                                       splitedReaders->getResult(0));
   }
 
-  ::mlir::vector::LowerVectorsOptions options;
-  options.setVectorTransformsOptions(
-      ::mlir::vector::VectorContractLowering::OuterProduct);
-  options.setVectorMultiReductionLowering(
-      ::mlir::vector::VectorMultiReductionLowering::InnerParallel);
-  options.setVectorTransposeLowering(
-      ::mlir::vector::VectorTransposeLowering::EltWise);
-  options.setVectorTransferSplit(
-      ::mlir::vector::VectorTransferSplit::LinalgCopy);
-  options.setTransposeAVX2Lowering(false);
-  options.setUnrollVectorTransfers(true);
-  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, options);
-  buildLowerVectors(b, loc, {5, 6, 7}, options);
-
+  variant = buildLowerVectors(b, loc, variant);
   variant = buildDecomposeVectors(b, loc, variant, hardwareVectorSizeInBytes);
   b.create<transform::YieldOp>(loc);
   return success();
@@ -1165,6 +1152,7 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   }
   if (!otherElemOpHandles.empty()) {
     buildLinalgFuseProducersOp(b, loc, rootHandle, otherElemOpHandles);
+    variant = buildRunCanonicalizer(b, loc, variant);
     rootHandle = buildMatchOp(b, loc, variant, {}, nameMap[rootOp]);
   }
   rootHandle = buildLinalgEagerlyBackwardInitTensorOp(b, loc, rootHandle);
@@ -1358,16 +1346,10 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
       buildMatchOp(b, loc, variant, {"disc_linalg_ext.conditional_generic"});
   buildLowerConditionalGenericOp(b, loc, conditionalOps);
 
-  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
-                    "linalg-copy", true, "eltwise", false);
-  buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
-                    "linalg-copy", true, "eltwise", false);
+  variant = buildLowerVectors(b, loc, variant);
   variant = buildDecomposeVectors(b, loc, variant, hardwareVectorSizeInBytes);
   variant = buildRunCanonicalizer(b, loc, variant);
-  buildLowerVectors(b, loc, {0, 1, 2, 3, 4}, "outerproduct", "innerparallel",
-                    "linalg-copy", true, "eltwise", false);
-  buildLowerVectors(b, loc, {5, 6, 7}, "outerproduct", "innerparallel",
-                    "linalg-copy", true, "eltwise", false);
+  variant = buildLowerVectors(b, loc, variant);
   b.create<transform::YieldOp>(loc);
   return success();
 }

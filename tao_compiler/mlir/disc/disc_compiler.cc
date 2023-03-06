@@ -673,10 +673,12 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addNestedPass<FuncOp>(::mlir::createConvertLinalgToLoopsPass());
   pm.addPass(createConvertSCFToCFPass());
-  pm.addPass(createLowerAffinePass());
+  // Expands memref operations that modify the metadata of a memref
+  pm.addNestedPass<FuncOp>(memref::createExpandStridedMetadataPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addPass(createLowerAffinePass());
   pm.addPass(createStripDebugInfoPass());
 
   if (enable_shape_constraint_ir) {
@@ -725,27 +727,6 @@ LogicalResult ApplyCpuOptionsBeforeTranslatingToLLVM(
     });
     if (VLOG_IS_ON(1)) {
       llvm::dbgs() << "[[DISC DEBUG]] noalias dump begin: \n"
-                   << module << "\ndump end\n";
-    }
-  }
-
-  if (cpuOptions.disable_loop_unroll) {
-    module.walk([&](Operation* op) {
-      if (!isa<LLVM::BrOp, LLVM::CondBrOp>(op)) return;
-      /* tanyo: fixme
-      OpBuilder opBuilder(op);
-      auto keyName = LLVM::LLVMDialect::getLoopOptionsAttrName();
-      LLVM::LoopOptionsAttrBuilder b;
-      b.setDisableUnroll(true);
-      auto valueAttr = LLVM::LoopOptionsAttr::get(op->getContext(), b);
-      SmallVector<NamedAttribute> namedAttrs;
-      namedAttrs.emplace_back(opBuilder.getNamedAttr(keyName, valueAttr));
-      auto dictAttr = DictionaryAttr::get(op->getContext(), namedAttrs);
-      op->setAttr(LLVM::LLVMDialect::getLoopAttrName(), dictAttr);
-      */
-    });
-    if (VLOG_IS_ON(1)) {
-      llvm::dbgs() << "[[DISC DEBUG]] no_unroll dump begin: \n"
                    << module << "\ndump end\n";
     }
   }
@@ -808,14 +789,13 @@ LogicalResult ApplyCpuOptionsAfterTranslatingToLLVM(
         llvm::errs() << "[[DISC WARNING]] unknown fast_math_level value\n";
         break;
     }
-    /* tanyo: fixme
     for (auto&& func : module->getFunctionList()) {
-      for (auto&& bb : func.getBasicBlockList())
+      for (auto&& bb : func)
         for (auto&& I : bb) {
           if (!llvm::isa<llvm::SelectInst>(&I)) continue;
           I.setFastMathFlags(ffm);
         }
-    }*/
+    }
   }
   return success();
 }
@@ -1032,6 +1012,8 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   // constants for all ops with regions.
   pm.addNestedPass<mlir::func::FuncOp>(
       mlir::mhlo::createSinkConstantsToControlFlowPass());
+  pm.addPass(mlir::TF::CreateTFShapeInferencePass());
+
   // Legalize any StableHLO ops to MHLO. Bridge still doesn't use StableHLO but
   // such ops might be present in the input from upstream like TFRT compilation.
   // Later on, this could be merged in the legalization pass when we migrate
@@ -1056,12 +1038,6 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
       /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
       /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
-  // This pass operates on MHLO control flow ops so it should be legalized after
-  // the control flow ops are legalized.
-  pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
-  // This pass operates on MHLO control flow ops so it should be legalized after
-  // the control flow ops are legalized.
-  pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
 
   // customized tf2mhlo converters of DISC
   pm.addNestedPass<mlir::func::FuncOp>(mlir::disc_ral::createDiscLowerTfPass(
@@ -1079,9 +1055,15 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   // expose more graph pruning and canonicalization opportunities that are
   // necessary for the second LegalizeTFPass(allow_partial_conversion=false)
   // invocation.
+  // TODO(wyzero): we can not set `allow_partial_conversion = false` since
+  // `createLegalizeTFPass` pass does not known ops from hlo_disc dialect.
   pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
-      /*allow_partial_conversion=*/false, /*legalize_chlo=*/true,
+      /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
       /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
+
+  // This pass operates on MHLO control flow ops so it should be legalized after
+  // the control flow ops are legalized.
+  pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
 
   // convert mhlo.dynamic_slice to mhlo.real_dynamic_slice after tf2mhlo passes
   pm.addNestedPass<mlir::func::FuncOp>(

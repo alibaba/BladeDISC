@@ -96,7 +96,7 @@ func.func @matmul_nn_const_weight_with_epilogue0(%arg1: memref<1024x1024xf32, "c
   return %t2 : memref<?x1024xf32, "cpu">
 }
 
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
 "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = true, knownNonSizeZero = true, sym_name = "C1024", value = 1024 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return

@@ -1335,12 +1335,12 @@ class ConvertSparseFillEmptyRowsOp
         loc, sparse_fill_empty_rows_op.getResult(0), 1);
     SmallVector<int64_t, 2> output_indices_slice_shape_values,
         output_values_slice_shape_values;
-    output_indices_slice_shape_values.push_back(-1);
+    output_indices_slice_shape_values.push_back(ShapedType::kDynamic);
     // dense_shape should has static shape, we can get it's dim here
     auto output_rank =
         op.getDenseShape().getType().dyn_cast<RankedTensorType>().getDimSize(0);
     output_indices_slice_shape_values.push_back(output_rank);
-    output_values_slice_shape_values.push_back(-1);
+    output_values_slice_shape_values.push_back(ShapedType::kDynamic);
 
     auto create_slice_op = [&](int slice_rank, int result_index,
                                SmallVector<int64_t, 2> slice_shape,
@@ -1398,7 +1398,7 @@ class ConvertSparseSegmentMeanOp
         rewriter.getContext(), mlir::mhlo_disc::ReductionModeEnum::Mean);
     auto hlo_sparse_segment_mean =
         rewriter.create<mhlo_disc::SparseSegmentReductionOp>(
-            loc, op.output().getType(), op.getData(), op.getIndices(),
+            loc, op.getOutput().getType(), op.getData(), op.getIndices(),
             op.getSegmentIds(), reduction_mode_attr);
     rewriter.replaceOp(op, hlo_sparse_segment_mean.getResult());
     return success();
@@ -1417,8 +1417,8 @@ class ConvertSparseSegmentSumOp
         rewriter.getContext(), mlir::mhlo_disc::ReductionModeEnum::Sum);
     auto hlo_sparse_segment_sum =
         rewriter.create<mhlo_disc::SparseSegmentReductionOp>(
-            loc, op.output().getType(), op.data(), op.indices(),
-            op.segment_ids(), reduction_mode_attr);
+            loc, op.getOutput().getType(), op.getData(), op.getIndices(),
+            op.getSegmentIds(), reduction_mode_attr);
     rewriter.replaceOp(op, hlo_sparse_segment_sum.getResult());
     return success();
   }
@@ -1465,7 +1465,7 @@ class ConvertWhereOp : public OpRewritePattern<TF::WhereOp> {
     auto strides_indices = create_indices(strides_values);
 
     SmallVector<int64_t, 2> output_slice_shape_values;
-    output_slice_shape_values.push_back(-1);
+    output_slice_shape_values.push_back(ShapedType::kDynamic);
     auto input_rank =
         op.getInput().getType().dyn_cast<RankedTensorType>().getRank();
     output_slice_shape_values.push_back(input_rank);

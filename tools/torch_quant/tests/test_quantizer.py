@@ -19,10 +19,16 @@ from torch_quant.observer import toggle_observer
 from torch_quant.quantizer import Backend, Quantizer
 
 
+def parameterized_backend(backend):
+    # skip if fbgemm not available
+    if torch.backends.quantized.engine != 'fbgemm':
+        backend.remove((Backend.FBGEMM, ))
+    return parameterized.expand(backend)
+
 class QuantizerTest(unittest.TestCase):
-    @parameterized.expand([
+    @parameterized_backend([
         (Backend.REFERENCE, ),
-        (Backend.FBGEMM, ),  # TODO(litan.ls): select test according to ci env
+        (Backend.FBGEMM, ),
         (Backend.DISC, ),
     ])
     def test_calib_and_quantize(self, backend: Backend) -> None:

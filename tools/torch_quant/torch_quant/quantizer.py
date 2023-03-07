@@ -91,6 +91,8 @@ class Quantizer:
         self.module_filter = module_filter
         self.backend = backend
         self.tracer = tracer
+        if backend == Backend.FBGEMM and torch.backends.quantized.engine != 'fbgemm':
+            raise ValueError('fbgemm is not available, it only for x86_64')
 
     def calib_gm(self, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes) -> None:
         ctx = GraphModContext(gm, root, ob_types.act_ob_ctr, ob_types.w_ob_ctr, ob_types.bias_ob_ctr)

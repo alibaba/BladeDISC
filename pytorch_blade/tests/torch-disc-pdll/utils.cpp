@@ -37,7 +37,7 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Constraint CheckTorchValueTensorLiteral(v : Value);
   Constraint CheckTorchTensorElemType(v: Value, type_str: Attr);
   Constraint CheckTorchQkvWeightEqual(q: Value, k: Value, v: Value);
-  
+
 
   Rewrite CreateTorchCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
   Rewrite ConvertTorchConstantIntListToI64DenseElemsAttr(cst: Value) -> Attr;
@@ -250,7 +250,7 @@ static LogicalResult createTorchCustomCall(
   return success();
 }
 
-static void convertTorchConstantFloatToFloatAttr(
+static LogicalResult convertTorchConstantFloatToFloatAttr(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -262,6 +262,7 @@ static void convertTorchConstantFloatToFloatAttr(
   assert(status);
 
   results.push_back(rewriter.getF64FloatAttr(elem));
+  return success();
 }
 
 static LogicalResult convertTorchConstantIntListToI64DenseElemsAttr(
@@ -294,7 +295,7 @@ static LogicalResult convertTorchConstantIntToI64Attr(
   return success();
 }
 
-static void inferTorchAtenTensorCatType(
+static LogicalResult inferTorchAtenTensorCatType(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -336,9 +337,10 @@ static void inferTorchAtenTensorCatType(
   Type OutputTy = lead_tensor_type.getWithSizesAndDtype(
       llvm::makeArrayRef(o_sizes), lead_tensor_type.getDtype());
   results.push_back(Type(OutputTy));
+  return success();
 }
 
-static void getTorchIntFromIntList(
+static LogicalResult getTorchIntFromIntList(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -366,9 +368,10 @@ static void getTorchIntFromIntList(
       values[1].cast<Value>().getLoc(),
       rewriter.getI64IntegerAttr(select_value));
   results.push_back(Value(output));
+  return success();
 }
 
-static void getTorchSizeFromTensor(
+static LogicalResult getTorchSizeFromTensor(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -388,9 +391,10 @@ static void getTorchSizeFromTensor(
       values[1].cast<Value>().getLoc(),
       rewriter.getI64IntegerAttr(select_value));
   results.push_back(Value(output));
+  return success();
 }
 
-static void getTorchTensorTypeFromList(
+static LogicalResult getTorchTensorTypeFromList(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -417,9 +421,10 @@ static void getTorchTensorTypeFromList(
   // lead_tensor_type.getWithSizesAndDtype(llvm::makeArrayRef(elems),
   // lead_tensor_type.getDtype());
   results.push_back(Type(OutputTy));
+  return success();
 }
 
-static void getTorchCombineWeightTypeForQKV(
+static LogicalResult getTorchCombineWeightTypeForQKV(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -435,6 +440,7 @@ static void getTorchCombineWeightTypeForQKV(
       old_type.getDtype());
 
   results.push_back(Type(new_type));
+  return success();
 }
 
 Type mapStrToType(PatternRewriter& rewriter, std::string type_str) {

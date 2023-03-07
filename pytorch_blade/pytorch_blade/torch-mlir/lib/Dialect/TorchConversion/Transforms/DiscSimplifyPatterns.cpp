@@ -39,7 +39,7 @@ class SimplifyGetitemOp : public OpConversionPattern<Aten__Getitem__TOp> {
     auto result = op.getResult();
 
     int64_t indexInt;
-    if (!matchPattern(op.idx(), m_TorchConstantInt(&indexInt)))
+    if (!matchPattern(op.getIdx(), m_TorchConstantInt(&indexInt)))
       return failure();
 
     auto listOp = input.getDefiningOp<PrimListConstructOp>();

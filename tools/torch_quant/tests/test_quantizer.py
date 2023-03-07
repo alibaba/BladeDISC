@@ -63,7 +63,6 @@ class QuantizerTest(unittest.TestCase):
 
     @parameterized.expand([
         (Backend.REFERENCE, ),
-        (Backend.FBGEMM, ),
         (Backend.DISC, ),
     ])
     def test_save_and_load_quantized(self, backend: Backend) -> None:

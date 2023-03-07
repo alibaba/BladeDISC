@@ -1400,6 +1400,9 @@ Status RunCudnnConvolution<int8_t>(
     se::DeviceMemoryBase& result_buffer,
     se::ScratchAllocator* scratch_allocator, se::Stream* stream,
     se::dnn::ProfileResult* profile_result) {
+#if defined(TF_IS_DEEPREC)
+  return errors::Internal("Not supported for DeepREC yet");
+#else
   ConvolutionKind kind = params.kind;
   DeviceMemory<int8_t> input_buf(operand_buffers[0]);
   DeviceMemory<int8_t> filter_buf(operand_buffers[1]);
@@ -1476,6 +1479,7 @@ Status RunCudnnConvolution<int8_t>(
     return errors::Internal("Unable to launch convolution");
   }
   return Status::OK();
+#endif  // TF_IS_DEEPREC
 }
 
 template <typename T>

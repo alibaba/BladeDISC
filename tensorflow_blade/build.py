@@ -150,7 +150,10 @@ def configure(args):
             tf_lib_name,
             tf_cxx11_abi,
             tf_pb_version,
+            is_deeprec
         ) = get_tf_info(which("python3"))
+        _opt("cxxopt", f"-DTF_IS_DEEPREC={is_deeprec}")
+        _opt("host_cxxopt", f"-DTF_IS_DEEPREC={is_deeprec}")
         _action_env("BLADE_WITH_TF", "1")
         _config("cxx11abi_" + tf_cxx11_abi)
         _action_env("IF_CXX11_ABI", int(tf_cxx11_abi))
@@ -261,7 +264,7 @@ def package(args):
 def test(args):
     execute("python3 setup.py cpp_test")
     device_mark = "not gpu_only" if args.device != "gpu" else "not cpu_only"
-    tf_major, _, _, _, _, _, _, _ = get_tf_info(which("python3"))
+    tf_major, _, _, _, _, _, _, _, _ = get_tf_info(which("python3"))
     tf_mark = "not tf1_only" if tf_major == "2" else "not tf2_only"
     execute(f"pytest  tests/ -m '{device_mark} and {tf_mark}' -v --forked")
 

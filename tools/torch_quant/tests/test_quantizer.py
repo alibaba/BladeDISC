@@ -22,7 +22,7 @@ from torch_quant.quantizer import Backend, Quantizer
 class QuantizerTest(unittest.TestCase):
     @parameterized.expand([
         (Backend.REFERENCE, ),
-        # (Backend.FBGEMM, ), TODO(litan.ls): select test according to ci env
+        (Backend.FBGEMM, ),  # TODO(litan.ls): select test according to ci env
         (Backend.DISC, ),
     ])
     def test_calib_and_quantize(self, backend: Backend) -> None:

@@ -56,7 +56,7 @@ cc_library(
         "lib/Dialect/TorchConversion/Transforms/ReduceTensorConversions.cpp",
         "lib/Dialect/TorchConversion/Transforms/DiscDecomposeComplexOps.cpp",
         "lib/Dialect/TorchConversion/Transforms/DiscConvertTorchToDiscMhlo.cpp",
-        "lib/Dialect/TorchConversion/Transforms/UpgradeLegacyOps.cpp",
+        "lib/Dialect/TorchConversion/Transforms/UpgradeAndAdaptOps.cpp",
         "lib/Dialect/TorchConversion/Transforms/VerifyMhloBackendContract.cpp",
         "lib/Dialect/TorchConversion/Transforms/DiscSimplifyPatterns.cpp",
     ],

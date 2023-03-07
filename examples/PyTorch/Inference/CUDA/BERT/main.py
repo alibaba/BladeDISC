@@ -263,17 +263,17 @@ def run():
     # Run naive torch.
     print("Naive PyTorch.")
     model = bert_large_amp
-    evaluate_torch(model, inputs)
+    # evaluate_torch(model, inputs)
 
     if utils.torch_version_number() >= utils.parse_version("1.14.0"):
         print("BladeDISC PyTorch 2.0 Optimization.")
-        evaluate_torch(torch.compile(bert_large_amp, backend="disc"), inputs)
+        evaluate_torch(torch.compile(bert_large_amp, backend="inductor"), inputs)
 
-    # Run BladeDISC optimization.
-    print("BladeDISC Optimization.")
-    disc_optimize(bert_large_amp, inputs, 'bert_large_amp.disc.pt')
-    model = torch.jit.load('bert_large_amp.disc.pt').cuda().eval()
-    evaluate_torch(model, inputs)
+    # # Run BladeDISC optimization.
+    # print("BladeDISC Optimization.")
+    # disc_optimize(bert_large_amp, inputs, 'bert_large_amp.disc.pt')
+    # model = torch.jit.load('bert_large_amp.disc.pt').cuda().eval()
+    # evaluate_torch(model, inputs)
 
     if args.disc_only:
         return

@@ -44,5 +44,23 @@ class TestDiscLayerNorm(DiscTestCase):
 
         self._test_layer_norm(layernorm)
 
+    def test_layernorm_half_precision(self):
+        @torch.jit.script
+        def layernorm(input, weight, bias):
+            width = 2560
+            eps = 1e-5
+            normalized_shape = (width,)
+            output = torch.layer_norm(input, normalized_shape, weight, bias, eps)
+            return output
+
+        width = 2560
+        input = torch.rand(1, 5, width, device="cuda", dtype=torch.half) * 0.1
+        weight = torch.ones(width, device="cuda", dtype=torch.half)
+        bias = torch.zeros(width, device="cuda", dtype=torch.half)
+
+        annotations = [([-1, -1, -1], torch.half), ([-1], torch.half), ([-1], torch.half)]
+        self._test_disc(layernorm, annotations, (input, weight, bias))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -71,7 +71,7 @@ std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertTorchToMhloPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscSimplifyPatternsPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscDecomposeComplexOpsPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertTorchToDiscMhlo();
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscUpgradeLegacyOpsPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscUpgradeAndAdaptOpsPass();
 std::unique_ptr<OperationPass<ModuleOp>> createVerifyMhloBackendContractPass();
 } // namespace TorchConversion
 } // namespace torch

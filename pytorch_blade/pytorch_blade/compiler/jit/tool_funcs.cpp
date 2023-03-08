@@ -182,7 +182,7 @@ bool cast_to_tensor_type(torch::jit::Value& value) {
 
 torch::jit::Node* create_prim_constant_with_val(
     std::shared_ptr<torch::jit::Graph> g,
-    const torch::Tensor& val) {
+    const at::Tensor& val) {
   torch::jit::Node* constant_node = g->insertNode(g->create(prim::Constant));
   constant_node->t_(attr::value, val);
   constant_node->output()->inferTypeFrom(val);

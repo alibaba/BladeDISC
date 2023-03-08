@@ -10,6 +10,7 @@
 // limitations under the License.
 
 #include "pytorch_blade/compiler/mlir/converters/mhlo_conversion.h"
+
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -19,12 +20,12 @@
 #include "mlir/disc/IR/hlo_disc_ops.h"
 
 #include "pytorch_blade/common_utils/logging.h"
+#include "pytorch_blade/common_utils/macros.h"
 #include "pytorch_blade/common_utils/utils.h"
 #include "pytorch_blade/compiler/jit/tool_funcs.h"
 #include "pytorch_blade/compiler/jit/torch/shape_analysis.h"
 #include "pytorch_blade/compiler/mlir/converters/torch_mlir_op_filter.h"
 
-#include "function_importer.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/Pass/PassManager.h"
@@ -33,6 +34,15 @@
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/InitAll.h"
+
+#if PYTORCH_VERSION_LE(1, 8)
+namespace c10 {
+#undef LLVM_SUPPORT_MATHEXTRAS_H
+#include <c10/util/llvmMathExtras.h>
+#define LLVM_SUPPORT_MATHEXTRAS_H
+} // namespace c10
+#endif
+#include "function_importer.h"
 
 #include <torch/csrc/jit/jit_log.h>
 #include <torch/script.h>

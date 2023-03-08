@@ -63,6 +63,21 @@ void remove_placeholder(Module& model) {
   }
 }
 
+template <typename T>
+torch::jit::Value* insert_prim_constant(
+    std::shared_ptr<torch::jit::Graph> g,
+    torch::jit::Node* n,
+    bool is_after,
+    const T& val) {
+  torch::jit::Node* constant_node = create_prim_constant_with_val(g, val);
+  if (is_after) {
+    constant_node->moveAfter(n);
+  } else {
+    constant_node->moveBefore(n);
+  }
+  return constant_node->output();
+}
+
 void replace_aten_fake_quant_with_custom_version(Module& model) {
   auto g = model.get_method("forward").graph();
   // the graph should be inlined first

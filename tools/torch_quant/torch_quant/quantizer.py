@@ -95,8 +95,19 @@ class Quantizer:
         self.backend = backend
         self.tracer = tracer
 
-    def calib_gm(self, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes) -> None:
-        ctx = GraphModContext(gm, root, ob_types.act_ob_ctr, ob_types.w_ob_ctr, ob_types.bias_ob_ctr)
+    def calib_gm(
+        self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes,
+    ) -> None:
+        module_filter = self.module_filter or ModuleFilter()
+        module_filter = module_filter.submodule_filter(name)
+        ctx = GraphModContext(
+            gm=gm,
+            root=root,
+            module_filter=module_filter,
+            act_ob_ctr=ob_types.act_ob_ctr,
+            w_ob_ctr=ob_types.w_ob_ctr,
+            bias_ob_ctr=ob_types.bias_ob_ctr,
+        )
         # TODO(litan.ls): unify graph modification for different backends
         if self.backend == Backend.DISC:
             ctx.modify_graph([
@@ -118,12 +129,23 @@ class Quantizer:
             DEFAULT_ACT_OB_CTR[self.backend], DEFAULT_W_OB_CTR[self.backend],
             DEFAULT_BIAS_OB_CTR)
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
-        for x in trace_mapping.values():
-            self.calib_gm(x.gm, x.m, ob_types)
+        for name, traced in trace_mapping.items():
+            self.calib_gm(name, traced.gm, traced.m, ob_types)
         return copy_and_replace(model, trace_mapping)
 
-    def qat_gm(self, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes) -> None:
-        ctx = GraphModContext(gm, root, ob_types.act_ob_ctr, ob_types.w_ob_ctr, ob_types.bias_ob_ctr)
+    def qat_gm(
+        self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes
+    ) -> None:
+        module_filter = self.module_filter or ModuleFilter()
+        module_filter = module_filter.submodule_filter(name)
+        ctx = GraphModContext(
+            gm=gm,
+            root=root,
+            module_filter=module_filter,
+            act_ob_ctr=ob_types.act_ob_ctr,
+            w_ob_ctr=ob_types.w_ob_ctr,
+            bias_ob_ctr=ob_types.bias_ob_ctr,
+        )
         ctx.modify_graph([
             set_qconfig,
             insert_act_observer,
@@ -143,12 +165,20 @@ class Quantizer:
             DEFAULT_QAT_ACT_OB_CTR[self.backend], DEFAULT_QAT_W_OB_CTR,
             None)
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
-        for x in trace_mapping.values():
-            self.qat_gm(x.gm, x.m, ob_types)
+        for name, traced in trace_mapping.items():
+            self.qat_gm(name, traced.gm, traced.m, ob_types)
         return copy_and_replace(model, trace_mapping)
 
-    def quantize_gm(self, gm: GraphModule, root: nn.Module) -> None:
-        ctx = GraphModContext(gm, root, is_override_module=False, is_override_qconfig=False)
+    def quantize_gm(self, name: str, gm: GraphModule, root: nn.Module) -> None:
+        module_filter = self.module_filter or ModuleFilter()
+        module_filter = module_filter.submodule_filter(name)
+        ctx = GraphModContext(
+            gm=gm,
+            root=root,
+            module_filter=module_filter,
+            is_override_module=False,
+            is_override_qconfig=False,
+        )
         if self.backend == Backend.DISC:
             ctx.modify_graph([
                 set_qconfig,
@@ -178,6 +208,6 @@ class Quantizer:
 
     def quantize(self, model: nn.Module) -> nn.Module:
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
-        for x in trace_mapping.values():
-            self.quantize_gm(x.gm, x.m)
+        for name, traced in trace_mapping.items():
+            self.quantize_gm(name, traced.gm, traced.m)
         return copy_and_replace(model, trace_mapping)

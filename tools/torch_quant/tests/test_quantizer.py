@@ -11,10 +11,12 @@
 
 import tempfile
 import unittest
+from typing import Optional
 
 import torch
 from parameterized import parameterized
-from tests.models import SimpleModule
+from tests.models import SimpleModule, SubModule, UntraceableSimpleModule
+from torch_quant.module import ModuleFilter
 from torch_quant.observer import toggle_observer
 from torch_quant.quantizer import Backend, Quantizer
 
@@ -112,6 +114,82 @@ class QuantizerTest(unittest.TestCase):
         quant_model = quantizer.quantize(model)
         out3 = quant_model(dummy_input)
         self.assertTrue(torch.equal(out2, out3))
+
+    def _test_calib_and_quantize_with_op_types_filter(
+        self, backend: Backend, module_filter: ModuleFilter
+    ) -> None:
+        model = SimpleModule()
+        quantizer = Quantizer(backend=backend, module_filter=module_filter)
+        dummy_input = torch.randn((1, 2, 5, 5))
+        original_output = model(dummy_input)
+
+        calib_model = quantizer.calib(model)
+        calib_output = calib_model(dummy_input)
+        self.assertTrue(torch.equal(original_output, calib_output))
+
+        quant_model = quantizer.quantize(model)
+        self.assertTrue(isinstance(quant_model.conv, torch.nn.Conv2d))
+        self.assertTrue(isinstance(quant_model.sub.conv, torch.nn.Conv2d))
+        self.assertEqual(quant_model.conv, model.conv)
+        self.assertEqual(quant_model.sub.conv, model.sub.conv)
+        self.assertNotEqual(quant_model.linear, model.linear)
+
+        quant_output = quant_model(dummy_input)
+        self.assertFalse(torch.equal(original_output, quant_output))
+        torch.testing.assert_close(
+            quant_output, original_output, rtol=0.1, atol=0.5)
+
+    @parameterized.expand([(Backend.REFERENCE, ), (Backend.DISC, )])
+    def test_calib_and_quantize_with_include_op_types(self, backend: Backend) -> None:
+        module_filter = ModuleFilter(include_op_types=[torch.nn.Linear])
+        self._test_calib_and_quantize_with_op_types_filter(backend, module_filter)
+
+    @parameterized.expand([(Backend.REFERENCE, ), (Backend.DISC, )])
+    def test_calib_and_quantize_with_exclude_op_types(self, backend: Backend) -> None:
+        module_filter = ModuleFilter(exclude_op_types=[torch.nn.Conv2d])
+        self._test_calib_and_quantize_with_op_types_filter(backend, module_filter)
+
+    def _test_calib_and_quantize_with_module_filter(
+        self, backend: Backend, module_filter: ModuleFilter,
+    ) -> None:
+        model = UntraceableSimpleModule()
+        quantizer = Quantizer(backend=backend, module_filter=module_filter)
+        dummy_input = torch.randn((1, 2, 5, 5))
+        original_output = model(dummy_input)
+
+        calib_model = quantizer.calib(model)
+        calib_output = calib_model(dummy_input)
+        self.assertTrue(torch.equal(original_output, calib_output))
+
+        qmodel = quantizer.quantize(model)
+        self.assertTrue(isinstance(qmodel.traceable_sub.linear, torch.nn.Linear))
+        self.assertTrue(isinstance(qmodel.traceable_sub.sub.conv, torch.nn.Conv2d))
+        self.assertEqual(qmodel.traceable_sub.linear, model.traceable_sub.linear)
+        self.assertEqual(qmodel.traceable_sub.sub.conv, model.traceable_sub.sub.conv)
+        self.assertNotEqual(qmodel.traceable_sub.conv, model.traceable_sub.conv)
+
+        quant_output = qmodel(dummy_input)
+        self.assertFalse(torch.equal(original_output, quant_output))
+        torch.testing.assert_close(
+            quant_output, original_output, rtol=0.1, atol=0.5)
+
+    @parameterized.expand([(Backend.REFERENCE, ), (Backend.DISC, )])
+    def test_calib_and_quantize_with_name_filter(self, backend: Backend) -> None:
+        module_filter = ModuleFilter(
+            include_names=['traceable_sub',],
+            exclude_names=['traceable_sub.sub.conv'],
+            exclude_op_types=[torch.nn.Linear],
+        )
+        self._test_calib_and_quantize_with_module_filter(backend, module_filter)
+
+    @parameterized.expand([(Backend.REFERENCE, ), (Backend.DISC, )])
+    def test_calib_and_quantize_with_class_filter(self, backend: Backend) -> None:
+        module_filter = ModuleFilter(
+            include_classes=[SimpleModule,],
+            exclude_classes=[SubModule],
+            include_op_types=[torch.nn.Conv2d],
+        )
+        self._test_calib_and_quantize_with_module_filter(backend, module_filter)
 
 
 if __name__ == '__main__':

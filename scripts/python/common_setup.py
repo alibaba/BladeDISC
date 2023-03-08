@@ -297,7 +297,7 @@ def config_mkldnn(root, args):
               MAKE_NP="-j$(grep -c processor /proc/cpuinfo)"
 
               ACL_DIR={}
-              git clone --branch v22.02 --depth 1 $ACL_REPO $ACL_DIR
+              git clone --branch v23.02 --depth 1 $ACL_REPO $ACL_DIR
               cd $ACL_DIR
               EXTRA_ACL_PATCH_DIR={}
               for file in $EXTRA_ACL_PATCH_DIR/acl_*.patch

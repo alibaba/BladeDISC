@@ -27,11 +27,11 @@
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/core/util/env_var.h"
 
-#if TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION == 4
-#define TF_2_4
+#if TF_MAJOR_VERSION < 2 || (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION <= 8)
+#define TF_LE_2_8
 #endif
 
-#if defined(TF_1_12) || defined(TF_1_14) || defined(TF_2_4)
+#if defined(TF_1_12) || defined(TF_1_14) || defined(TF_LE_2_8)
 namespace tsl {
 template <typename T>
 using StatusOr = ::stream_executor::port::StatusOr<T>;

@@ -473,25 +473,6 @@ cc_library(
 )
 
 cc_library(
-    name = "disc_mhlo_cse",
-    srcs = ["transforms/disc_cse.cc"],
-    hdrs = ["transforms/passes.h"],
-    includes = [
-        "tensorflow/compiler/xla/mlir_hlo/include",
-        "."
-    ],
-    deps = [
-        ":pass_details",
-        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "@llvm-project//mlir:FuncDialect",
-        "@llvm-project//mlir:IR",
-        "@llvm-project//mlir:Pass",
-        "@llvm-project//mlir:Transforms",
-    ],
-    alwayslink = 1,
-)
-
-cc_library(
     name = "reduction_rewriters",
     srcs = ["transforms/reduction_rewriters.cc"],
     hdrs = ["transforms/passes.h"],
@@ -2229,7 +2210,6 @@ cc_library(
         ":disc_lower_tf",
         ":disc_lower_quantize_and_dequantize",
         ":disc_lower_to_library_call",
-        ":disc_mhlo_cse",
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
         ":disc_outline_cpu_kernel",

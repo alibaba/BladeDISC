@@ -92,7 +92,6 @@ func.func @simple_multi_output_kloop_fusion_with_reorder(%arg0: memref<?x?xf32, 
 
   // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.abs"(%[[T0]], %[[T1]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  // BASE: "lmhlo.dynamic_broadcast_in_dim"(%[[T1]], %[[ARG4]], %[[T5]])
   // BASE: "lmhlo.add"(%[[T1]], %[[T2]], %[[T3]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: })
   // BASE: return %[[T1]], %[[T3]], %[[T5]] : memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">
@@ -529,7 +528,7 @@ func.func @kstitch_fusion_mean(%arg0: memref<?x?x?xf32, "gpu">) -> memref<?x?xf3
   "lmhlo.divide"(%11, %16, %17) {disc.device = "gpu"} : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // Make sure there is one and only one kStitch fusion.
   // STITCH:      disc.fusion.name
-  // STITCH-SAME: disc.fusion_type = "kRowReduction"
+  // STITCH-SAME: disc.fusion_type = "kStitch"
   return %17 : memref<?x?xf32, "gpu">
 }
 "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()

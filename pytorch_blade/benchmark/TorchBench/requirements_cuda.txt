@@ -2,6 +2,5 @@
 pandas
 librosa
 torchaudio==2.0.0.dev20230130+cu117
-# torchtext depends on previous day's torch vision
-torchtext==0.15.0.dev20230131
+torchtext==0.15.0.dev20230130
 pyyaml

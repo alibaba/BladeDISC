@@ -2683,6 +2683,7 @@ std::vector<string> GetDiscSupportedOps() {
       "SparseReshape",
       "SparseFillEmptyRows",
       "SparseSegmentMean",
+      "SparseSegmentSum",
       "Where",
     });
   }

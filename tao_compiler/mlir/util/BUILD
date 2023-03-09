@@ -4,11 +4,6 @@ config_setting(
 )
 
 config_setting(
-    name = "is_patine",
-    define_values = {"is_patine": "true"},
-)
-
-config_setting(
     name = "is_blade_gemm",
     define_values = {"is_blade_gemm": "true"},
 )

@@ -93,6 +93,26 @@ StatusOr<bool> IsSmallHostConstant(Node* n) {
   return total_elements < kSmallTensorThreshold;
 }
 
+// almost same with IsSmallHostConstant but skip the check of op's size
+// for fakequant's scale and zero_point
+StatusOr<bool> IsFakeQuantArgumentConstant(Node* n) {
+  if (!n->IsConstant()) return false;
+
+  DeviceNameUtils::ParsedName parsed;
+  TF_RET_CHECK(
+      DeviceNameUtils::ParseFullName(n->assigned_device_name(), &parsed));
+  if (parsed.type != DEVICE_CPU) return false;
+
+  // Const has DiscFakeQuant user
+  if (n->type_string() == "Const" && n->out_edges().size() > 1 &&
+      std::any_of(n->out_nodes().begin(), n->out_nodes().end(), [](Node* out) {
+        return out->type_string() == "DiscFakeQuant";
+      }))
+    return true;
+
+  return false;
+}
+
 bool IsInPlaceOp(absl::string_view op_name) {
   return op_name == "InplaceUpdate" || op_name == "InplaceAdd" ||
          op_name == "InplaceSub";
@@ -108,10 +128,16 @@ Status TaoCloneConstantsForBetterClusteringPass::CloneSmallHostConstantInputs(
   // absl::c_copy(n->in_edges(), std::back_inserter(in_edges));
   for (const Edge* e : in_edges) {
     Node* input = e->src();
-    TF_ASSIGN_OR_RETURN(bool is_small_host_constant,
-                        IsSmallHostConstant(input));
-    if (is_small_host_constant && input->out_edges().size() != 1) {
-      VLOG(2) << "Cloning small host constant " << input->name();
+    bool is_small_host_constant = false, is_fakequant_argument_constant = false;
+    TF_ASSIGN_OR_RETURN(is_fakequant_argument_constant,
+                        IsFakeQuantArgumentConstant(input));
+
+    if ((is_small_host_constant || is_fakequant_argument_constant) &&
+        input->out_edges().size() != 1) {
+      if (is_small_host_constant)
+        VLOG(2) << "Cloning small host constant " << input->name();
+      else if (is_fakequant_argument_constant)
+        VLOG(2) << "Cloning constant fakequant's argument " << input->name();
       TF_ASSIGN_OR_RETURN(Node* const input_cloned,
                           CloneNode(g, name_set, input));
       if (e->IsControlEdge()) {
@@ -132,10 +158,6 @@ Status TaoCloneConstantsForBetterClusteringPass::CloneSmallHostConstantInputs(
 
 Status TaoCloneConstantsForBetterClusteringPass::Run(
     const GraphOptimizationPassOptions& options) {
-  if (!use_tvm_) {
-    return Status::OK();
-  }
-
   Graph* g = options.graph->get();
   std::unordered_set<string> name_set;
   for (Node* n : g->nodes()) {

@@ -6,7 +6,6 @@ list(APPEND PASSES_HEADERS
     "tao_partially_decluster_pass.h"
     "tao_bace_reformat_pass.h"
     "tao_clone_constants_for_better_clustering.h"
-    "tao_remove_small_cluster_pass.h"
     "tao_defuse_pass.h"
     "functionalize_control_flow.h"
     "functionalize_cond.h"
@@ -24,7 +23,6 @@ list(APPEND PASSES_SOURCES
     "tao_partially_decluster_pass.cc"
     "tao_bace_reformat_pass.cc"
     "tao_clone_constants_for_better_clustering.cc"
-    "tao_remove_small_cluster_pass.cc"
     "tao_defuse_pass.cc"
     "functionalize_control_flow.cc"
     "functionalize_cond.cc"
@@ -43,7 +41,6 @@ list(APPEND PASSES_TESTS
 list(APPEND CPU_PASSES_TESTS
     "tao_clone_constants_for_better_clustering_test.cc"
     "tao_defuse_pass_test.cc"
-    "tao_remove_small_cluster_pass_test.cc"
 )
 
 tao_cc_test(

@@ -261,11 +261,17 @@ def mkl_install_dir(root):
 def acl_root_dir(root):
     return os.path.join(mkldnn_build_dir(root), 'acl', 'ComputeLibrary')
 
+def extra_acl_patch_dir(root):
+    if root is None:
+        root = get_source_root_dir()
+    return os.path.join(root, "third_party", "bazel", "acl")
+
 def config_mkldnn(root, args):
     build_dir = mkldnn_build_dir(root)
     ensure_empty_dir(build_dir, clear_hidden=False)
     mkl_dir = mkl_install_dir(root)
     acl_dir = acl_root_dir(root)
+    acl_patch_dir = extra_acl_patch_dir(root)
     ensure_empty_dir(mkl_dir, clear_hidden=False)
     ensure_empty_dir(acl_dir, clear_hidden=False)
     if args.x86:
@@ -293,11 +299,19 @@ def config_mkldnn(root, args):
               ACL_DIR={}
               git clone --branch v22.02 --depth 1 $ACL_REPO $ACL_DIR
               cd $ACL_DIR
+              EXTRA_ACL_PATCH_DIR={}
+              for file in $EXTRA_ACL_PATCH_DIR/acl_*.patch
+              do
+                  if [[ $file == *makefile* ]]; then
+                      continue
+                  fi
+                  patch -p1 < $file
+              done
 
               scons --silent $MAKE_NP Werror=0 debug=0 neon=1 opencl=0 openmp=1 embed_kernels=0 os=linux arch={} build=native extra_cxx_flags="-fPIC"
 
               exit $?
-            '''.format(acl_dir, arch)
+            '''.format(acl_dir, acl_patch_dir, arch)
             execute(cmd)
             # a workaround for static linking
             execute('rm -f build/*.so')
@@ -308,7 +322,6 @@ def config_mkldnn(root, args):
     with cwd(build_dir):
         cc = which("gcc")
         cxx = which("g++")
-        # always link patine statically
         flags = " -DMKL_ROOT={} ".format(mkl_dir)
         envs = " CC={} CXX={} ".format(cc, cxx)
         if args.aarch64:
@@ -620,16 +633,16 @@ def symlink_disc_files(args):
     )
 
     logger.info("linking blade_gemm")
-    link_dirs(os.path.join(get_source_root_dir(), 'tf_community', 'tao', 'blade_gemm'),
+    link_dirs(os.path.join(get_source_root_dir(), 'tao', 'blade_gemm'),
             os.path.join(dir_platform_alibaba, 'blade_gemm'))
     logger.info("linking blade_service_common")
-    link_dirs(os.path.join(get_source_root_dir(), 'tf_community', 'tao', 'third_party', 'blade_service_common'),
+    link_dirs(os.path.join(get_source_root_dir(), 'tao', 'third_party', 'blade_service_common'),
             os.path.join(dir_platform_alibaba, 'third_party', 'blade_service_common'))
 
     logger.info("cleanup tao_compiler with XLA always...")
 
     # def link_internal_tao_bridge(is_platform_alibaba):
-    # softlink ["tao_launch_op", "gpu"] dirs, "tvm" and "transform" dirs are not needed for now.
+    # softlink ["tao_launch_op", "gpu"] dirs, and "transform" dirs are not needed for now.
     for dir_name in ["tao_launch_op", "gpu"]:
         src_file = os.path.join(internal_tao_bridge_dir(), dir_name)
         link_in_bridge = os.path.join(tao_bridge_dir(), dir_name)

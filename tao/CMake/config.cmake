@@ -24,5 +24,3 @@ set(TAO_DISABLE_LOWER_IF_WHILE OFF)
 # If ON, TAO tests will be built and run
 set(TAO_ENABLE_CXX_TESTING OFF)
 
-# if ON, tvm backend is enabled
-set(TAO_ENABLE_TVM OFF)

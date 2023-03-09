@@ -252,6 +252,7 @@ LogicalResult DiscTransformLegalizeToLoopPass::injectScheduleSelectionIR(
   }
   // Only one candidate, no need to inject selection logic.
   if (factories.size() == 1) {
+    mergeFusionTag(b, fusionOp, factories.back()->getTagSet());
     clonedOps.push_back(fusionOp);
     return success();
   }

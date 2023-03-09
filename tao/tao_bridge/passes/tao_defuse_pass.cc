@@ -265,10 +265,7 @@ Status DefuseFromRoot(Graph* g, Node* n) {
 }  // namespace
 
 Status TaoDefusePass::Run(const GraphOptimizationPassOptions& options) {
-  if (!use_tvm_) {
-    return Status::OK();
-  }
-  VLOG(2) << "Start defuse pass for TVM-CPU.";
+  VLOG(2) << "Start defuse pass.";
 
   Graph* graph = options.graph->get();
 

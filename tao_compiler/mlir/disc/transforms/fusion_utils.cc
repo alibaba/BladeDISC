@@ -193,6 +193,8 @@ StringRef fusionTypeToString(FusionType ft) {
       return "kWhere";
     case FusionType::kTransform:
       return "kTransform";
+    case FusionType::kSparseReduction:
+      return "kSparseReduction";
     default:
       assert(false && "unknown fusion type");
       return "";
@@ -221,6 +223,8 @@ FusionType fusionTypeFromString(StringRef ft) {
     return FusionType::kWhere;
   } else if (ft == "kTransform") {
     return FusionType::kTransform;
+  } else if (ft == "kSparseReduction") {
+    return FusionType::kSparseReduction;
   }
 
   assert(false && "unknown fusion type");
@@ -530,6 +534,11 @@ bool isFusible(Operation* op) {
   // clang-format on
 }
 
+bool isSparseFusion(FusionPattern& pattern) {
+  return pattern.getFusionType() == FusionType::kWhere ||
+         pattern.getFusionType() == FusionType::kSparseReduction;
+}
+
 bool initFusionPatternBase(ShapeAnalysis& shapeAnalysis,
                            FusionPattern& fusion_pattern) {
   Operation* inferredDominantOp = nullptr;
@@ -750,7 +759,11 @@ FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
     strategyStr = "dot";
   } else if (fusionType == FusionType::kTransform) {
     strategyStr = "transform_based";
+  } else if (fusionType == FusionType::kWhere ||
+             fusionType == FusionType::kSparseReduction) {
+    strategyStr = "sparse_base";
   }
+
   FusionStrategy& strategy =
       getFusionStrategy(deviceAttr.getValue(), strategyStr);
   bool status = strategy.initFusionPattern(*shape_analysis, *this);
@@ -818,7 +831,8 @@ void FusionPattern::findOpsOfSkeletonGroup(
                                      !xroot_members.contains(input_op);
       if (existing_group_op_set.contains(input_op) &&
           !shmem_cached_ops.contains(input_op) &&
-          !all_skeletons.contains(input_op)) {
+          !all_skeletons.contains(input_op) &&
+          !isa<lmhlo::ConstantOp>(input_op)) {
         auto output = input_op->getOperand(input_op->getNumOperands() - 1);
         int collapsed_tile_dim = getCollapsedTileDim(output);
         auto output_type = output.getType().cast<MemRefType>();
@@ -1209,9 +1223,6 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   // Here `compatible` means:
   // - if `to` and `from` are both kInput fusion, all output should have same
   // shape.
-  // - if `to` or `from` is kWhere fusion, there should be no constrains for
-  // output shape, since lmhlo_disc.where's output shape is determined by values
-  // from its input, which cannot be decided at compile-time.
   // - otherwise, all output should have same number of elements.
 
   // No outside users, these ops may be eliminated. We fused it here and let
@@ -1220,8 +1231,7 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
     return true;
   }
 
-  if (rhs.getFusionType() != FusionType::kWhere &&
-      lhs.getFusionType() != FusionType::kWhere) {
+  if (!isSparseFusion(rhs) && !isSparseFusion(lhs)) {
     Value ref_shape = getEffectiveShape(target, results[0]);
     if (!llvm::all_of(results, [&](Value result) {
           Value shape = getEffectiveShape(target, result);
@@ -1232,15 +1242,12 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
       return false;
     }
   } else {
-    // TODO(lanbo.llb): make a more general rule for kWhere fusion
-    if ((target.getRootOps().size() != 1) ||
-        (target.getRootOps().size() == 1 &&
-         !isa<lmhlo_disc::WhereOp>(target.getRootOps()[0]))) {
-      // Currently we only support input-fusion like kWhere fusion
-      // with one root op, which should be mhlo_disc.where
-      return false;
-    }
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "BaseFusionStrategy::tryFuse does not handle sparse fusion\n");
+    return false;
   }
+
   LLVM_DEBUG(llvm::dbgs() << "BaseFusionStrategy::tryFuse success()\n");
   return true;
 }
@@ -1563,6 +1570,8 @@ std::unique_ptr<FusionStrategy> makeNewDeviceStrategy(StringRef device,
     return std::make_unique<StitchCpuFusionStrategy>(options);
   } else if (device == placement_utils::kCpu && strategy == "transform_based") {
     return std::make_unique<TransformBasedCpuFusionStrategy>(options);
+  } else if (device == placement_utils::kCpu && strategy == "sparse_base") {
+    return std::make_unique<SparseOpCpuFusionStrategy>(options);
   } else if (device == placement_utils::kGpu && strategy == "stitch") {
     return std::make_unique<StitchGpuFusionStrategy>(options);
   } else if (device == placement_utils::kCpu && strategy == "stitch_base") {

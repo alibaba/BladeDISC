@@ -86,6 +86,7 @@ class ScheduleFactory {
  public:
   explicit ScheduleFactory(int64_t id, PatternKind kind,
                            ArrayRef<StringRef> tags);
+  virtual ~ScheduleFactory() = default;
 
   // Returns true if the factory accepts the pattern at compile time.
   // Note that it's only an conservative check, which means pattern rejected

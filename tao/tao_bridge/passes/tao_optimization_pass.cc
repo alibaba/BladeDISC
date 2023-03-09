@@ -24,7 +24,6 @@ limitations under the License.
 #include "tao_bridge/passes/tao_encapsulate_subgraphs_pass.h"
 #include "tao_bridge/passes/tao_mark_for_compilation_pass.h"
 #include "tao_bridge/passes/tao_partially_decluster_pass.h"
-#include "tao_bridge/passes/tao_remove_small_cluster_pass.h"
 #include "tao_bridge/tao_util.h"
 #include "tao_bridge/tf/dump_graph.h"
 #include "tensorflow/core/graph/graph.h"
@@ -115,25 +114,23 @@ Status TaoOptimizationPass::Run(const GraphOptimizationPassOptions& options) {
       GetTaoBridgeOptions()->experimental_enable_mlir_whole_graph_compilation;
   auto flags = GetMarkForCompilationPassFlags();
   if (flags->tf_xla_cpu_global_jit) {
-    // Add Clone Constants Pass for CPU case for better clustering
-    TaoCloneConstantsForBetterClusteringPass clone_pass(opts_->use_tvm);
-    clone_pass.set_name("TaoCloneConstantsForBetterClusteringPass");
-    TF_RETURN_IF_ERROR(clone_pass.Run(options));
-
     // DumpGraph(options, "before_tao_defuse_pass");
     // Add Defuse Pass for CPU case to handle fusion from grappler 1.15
     // Be moved into TF2XLA
-    TaoDefusePass defuse_pass(true);
+    TaoDefusePass defuse_pass;
     defuse_pass.set_name("TaoDefusePass");
     TF_RETURN_IF_ERROR(defuse_pass.Run(options));
   }
 
+  DumpGraph(options, "before_tao_clone_pass");
+  // Add Clone Constants Pass for fakequant
+  TaoCloneConstantsForBetterClusteringPass clone_pass;
+  clone_pass.set_name("TaoCloneConstantsForFakeQuantPass");
+  TF_RETURN_IF_ERROR(clone_pass.Run(options));
+
   DumpGraph(options, "before_tao_mark_pass");
 
   TaoMarkForCompilationPass mark_pass;
-  if (opts_->cluster_recount && opts_->use_tvm) {
-    mark_pass.ResetClusterNumber();
-  }
   mark_pass.set_name("TaoMarkForCompilationPass");
   mark_pass.set_opts(opts_);
   TF_RETURN_IF_ERROR(mark_pass.Run(options));
@@ -145,14 +142,6 @@ Status TaoOptimizationPass::Run(const GraphOptimizationPassOptions& options) {
     decluster_pass.set_name("TaoPartiallyDeclusterPass");
     TF_RETURN_IF_ERROR(decluster_pass.Run(options));
     decluster_pass.set_opts(opts_);
-
-    DumpGraph(options, "before_tao_simplify_pass");
-
-    // Add Remove Small Cluster Pass for CPU case to remove small clusters
-    TaoRemoveSmallClusterPass simplify_pass(opts_->use_tvm);
-    simplify_pass.set_name("TaoRemoveSmallClusterPass");
-    // simplify_pass.set_opts(opts_);
-    TF_RETURN_IF_ERROR(simplify_pass.Run(options));
   }
 
   DumpGraph(options, "before_tao_encap_pass");

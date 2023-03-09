@@ -34,5 +34,19 @@ def HLO_RoundModeEnum: I64EnumAttr<"RoundModeEnum",
   let cppNamespace = "::mlir::mhlo_disc";
 }
 
+// The reduction mode enum used for HLO_DISC_SparseSegmentReduction
+def HLO_ReductionModeMean : I64EnumAttrCase<"Mean", 0>;
+def HLO_ReductionModeSum : I64EnumAttrCase<"Sum", 1>;
+def HLO_ReductionModeSqrtn : I64EnumAttrCase<"Sqrtn", 2>;
+def HLO_ReductionModeEnum: I64EnumAttr<"ReductionModeEnum",
+    "Reduction model enum used for sparse reduction now",
+    [
+        HLO_ReductionModeMean,
+        HLO_ReductionModeSum,
+        HLO_ReductionModeSqrtn
+    ]> {
+  let summary = "Reduction mode in sparse segment redcution ops";
+  let cppNamespace = "::mlir::mhlo_disc";
+}
 
 #endif // MHLO_DISC_ENUMS

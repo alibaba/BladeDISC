@@ -204,7 +204,8 @@ def configure(args):
                 _action_env("BLADE_WITH_TENSORRT", "0")
 
             if args.platform_alibaba and not args.skip_hie:
-                _config("hie")
+                logger.warning("HIE will be disabled temporarily.")
+                # _config("hie")
 
             if not args.skip_disc:
                 _config("disc_cuda")

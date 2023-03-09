@@ -26,6 +26,10 @@ while [[ $# -gt 0 ]]; do
       VENV_PATH="$2"
       shift 2
       ;;
+    --target_cpu_arch)
+      TARGET_CPU_ARCH="--target_cpu_arch $2"
+      shift 2
+      ;;
     --rocm)
       ROCM="--rocm"
       shift

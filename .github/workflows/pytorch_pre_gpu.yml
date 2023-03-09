@@ -17,7 +17,6 @@ jobs:
       develop_base_image: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
       runtime_base_image: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
       extra_envs: -e TORCH_BLADE_BUILD_TENSORRT_STATIC=OFF
-          -e TORCH_BLADE_BUILD_TENSORRT=OFF
           -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=pre+cu117
       extra_build_args: --build-arg PYTHON_VERSION=PYTHON3.8
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh

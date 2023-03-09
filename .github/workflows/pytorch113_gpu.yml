@@ -1,0 +1,29 @@
+name: pytorch1_13_1-cuda11_6
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 17 * * *' # 1:00 am UTC+8:00
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/resuable_gpu_build.yml
+    with:
+      cuda_version: cu116
+      runner_tag: gpu-a10
+      remote_runtime_docker: bladedisc:latest-runtime-torch1.13.1-cu116
+      develop_base_image: nvidia/cuda:11.6.0-cudnn8-devel-ubuntu20.04
+      runtime_base_image: nvidia/cuda:11.6.0-cudnn8-devel-ubuntu20.04
+      extra_build_args: --build-arg PYTHON_VERSION=PYTHON3.8 --build-arg ENABLE_FIND_FASTEST_APT_SOURCE=OFF
+      extra_envs: -e TORCH_BLADE_BUILD_TENSORRT_STATIC=OFF
+          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.13.1+cu116
+      exec_command: bash ./scripts/ci/test_pytorch_blade.sh
+      deploy_command: TORCH_VERSION=1.13.1+cu116 bash ./scripts/ci/deploy_pytorch_blade.sh
+    secrets:
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}

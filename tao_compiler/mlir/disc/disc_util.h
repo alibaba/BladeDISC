@@ -67,6 +67,15 @@ inline std::vector<int64_t> ConvertDenseIntAttr(
   return ConvertDenseIntAttr(*attr);
 }
 
+inline std::vector<int64_t> ConvertArrayAttrToInt(mlir::ArrayAttr array_attr) {
+  SmallVector<float, 4> values;
+  values.reserve(array_attr.getValue().size());
+  for (Attribute val : array_attr.getValue()) {
+    values.push_back(static_cast<int64_t>(val.cast<IntegerAttr>().getInt()));
+  }
+  return {values.begin(), values.end()};
+}
+
 inline mlir::DenseElementsAttr GetScalarOfType(Type ty, int64_t raw_value) {
   RankedTensorType scalar_ty = RankedTensorType::get({}, ty);
 
@@ -116,6 +125,9 @@ bool useHorizontalFusion();
 
 // Returns true if `DISC_ENABLE_TRANSFORM_SCHEDULE` is true.
 bool useTransformSchedule();
+
+// Returns true if `DISC_ENABLE_TRANSFORM_GEMM_EPILOGUE_FUSION` is true.
+bool useTransformGEMMEpilogueFusionSchedule();
 
 // Returns true if `DISC_FAKE_QUANT_TO_QUANT_AND_DEQUANT` is true
 bool lowerFakeQuantToQuantAndDequant();

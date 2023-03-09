@@ -282,6 +282,9 @@ createDiscLowerGpuQuantizeAndDequantizePass();
 // Convert mhlo.dynamic_slice to mhlo.real_dynamic_slice
 std::unique_ptr<OperationPass<FuncOp>> createDiscDynamicSliceConverterPass();
 
+// Sparse op rewriter
+std::unique_ptr<OperationPass<FuncOp>> createDiscSparseOpRewriterPass();
+
 // Inserts dealloc ops for some disc specific ops (e.g. custom_call_v2 op).
 std::unique_ptr<OperationPass<FuncOp>> createDiscBufferDeallocationPass();
 
@@ -305,6 +308,11 @@ std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscTransformLegalizeToLoopPass(bool gpuEnabled = false,
                                       const std::string& filename = "",
                                       bool expensiveCheck = false);
+
+// Duplicate and fuse some computation into their fusion consumer to reduce
+// memory footprint.
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscDuplicateComputationAfterFusionPass();
 
 }  // namespace disc_ral
 }  // namespace mlir

@@ -30,11 +30,14 @@
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
+#include "mlir/Interfaces/VectorInterfaces.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/MathExtras.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
@@ -95,8 +98,7 @@ LogicalResult comprehensiveBufferizeDeallocationFn(OpBuilder& builder,
 
 LogicalResult comprehensiveBufferizeCopyFn(OpBuilder& builder, Location loc,
                                            Value from, Value to) {
-  createLinalgCopyOp(builder, loc, from, to);
-  return success();
+  return success(createLinalgCopyOp(builder, loc, from, to) != nullptr);
 }
 
 OneShotBufferizationOptions getBufferizationOptions() {
@@ -487,6 +489,381 @@ struct FoldMultiLevelPackOfConstantWrapperPattern
   }
 };
 
+/// convert:
+///   %0 = disc_linalg_ext.constant_wrapper dense<0.000000e+00> ...
+///   %1 = tensor.extract %0 ...
+///   use(%1)
+/// to:
+///   %0 = arith.constant 0 : float
+///   use(%0)
+struct FoldTensorExtractOfConstantWrapperPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    auto constOp = op.getTensor().getDefiningOp<ConstantWrapperOp>();
+    if (!constOp) return failure();
+
+    // Collect the constant indices into the tensor.
+    SmallVector<uint64_t, 8> indices;
+    for (Value indice : llvm::drop_begin(op->getOperands(), 1)) {
+      auto constIndexOp = indice.getDefiningOp<arith::ConstantIndexOp>();
+      if (!constIndexOp) return failure();
+      indices.push_back(constIndexOp.getValue().cast<IntegerAttr>().getInt());
+    }
+
+    auto attr = constOp.getValue().getValues<Attribute>()[indices];
+    rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, op.getResult().getType(),
+                                                   attr);
+    return success();
+  }
+};
+
+/// convert:
+///   %0 = ... : vector<16xf32>
+///   %1 = vector.transfer_write %0, %arg0[%c0, %c0]
+///   %2 = disc_linalg_ext. dense<0.000000e+00> ...
+///   %3 = vector.transfer_read %1[%c0, %c0], %2 ...
+///   use(%3)
+/// to:
+///   %0 = ... : vector<16xf32>
+///   use(%0)
+struct FoldXferReadOfXferWriterPattern
+    : public OpRewritePattern<vector::TransferReadOp> {
+  using OpRewritePattern<vector::TransferReadOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::TransferReadOp op,
+                                PatternRewriter& rewriter) const override {
+    auto writeOp = op.getSource().getDefiningOp<vector::TransferWriteOp>();
+    if (!writeOp || writeOp.getVector().getType() != op->getResult(0).getType())
+      return failure();
+
+    // check all the indices are equal
+    if (op.getIndices().size() != writeOp.getIndices().size()) return failure();
+    for (auto [idx0, idx1] : llvm::zip(op.getIndices(), writeOp.getIndices()))
+      if (idx0 != idx1) return failure();
+
+    // check padding value of xfer read op is padding_value_placeholder with
+    // kAny mode padding.
+    auto placeholderOp =
+        op.getPadding()
+            .getDefiningOp<disc_linalg_ext::PaddingValuePlaceholderOp>();
+    if (!placeholderOp ||
+        placeholderOp.getMode() != disc_linalg_ext::PaddingValueModeEnum::kAny)
+      return failure();
+
+    rewriter.replaceOp(op, writeOp.getVector());
+    return success();
+  }
+};
+
+/// convert:
+///   %0 = vector.transfer_read %0, %cst : vector<8x12xf32>
+///   %1 = arith.select %pred, %0, %vector_cst : vector<8x12xf32>
+///   %2 = vector.transfer_write %1, %0[...]
+///   %3 = vector.transfer_read %0[...], %cst : vector<8x12xf32>
+///   use(%3)
+/// to:
+///   %0 = vector.transfer_read %0, %cst : vector<8x12xf32>
+///   %1 = arith.select %pred, %0, %vector_cst : vector<8x12xf32>
+///   use(%1)
+struct FoldXferReadOfXferWriterWithSelectPattern
+    : public OpRewritePattern<vector::TransferReadOp> {
+  using OpRewritePattern<vector::TransferReadOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::TransferReadOp op,
+                                PatternRewriter& rewriter) const override {
+    // Find xfer write op
+    auto writeOp = op.getSource().getDefiningOp<vector::TransferWriteOp>();
+    if (!writeOp || writeOp.getVector().getType() != op->getResult(0).getType())
+      return failure();
+
+    // Find select op
+    auto selectOp = writeOp.getVector().getDefiningOp<arith::SelectOp>();
+    if (!selectOp ||
+        selectOp->getResult(0).getType() != op->getResult(0).getType())
+      return failure();
+
+    // find const op and another xfer read op
+    auto prevReadOp =
+        selectOp->getOperand(1).getDefiningOp<vector::TransferReadOp>();
+    auto vectorConstOp =
+        selectOp->getOperand(2).getDefiningOp<arith::ConstantOp>();
+    if (!vectorConstOp || !prevReadOp) {
+      prevReadOp =
+          selectOp->getOperand(2).getDefiningOp<vector::TransferReadOp>();
+      vectorConstOp =
+          selectOp->getOperand(1).getDefiningOp<arith::ConstantOp>();
+    }
+    if (!vectorConstOp || !prevReadOp) return failure();
+    auto denseAttr = vectorConstOp.getValue().cast<DenseElementsAttr>();
+    if (!denseAttr.isSplat()) return failure();
+
+    // check the first read op and the second read have the same padding value
+    if (op.getPadding() != prevReadOp.getPadding()) return failure();
+
+    // check the padding value for xfer read op is a const
+    auto scalarConstOp = op.getPadding().getDefiningOp<arith::ConstantOp>();
+    if (!scalarConstOp) return failure();
+
+    if (*denseAttr.getValues<Attribute>().begin() != scalarConstOp.getValue())
+      return failure();
+
+    rewriter.replaceOp(op, selectOp->getResults());
+    return success();
+  }
+};
+
+Operation* getAutomaticAllocationScope(Operation* op) {
+  // Find the closest surrounding allocation scope that is not a known looping
+  // construct (putting alloca's in loops doesn't always lower to deallocation
+  // until the end of the loop).
+  Operation* scope = nullptr;
+  for (Operation* parent = op->getParentOp(); parent != nullptr;
+       parent = parent->getParentOp()) {
+    if (parent->hasTrait<OpTrait::AutomaticAllocationScope>()) scope = parent;
+    if (scope && !isa<scf::ForOp, AffineForOp>(scope)) break;
+  }
+  return scope;
+}
+
+/// Given two MemRefTypes `aT` and `bT`, return a MemRefType to which both can
+/// be cast. If the MemRefTypes don't have the same rank or are not strided,
+/// return null; otherwise:
+///   1. if `aT` and `bT` are cast-compatible, return `aT`.
+///   2. else return a new MemRefType obtained by iterating over the shape and
+///   strides and:
+///     a. keeping the ones that are static and equal across `aT` and `bT`.
+///     b. using a dynamic shape and/or stride for the dimensions that don't
+///        agree.
+MemRefType getCastCompatibleMemRefType(MemRefType aT, MemRefType bT) {
+  if (memref::CastOp::areCastCompatible(aT, bT)) return aT;
+  if (aT.getRank() != bT.getRank()) return MemRefType();
+  int64_t aOffset, bOffset;
+  SmallVector<int64_t, 4> aStrides, bStrides;
+  if (failed(getStridesAndOffset(aT, aStrides, aOffset)) ||
+      failed(getStridesAndOffset(bT, bStrides, bOffset)) ||
+      aStrides.size() != bStrides.size())
+    return MemRefType();
+
+  ArrayRef<int64_t> aShape = aT.getShape(), bShape = bT.getShape();
+  int64_t resOffset;
+  SmallVector<int64_t, 4> resShape(aT.getRank(), 0),
+      resStrides(bT.getRank(), 0);
+  for (int64_t idx = 0, e = aT.getRank(); idx < e; ++idx) {
+    resShape[idx] =
+        (aShape[idx] == bShape[idx]) ? aShape[idx] : ShapedType::kDynamicSize;
+    resStrides[idx] = (aStrides[idx] == bStrides[idx])
+                          ? aStrides[idx]
+                          : ShapedType::kDynamicStrideOrOffset;
+  }
+  resOffset =
+      (aOffset == bOffset) ? aOffset : ShapedType::kDynamicStrideOrOffset;
+  return MemRefType::get(
+      resShape, aT.getElementType(),
+      StridedLayoutAttr::get(aT.getContext(), resOffset, resStrides));
+}
+
+/// convert:
+///   %0 = vector.transfer_read %src, %cst : vector<8x12xf32>
+///   %1 = arith.select %pred, %0, %vector_cst : vector<8x12xf32>
+///   use(%1)
+/// to:
+///   %0 = memref.alloca() : memref<8x12xf32>
+///   %buffer = scf.if %pred -> memref<?x?xf32> {
+///     scf.yield %src
+///   else {
+///     scf.yield %0
+///   }
+///   %1 = vector.transfer_read %buffer, %cst : vector<8x12xf32>
+///   use(%1)
+///
+/// Note that we need this pattern because we observed that lowered assemble
+/// code of arith.select is very slow.
+struct SelectOfXferReadAndConstToFillPattern
+    : public OpRewritePattern<arith::SelectOp> {
+  using OpRewritePattern<arith::SelectOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(arith::SelectOp selectOp,
+                                PatternRewriter& rewriter) const override {
+    auto vectorTy = selectOp->getResult(0).getType().dyn_cast<VectorType>();
+    if (!vectorTy) return failure();
+
+    // find const op and xfer read op
+    auto xferReadOp =
+        selectOp->getOperand(1).getDefiningOp<vector::TransferReadOp>();
+    auto vectorConstOp =
+        selectOp->getOperand(2).getDefiningOp<arith::ConstantOp>();
+    bool thenIsConst = false;
+    if (!vectorConstOp || !xferReadOp) {
+      xferReadOp =
+          selectOp->getOperand(2).getDefiningOp<vector::TransferReadOp>();
+      vectorConstOp =
+          selectOp->getOperand(1).getDefiningOp<arith::ConstantOp>();
+      thenIsConst = true;
+    }
+    if (!vectorConstOp || !xferReadOp) return failure();
+
+    // check type is compatible
+    auto srcTy = xferReadOp.getSource().getType().dyn_cast<MemRefType>();
+    if (!srcTy) return failure();
+    auto memrefTy =
+        MemRefType::get(vectorTy.getShape(), vectorTy.getElementType());
+    auto castTy = getCastCompatibleMemRefType(srcTy, memrefTy);
+    if (!castTy) return failure();
+
+    auto denseAttr = vectorConstOp.getValue().cast<DenseElementsAttr>();
+    if (!denseAttr.isSplat()) return failure();
+
+    // check the padding value for xfer read op is a const
+    auto scalarConstOp =
+        xferReadOp.getPadding().getDefiningOp<arith::ConstantOp>();
+    if (!scalarConstOp) return failure();
+
+    if (*denseAttr.getValues<Attribute>().begin() != scalarConstOp.getValue())
+      return failure();
+
+    Operation* scope = getAutomaticAllocationScope(selectOp);
+    if (!scope) return failure();
+
+    Location loc = selectOp.getLoc();
+    RewriterBase::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&scope->getRegion(0).front());
+    Value newInitBuffer = rewriter.create<memref::AllocaOp>(
+        loc, memrefTy, ValueRange{}, rewriter.getI64IntegerAttr(64));
+    rewriter.create<linalg::FillOp>(loc, ValueRange{xferReadOp.getPadding()},
+                                    ValueRange{newInitBuffer});
+
+    rewriter.setInsertionPoint(selectOp.getOperation());
+    auto ifOp = rewriter.create<scf::IfOp>(loc, TypeRange{castTy},
+                                           selectOp->getOperand(0), true);
+    rewriter.setInsertionPointToStart(ifOp.thenBlock());
+    Value thenResult =
+        rewriter
+            .create<memref::CastOp>(
+                loc, castTy,
+                thenIsConst ? newInitBuffer : xferReadOp.getSource())
+            ->getResult(0);
+    rewriter.create<scf::YieldOp>(loc, thenResult);
+    rewriter.setInsertionPointToStart(ifOp.elseBlock());
+    Value elseResult =
+        rewriter
+            .create<memref::CastOp>(
+                loc, castTy,
+                !thenIsConst ? newInitBuffer : xferReadOp.getSource())
+            ->getResult(0);
+    rewriter.create<scf::YieldOp>(loc, elseResult);
+
+    rewriter.setInsertionPointAfter(ifOp);
+    BlockAndValueMapping mapping;
+    mapping.map(xferReadOp.getSource(), ifOp->getResult(0));
+    auto clonedXferReadOp = rewriter.clone(*xferReadOp.getOperation(), mapping);
+
+    rewriter.replaceOp(selectOp, clonedXferReadOp->getResults());
+    return success();
+  }
+};
+
+template <typename T>
+SmallVector<int64_t> getVectorSliceOpOffset(T op) {
+  SmallVector<int64_t> offsets;
+  if (op->hasAttr("offsets")) {
+    for (Attribute attr : op->template getAttrOfType<ArrayAttr>("offsets")) {
+      offsets.push_back(attr.cast<IntegerAttr>().getInt());
+    }
+  } else {
+    assert(op->hasAttr("position"));
+    for (Attribute attr : op->template getAttrOfType<ArrayAttr>("position")) {
+      offsets.push_back(attr.cast<IntegerAttr>().getInt());
+    }
+  }
+  return offsets;
+}
+
+bool checkMajorDimsAllOnes(VectorType ty) {
+  if (ty.getRank() <= 0) return false;
+  for (int64_t d = 0; d < ty.getRank() - 1; ++d) {
+    if (ty.getShape()[d] != 1) return false;
+  }
+  return true;
+}
+
+struct VectorExtractStridedSliceOfInsertStridedSliceFold
+    : public OpRewritePattern<vector::ExtractStridedSliceOp> {
+  using OpRewritePattern<vector::ExtractStridedSliceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::ExtractStridedSliceOp extractStridedOp,
+                                PatternRewriter& rewriter) const override {
+    // check only trivial stirdes
+    if (extractStridedOp.hasNonUnitStrides()) return failure();
+
+    // check the result vector shape match pattern: vector<1x1x...xVecxelemType>
+    auto vectorTy = extractStridedOp->getResult(0).getType().cast<VectorType>();
+    if (!checkMajorDimsAllOnes(vectorTy)) return failure();
+
+    // check the offset for the last dim is divisible by the result vector size.
+    auto extractOffsets = getVectorSliceOpOffset(extractStridedOp);
+    if (extractOffsets.back() % vectorTy.getShape()[vectorTy.getRank() - 1] !=
+        0)
+      return failure();
+
+    Value targetValue;
+    SmallVector<int64_t> targetOffsets = extractOffsets;
+    Operation* sourceOp = extractStridedOp.getVector().getDefiningOp();
+    while (sourceOp && !targetValue) {
+      if (auto insertStridedOp =
+              dyn_cast<vector::InsertStridedSliceOp>(sourceOp)) {
+        if (insertStridedOp.hasNonUnitStrides()) return failure();
+        if (targetOffsets == getVectorSliceOpOffset(insertStridedOp)) {
+          auto ty = insertStridedOp.getSourceVectorType();
+          if (!checkMajorDimsAllOnes(ty)) return failure();
+          if (ty.getShape()[ty.getRank() - 1] !=
+              vectorTy.getShape()[vectorTy.getRank() - 1])
+            return failure();
+          targetValue = insertStridedOp.getSource();
+        } else {
+          sourceOp = insertStridedOp.getDest().getDefiningOp();
+        }
+      } else if (auto insertOp = dyn_cast<vector::InsertOp>(sourceOp)) {
+        bool match = true;
+        auto insertOffsets = getVectorSliceOpOffset(insertOp);
+        SmallVector<int64_t> newTargetOffsets;
+        for (int64_t i = 0; match && i < targetOffsets.size(); ++i) {
+          if (i < insertOffsets.size()) {
+            match &= (insertOffsets[i] == targetOffsets[i]);
+          } else {
+            newTargetOffsets.push_back(targetOffsets[i]);
+          }
+        }
+
+        if (match) {
+          sourceOp = insertOp.getSource().getDefiningOp();
+          std::swap(targetOffsets, newTargetOffsets);
+        } else {
+          sourceOp = insertOp.getDest().getDefiningOp();
+        }
+      } else if (auto extractOp = dyn_cast<vector::ExtractOp>(sourceOp)) {
+        auto newTargetOffsets = getVectorSliceOpOffset(extractOp);
+        newTargetOffsets.append(targetOffsets);
+        sourceOp = extractOp.getVector().getDefiningOp();
+        std::swap(newTargetOffsets, targetOffsets);
+      } else {
+        return failure();
+      }
+    }
+
+    if (!targetValue) return failure();
+    if (targetValue.getType() != vectorTy) {
+      targetValue = rewriter.create<vector::ShapeCastOp>(
+          extractStridedOp.getLoc(), vectorTy, targetValue);
+    }
+    rewriter.replaceOp(extractStridedOp, targetValue);
+
+    return success();
+  }
+};
+
 static void addAllRegisteredCanonicalizationPatterns(
     RewritePatternSet& patterns) {
   MLIRContext* ctx = patterns.getContext();
@@ -502,6 +879,11 @@ static void addAllRegisteredCanonicalizationPatterns(
   patterns.insert<TransferReadOfFillOpPattern>(ctx);
   patterns.insert<TransferWriteOfFillOpPattern>(ctx);
   patterns.insert<FoldMultiLevelPackOfConstantWrapperPattern>(ctx);
+  patterns.insert<FoldTensorExtractOfConstantWrapperPattern>(ctx);
+  patterns.insert<FoldXferReadOfXferWriterPattern>(ctx);
+  patterns.insert<FoldXferReadOfXferWriterWithSelectPattern>(ctx);
+  patterns.insert<SelectOfXferReadAndConstToFillPattern>(ctx);
+  patterns.insert<VectorExtractStridedSliceOfInsertStridedSliceFold>(ctx);
 }
 
 }  // namespace
@@ -1086,47 +1468,6 @@ DiagnosedSilenceableFailure LowerMultiLevelPackToLoopOp::applyToOne(
 // InlineReductionInitializer
 //===---------------------------------------------------------------------===//
 
-namespace {
-
-/// Given two MemRefTypes `aT` and `bT`, return a MemRefType to which both can
-/// be cast. If the MemRefTypes don't have the same rank or are not strided,
-/// return null; otherwise:
-///   1. if `aT` and `bT` are cast-compatible, return `aT`.
-///   2. else return a new MemRefType obtained by iterating over the shape and
-///   strides and:
-///     a. keeping the ones that are static and equal across `aT` and `bT`.
-///     b. using a dynamic shape and/or stride for the dimensions that don't
-///        agree.
-MemRefType getCastCompatibleMemRefType(MemRefType aT, MemRefType bT) {
-  if (memref::CastOp::areCastCompatible(aT, bT)) return aT;
-  if (aT.getRank() != bT.getRank()) return MemRefType();
-  int64_t aOffset, bOffset;
-  SmallVector<int64_t, 4> aStrides, bStrides;
-  if (failed(getStridesAndOffset(aT, aStrides, aOffset)) ||
-      failed(getStridesAndOffset(bT, bStrides, bOffset)) ||
-      aStrides.size() != bStrides.size())
-    return MemRefType();
-
-  ArrayRef<int64_t> aShape = aT.getShape(), bShape = bT.getShape();
-  int64_t resOffset;
-  SmallVector<int64_t, 4> resShape(aT.getRank(), 0),
-      resStrides(bT.getRank(), 0);
-  for (int64_t idx = 0, e = aT.getRank(); idx < e; ++idx) {
-    resShape[idx] =
-        (aShape[idx] == bShape[idx]) ? aShape[idx] : ShapedType::kDynamicSize;
-    resStrides[idx] = (aStrides[idx] == bStrides[idx])
-                          ? aStrides[idx]
-                          : ShapedType::kDynamicStrideOrOffset;
-  }
-  resOffset =
-      (aOffset == bOffset) ? aOffset : ShapedType::kDynamicStrideOrOffset;
-  return MemRefType::get(
-      resShape, aT.getElementType(),
-      StridedLayoutAttr::get(aT.getContext(), resOffset, resStrides));
-}
-
-}  // namespace
-
 void InlineReductionInitializerOp::getEffects(
     SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
   transform::consumesHandle({this->getOperation()->getOperand(0)}, effects);
@@ -1427,6 +1768,114 @@ struct DecomposeVectorInOutsOfForOp : public OpRewritePattern<scf::ForOp> {
   vector::UnrollVectorOptions options_;
 };
 
+struct DecomposeVectorInOutsOfIfOp : public OpRewritePattern<scf::IfOp> {
+  explicit DecomposeVectorInOutsOfIfOp(
+      MLIRContext* context, const vector::UnrollVectorOptions& options,
+      PatternBenefit benefit = 1)
+      : mlir::OpRewritePattern<scf::IfOp>(context, benefit),
+        options_(options) {}
+
+  struct VectorDecomposeInfo {
+    VectorType dstVecType;
+    int64_t startIdx;
+    int64_t numSubVectors;
+    SmallVector<SmallVector<int64_t>> strides;
+    SmallVector<SmallVector<int64_t>> offsets;
+  };
+
+  LogicalResult matchAndRewrite(scf::IfOp ifOp,
+                                PatternRewriter& rewriter) const final {
+    Location loc = ifOp.getLoc();
+    if (failed(options_.filterConstraint(ifOp))) return failure();
+    auto maybeTargetShape = options_.nativeShape(ifOp);
+    if (!maybeTargetShape) return failure();
+    auto& targetShape = *maybeTargetShape;
+
+    int numNewOuts = 0;
+    VectorType targetVectorType;
+    DenseMap<int, VectorDecomposeInfo> candidateValueMap;
+    SmallVector<Type> newResultTypes;
+    for (const auto& en : llvm::enumerate(ifOp->getResults())) {
+      auto ty = en.value().getType().dyn_cast<VectorType>();
+      Optional<SmallVector<int64_t>> maybeShapeRatio;
+      if (!ty ||
+          !(maybeShapeRatio = computeShapeRatio(ty.getShape(), targetShape)) ||
+          llvm::all_of(*maybeShapeRatio, [](int64_t v) { return v == 1; })) {
+        ++numNewOuts;
+        newResultTypes.push_back(en.value().getType());
+        continue;
+      }
+      // TODO(wyzero): support multiple iter args with different vector type.
+      if (targetVectorType && targetVectorType != ty) return failure();
+      targetVectorType = ty;
+      auto& item = candidateValueMap[en.index()];
+      item.dstVecType = ty;
+      item.numSubVectors = computeMaxLinearIndex(*maybeShapeRatio);
+      item.startIdx = numNewOuts;
+      SmallVector<int64_t> strides(targetShape.size(), 1);
+      for (int i = 0; i < item.numSubVectors; ++i) {
+        auto offsets = getVectorOffset(ty.getShape(), targetShape, i);
+        item.strides.push_back(strides);
+        item.offsets.push_back(offsets);
+        newResultTypes.push_back(
+            VectorType::get(targetShape, ty.getElementType()));
+        ++numNewOuts;
+      }
+    }
+
+    if (candidateValueMap.empty() || ifOp.getElseRegion().empty())
+      return failure();
+    scf::IfOp newIfOp = rewriter.create<scf::IfOp>(loc, newResultTypes,
+                                                   ifOp.getCondition(), true);
+
+    auto cloneAndUpdateRegion = [&](Region& src, Region& dst) {
+      dst.takeBody(src);
+      SmallVector<Value> newResults;
+      auto yieldOp = dst.front().getTerminator();
+      rewriter.setInsertionPoint(yieldOp);
+      for (auto [idx, val] : llvm::enumerate(yieldOp->getOperands())) {
+        auto it = candidateValueMap.find(idx);
+        if (it == candidateValueMap.end()) newResults.push_back(val);
+        auto& item = it->second;
+        for (int i = 0; i < item.numSubVectors; ++i) {
+          newResults.push_back(rewriter.create<vector::ExtractStridedSliceOp>(
+              loc, val, item.offsets[i], targetShape, item.strides[i]));
+        }
+      }
+      yieldOp->setOperands(newResults);
+    };
+
+    cloneAndUpdateRegion(ifOp.getThenRegion(), newIfOp.getThenRegion());
+    cloneAndUpdateRegion(ifOp.getElseRegion(), newIfOp.getElseRegion());
+
+    // merge the return values of new if op.
+    rewriter.setInsertionPointAfter(newIfOp);
+    size_t resultIdx = 0;
+    SmallVector<Value> newResults;
+    for (auto [idx, val] : llvm::enumerate(ifOp->getResults())) {
+      auto it = candidateValueMap.find(idx);
+      if (it == candidateValueMap.end()) {
+        newResults.push_back(newIfOp->getResult(resultIdx++));
+        continue;
+      }
+      auto& item = it->second;
+      Value mergedVec = rewriter.create<arith::ConstantOp>(
+          loc, item.dstVecType, rewriter.getZeroAttr(item.dstVecType));
+      for (int subIdx = 0; subIdx < item.numSubVectors; ++subIdx) {
+        mergedVec = rewriter.create<vector::InsertStridedSliceOp>(
+            loc, newIfOp->getResult(resultIdx++), mergedVec,
+            item.offsets[subIdx], item.strides[subIdx]);
+      }
+      newResults.push_back(mergedVec);
+    }
+    rewriter.replaceOp(ifOp, newResults);
+    return success();
+  }
+
+ private:
+  vector::UnrollVectorOptions options_;
+};
+
 }  // namespace
 
 void DecomposeVectorsOp::build(OpBuilder& builder, OperationState& result,
@@ -1462,8 +1911,8 @@ DiagnosedSilenceableFailure DecomposeVectorsOp::applyToOne(
                    this->getVectorSize() ==
                0;
   };
-  auto getVectorTypeOfForOp = [&](Operation* op) -> VectorType {
-    if (!isa<scf::ForOp>(op)) return nullptr;
+  auto getVectorTypeOfForOrIfOp = [&](Operation* op) -> VectorType {
+    if (!isa<scf::ForOp, scf::IfOp>(op)) return nullptr;
     VectorType vectorTy;
     for (auto ty : op->getResultTypes()) {
       if (!isTargetType(ty)) continue;
@@ -1473,19 +1922,20 @@ DiagnosedSilenceableFailure DecomposeVectorsOp::applyToOne(
     return vectorTy;
   };
   options.setFilterConstraint([&](Operation* op) {
-    if (getVectorTypeOfForOp(op)) return success();
+    if (getVectorTypeOfForOrIfOp(op)) return success();
     if (isa<vector::TransferReadOp, vector::TransferWriteOp>(op))
       return success();
     if (op->getNumResults() != 1) return failure();
     if (op->getDialect()->getTypeID() != TypeID::get<vector::VectorDialect>() &&
-        op->getDialect()->getTypeID() != TypeID::get<arith::ArithDialect>())
+        op->getDialect()->getTypeID() != TypeID::get<arith::ArithDialect>() &&
+        op->getDialect()->getTypeID() != TypeID::get<math::MathDialect>())
       return failure();
     return success(isTargetType(op->getResult(0).getType()));
   });
   vector::UnrollVectorOptions::NativeShapeFnType nativeShapeFn =
       [&](Operation* op) -> Optional<SmallVector<int64_t, 4>> {
     VectorType targetVectorTy;
-    if (auto vectorTy = getVectorTypeOfForOp(op)) {
+    if (auto vectorTy = getVectorTypeOfForOrIfOp(op)) {
       targetVectorTy = vectorTy;
     } else if (isa<vector::TransferWriteOp>(op)) {
       targetVectorTy = op->getOperand(0).getType().cast<VectorType>();
@@ -1499,6 +1949,7 @@ DiagnosedSilenceableFailure DecomposeVectorsOp::applyToOne(
   options.setNativeShapeFn(nativeShapeFn);
   vector::populateVectorUnrollPatterns(patterns, options);
   patterns.insert<DecomposeVectorInOutsOfForOp>(ctx, options);
+  patterns.insert<DecomposeVectorInOutsOfIfOp>(ctx, options);
 
   // some clean up patterns.
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
@@ -1639,6 +2090,1041 @@ DiagnosedSilenceableFailure LinalgFuseProducersOp::apply(
   }
 
   results.set(getResult().cast<OpResult>(), {fusedOp});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// ReplaceConstPaddingValueOp
+//===---------------------------------------------------------------------===//
+
+void ReplaceConstPaddingValueOp::build(OpBuilder& builder,
+                                       OperationState& result, Value target,
+                                       StringRef mode) {
+  MLIRContext* ctx = builder.getContext();
+  result.addOperands(target);
+  result.addAttribute(ReplaceConstPaddingValueOp::getModeAttrName(result.name),
+                      builder.getStringAttr(mode));
+  result.addTypes({pdl::OperationType::get(ctx)});
+}
+
+DiagnosedSilenceableFailure ReplaceConstPaddingValueOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto padOp = dyn_cast<tensor::PadOp>(target);
+  if (!padOp) {
+    return mlir::emitDefiniteFailure(target, "applies only to tensor::PadOp");
+  }
+
+  auto mode =
+      disc_linalg_ext::symbolizeEnum<disc_linalg_ext::PaddingValueModeEnum>(
+          getMode());
+  if (!mode) {
+    return mlir::emitDefiniteFailure(target, "invalid mode attr");
+  }
+
+  OpBuilder b(target);
+  auto yieldOp = padOp.getBody()->getTerminator();
+  Attribute value;
+  if (!matchPattern(yieldOp->getOperand(0), m_Constant(&value))) {
+    return mlir::emitDefiniteFailure(target, "applies only to pad with const");
+  }
+  auto placeholder = b.create<disc_linalg_ext::PaddingValuePlaceholderOp>(
+      padOp.getLoc(), value, *mode);
+  yieldOp->replaceUsesOfWith(yieldOp->getOperand(0), placeholder->getResult(0));
+  results.assign({target});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// ConvertPaddingPlaceholderToConstOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure ConvertPaddingPlaceholderToConstOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto placeholderOp =
+      dyn_cast<disc_linalg_ext::PaddingValuePlaceholderOp>(target);
+  if (!placeholderOp) {
+    return mlir::emitDefiniteFailure(
+        target, "applies only to PaddingValuePlaceholderOp");
+  }
+
+  OpBuilder b(target);
+
+  auto constOp =
+      b.create<arith::ConstantOp>(target->getLoc(), placeholderOp.getValue());
+  target->replaceAllUsesWith(constOp->getResults());
+  results.assign({constOp.getOperation()});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// LinalgEagerlyBackwardInitTensorOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+OpOperand* backwardToFindValidValueToToReuse(OpOperand* v) {
+  if (!v || !llvm::hasSingleElement(v->get().getUsers())) return nullptr;
+  auto definingOp = v->get().getDefiningOp<linalg::LinalgOp>();
+  if (!definingOp) return nullptr;
+  int64_t resultIdx = v->get().cast<OpResult>().getResultNumber();
+  auto initOperand = definingOp.getDpsInitOperand(resultIdx);
+  if (!definingOp.payloadUsesValueFromOperand(initOperand)) return initOperand;
+  return backwardToFindValidValueToToReuse(initOperand);
+}
+
+}  // namespace
+
+DiagnosedSilenceableFailure LinalgEagerlyBackwardInitTensorOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto linalgOp = dyn_cast<linalg::LinalgOp>(target);
+  if (!linalgOp)
+    return mlir::emitDefiniteFailure(target, "applies only to linalgOp");
+
+  if (linalgOp.getNumParallelLoops() != linalgOp.getNumLoops())
+    return mlir::emitDefiniteFailure(target,
+                                     "not support reduction loop a.t.m.");
+
+  if (linalgOp.getNumDpsInits() != 1)
+    return mlir::emitDefiniteFailure(target,
+                                     "not support multi outputs a.t.m.");
+
+  auto initOperand = linalgOp.getDpsInitOperand(0);
+  auto affineMap = linalgOp.getMatchingIndexingMap(initOperand);
+  if (!affineMap.isPermutation())
+    return mlir::emitDefiniteFailure(
+        target, "only support permutation mapping for result");
+  if (linalgOp.payloadUsesValueFromOperand(initOperand))
+    return mlir::emitDefiniteFailure(
+        target, "Not support if the result is used by the payload.");
+
+  OpOperand* candidateOperand{nullptr};
+  OpOperand* rootCandidateOperand{nullptr};
+  for (auto operand : linalgOp.getDpsInputOperands()) {
+    if (linalgOp.getMatchingIndexingMap(operand) != affineMap) continue;
+    candidateOperand = operand;
+    rootCandidateOperand = backwardToFindValidValueToToReuse(candidateOperand);
+    if (rootCandidateOperand) break;
+  }
+
+  // Early return if no valid candidates.
+  if (!rootCandidateOperand) {
+    results.assign({target});
+    return DiagnosedSilenceableFailure(success());
+  }
+
+  OpBuilder b(target);
+  rootCandidateOperand->getOwner()->replaceUsesOfWith(
+      rootCandidateOperand->get(), initOperand->get());
+  SmallVector<Value> newInputs;
+  SmallVector<AffineMap> newIndexingMaps;
+  SmallVector<Value> newOutputs{candidateOperand->get()};
+  for (auto operand : linalgOp.getDpsInputOperands()) {
+    if (operand == candidateOperand) continue;
+    newInputs.push_back(operand->get());
+    newIndexingMaps.push_back(linalgOp.getMatchingIndexingMap(operand));
+  }
+  // for the new init operand
+  newIndexingMaps.push_back(affineMap);
+  SmallVector<StringRef> iterators = linalgOp.getIteratorTypesArray();
+  SmallVector<Type> resultTypes = linalgOp.hasTensorSemantics()
+                                      ? TypeRange(ValueRange(newOutputs))
+                                      : TypeRange{};
+  SmallVector<NamedAttribute> attrs;
+  for (auto attr : linalgOp->getAttrs()) {
+    if (attr.getName().getValue().starts_with("disc"))
+      attrs.push_back(std::move(attr));
+  }
+
+  auto bodyBuilder = [&](OpBuilder& innerBuilder, Location loc,
+                         ValueRange operands) {
+    BlockAndValueMapping mapping;
+    int64_t operandIdx = candidateOperand->getOperandNumber();
+    if (operandIdx > 0)
+      mapping.map(linalgOp.getBlock()->getArguments().take_front(operandIdx),
+                  operands.take_front(operandIdx));
+    if (operandIdx + 1 < linalgOp.getBlock()->getArguments().size())
+      mapping.map(
+          linalgOp.getBlock()->getArguments().drop_front(operandIdx + 1),
+          operands.drop_front(operandIdx));
+    mapping.map(linalgOp.getBlock()->getArgument(operandIdx), operands.back());
+    for (Operation& op : *linalgOp.getBlock()) {
+      innerBuilder.clone(op, mapping);
+    }
+  };
+
+  auto genericOp = b.create<linalg::GenericOp>(
+      linalgOp.getLoc(), resultTypes, newInputs, newOutputs, newIndexingMaps,
+      iterators, bodyBuilder, attrs);
+  target->replaceAllUsesWith(genericOp->getResults());
+  results.assign({genericOp.getOperation()});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===----------------------------------------------------------------------===//
+// DISCFuseIntoContainingOp
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+// First, find the first "scf::ForeachThreadOp" user of `producerOp` and ensure
+/// it is exactly the `containingOp`, otherwise bail.
+/// Then, find the first "extract" user of the tied block argument and tile it
+/// right before its "extract" use. The tiled op is fused under the
+/// `containingOp`.
+/// Return this fused op on success or nullptr if anything fails.
+static Operation* tileAndFuseFirstExtractUseThroughContainingOpBlockArgument(
+    RewriterBase& rewriter, Diagnostic& diag, Operation* producerOp,
+    Operation* containingOp) {
+  LLVM_DEBUG(
+      llvm::dbgs() << "Try to fuse an extract use through block argument\n");
+
+  auto tileableProducer = dyn_cast<TilingInterface>(producerOp);
+  if (!tileableProducer) {
+    diag.attachNote(producerOp->getLoc())
+        << "producer is not a TileableInterface: " << *producerOp;
+    return nullptr;
+  }
+
+  // Search the first use by a "scf::ForOp" user.
+  scf::ForOp forOp;
+  auto itProducerUses =
+      llvm::find_if(tileableProducer->getUses(), [&](OpOperand& use) {
+        forOp = dyn_cast<scf::ForOp>(use.getOwner());
+        return forOp;
+      });
+  // If it's not from the containing op, return.
+  if (!forOp || forOp != containingOp) {
+    diag.attachNote(tileableProducer->getLoc())
+        << "could not find a use by the containing op: " << *tileableProducer;
+    return nullptr;
+  }
+
+  // Search the producer slices accessed within the containing
+  // operation.
+  // TODO: Generalize to more extract/insert/parallel_insert triples.
+  //   Maybe evolve into an interface.
+  OpOperand* pUse = &(*itProducerUses);
+  BlockArgument bbArg = forOp.getBody()->getArgument(
+      pUse->getOperandNumber() - forOp.getNumControlOperands() +
+      forOp.getNumInductionVars());
+
+  // Search the producer slices accessed within the containing operation.
+  // TODO: Generalize to more extract/insert/parallel_insert triples, maybe
+  // evolve into an interface.
+  auto itBBArgUsers = llvm::find_if(bbArg.getUsers(), [&](Operation* user) {
+    auto sliceOp = dyn_cast<tensor::ExtractSliceOp>(user);
+    return sliceOp && containingOp->isProperAncestor(sliceOp);
+  });
+
+  // Find a fusion opportunity.
+  if (itBBArgUsers == bbArg.getUsers().end()) {
+    diag.attachNote(containingOp->getLoc())
+        << "could not find fusion opportunity for bbArg: " << bbArg;
+    return nullptr;
+  }
+  auto sliceOpToTile = cast<tensor::ExtractSliceOp>(*itBBArgUsers);
+
+  // Try to fuse the producer in-place.
+  OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPoint(sliceOpToTile);
+
+  // Replace the use in the tileableProducer before tiling: clone, replace and
+  // then tile.
+  int64_t resultNumber = pUse->get().cast<OpResult>().getResultNumber();
+  LLVM_DEBUG(llvm::dbgs() << "resultNumber: " << resultNumber << "\n");
+
+  // Gather destination tensors.
+  SmallVector<Value> destinationTensors;
+  if (failed(tensor::getOrCreateDestinations(
+          rewriter, tileableProducer->getLoc(), tileableProducer,
+          destinationTensors))) {
+    diag.attachNote(tileableProducer->getLoc())
+        << "failed to get destination tensors for: " << *tileableProducer;
+    return nullptr;
+  }
+
+  BlockAndValueMapping bvm;
+  bvm.map(destinationTensors[resultNumber], bbArg);
+  auto tileableProducerClone =
+      cast<TilingInterface>(rewriter.clone(*tileableProducer, bvm));
+  auto scopeGuard =
+      llvm::make_scope_exit([&]() { rewriter.eraseOp(tileableProducerClone); });
+
+  // Tile the producer.
+  FailureOr<Value> tiledProducer =
+      tileableProducerClone.generateResultTileValue(
+          rewriter, resultNumber, sliceOpToTile.getMixedOffsets(),
+          sliceOpToTile.getMixedSizes());
+  if (failed(tiledProducer)) {
+    diag.attachNote(tileableProducer->getLoc())
+        << "failed to tile producer op: " << *tileableProducer;
+    return nullptr;
+  }
+  LLVM_DEBUG(llvm::dbgs() << "tiledProducer: " << *tiledProducer << "\n");
+
+  // Replace the extract op.
+  Operation* fusedOp = tiledProducer->getDefiningOp();
+  rewriter.replaceOp(sliceOpToTile, fusedOp->getResult(resultNumber));
+
+  // Replace the use in containingOp.
+  rewriter.updateRootInPlace(containingOp, [&]() {
+    containingOp->setOperand(pUse->getOperandNumber(),
+                             destinationTensors[resultNumber]);
+  });
+
+  return fusedOp;
+}
+
+}  // namespace
+
+void DISCFuseIntoContainingOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::consumesHandle({this->getOperation()->getOperand(0)}, effects);
+  transform::onlyReadsHandle(this->getOperands().drop_front(), effects);
+  transform::producesHandle(this->getOperation()->getResults(), effects);
+  transform::modifiesPayload(effects);
+}
+
+DiagnosedSilenceableFailure DISCFuseIntoContainingOp::apply(
+    transform::TransformResults& results, transform::TransformState& state) {
+  SmallVector<Operation*> fusedOps;
+  ArrayRef<Operation*> producerOps = state.getPayloadOps(getProducerOp());
+  // If nothing to fuse, propagate success.
+  if (producerOps.empty()) {
+    results.set(getFusedOp().cast<OpResult>(), SmallVector<mlir::Operation*>{});
+    return DiagnosedSilenceableFailure::success();
+  }
+  ArrayRef<Operation*> containingOps = state.getPayloadOps(getContainingOp());
+  if (containingOps.size() != 1) {
+    return emitDefiniteFailure()
+           << "requires exactly one containing_op handle (got "
+           << containingOps.size() << ")";
+  }
+  Operation* containingOp = containingOps.front();
+
+  // Helper function to find the next producer that should be fused. Take any
+  // producer that has a use inside the containing op.
+  SmallVector<Operation*> remainingProducers(producerOps.begin(),
+                                             producerOps.end());
+  auto getNextProducer = [&]() -> FailureOr<Operation*> {
+    for (const auto& it : enumerate(remainingProducers)) {
+      Operation* producerOp = it.value();
+      // The containing op may be a user of producerOp: use isAncestor.
+      int64_t numUsesInContainingOp = llvm::count_if(
+          producerOp->getUsers(),
+          [&](Operation* op) { return containingOp->isAncestor(op); });
+      // TODO: When resolving the TODO below (no duplicate ops), take an op
+      // that has no use among the remaining producers. This is a topological
+      // sorting.
+      if (numUsesInContainingOp > 0) {
+        if (numUsesInContainingOp == 1)
+          remainingProducers.erase(remainingProducers.begin() + it.index());
+        return producerOp;
+      }
+    }
+    return failure();
+  };
+
+  IRRewriter rewriter(getContext());
+  while (!remainingProducers.empty()) {
+    auto nextProducer = getNextProducer();
+    if (failed(nextProducer)) {
+      results.set(getFusedOp().cast<OpResult>(), ArrayRef<Operation*>());
+      Diagnostic diag(containingOp->getLoc(), DiagnosticSeverity::Remark);
+      diag << "could not find next producer to fuse into container";
+      return DiagnosedSilenceableFailure::silenceableFailure(std::move(diag));
+    }
+
+    Operation* producerOp = *nextProducer;
+
+    // Default diagnostic, to be complemented with more failure information.
+    Diagnostic diag(producerOp->getLoc(), DiagnosticSeverity::Remark);
+    diag << "could not fuse " << *producerOp << " into " << *containingOp;
+
+    Operation* tiledContainingOpOperand =
+        tileAndFuseFirstExtractUseThroughContainingOpBlockArgument(
+            rewriter, diag, producerOp, containingOp);
+    if (tiledContainingOpOperand) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "\nFused an extract use through block argument\n"
+                 << *containingOp);
+      fusedOps.push_back(tiledContainingOpOperand);
+      continue;
+    }
+
+    results.set(getFusedOp().cast<OpResult>(), ArrayRef<Operation*>());
+    return DiagnosedSilenceableFailure::silenceableFailure(std::move(diag));
+  }
+
+  results.set(getFusedOp().cast<OpResult>(), fusedOps);
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// ReductionOutputFuseOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+Operation* convertGenericOpToConditionalGenericOp(OpBuilder& b, Value pred,
+                                                  linalg::LinalgOp linalgOp) {
+  SmallVector<Value> inputs{pred};
+  inputs.append(linalgOp.getDpsInputOperands());
+  SmallVector<Value> outputs = linalgOp.getDpsInitOperands();
+  SmallVector<AffineMap> indexingMaps = linalgOp.getIndexingMapsArray();
+  if (indexingMaps.empty()) return nullptr;
+  SmallVector<AffineMap> newIndexingMaps;
+  newIndexingMaps.push_back(AffineMap::get(indexingMaps.back().getNumDims(),
+                                           indexingMaps[0].getNumSymbols(), {},
+                                           b.getContext()));
+  newIndexingMaps.append(std::move(indexingMaps));
+  SmallVector<StringRef> iterators = linalgOp.getIteratorTypesArray();
+  SmallVector<Type> resultTypes = linalgOp.hasTensorSemantics()
+                                      ? TypeRange(ValueRange(outputs))
+                                      : TypeRange{};
+  SmallVector<NamedAttribute> attrs;
+  for (auto attr : linalgOp->getAttrs()) {
+    if (attr.getName().getValue().starts_with("disc"))
+      attrs.push_back(std::move(attr));
+  }
+  auto bodyBuilder = [&](OpBuilder& innerBuilder, Location loc,
+                         ValueRange operands) {
+    BlockAndValueMapping mapping;
+    mapping.map(linalgOp.getBlock()->getArguments(), operands.drop_front());
+    for (Operation& op : linalgOp.getBlock()->without_terminator()) {
+      innerBuilder.clone(op, mapping);
+    }
+    SmallVector<Value> newResults;
+    for (Value v : linalgOp.getBlock()->getTerminator()->getOperands()) {
+      newResults.push_back(mapping.lookupOrDefault(v));
+    }
+    innerBuilder.create<disc_linalg_ext::YieldOp>(
+        linalgOp.getBlock()->getTerminator()->getLoc(), newResults);
+  };
+  auto conditionalGenericOp = b.create<disc_linalg_ext::ConditionalGenericOp>(
+      linalgOp.getLoc(), resultTypes, inputs, outputs, newIndexingMaps,
+      iterators, bodyBuilder, attrs);
+  return conditionalGenericOp;
+}
+
+}  // namespace
+
+void ReductionOutputFuseOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::consumesHandle({this->getOperation()->getOperand(0)}, effects);
+  transform::consumesHandle({this->getOperation()->getOperand(1)}, effects);
+  transform::producesHandle(this->getOperation()->getResults(), effects);
+  transform::modifiesPayload(effects);
+}
+
+DiagnosedSilenceableFailure ReductionOutputFuseOp::apply(
+    transform::TransformResults& results, transform::TransformState& state) {
+  ArrayRef<Operation*> targetOps = state.getPayloadOps(getTarget());
+  if (targetOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one target but got ")
+           << targetOps.size();
+  Operation* target = targetOps[0];
+  auto linalgOp = dyn_cast<linalg::LinalgOp>(target);
+  if (!linalgOp)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the target is a linalg op");
+
+  ArrayRef<Operation*> loopOps = state.getPayloadOps(getLoop());
+  if (loopOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one loop but got ")
+           << loopOps.size();
+  auto forOp = dyn_cast<scf::ForOp>(loopOps[0]);
+  if (!forOp)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the loop to a for op");
+
+  // Check all the outputs of the linalg have the same affine map.
+  if (linalgOp->getNumResults() < 1)
+    return mlir::emitDefiniteFailure(
+        this->getOperation(), "expect the target has at least one result");
+  auto operands = linalgOp.getDpsInitOperands();
+  auto indexMap = linalgOp.getMatchingIndexingMap(operands.front());
+  AffineMap resultIndexMap;
+  for (auto [idx, operand] : llvm::enumerate(linalgOp.getDpsInitOperands())) {
+    auto indexMap = linalgOp.getMatchingIndexingMap(operand);
+    if (idx == 0) {
+      resultIndexMap = indexMap;
+    } else if (resultIndexMap != indexMap) {
+      return mlir::emitDefiniteFailure(
+          this->getOperation(),
+          "expect all the results of the target have the same shape");
+    }
+  }
+  // result of for op -> result idx.
+  DenseMap<Value, int> forOpResultMap;
+  for (auto [idx, result] : llvm::enumerate(forOp->getResults())) {
+    forOpResultMap[result] = idx;
+  }
+  // linalg input operand idx -> result idx of for op.
+  DenseMap<int, int> linalgInputOperandToForResultMap;
+  for (auto [idx, operand] : llvm::enumerate(linalgOp.getDpsInputOperands())) {
+    auto it = forOpResultMap.find(operand->get());
+    if (it == forOpResultMap.end()) continue;
+    auto indexMap = linalgOp.getMatchingIndexingMap(operand);
+    if (resultIndexMap != indexMap) {
+      return mlir::emitDefiniteFailure(
+          this->getOperation(),
+          "expect all the results of for loop which are consumed by the target "
+          "have the same shape as the results of linalg op");
+    }
+    linalgInputOperandToForResultMap[idx] = it->second;
+  }
+  // linalg init operand idx -> result idx of for op.
+  DenseMap<int, int> linalgInitOperandToForResultMap;
+  DenseMap<int, int> forResultToLinalgInitOperandMap;
+  for (auto [idx, operand] : llvm::enumerate(linalgOp.getDpsInitOperands())) {
+    auto it = forOpResultMap.find(operand->get());
+    if (it == forOpResultMap.end()) continue;
+    auto indexMap = linalgOp.getMatchingIndexingMap(operand);
+    if (resultIndexMap != indexMap) {
+      return mlir::emitDefiniteFailure(
+          this->getOperation(),
+          "expect all the results of for loop which are consumed by the target "
+          "have the same shape as the results of linalg op");
+    }
+    if (!llvm::hasSingleElement(operand->get().getUsers())) {
+      return mlir::emitDefiniteFailure(
+          this->getOperation(),
+          "expect the init operand of target which is produced by the loop op "
+          "only has one consumer");
+    }
+    linalgInitOperandToForResultMap[idx] = it->second;
+    forResultToLinalgInitOperandMap[it->second] = idx;
+  }
+
+  if (linalgInputOperandToForResultMap.empty() &&
+      linalgInitOperandToForResultMap.empty()) {
+    return mlir::emitDefiniteFailure(
+        this->getOperation(),
+        "none of the results of the reduction loop are consumed by target\n");
+  }
+
+  OpBuilder b(target);
+  auto newInitArgs = llvm::to_vector<>(forOp.getInitArgs());
+  for (auto [idx, operand] : llvm::enumerate(linalgOp.getDpsInitOperands())) {
+    if (linalgInitOperandToForResultMap.find(idx) !=
+        linalgInitOperandToForResultMap.end())
+      continue;
+    newInitArgs.push_back(operand->get());
+  }
+  auto newForOp =
+      b.create<scf::ForOp>(forOp.getLoc(), forOp.getLowerBound(),
+                           forOp.getUpperBound(), forOp.getStep(), newInitArgs);
+  BlockAndValueMapping mapping;
+  mapping.map(forOp.getInductionVar(), newForOp.getInductionVar());
+  for (auto [oldValue, newValue] :
+       llvm::zip(forOp.getRegionIterArgs(), newForOp.getRegionIterArgs())) {
+    mapping.map(oldValue, newValue);
+  }
+  int nonFusedInitOperandIdx = 0;
+  for (auto [idx, operand] : llvm::enumerate(linalgOp.getDpsInitOperands())) {
+    auto it = linalgInitOperandToForResultMap.find(idx);
+    if (linalgInitOperandToForResultMap.find(idx) !=
+        linalgInitOperandToForResultMap.end())
+      continue;
+    mapping.map(operand->get(),
+                newForOp.getRegionIterArgs()
+                    .drop_front(forOp.getRegionIterArgs().size() +
+                                nonFusedInitOperandIdx++)
+                    .front());
+  }
+
+  // move ops inside the old for op to the region of the new for op.
+  for (Value arg : forOp.getBody()->getArguments()) {
+    arg.replaceAllUsesWith(mapping.lookup(arg));
+  }
+  for (auto& op : llvm::make_early_inc_range(*forOp.getBody())) {
+    op.moveBefore(newForOp.getBody(), newForOp.getBody()->end());
+  }
+
+  int forResultIdx;
+  if (!linalgInputOperandToForResultMap.empty()) {
+    forResultIdx = linalgInputOperandToForResultMap.begin()->second;
+  } else if (!linalgInitOperandToForResultMap.empty()) {
+    forResultIdx = linalgInitOperandToForResultMap.begin()->second;
+  }
+
+  auto yieldOp = cast<scf::YieldOp>(newForOp.getBody()->getTerminator());
+  auto insertSliceOp =
+      yieldOp->getOperand(forResultIdx).getDefiningOp<tensor::InsertSliceOp>();
+  b.setInsertionPoint(yieldOp);
+  for (auto [idx, val] : llvm::enumerate(yieldOp->getOperands())) {
+    auto it = forResultToLinalgInitOperandMap.find(idx);
+    if (it == forResultToLinalgInitOperandMap.end()) {
+      mapping.map(forOp->getResult(idx), val);
+      continue;
+    }
+    if (auto insertOp = val.getDefiningOp<tensor::InsertSliceOp>()) {
+      mapping.map(forOp->getResult(idx), insertOp->getOperand(0));
+    } else {
+      mapping.map(forOp->getResult(idx), val);
+    }
+  }
+  auto clonedTarget = b.clone(*target, mapping);
+  Operation* tiledOp = clonedTarget;
+  if (insertSliceOp) {
+    auto tileableTarget = cast<TilingInterface>(clonedTarget);
+    FailureOr<Value> tiledTarget = tileableTarget.generateResultTileValue(
+        b, 0, insertSliceOp.getMixedOffsets(), insertSliceOp.getMixedSizes());
+    if (failed(tiledTarget)) {
+      return mlir::emitDefiniteFailure(this->getOperation(),
+                                       "failed to tile target op\n");
+    }
+    tiledOp = tiledTarget->getDefiningOp();
+  }
+  Value iv = newForOp.getInductionVar();
+  Value nextIv =
+      b.create<arith::AddIOp>(tiledOp->getLoc(), iv, newForOp.getStep());
+  Value pred =
+      b.create<arith::CmpIOp>(tiledOp->getLoc(), arith::CmpIPredicate::sge,
+                              nextIv, newForOp.getUpperBound());
+  auto conditionalGenericOp = convertGenericOpToConditionalGenericOp(
+      b, pred, cast<linalg::LinalgOp>(tiledOp));
+  if (!conditionalGenericOp) {
+    return mlir::emitDefiniteFailure(
+        this->getOperation(), "failed to build conditional_generic op\n");
+  }
+  SmallVector<Value> newResults;
+  for (auto [idx, val] : llvm::enumerate(yieldOp->getOperands())) {
+    auto it = forResultToLinalgInitOperandMap.find(idx);
+    if (it == forResultToLinalgInitOperandMap.end()) {
+      newResults.push_back(val);
+      continue;
+    }
+    Value updateValue = conditionalGenericOp->getResult(it->second);
+    if (!insertSliceOp) {
+      newResults.push_back(updateValue);
+      continue;
+    }
+    Value initValue = newForOp.getRegionIterArg(idx);
+    newResults.push_back(b.create<tensor::InsertSliceOp>(
+                              tiledOp->getLoc(), updateValue, initValue,
+                              insertSliceOp.getMixedOffsets(),
+                              insertSliceOp.getMixedSizes(),
+                              insertSliceOp.getMixedStrides())
+                             ->getResult(0));
+  }
+  nonFusedInitOperandIdx = 0;
+  for (auto [idx, updateValue] :
+       llvm::enumerate(conditionalGenericOp->getResults())) {
+    auto it = linalgInitOperandToForResultMap.find(idx);
+    if (it != linalgInitOperandToForResultMap.end()) continue;
+    if (!insertSliceOp) {
+      newResults.push_back(updateValue);
+      continue;
+    }
+    Value initValue = newForOp.getRegionIterArgs()
+                          .drop_front(forOp.getRegionIterArgs().size() +
+                                      nonFusedInitOperandIdx++)
+                          .front();
+    newResults.push_back(b.create<tensor::InsertSliceOp>(
+                              tiledOp->getLoc(), updateValue, initValue,
+                              insertSliceOp.getMixedOffsets(),
+                              insertSliceOp.getMixedSizes(),
+                              insertSliceOp.getMixedStrides())
+                             ->getResult(0));
+  }
+  b.create<scf::YieldOp>(yieldOp->getLoc(), newResults);
+  yieldOp->erase();
+
+  nonFusedInitOperandIdx = 0;
+  for (auto [idx, val] : llvm::enumerate(linalgOp->getResults())) {
+    Value newVal;
+    auto it = linalgInitOperandToForResultMap.find(idx);
+    if (it != linalgInitOperandToForResultMap.end()) {
+      newVal = newForOp->getResult(it->second);
+    } else {
+      newVal = newForOp->getResult(forOp->getNumResults() +
+                                   nonFusedInitOperandIdx++);
+    }
+    val.replaceAllUsesWith(newVal);
+  }
+  linalgOp->erase();
+  forOp->replaceAllUsesWith(
+      newForOp->getResults().take_front(forOp->getNumResults()));
+  results.set(getTiledTarget().cast<OpResult>(), {conditionalGenericOp});
+  results.set(getFusedLoop().cast<OpResult>(), {newForOp});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// ReductionInputFuseOp
+//===---------------------------------------------------------------------===//
+
+void ReductionInputFuseOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::consumesHandle({this->getOperation()->getOperand(0)}, effects);
+  transform::consumesHandle({this->getOperation()->getOperand(1)}, effects);
+  transform::producesHandle(this->getOperation()->getResults(), effects);
+  transform::modifiesPayload(effects);
+}
+
+DiagnosedSilenceableFailure ReductionInputFuseOp::apply(
+    transform::TransformResults& results, transform::TransformState& state) {
+  ArrayRef<Operation*> targetOps = state.getPayloadOps(getTarget());
+  if (targetOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one target but got ")
+           << targetOps.size();
+  Operation* target = targetOps[0];
+  auto linalgOp = dyn_cast<linalg::LinalgOp>(target);
+  if (!linalgOp)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the target is a linalg op");
+
+  ArrayRef<Operation*> loopOps = state.getPayloadOps(getLoop());
+  if (loopOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one loop but got ")
+           << loopOps.size();
+  auto forOp = dyn_cast<scf::ForOp>(loopOps[0]);
+  if (!forOp)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the loop to a for op");
+
+  if (linalgOp->getNumResults() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect the target has one result");
+
+  auto iterOperands = forOp.getIterOperands();
+  auto argIt = llvm::find(iterOperands, linalgOp->getResult(0));
+  if (argIt == iterOperands.end())
+    return mlir::emitDefiniteFailure(
+        this->getOperation(),
+        "expect the result of target is the iter arg of the loop.");
+  Value iterArg = forOp.getRegionIterArg(argIt - iterOperands.begin());
+  tensor::ExtractSliceOp sliceOp;
+  auto numCandidateSliceOp =
+      llvm::count_if(iterArg.getUsers(), [&](Operation* user) -> bool {
+        if (!forOp->isProperAncestor(user)) return false;
+        if (auto candidate = dyn_cast<tensor::ExtractSliceOp>(user)) {
+          return sliceOp = candidate;
+        }
+        return false;
+      });
+  if (numCandidateSliceOp > 1) {
+    return mlir::emitDefiniteFailure(
+        this->getOperation(),
+        (Twine("only support at most one candidate extract_slice "
+               "of target in the loop but got") +
+         Twine(numCandidateSliceOp))
+            .str());
+  }
+
+  OpBuilder b(target->getContext());
+  if (sliceOp)
+    b.setInsertionPoint(sliceOp);
+  else
+    b.setInsertionPoint(forOp.getBody(), forOp.getBody()->begin());
+
+  forOp->setOperand(
+      forOp.getNumControlOperands() + (argIt - iterOperands.begin()),
+      linalgOp.getDpsInitOperands().front()->get());
+  auto clonedTarget = b.clone(*target);
+  clonedTarget->replaceUsesOfWith(linalgOp.getDpsInitOperands().front()->get(),
+                                  iterArg);
+  Operation* tiledOp = clonedTarget;
+  if (sliceOp) {
+    auto tileableTarget = cast<TilingInterface>(clonedTarget);
+    FailureOr<Value> tiledTarget = tileableTarget.generateResultTileValue(
+        b, 0, sliceOp.getMixedOffsets(), sliceOp.getMixedSizes());
+    if (failed(tiledTarget)) {
+      return mlir::emitDefiniteFailure(this->getOperation(),
+                                       "failed to tile target op\n");
+    }
+    tiledOp = tiledTarget->getDefiningOp();
+  }
+  Value pred =
+      b.create<arith::CmpIOp>(tiledOp->getLoc(), arith::CmpIPredicate::eq,
+                              forOp.getInductionVar(), forOp.getLowerBound());
+  auto conditionalGenericOp = convertGenericOpToConditionalGenericOp(
+      b, pred, cast<linalg::LinalgOp>(tiledOp));
+  if (!conditionalGenericOp) {
+    return mlir::emitDefiniteFailure(
+        this->getOperation(), "failed to build conditional_generic op\n");
+  }
+  if (sliceOp) {
+    sliceOp->replaceAllUsesWith(conditionalGenericOp->getResults());
+  } else {
+    iterArg.replaceAllUsesExcept(conditionalGenericOp->getResult(0),
+                                 {conditionalGenericOp});
+  }
+  results.set(getTiledTarget().cast<OpResult>(), {conditionalGenericOp});
+  results.set(getFusedLoop().cast<OpResult>(), {forOp});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// VectorizeConditionalGenericOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+Operation* convertConditionalGenericOpToGenericOp(OpBuilder& b,
+                                                  linalg::LinalgOp linalgOp) {
+  SmallVector<Value> inputs = linalgOp.getDpsInputOperands();
+  inputs.erase(inputs.begin());
+  SmallVector<Value> outputs = linalgOp.getDpsInitOperands();
+  SmallVector<AffineMap> indexingMaps = linalgOp.getIndexingMapsArray();
+  indexingMaps.erase(indexingMaps.begin());
+  SmallVector<StringRef> iterators = linalgOp.getIteratorTypesArray();
+  SmallVector<Type> resultTypes = linalgOp.hasTensorSemantics()
+                                      ? TypeRange(ValueRange(outputs))
+                                      : TypeRange{};
+  SmallVector<NamedAttribute> attrs;
+  for (auto attr : linalgOp->getAttrs()) {
+    if (attr.getName().getValue().starts_with("disc"))
+      attrs.push_back(std::move(attr));
+  }
+  auto bodyBuilder = [&](OpBuilder& innerBuilder, Location loc,
+                         ValueRange operands) {
+    BlockAndValueMapping mapping;
+    mapping.map(linalgOp.getBlock()->getArguments().drop_front(), operands);
+    for (Operation& op : linalgOp.getBlock()->without_terminator()) {
+      innerBuilder.clone(op, mapping);
+    }
+    SmallVector<Value> newResults;
+    for (Value v : linalgOp.getBlock()->getTerminator()->getOperands()) {
+      newResults.push_back(mapping.lookupOrDefault(v));
+    }
+    innerBuilder.create<linalg::YieldOp>(
+        linalgOp.getBlock()->getTerminator()->getLoc(), newResults);
+  };
+  auto genericOp = b.create<linalg::GenericOp>(linalgOp.getLoc(), resultTypes,
+                                               inputs, outputs, indexingMaps,
+                                               iterators, bodyBuilder, attrs);
+  return genericOp;
+}
+
+}  // namespace
+
+DiagnosedSilenceableFailure VectorizeConditionalGenericOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto genericOp = dyn_cast<disc_linalg_ext::ConditionalGenericOp>(target);
+  if (!genericOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to ConditionalGenericOp");
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = genericOp->getLoc();
+  Value pred = genericOp->getOperand(0);
+  auto linalgOp = cast<linalg::LinalgOp>(target);
+
+  // 0, check and collect init tensor types
+  SmallVector<Type> resultTensorTypes;
+  for (auto init : linalgOp.getDpsInitOperands()) {
+    auto ty = init->get().getType().dyn_cast<RankedTensorType>();
+    if (!ty || !ty.hasStaticShape()) {
+      return mlir::emitDefiniteFailure(
+          this->getOperation(),
+          "expect the result of target op has ranked tensor type with static "
+          "shape\n");
+    }
+    resultTensorTypes.push_back(ty);
+  }
+
+  // 0, build init loop like following:
+  // ```
+  //   scf.if %pred {
+  //     disc_linalg_ext.conditional_generic ...
+  //   } else {
+  //     // simply forward init operands to outputs
+  //     linalg.generic ...
+  //   }
+  // ```
+  rewriter.setInsertionPoint(target);
+  auto ifOp = rewriter.create<scf::IfOp>(loc, resultTensorTypes, pred, true);
+
+  rewriter.setInsertionPointToStart(ifOp.thenBlock());
+  auto thenTarget = dyn_cast<linalg::LinalgOp>(
+      convertConditionalGenericOpToGenericOp(rewriter, linalgOp));
+  rewriter.create<scf::YieldOp>(loc, thenTarget->getResults());
+  rewriter.setInsertionPoint(thenTarget);
+  if (failed(linalg::vectorize(rewriter, thenTarget)))
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "failed to vectorize the then target\n");
+
+  rewriter.setInsertionPointToStart(ifOp.elseBlock());
+  auto elseTarget = dyn_cast<linalg::LinalgOp>(
+      convertConditionalGenericOpToGenericOp(rewriter, linalgOp));
+  elseTarget.getBlock()->getTerminator()->setOperands(
+      elseTarget.getRegionOutputArgs());
+  SmallVector<Operation*> toDeleteOps;
+  for (auto& op : llvm::reverse(elseTarget.getBlock()->without_terminator())) {
+    toDeleteOps.push_back(&op);
+  }
+  for (Operation* op : toDeleteOps) op->erase();
+  // simply forward init input tensors to corresponding outputs in the else
+  // branch.
+  rewriter.create<scf::YieldOp>(loc, elseTarget->getResults());
+  rewriter.setInsertionPoint(elseTarget);
+  if (failed(linalg::vectorize(rewriter, elseTarget)))
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "failed to vectorize the else target\n");
+
+  rewriter.setInsertionPointAfter(ifOp);
+
+  // 1, replace the return type of ifOp: from tensor type to vector type
+  SmallVector<Type> resultVectorTypes;
+  SmallVector<Value> resultVectorValues;
+  DenseMap<int, Operation*> resultIdx2writeOpMap;
+  DenseMap<Operation*, int> writeOp2resultIdxMap;
+  for (auto [idx, val] :
+       llvm::enumerate(ifOp.elseBlock()->getTerminator()->getOperands())) {
+    auto xferWriteOp = val.getDefiningOp<vector::TransferWriteOp>();
+    if (!xferWriteOp) {
+      return mlir::emitDefiniteFailure(
+          this->getOperation(),
+          "failed to find xfer write op after vectorization\n");
+    }
+    resultVectorValues.push_back(xferWriteOp.getVector());
+    resultVectorTypes.push_back(xferWriteOp.getVector().getType());
+    resultIdx2writeOpMap[idx] = xferWriteOp;
+    writeOp2resultIdxMap[xferWriteOp] = idx;
+  }
+
+  auto vectorIfOp =
+      rewriter.create<scf::IfOp>(loc, resultVectorTypes, pred, true);
+  DenseMap<Value, Value> initTensor2LoadedVectorMap;
+  Operation* moveAfterAnchor = vectorIfOp;
+  for (auto& op :
+       llvm::make_early_inc_range(ifOp.elseBlock()->without_terminator())) {
+    if (auto xferWriteOp = dyn_cast<vector::TransferWriteOp>(&op)) {
+      op.moveAfter(moveAfterAnchor);
+      op.replaceUsesOfWith(xferWriteOp.getVector(),
+                           vectorIfOp->getResult(writeOp2resultIdxMap[&op]));
+      moveAfterAnchor = &op;
+    } else {
+      auto initArgs = linalgOp.getDpsInitOperands();
+      auto xferReadOp = dyn_cast<vector::TransferReadOp>(&op);
+      bool readFromInitArg =
+          xferReadOp && llvm::find_if(initArgs, [&](OpOperand* operand) {
+                          return operand->get() == xferReadOp.getSource();
+                        }) != initArgs.end();
+      if (!xferReadOp || readFromInitArg) op.moveBefore(ifOp);
+      if (readFromInitArg) {
+        initTensor2LoadedVectorMap[xferReadOp.getSource()] =
+            xferReadOp->getResult(0);
+      }
+    }
+  }
+  rewriter.setInsertionPointToStart(vectorIfOp.elseBlock());
+  rewriter.create<scf::YieldOp>(loc, resultVectorValues);
+  rewriter.setInsertionPointToStart(vectorIfOp.thenBlock());
+  resultVectorValues.clear();
+  for (auto [idx, val] :
+       llvm::enumerate(ifOp.thenBlock()->getTerminator()->getOperands())) {
+    auto xferWriteOp = val.getDefiningOp<vector::TransferWriteOp>();
+    if (!xferWriteOp) {
+      return mlir::emitDefiniteFailure(
+          this->getOperation(),
+          "failed to find xfer write op after vectorization\n");
+    }
+    resultVectorValues.push_back(xferWriteOp.getVector());
+  }
+  auto yieldOp = rewriter.create<scf::YieldOp>(loc, resultVectorValues);
+  for (auto& op :
+       llvm::make_early_inc_range(ifOp.thenBlock()->without_terminator())) {
+    op.moveBefore(yieldOp);
+    auto xferReadOp = dyn_cast<vector::TransferReadOp>(&op);
+    if (!xferReadOp) continue;
+    auto it = initTensor2LoadedVectorMap.find(xferReadOp.getSource());
+    if (it != initTensor2LoadedVectorMap.end())
+      xferReadOp->getResult(0).replaceAllUsesWith(it->second);
+  }
+  for (auto& e : resultIdx2writeOpMap) {
+    target->getResult(e.first).replaceAllUsesWith(e.second->getResult(0));
+  }
+  ifOp->erase();
+
+  results.assign({vectorIfOp.getOperation()});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// SplitVectorTransferIntoFullAndPartialOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+static LogicalResult splitFullAndPartialTransferPrecondition(
+    VectorTransferOpInterface xferOp) {
+  // TODO: support 0-d corner case.
+  if (xferOp.getTransferRank() == 0) return failure();
+
+  // TODO: expand support to these 2 cases.
+  if (!xferOp.permutation_map().isMinorIdentity()) return failure();
+  // Must have some out-of-bounds dimension to be a candidate for splitting.
+  if (!xferOp.hasOutOfBoundsDim()) return failure();
+  return success();
+}
+
+}  // namespace
+
+DiagnosedSilenceableFailure SplitVectorTransferIntoFullAndPartialOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto xferOp = dyn_cast<VectorTransferOpInterface>(target);
+  if (!xferOp) {
+    return mlir::emitDefiniteFailure(
+        target, "applies only to vector transfer like ops.");
+  }
+
+  if (failed(splitFullAndPartialTransferPrecondition(xferOp))) {
+    results.assign({xferOp.getOperation()});
+    return DiagnosedSilenceableFailure(success());
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  scf::IfOp ifOp;
+  vector::VectorTransformsOptions options;
+  options.setVectorTransferSplit(vector::VectorTransferSplit::LinalgCopy);
+
+  if (failed(vector::splitFullAndPartialTransfer(rewriter, xferOp, options,
+                                                 &ifOp))) {
+    return mlir::emitDefiniteFailure(target, "failed to split xfer ops.");
+  }
+  results.assign({ifOp.getOperation()});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// LowerConditionalGenericOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure LowerConditionalGenericOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto cgOp = dyn_cast<disc_linalg_ext::ConditionalGenericOp>(target);
+  if (!cgOp) {
+    return mlir::emitDefiniteFailure(
+        target, "applies only to disc_linalg_ext.conditional_generic.");
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  rewriter.setInsertionPoint(target);
+  scf::IfOp ifOp =
+      rewriter.create<scf::IfOp>(cgOp->getLoc(), cgOp->getOperand(0), false);
+  rewriter.setInsertionPointToStart(ifOp.thenBlock());
+  auto genericOp = convertConditionalGenericOpToGenericOp(
+      rewriter, dyn_cast<linalg::LinalgOp>(target));
+  rewriter.eraseOp(target);
+  results.assign({genericOp});
   return DiagnosedSilenceableFailure(success());
 }
 

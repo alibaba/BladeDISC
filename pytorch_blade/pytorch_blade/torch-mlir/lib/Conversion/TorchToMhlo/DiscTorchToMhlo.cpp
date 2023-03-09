@@ -820,9 +820,10 @@ LogicalResult ConvertAtenOp<AtenEmptyMemoryFormatOp>::matchAndRewrite(
   auto mhloShape = rewriter.create<mlir::tensor::FromElementsOp>(loc, dimSizes);
   auto constOp =
       mhlo::getConstTensor<int32_t>(rewriter, op, {1.0}, {}).getValue();
-
+  auto castedConstOp =
+      rewriter.create<mhlo::ConvertOp>(loc, constOp, outType.getElementType());
   auto result = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-      loc, outType, constOp, mhloShape, rewriter.getI64TensorAttr({}));
+      loc, outType, castedConstOp, mhloShape, rewriter.getI64TensorAttr({}));
 
   rewriter.replaceOp(op, {result});
   return success();

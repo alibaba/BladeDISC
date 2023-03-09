@@ -63,6 +63,7 @@ REGISTER_OP("DiscFakeQuant")
     .Attr("use_dynamic: bool")
     .Attr("Tfloat: {float}")
     .Attr("Tint: {int32}")
+    .SetIsStateful()
     .Doc("FakeQuant op to carry quant information. Implemented as Identity.")
     .SetShapeFn(shape_inference::UnchangedShape);
 

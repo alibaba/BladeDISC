@@ -12,19 +12,39 @@
 import unittest
 
 import torch
-from torch_quant.observer import MinMaxObserver
+from torch_quant.observer import MinMaxObserver, PerChannelMinMaxObserver
 
 
 class MinMaxObserverTest(unittest.TestCase):
+    # TODO(litan.ls): more tests for different dtype/qscheme
     def test_basic(self):
-        ob = MinMaxObserver(dtype=torch.qint8)
+        ob = MinMaxObserver(dtype=torch.qint8, qscheme=torch.per_tensor_symmetric)
         self.assertEqual(ob.qparams.scale, 1)
         self.assertEqual(ob.qparams.zero_point, 0)
-        ob(torch.rand((8, 1024))*2-1)
-        torch.testing.assert_close(
-            ob.qparams.scale, torch.tensor(1/128), atol=0.01, rtol=0.1)
-        torch.testing.assert_close(
-            ob.qparams.zero_point, torch.tensor(0.0), atol=1, rtol=0.1)
+        dummy_data = torch.rand((8, 1024)) * 2 - 1
+        max_val = torch.max(dummy_data)
+        min_val = torch.min(dummy_data)
+        min_val_neg = torch.min(min_val, torch.zeros_like(min_val))
+        max_val_pos = torch.max(max_val, torch.zeros_like(max_val))
+        clip_val = torch.max(-min_val_neg, max_val_pos)
+        scale = clip_val / (float(127 + 128) / 2)
+        ob(dummy_data)
+        self.assertTrue(torch.equal(torch.tensor(scale), ob.qparams.scale))
+        self.assertTrue(torch.equal(torch.tensor(0, dtype=torch.int32), ob.qparams.zero_point))
+
+
+class PerChannelMinMaxObserverTest(unittest.TestCase):
+    def test_basic(self):
+        ob = PerChannelMinMaxObserver(ch_axis=0, dtype=torch.qint8, qscheme=torch.per_channel_symmetric)
+        dummy_data = torch.randn(10, 20)
+        ob(dummy_data)
+        min_val, max_val = torch.aminmax(dummy_data, dim=1)
+        min_val_neg = torch.min(min_val, torch.zeros_like(min_val))
+        max_val_pos = torch.max(max_val, torch.zeros_like(max_val))
+        clip_val = torch.max(-min_val_neg, max_val_pos)
+        scale = clip_val / (float(127 + 128) / 2)
+        self.assertTrue(torch.equal(scale, ob.qparams.scale))
+        self.assertTrue(torch.equal(torch.zeros_like(scale, dtype=torch.int32), ob.qparams.zero_point))
 
 
 if __name__ == '__main__':

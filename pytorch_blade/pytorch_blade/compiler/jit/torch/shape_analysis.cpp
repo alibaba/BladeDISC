@@ -104,6 +104,27 @@ c10::Device getDeviceFromValue(Value* value) {
   return device;
 }
 
+c10::optional<at::ScalarType> getScalarTypeFromValue(Value* value) {
+  c10::optional<at::ScalarType> scalarType;
+  if (value == nullptr)
+    return scalarType;
+  if (value->node()->kind() == prim::dtype) {
+    auto inpNode = value->node();
+    auto inpTy = inpNode->input()->type()->cast<TensorType>();
+
+    if (inpTy && inpTy->scalarType()) {
+      scalarType = *inpTy->scalarType();
+    }
+    return scalarType;
+  }
+
+  auto maybe_scalar_type_option = ::torch::jit::toIValue(value);
+  if (maybe_scalar_type_option && !maybe_scalar_type_option->isNone()) {
+    scalarType = maybe_scalar_type_option->toScalarType();
+  }
+  return scalarType;
+}
+
 bool mergeTypes(
     at::ArrayRef<Value*> lhs,
     at::ArrayRef<Value*> rhs,
@@ -934,6 +955,8 @@ class ShapePropagator : public PropertyPropBase {
             "aten::bitwise_not(Tensor self) -> Tensor",
             "aten::neg(Tensor self) -> Tensor",
             "aten::sigmoid(Tensor self) -> Tensor",
+            "aten::silu(Tensor self) -> Tensor",
+            "aten::silu_(Tensor self) -> Tensor",
 #if PYTORCH_VERSION_GE(1, 7)
             "aten::logit(Tensor self, float? eps=None) -> Tensor",
 #endif
@@ -1392,11 +1415,11 @@ class ShapePropagator : public PropertyPropBase {
 #endif
         },
         [](Node* node) -> type_vec_t {
-          at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
             auto ret = type;
-            if (maybe_dtype_option && !maybe_dtype_option->isNone()) {
-              return {ret->withScalarType(maybe_dtype_option->toScalarType())};
+            auto dtype = getScalarTypeFromValue(node->namedInput(attr::dtype));
+            if (dtype) {
+              return {ret->withScalarType(dtype)};
             } else {
               return {ret};
             }
@@ -1417,8 +1440,13 @@ class ShapePropagator : public PropertyPropBase {
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
             auto device = getDeviceFromValue(node->namedInput(attr::device));
             if (type->dim()) {
+              auto scalarType =
+                  getScalarTypeFromValue(node->namedInput(attr::dtype));
+              if (!scalarType) {
+                scalarType = type->scalarType();
+              }
               return {TensorType::create(
-                          type->scalarType(),
+                          scalarType,
                           device,
                           type->dim(),
                           /*requires_grad=*/c10::nullopt)
@@ -1494,8 +1522,9 @@ class ShapePropagator : public PropertyPropBase {
           at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
             auto ret = type->withDim(0);
-            if (maybe_dtype_option && !maybe_dtype_option->isNone()) {
-              return {ret->withScalarType(maybe_dtype_option->toScalarType())};
+            auto dtype = getScalarTypeFromValue(node->namedInput(attr::dtype));
+            if (dtype) {
+              return {ret->withScalarType(dtype)};
             } else {
               return {ret};
             }
@@ -1519,11 +1548,10 @@ class ShapePropagator : public PropertyPropBase {
             [](Node* node) -> type_vec_t {
               if (auto type = node->input(0)->type()->cast<TensorType>()) {
                 type = type->withDim(0);
-                at::optional<IValue> maybe_dtype_option =
-                    node->get(attr::dtype);
-                if (maybe_dtype_option && !maybe_dtype_option->isNone()) {
-                  return {
-                      type->withScalarType(maybe_dtype_option->toScalarType())};
+                auto dtype =
+                    getScalarTypeFromValue(node->namedInput(attr::dtype));
+                if (dtype) {
+                  return {type->withScalarType(dtype)};
                 }
                 if (type->scalarType()) {
                   return {
@@ -1842,9 +1870,9 @@ class ShapePropagator : public PropertyPropBase {
       auto device = getDeviceFromValue(node->namedInput(attr::device));
 
       auto dtype = at::kFloat;
-      at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
-      if (maybe_dtype_option && maybe_dtype_option->isInt()) {
-        dtype = maybe_dtype_option->toScalarType();
+      if (auto scalarType =
+              getScalarTypeFromValue(node->namedInput(attr::dtype))) {
+        dtype = *scalarType;
       }
       return {TensorType::create(
           dtype, device, dim, /*requires_grad=*/c10::nullopt)};
@@ -1853,9 +1881,9 @@ class ShapePropagator : public PropertyPropBase {
     static const auto factory_like_with_ndim = [](Node* node,
                                                   int dim) -> type_vec_t {
       auto dtype = at::kFloat;
-      at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
-      if (maybe_dtype_option && maybe_dtype_option->isInt()) {
-        dtype = maybe_dtype_option->toScalarType();
+      if (auto scalarType =
+              getScalarTypeFromValue(node->namedInput(attr::dtype))) {
+        dtype = *scalarType;
       }
 
       auto device = getDeviceFromValue(node->namedInput(attr::device));

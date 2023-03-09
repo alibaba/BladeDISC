@@ -15,15 +15,17 @@ import unittest
 import torch
 from parameterized import parameterized
 from tests.models import SimpleModule
+from torch_quant.observer import toggle_observer
 from torch_quant.quantizer import Backend, Quantizer
 
 
 class QuantizerTest(unittest.TestCase):
     @parameterized.expand([
         (Backend.REFERENCE, ),
-        (Backend.FBGEMM, ),
+        # (Backend.FBGEMM, ), TODO(litan.ls): select test according to ci env
+        (Backend.DISC, ),
     ])
-    def test_calib_and_quantize(self, backend) -> None:
+    def test_calib_and_quantize(self, backend: Backend) -> None:
         model = SimpleModule()
         quantizer = Quantizer(backend=backend)
         dummy_input = torch.randn((1, 2, 5, 5))
@@ -40,9 +42,13 @@ class QuantizerTest(unittest.TestCase):
             quant_output, original_output, rtol=0.1, atol=0.5)
 
     # TODO(litan.ls): QAT is more suitable for this case
-    def test_load_from_state_dict(self) -> None:
+    @parameterized.expand([
+        (Backend.REFERENCE, ),
+        (Backend.DISC, ),
+    ])
+    def test_load_from_state_dict(self, backend: Backend) -> None:
         model = SimpleModule()
-        quantizer = Quantizer()
+        quantizer = Quantizer(backend=backend)
         dummy_input = torch.randn((1, 2, 5, 5))
 
         quantizer.calib(model)(dummy_input)
@@ -55,10 +61,16 @@ class QuantizerTest(unittest.TestCase):
         quant_output = quantizer.quantize(model)(dummy_input)
         self.assertTrue(torch.equal(loaded_quant_output, quant_output))
 
-    def test_save_and_load_quantized(self) -> None:
+    @parameterized.expand([
+        (Backend.REFERENCE, ),
+        (Backend.DISC, ),
+    ])
+    def test_save_and_load_quantized(self, backend: Backend) -> None:
         model = SimpleModule()
-        quantizer = Quantizer()
+        quantizer = Quantizer(backend=backend)
         dummy_input = torch.randn((1, 2, 5, 5))
+        calib_model = quantizer.calib(model)
+        calib_model(dummy_input)
 
         quant_model = quantizer.quantize(model)
         quant_output = quant_model(dummy_input)
@@ -69,6 +81,37 @@ class QuantizerTest(unittest.TestCase):
             loaded = torch.jit.load(tmp_file.name)
         loaded_output = loaded(dummy_input)
         torch.testing.assert_close(quant_output, loaded_output)
+
+    def test_calib_and_quantize_with_bias_observer(self):
+        dummy_input = torch.randn((1, 2, 5, 5))
+        model = SimpleModule()
+        quantizer = Quantizer(backend=Backend.DISC)
+        calib_model = quantizer.calib(model)
+        calib_model(dummy_input)
+
+        toggle_observer(calib_model, observe=False, fake_quant=True)
+        out1 = calib_model(dummy_input)
+
+        fake_quant_model = quantizer.quantize(model)
+        out2 = fake_quant_model(dummy_input)
+        self.assertTrue(torch.equal(out1, out2))
+
+    def test_calib_quantize_qat_quantize_state_equal(self):
+        dummy_input = torch.randn((1, 2, 5, 5))
+        model = SimpleModule()
+        quantizer = Quantizer(backend=Backend.DISC)
+        calib_model = quantizer.calib(model)
+        calib_model(dummy_input)
+        fake_quant_model1 = quantizer.quantize(model)
+        out1 = fake_quant_model1(dummy_input)
+
+        qat_model = quantizer.qat(model)
+        out2 = qat_model(dummy_input)
+        self.assertTrue(torch.equal(out1, out2))
+
+        quant_model = quantizer.quantize(model)
+        out3 = quant_model(dummy_input)
+        self.assertTrue(torch.equal(out2, out3))
 
 
 if __name__ == '__main__':

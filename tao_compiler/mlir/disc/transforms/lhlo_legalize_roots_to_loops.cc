@@ -16,18 +16,17 @@ limitations under the License.
 // This file implements logic for lowering skeleton ops (reductions, results) to
 // ParallelOp loop logics.
 
+#include "lhlo/IR/lhlo_ops.h"
+#include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
-#include "mlir-hlo/utils/placement_utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Attributes.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
@@ -45,6 +44,7 @@ limitations under the License.
 #include "mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/core/util/env_var.h"
+#include "utils/placement_utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -973,8 +973,11 @@ Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
 
 Value createSharedMemory(OpBuilder& b, Location loc, int64_t size,
                          Type elem_type) {
-  auto bufferType = MemRefType::get(
-      {size}, elem_type, {}, gpu::GPUDialect::getWorkgroupAddressSpace());
+  auto workgroupMemoryAddressSpace = gpu::AddressSpaceAttr::get(
+      b.getContext(), gpu::GPUDialect::getWorkgroupAddressSpace());
+  auto bufferType =
+      MemRefType::get(ArrayRef<int64_t>{size}, elem_type,
+                      MemRefLayoutAttrInterface{}, workgroupMemoryAddressSpace);
   auto alloc = b.create<memref::AllocOp>(loc, bufferType);
   return alloc.getResult();
 }
@@ -2778,7 +2781,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
     auto shape = ty.getShape();
     SmallVector<Value> dims;
     for (int d = 0; d < ty.getRank(); ++d) {
-      if (shape[d] == ShapedType::kDynamicSize) {
+      if (shape[d] == ShapedType::kDynamic) {
         dims.push_back(b.create<memref::DimOp>(loc, val, d));
       }
     }
@@ -2799,7 +2802,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
     auto skeletons = skeleton_group.skeletons;
     SmallVector<Operation*>& group_ops_inorder_old =
         skeleton_group_ops_old[skeletons[0]];
-    BlockAndValueMapping cloning_map;
+    IRMapping cloning_map;
     for (auto shm_cached_op : shm_cached_ops_and_view) {
       auto op = shm_cached_op.first;
       auto view = shm_cached_op.second;
@@ -4235,7 +4238,8 @@ LogicalResult lowerWithScheduleSparseReshapeOpCPU(
   // }
   {
     auto alloc = b.create<memref::AllocOp>(
-        loc, MemRefType::get({-1}, b.getIntegerType(64)), new_rank);
+        loc, MemRefType::get({ShapedType::kDynamic}, b.getIntegerType(64)),
+        new_rank);
     shape_accum = alloc.getResult();
 
     Value reverse_end = b.create<arith::SubIOp>(loc, new_rank, one);
@@ -4435,7 +4439,8 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
   {
     auto alloc = b.create<memref::AllocOp>(
         loc,
-        MemRefType::get({-1}, b.getIntegerType(64), MemRefLayoutAttrInterface(),
+        MemRefType::get({ShapedType::kDynamic}, b.getIntegerType(64),
+                        MemRefLayoutAttrInterface(),
                         StringAttr::get(sparse_fill_empty_rows_op->getContext(),
                                         placement_utils::kCpu)),
         num_rows);
@@ -4740,7 +4745,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
     {
       auto alloc = b.create<memref::AllocOp>(
           loc,
-          MemRefType::get({-1}, output_type.getElementType(),
+          MemRefType::get({ShapedType::kDynamic}, output_type.getElementType(),
                           MemRefLayoutAttrInterface(),
                           StringAttr::get(context, placement_utils::kCpu)),
           num_results);
@@ -4952,7 +4957,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
   // memset(row_value_count, 0, dense_rows * sizeof(int));
   auto alloc = b.create<memref::AllocOp>(
       loc,
-      MemRefType::get({-1}, output_type.getElementType(),
+      MemRefType::get({ShapedType::kDynamic}, output_type.getElementType(),
                       MemRefLayoutAttrInterface(),
                       StringAttr::get(context, placement_utils::kCpu)),
       dense_rows);
@@ -5647,8 +5652,10 @@ struct DiscLhloLegalizeRootsToParallelLoops
         });
         fusion.getRegion().walk([&](memref::AssumeAlignmentOp op) {
           auto memref_type = op.getMemref().getType().cast<MemRefType>();
-          if (memref_type.getMemorySpaceAsInt() ==
-              gpu::GPUDialect::getWorkgroupAddressSpace()) {
+          auto addrSpace =
+              memref_type.getMemorySpace().dyn_cast<gpu::AddressSpaceAttr>();
+          if (addrSpace && addrSpace.getValue() ==
+                               gpu::GPUDialect::getWorkgroupAddressSpace()) {
             to_be_removed.push_back(op);
           }
         });

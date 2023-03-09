@@ -451,7 +451,7 @@ class FusionPlanner {
       return false;
     }
     auto optional_merged_node = cycle_detector_->ContractEdge(from, to);
-    assert(optional_merged_node.hasValue());
+    assert(optional_merged_node.has_value());
     cluster_from->set_cycles_graph_node_id(*optional_merged_node);
 
     // Merge the UnionFind Set.
@@ -534,8 +534,8 @@ class FusionPlanner {
         }
         auto optional_lead_id =
             cycle_detector->ContractEdge(producer, curr_lead_id);
-        assert(optional_lead_id.hasValue());
-        curr_lead_id = optional_lead_id.getValue();
+        assert(optional_lead_id.has_value());
+        curr_lead_id = optional_lead_id.value();
         contracted.push_back(producer);
       }
       for (auto new_node : contracted) {

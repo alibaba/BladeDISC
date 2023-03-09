@@ -47,8 +47,8 @@ func.func @test_reduction_output_fuse(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {disc.transform.name = "maximum"} in %arg0
-  %1 = transform.structured.match ops{["scf.for"]} in %arg0
+  %0 = transform.structured.match attributes {disc.transform.name = "maximum"} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %1 = transform.structured.match ops{["scf.for"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   %2, %3 = transform.disc.reduction_output_fuse %0 into %1
 }
 
@@ -100,8 +100,8 @@ func.func @test_reduction_output_fuse2(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {disc.transform.name = "maximum"} in %arg0
-  %1 = transform.structured.match ops{["scf.for"]} in %arg0
+  %0 = transform.structured.match attributes {disc.transform.name = "maximum"} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %1 = transform.structured.match ops{["scf.for"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   %2, %3 = transform.disc.reduction_output_fuse %0 into %1
     %arg1 = transform.disc.apply_patterns %arg0 {canonicalization}
 }

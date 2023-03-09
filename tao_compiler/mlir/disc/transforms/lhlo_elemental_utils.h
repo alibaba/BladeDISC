@@ -16,10 +16,10 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_LHLO_ELEMENTAL_UTILS_H_
 #define TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_LHLO_ELEMENTAL_UTILS_H_
 
+#include "lhlo/IR/lhlo_ops.h"
+#include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
-#include "mlir-hlo/Dialect/mhlo/transforms/map_mhlo_to_scalar_op.h"
+#include "mhlo/transforms/map_mhlo_to_scalar_op.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Builders.h"

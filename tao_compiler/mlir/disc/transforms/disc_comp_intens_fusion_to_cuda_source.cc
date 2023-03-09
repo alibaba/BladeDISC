@@ -12,8 +12,8 @@
 #include <unordered_map>
 
 #include "absl/strings/str_replace.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/disc/IR/lhlo_disc_ops.h"
@@ -284,7 +284,7 @@ bool DiscCompIntensFusionToCUDASourcePass::getPermuteDLayoutString(
       return false;
     }
     auto dim_1 = memref_ty.getDimSize(1);
-    if (dim_1 == ShapedType::kDynamicSize) {
+    if (dim_1 == ShapedType::kDynamic) {
       return false;
     }
     permute_d_layout = "cutlass::layout::Tensor4DPermuteBMM0213<" +
@@ -539,7 +539,7 @@ bool DiscCompIntensFusionToCUDASourcePass::
     } else if (!isa<func::ReturnOp>(&op)) {
       assert(source_emitter.isSupportedOp(&op) && "Encounter unsupported op.");
       auto instruction = source_emitter.EmitOp(&op, binding);
-      if (!instruction.hasValue()) {
+      if (!instruction.has_value()) {
         return false;
       } else {
         appendLineToEpilogue(instruction.value());

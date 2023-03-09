@@ -22,7 +22,7 @@ limitations under the License.
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
@@ -247,8 +247,7 @@ LogicalResult materializeShapeComputation(ModuleOp m, FuncOp main) {
   >(patterns.getContext());
   // clang-format on
 
-  if (failed(
-          applyPatternsAndFoldGreedily(m->getRegions(), std::move(patterns)))) {
+  if (failed(applyPatternsAndFoldGreedily(m, std::move(patterns)))) {
     return m.emitError() << "fail to materialize shape computation\n";
   }
   return success();
@@ -662,8 +661,7 @@ LogicalResult runCanonicalizer(ModuleOp m, PassPipelineRunner runner) {
       "mlir::disc_shape::{anonymous}::IdentityTieShapeOp"};
   FrozenRewritePatternSet frozenSet(std::move(patterns), disablePatterns);
 
-  if (failed(applyPatternsAndFoldGreedily(m->getRegions(),
-                                          std::move(frozenSet)))) {
+  if (failed(applyPatternsAndFoldGreedily(m, std::move(frozenSet)))) {
     return m.emitError() << "fail to run canonicalizer\n";
   }
 
@@ -1428,7 +1426,7 @@ Type ShapeComputationIRAnalysis::getRefinedType(Value value) {
   for (SymbolicDimOp sym : rankedTensor2SymDims_[value]) {
     auto root = mgr_.getRootSymbolicDim(sym);
     newShape.push_back(root.getDimSize());
-    if (newShape.back() == ShapedType::kDynamicSize) noDynamicDim = false;
+    if (newShape.back() == ShapedType::kDynamic) noDynamicDim = false;
     refAttrs.push_back(SymbolRefAttr::get(value.getContext(), root.getName()));
   }
 
@@ -1894,8 +1892,7 @@ LogicalResult cleanUp(ModuleOp m, bool keep_tie_shape) {
     RewritePatternSet patterns(m.getContext());
     patterns.add<ForwardTieShapeOperandToItsConsumers>(patterns.getContext());
 
-    if (failed(applyPatternsAndFoldGreedily(m->getRegions(),
-                                            std::move(patterns)))) {
+    if (failed(applyPatternsAndFoldGreedily(m, std::move(patterns)))) {
       return m.emitError() << "fail to do cleanup\n";
     }
   } else {

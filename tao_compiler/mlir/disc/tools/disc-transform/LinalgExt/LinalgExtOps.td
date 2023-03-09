@@ -13,8 +13,11 @@
 #define DISC_LINALGEXT_OPS
 
 include "external/org_tensorflow/tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtBase.td"
+include "external/org_tensorflow/tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtEnums.td"
 include "external/org_tensorflow/tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtInterfaces.td"
 
+include "mlir/Dialect/Utils/StructuredOpsUtils.td"
+include "mlir/Dialect/Linalg/IR/LinalgBase.td"
 include "mlir/Dialect/Linalg/IR/LinalgInterfaces.td"
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
@@ -76,18 +79,6 @@ def DISCLinalgExt_ConstantWrapperOp : Op<DISCLinalgExt_Dialect, "constant_wrappe
   let results = (outs AnyType:$result);
 
   let assemblyFormat = "attr-dict $value";
-}
-
-def DISCLinalgExt_Any: I64EnumAttrCase<"kAny", 0>; // padding value doesn't matter.
-def DISCLinalgExt_Exact: I64EnumAttrCase<"kExact", 1>; // padding value matters.
-def DISCLinalgExt_PaddingValueMode : I64EnumAttr<"PaddingValueModeEnum",
-    "Padding mode for padding related-ops",
-    [
-        DISCLinalgExt_Any,
-        DISCLinalgExt_Exact
-    ]> {
-  let summary = "Padding mode for padding related-ops";
-  let cppNamespace = "::mlir::disc_ral::disc_linalg_ext";
 }
 
 def DISCLinalgExt_PaddingValuePlaceholderOp : Op<DISCLinalgExt_Dialect, "padding_value_placeholder", [
@@ -525,7 +516,7 @@ def DISCLinalgExt_ConditionalGenericOp : DISCLinalgExt_StructuredOp<"conditional
   let arguments = (ins Variadic<AnyType>:$inputs,
                        Variadic<AnyShaped>:$outputs,
                        AffineMapArrayAttr:$indexing_maps,
-                       ArrayAttr:$iterator_types,
+                       IteratorTypeArrayAttr:$iterator_types,
                        OptionalAttr<StrAttr>:$doc,
                        OptionalAttr<StrAttr>:$library_call);
   let results = (outs Variadic<AnyRankedTensor>:$result_tensors);
@@ -540,22 +531,22 @@ def DISCLinalgExt_ConditionalGenericOp : DISCLinalgExt_StructuredOp<"conditional
       CArg<"ArrayRef<NamedAttribute>", "{}">:$attributes)>,
     OpBuilder<(ins "TypeRange":$resultTensorTypes, "ValueRange":$inputs,
       "ValueRange":$outputs, "ArrayRef<AffineMap>":$indexingMaps,
-      "ArrayRef<StringRef>":$iteratorTypes, "StringRef":$doc,
+      "ArrayRef<utils::IteratorType>":$iteratorTypes, "StringRef":$doc,
       "StringRef":$libraryCall,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">,
       CArg<"ArrayRef<NamedAttribute>", "{}">:$attributes)>,
     OpBuilder<(ins "ValueRange":$inputs, "ValueRange":$outputBuffers,
-      "ArrayRef<AffineMap>":$indexingMaps, "ArrayRef<StringRef>":$iteratorTypes,
+      "ArrayRef<AffineMap>":$indexingMaps, "ArrayRef<utils::IteratorType>":$iteratorTypes,
       "StringRef":$doc, "StringRef":$libraryCall,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">,
       CArg<"ArrayRef<NamedAttribute>", "{}">:$attributes)>,
     OpBuilder<(ins "TypeRange":$resultTensorTypes, "ValueRange":$inputs,
       "ValueRange":$outputs, "ArrayRef<AffineMap>":$indexingMaps,
-      "ArrayRef<StringRef>":$iteratorTypes,
+      "ArrayRef<utils::IteratorType>":$iteratorTypes,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">,
       CArg<"ArrayRef<NamedAttribute>", "{}">:$attributes)>,
     OpBuilder<(ins "ValueRange":$inputs, "ValueRange":$outputBuffers,
-      "ArrayRef<AffineMap>":$indexingMaps, "ArrayRef<StringRef>":$iteratorTypes,
+      "ArrayRef<AffineMap>":$indexingMaps, "ArrayRef<utils::IteratorType>":$iteratorTypes,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">,
       CArg<"ArrayRef<NamedAttribute>", "{}">:$attributes)>
   ];

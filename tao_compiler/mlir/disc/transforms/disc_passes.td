@@ -81,11 +81,6 @@ def ReductionRewriterPass : Pass<"disc-reduction-rewriter", "mlir::func::FuncOp"
   let constructor = "createDiscReductionRewriterPass()";
 }
 
-def DiscMhloCSEPass : Pass<"disc-mhlo-cse", "mlir::func::FuncOp"> {
-  let summary = "disc mhlo cse pass";
-  let constructor = "createDiscMhloCSEPass()";
-}
-
 def QuantizedDotRewriterPass : Pass<"quantized-disc-dot-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite quantized dot to transpose weight(row2col).";
   let constructor = "createDiscQuantizedDotRewriter()";

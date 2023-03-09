@@ -117,7 +117,7 @@ LogicalResult decomposeSplits(
   auto selfTy = self.getType().dyn_cast<BaseTensorType>();
   ArrayRef<int64_t> inputShape = selfTy.getSizes();
 
-  dimInt = toPositiveDim(dimInt, getTensorRank(self));
+  dimInt = toPositiveDim(dimInt, *getTensorRank(self));
 
   SmallVector<int64_t> sizes;
   sizes.append(inputShape.begin(), inputShape.end());
@@ -162,7 +162,7 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
-  auto name = op.name();
+  auto name = op.getName();
   if (name.equals("aten._autocast_to_reduced_precision") ||
       name.equals("aten._autocast_to_full_precision")) {
     // dtype has been infered in PropagateInputShapes pass
@@ -231,7 +231,7 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
       ArrayRef<int64_t> inputShape = selfTy.getSizes();
       auto rank = inputShape.size();
       dimInt = toPositiveDim(dimInt, rank);
-      if (inputShape[dimInt] != ShapedType::kDynamicSize && chunkSizeInt > 0) {
+      if (inputShape[dimInt] != kUnknownSize && chunkSizeInt > 0) {
         chunksInt = inputShape[dimInt] / chunkSizeInt;
       }
     }
@@ -377,7 +377,7 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
         loc, rewriter.getI64IntegerAttr(1));
     ArrayRef<int64_t> inputShape = inputTy.getSizes();
     SmallVector<int64_t> sliceShape{inputShape.begin(), inputShape.end()};
-    sliceShape[dimInt] = ShapedType::kDynamicSize;
+    sliceShape[dimInt] = kUnknownSize;
 
     Type sliceTy = inputTy.getWithSizesAndDtype(
         llvm::makeArrayRef(sliceShape), inputTy.getDtype());
@@ -415,14 +415,14 @@ LogicalResult ConvertAtenOp<AtenBatchNormOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   MLIRContext* context = op.getContext();
-  Value input = op.input();
-  Value weight = op.weight();
-  Value bias = op.bias();
-  Value runningMean = op.running_mean();
-  Value runningVar = op.running_var();
-  Value training = op.training();
-  Value momentum = op.momentum();
-  Value eps = op.eps();
+  Value input = op.getInput();
+  Value weight = op.getWeight();
+  Value bias = op.getBias();
+  Value runningMean = op.getRunningMean();
+  Value runningVar = op.getRunningVar();
+  Value training = op.getTraining();
+  Value momentum = op.getMomentum();
+  Value eps = op.getEps();
 
   auto outTy = op.getType().dyn_cast<BaseTensorType>();
   auto meanVarTy =
@@ -471,7 +471,7 @@ LogicalResult ConvertAtenOp<AtenMaskedFillScalarOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   rewriter.replaceOpWithNewOp<AtenWhereScalarSelfOp>(
-      op, op.getType(), op.mask(), op.value(), op.self());
+      op, op.getType(), op.getMask(), op.getValue(), op.getSelf());
   return success();
 }
 
@@ -481,7 +481,7 @@ LogicalResult ConvertAtenOp<AtenMaskedFillTensorOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   rewriter.replaceOpWithNewOp<AtenWhereSelfOp>(
-      op, op.getType(), op.mask(), op.value(), op.self());
+      op, op.getType(), op.getMask(), op.getValue(), op.getSelf());
   return success();
 }
 
@@ -492,10 +492,10 @@ LogicalResult ConvertAtenOp<AtenPowTensorScalarOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   auto resType = op.getType().cast<BaseTensorType>();
-  Value expTensor = createRank0Tensor(rewriter, loc, resType, op.exponent());
+  Value expTensor = createRank0Tensor(rewriter, loc, resType, op.getExponent());
 
   rewriter.replaceOpWithNewOp<AtenPowTensorTensorOp>(
-      op, op.getType(), op.self(), expTensor);
+      op, op.getType(), op.getSelf(), expTensor);
   return success();
 }
 
@@ -505,7 +505,7 @@ LogicalResult ConvertAtenOp<AtenHardtanhOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
-  Value input = adaptor.self();
+  Value input = adaptor.getSelf();
   BaseTensorType inputType = input.getType().cast<BaseTensorType>();
 
   auto sizeListType =
@@ -518,14 +518,14 @@ LogicalResult ConvertAtenOp<AtenHardtanhOp>::matchAndRewrite(
       llvm::makeArrayRef(empty), rewriter.getF32Type());
 
   Value minTensor =
-      rewriter.create<PrimNumToTensorScalarOp>(loc, tensorType, op.min_val());
+      rewriter.create<PrimNumToTensorScalarOp>(loc, tensorType, op.getMinVal());
   Value minValue = rewriter.create<AtenBroadcastToOp>(
       loc, op.getType(), minTensor, sizeList);
   Value maxResult =
       rewriter.create<AtenMaximumOp>(loc, inputType, input, minValue);
 
   Value maxTensor =
-      rewriter.create<PrimNumToTensorScalarOp>(loc, tensorType, op.max_val());
+      rewriter.create<PrimNumToTensorScalarOp>(loc, tensorType, op.getMaxVal());
   Value maxValue = rewriter.create<AtenBroadcastToOp>(
       loc, op.getType(), maxTensor, sizeList);
   rewriter.replaceOpWithNewOp<AtenMinimumOp>(
@@ -540,10 +540,10 @@ LogicalResult ConvertAtenOp<AtenNativeDropoutOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
-  Value input = op.input();
-  Value prob = op.p();
+  Value input = op.getInput();
+  Value prob = op.getP();
   bool train = false;
-  if (!matchPattern(op.train(), m_TorchConstantBool(&train)))
+  if (!matchPattern(op.getTrain(), m_TorchConstantBool(&train)))
     return rewriter.notifyMatchFailure(op, "train must be a boolean constant");
 
   BaseTensorType inputType = input.getType().cast<BaseTensorType>();
@@ -581,15 +581,15 @@ LogicalResult ConvertAtenOp<AtenNllLossForwardOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
-  Value self = op.self();
-  Value target = op.target();
-  Value weight = op.weight();
+  Value self = op.getSelf();
+  Value target = op.getTarget();
+  Value weight = op.getWeight();
   int64_t reduction;
-  if (!matchPattern(op.reduction(), m_TorchConstantInt(&reduction)))
+  if (!matchPattern(op.getReduction(), m_TorchConstantInt(&reduction)))
     return rewriter.notifyMatchFailure(op, "reduction must be a constant");
 
   int64_t ignoreIndex;
-  if (!matchPattern(op.ignore_index(), m_TorchConstantInt(&ignoreIndex)))
+  if (!matchPattern(op.getIgnoreIndex(), m_TorchConstantInt(&ignoreIndex)))
     return rewriter.notifyMatchFailure(
         op, "unimplemented, the ignore_index operand is not -100");
 
@@ -660,7 +660,7 @@ class DiscDecomposeComplexOpsPass
           "aten.view_as",
           "aten.glu"};
 
-      if (illegalSet.find(op.name().str()) != illegalSet.end()) {
+      if (illegalSet.find(op.getName().str()) != illegalSet.end()) {
         return false;
       }
       return true;

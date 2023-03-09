@@ -18,7 +18,7 @@ limitations under the License.
 // only actually implementing the Convert op for that element type. This is
 // generally not the fastest approach, but it works.
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"                // from @llvm-project
 #include "mlir/IR/Attributes.h"                          // from @llvm-project
 #include "mlir/IR/Location.h"                            // from @llvm-project

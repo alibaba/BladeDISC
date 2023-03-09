@@ -19,7 +19,7 @@ limitations under the License.
 // and on the top and bottom sides. So we manually create a new padded
 // input tensor such that we can pass it to cuDNN.
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/Attributes.h"             // TF:llvm-project
@@ -149,7 +149,7 @@ struct DiscGpuConvPaddingLegalizationPass
     Value new_padding_tensor_for_conv =
         b.create<tensor::FromElementsOp>(loc, common_padding);
 
-    SmallVector<int64_t> padded_input_shape(rank, ShapedType::kDynamicSize);
+    SmallVector<int64_t> padded_input_shape(rank, ShapedType::kDynamic);
     padded_input_shape[dimension_numbers.getInputBatchDimension()] =
         input_tp.getShape()[dimension_numbers.getInputBatchDimension()];
     padded_input_shape[dimension_numbers.getInputFeatureDimension()] =

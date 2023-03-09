@@ -27,6 +27,25 @@
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/core/util/env_var.h"
 
+#if TF_MAJOR_VERSION < 2 || (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION <= 8)
+#define TF_LE_2_8
+#endif
+
+#if defined(TF_1_12) || defined(TF_1_14) || defined(TF_LE_2_8)
+namespace tsl {
+template <typename T>
+using StatusOr = ::stream_executor::port::StatusOr<T>;
+using Status = ::stream_executor::port::Status;
+}  // namespace tsl
+
+namespace {
+tsl::Status OkStatus() { return ::stream_executor::port::Status::OK(); }
+}  // namespace
+#else
+#include "tensorflow/tsl/platform/status.h"
+#include "tensorflow/tsl/platform/statusor.h"
+#endif
+
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 
 namespace tao {
@@ -737,12 +756,13 @@ std::vector<ProfileResult> GetMIOpenAlgorithms(
 #else
 
 std::vector<AlgorithmDesc> GetAlgorithms(ConvolutionKind kind,
+                                         se::dnn::DataType input_dtype,
                                          se::StreamExecutor* stream_exec) {
   std::vector<AlgorithmDesc> algorithms;
   bool succ = false;
 #if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6) || TF_MAJOR_VERSION > 2
   // TF2.7 and later
-  succ = stream_exec->GetConvolveAlgorithms(kind, &algorithms);
+  succ = stream_exec->GetConvolveAlgorithms(kind, input_dtype, &algorithms);
 #elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 5)
   // TF2.6
   switch (kind) {
@@ -1226,14 +1246,14 @@ class ScratchAllocator : public se::ScratchAllocator {
     return GetMemoryLimitInBytesImpl();
   }
 
-  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytes(
+  tsl::StatusOr<se::DeviceMemory<uint8>> AllocateBytes(
       se::Stream* stream, int64 byte_size) override {
     return AllocateBytesImpl(byte_size);
   }
 #else
   int64 GetMemoryLimitInBytes() override { return GetMemoryLimitInBytesImpl(); }
 
-  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytes(
+  tsl::StatusOr<se::DeviceMemory<uint8>> AllocateBytes(
       int64 byte_size) override {
     return AllocateBytesImpl(byte_size);
   }
@@ -1241,8 +1261,7 @@ class ScratchAllocator : public se::ScratchAllocator {
   int64 TotalAllocatedBytes() { return total_allocated_bytes_; }
 
  private:
-  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytesImpl(
-      int64 byte_size);
+  tsl::StatusOr<se::DeviceMemory<uint8>> AllocateBytesImpl(int64 byte_size);
   // BFCAllocator is not exposed for the decoupled compiler.
   // Thus we don't have a "try allocate" mechanism in TaoBridge as in TF,
   // the host will crash once the amount of scratch memory tried to be
@@ -1260,7 +1279,7 @@ class ScratchAllocator : public se::ScratchAllocator {
   int64 total_allocated_bytes_ = 0;
 };
 
-se::port::StatusOr<se::DeviceMemory<uint8>> ScratchAllocator::AllocateBytesImpl(
+tsl::StatusOr<se::DeviceMemory<uint8>> ScratchAllocator::AllocateBytesImpl(
     int64 byte_size) {
   CHECK_GE(byte_size, 0) << "byte_size must be positive.";
   if (byte_size > GetMemoryLimitInBytesImpl()) {
@@ -1344,7 +1363,7 @@ Status RunCudnnConvolution(CudnnConvParams& params,
     TAO_VLOG(0) << "\tscratch: " << scratch_allocator;
   }
 
-  Status status = Status::OK();
+  Status status = OkStatus();
 #if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM && \
     (!TENSORFLOW_USE_DCU)
   se::dnn::CallContext call_context = se::dnn::CallContext::kNone;
@@ -1390,7 +1409,7 @@ Status RunCudnnConvolution(CudnnConvParams& params,
   if (!stream->ok()) {
     return errors::Internal("Unable to launch convolution");
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 // partial specialization for int8 kernel
@@ -1437,7 +1456,7 @@ Status RunCudnnConvolution<int8_t>(
     TAO_VLOG(0) << "\tscratch: " << scratch_allocator;
   }
 
-  Status status = Status::OK();
+  Status status = OkStatus();
 
   switch (kind) {
     case ConvolutionKind::FORWARD:
@@ -1475,7 +1494,7 @@ Status RunCudnnConvolution<int8_t>(
   if (!stream->ok()) {
     return errors::Internal("Unable to launch convolution");
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 template <typename T>
@@ -1510,7 +1529,8 @@ bool PickBestAlgorithm(CudnnConvParams& params,
     params.tensor_ops_enabled = profile_result.algorithm().tensor_ops_enabled();
     params.workspace_size = profile_result.algorithm().workspace_size();
 #else
-  for (const AlgorithmDesc& alg : GetAlgorithms(params.kind, stream_exec)) {
+  for (const AlgorithmDesc& alg :
+       GetAlgorithms(params.kind, se::dnn::ToDataType<T>::value, stream_exec)) {
     params.algo_id = alg.algo_id();
     params.tensor_ops_enabled = alg.tensor_ops_enabled();
     se::dnn::ProfileResult profile_result;

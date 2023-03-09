@@ -11,11 +11,14 @@
 
 #pragma once
 
-#include <ATen/core/ivalue.h>
 #include <string>
 #include <vector>
 
 #include "pytorch_blade/common_utils/macros.h"
+
+namespace c10 {
+class IValue;
+} // namespace c10
 
 namespace torch {
 namespace blade {

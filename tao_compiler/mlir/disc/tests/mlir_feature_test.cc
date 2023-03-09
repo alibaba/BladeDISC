@@ -164,10 +164,10 @@ bool feature_test_main(
                     output_elem_types, output_placement, expected_output_vals,
                     profiling, multi_cc_mode, multi_cc_mode_dbg_ptx_only);
   auto status = test.Run();
-  if (status != tensorflow::Status::OK()) {
+  if (status != tsl::OkStatus()) {
     VLOG(0) << "[[FAILED]]: " << status.error_message();
   }
-  return (status == tensorflow::Status::OK());
+  return (status == tsl::OkStatus());
 }
 
 bool feature_test_read_input_from_file(const std::string& mlir_file_path,
@@ -248,7 +248,6 @@ void addBoolFlags(EnvSettings& envSettings, const std::string& key) {
 EnvSettings getEnvironmentSettings() {
   EnvSettings envSettings{{}};
   addBoolFlags(envSettings, "DISC_ENABLE_STITCH");
-  addBoolFlags(envSettings, "DISC_ENABLE_SHAPE_CONSTRAINT_IR");
   addBoolFlags(envSettings, "DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL");
   return envSettings;
 }

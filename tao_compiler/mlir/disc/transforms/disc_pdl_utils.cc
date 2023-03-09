@@ -22,8 +22,8 @@ limitations under the License.
 #include "llvm/Support/ToolOutputFile.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/DialectRegistry.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
@@ -172,18 +172,19 @@ OwningOpRef<ModuleOp> compilePDLL(
 }
 
 template <int ExpectedNum>
-static void packValues(PatternRewriter& rewriter, PDLResultList& results,
-                       ArrayRef<PDLValue> values) {
+static LogicalResult packValues(PatternRewriter& rewriter,
+                                PDLResultList& results,
+                                ArrayRef<PDLValue> values) {
   int numValueInputs = static_cast<int>(values.size()) - 1;
   if (numValueInputs != ExpectedNum) {
     llvm::errs() << "PackValue expects " << ExpectedNum << " values but got "
                  << numValueInputs << "\n";
-    return;
+    return failure();
   }
 
   if (values.size() <= 1) {
     results.push_back(ValueRange{});
-    return;
+    return success();
   }
 
   auto tag = values[0].cast<Attribute>().cast<StringAttr>().getValue();
@@ -193,11 +194,13 @@ static void packValues(PatternRewriter& rewriter, PDLResultList& results,
     vs.push_back(v.cast<Value>());
   }
   results.push_back(ValueRange{vs});
+  return success();
 }
 
 template <int ExpectedNum>
-static void unpackValues(PatternRewriter& rewriter, PDLResultList& results,
-                         ArrayRef<PDLValue> values) {
+static LogicalResult unpackValues(PatternRewriter& rewriter,
+                                  PDLResultList& results,
+                                  ArrayRef<PDLValue> values) {
   assert(values.size() == 1);
   int numResults = 0;
   for (Value v : values[0].cast<ValueRange>()) {
@@ -208,12 +211,14 @@ static void unpackValues(PatternRewriter& rewriter, PDLResultList& results,
   if (numResults != ExpectedNum) {
     llvm::errs() << "PackValue expects " << ExpectedNum << " values but got "
                  << numResults << "\n";
-    return;
+    return failure();
   }
+  return success();
 }
 
-static void createCustomCall(PatternRewriter& rewriter, PDLResultList& results,
-                             ArrayRef<PDLValue> values) {
+static LogicalResult createCustomCall(PatternRewriter& rewriter,
+                                      PDLResultList& results,
+                                      ArrayRef<PDLValue> values) {
   assert(values.size() == 3);
 
   auto tag = values[0].cast<Attribute>().cast<StringAttr>().getValue();
@@ -236,11 +241,12 @@ static void createCustomCall(PatternRewriter& rewriter, PDLResultList& results,
 
   results.push_back(op);
   results.push_back(ValueRange(vs));
+  return success();
 }
 
-static void createSparseSegmentReduction(PatternRewriter& rewriter,
-                                         PDLResultList& results,
-                                         ArrayRef<PDLValue> values) {
+static LogicalResult createSparseSegmentReduction(PatternRewriter& rewriter,
+                                                  PDLResultList& results,
+                                                  ArrayRef<PDLValue> values) {
   assert(values.size() == 4);
 
   auto tag = values[0].cast<Attribute>().cast<StringAttr>().getValue();
@@ -265,22 +271,24 @@ static void createSparseSegmentReduction(PatternRewriter& rewriter,
 
   results.push_back(op);
   results.push_back(ValueRange(vs));
+  return success();
 }
 
-static void cloneOpWithNewOperand(PatternRewriter& rewriter,
-                                  PDLResultList& results,
-                                  ArrayRef<PDLValue> values) {
+static LogicalResult cloneOpWithNewOperand(PatternRewriter& rewriter,
+                                           PDLResultList& results,
+                                           ArrayRef<PDLValue> values) {
   assert(values.size() == 3);
 
   auto origin_op = values[0].cast<Operation*>();
   auto new_operand = values[1].cast<Value>();
   auto old_operand = values[2].cast<Value>();
 
-  BlockAndValueMapping mapping;
+  IRMapping mapping;
   mapping.map(old_operand, new_operand);
   rewriter.setInsertionPoint(origin_op);
   Operation* op = rewriter.clone(*origin_op, mapping);
   results.push_back(op);
+  return success();
 }
 
 static LogicalResult checkConstantTensor(PatternRewriter& rewriter,
@@ -346,8 +354,9 @@ static LogicalResult checkSliceOpAttribute(PatternRewriter& rewriter,
   return failure();
 }
 
-static void isConstantTensor(PatternRewriter& rewriter, PDLResultList& results,
-                             ArrayRef<PDLValue> values) {
+static LogicalResult isConstantTensor(PatternRewriter& rewriter,
+                                      PDLResultList& results,
+                                      ArrayRef<PDLValue> values) {
   assert(values.size() == 1);
 
   auto v = values[0].cast<Value>();
@@ -355,6 +364,7 @@ static void isConstantTensor(PatternRewriter& rewriter, PDLResultList& results,
   results.push_back(matchPattern(v, m_Constant(&denseAttr))
                         ? BoolAttr::get(v.getContext(), true)
                         : BoolAttr::get(v.getContext(), false));
+  return success();
 }
 
 void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,

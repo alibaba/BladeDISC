@@ -4,9 +4,9 @@ load("@org_tensorflow//third_party:repo.bzl", "tf_http_archive", "tf_mirror_urls
 def workspace():
     tf_http_archive(
         name = "iree-dialects",
-        sha256 = "f6ed70146b85d27c25cb4653cfb879d7954be426516b1cac230cbf5bb8b041da",
-        strip_prefix = "iree-7cd0a8cb6e1027188faa75b9361c4b10aab4707c/llvm-external-projects/iree-dialects",
-        urls = tf_mirror_urls("https://github.com/iree-org/iree/archive/7cd0a8cb6e1027188faa75b9361c4b10aab4707c.zip"),
+        sha256 = "c6e73a659835b919f1e80529501063dc4d9e1868124caf7fdfbe3dc6049c038b",
+        strip_prefix = "iree-8abd1bdb35b2a90790a3751bee2c3f435bd2521e/llvm-external-projects/iree-dialects",
+        urls = tf_mirror_urls("https://github.com/iree-org/iree/archive/8abd1bdb35b2a90790a3751bee2c3f435bd2521e.zip"),
         patch_file = ["@org_disc_compiler//third_party/iree:StructuredTransformOpsExt.cpp.patch"],
     )
 

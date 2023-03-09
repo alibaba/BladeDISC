@@ -332,7 +332,7 @@ cc_library(
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
-        "@org_tensorflow//tensorflow/stream_executor:rocm_platform",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/rocm:all_runtime",
         "@org_tensorflow//tensorflow/stream_executor/rocm:rocm_driver",
         "@local_config_rocm//rocm:rocm_headers",
     ]) + if_cuda_or_rocm([
@@ -370,7 +370,7 @@ tf_gpu_library(
     ] + if_cuda_is_configured([
         "@local_config_cuda//cuda:cuda_driver",
     ]) + if_rocm_is_configured([
-        "//tensorflow/stream_executor/rocm:rocm_driver",
+        "@org_tensorflow//tensorflow/stream_executor/rocm:rocm_driver",
     ]),
     alwayslink = 1,
 )
@@ -429,7 +429,7 @@ cc_library(
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
-        "@org_tensorflow//tensorflow/stream_executor:rocm_platform",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/rocm:all_runtime",
         "@org_tensorflow//tensorflow/stream_executor/rocm:rocm_driver",
         "@local_config_rocm//rocm:rocm_headers",
     ]),
@@ -485,7 +485,7 @@ cc_library(
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
-        "@org_tensorflow//tensorflow/stream_executor:rocm_platform",
+        "@org_tensorflow//tensorflow/compiler/xla/stream_executor/rocm:all_runtime",
         "@org_tensorflow//tensorflow/stream_executor/rocm:rocm_driver",
         "@local_config_rocm//rocm:rocm_headers",
     ]),

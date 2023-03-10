@@ -154,8 +154,10 @@ class Observer(torch.nn.Module, ABC):
             zero_point = q_min - torch.round(min_val_neg / scale).to(torch.int32)
             zero_point = torch.clamp(zero_point, q_min, q_max)
 
+        """
         LOGGER.debug(
             f'calc qparams: {self.min_val=}, {self.max_val=}, {self.q_min=}, {self.q_max=}, {self.bit=}, {self.signed=}, {scale=}, {zero_point=}')
+        """
         return scale, zero_point
 
     @classmethod

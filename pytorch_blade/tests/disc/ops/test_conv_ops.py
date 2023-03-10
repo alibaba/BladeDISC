@@ -13,9 +13,8 @@ import torch
 import torch_blade
 import unittest
 
-from tests.disc.testing_base import DiscTestCase, skipTorchLE, skipIfOnYitian
+from tests.disc.testing_base import DiscTestCase, skipTorchLE
 
-@skipIfOnYitian()
 @skipTorchLE("1.6.1")
 class TestMlirConvolution(DiscTestCase):
     def _test_conv(self, conv_func, inp_test_data=None):

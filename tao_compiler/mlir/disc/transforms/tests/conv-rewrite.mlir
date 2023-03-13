@@ -1,4 +1,4 @@
-// RUN: disc-opt -pass-pipeline='func.func(disc-conv-rewriter{gpu-sm-cc-major=8})' -split-input-file %s | FileCheck %s
+// RUN: disc-opt -pass-pipeline='builtin.module(func.func(disc-conv-rewriter{gpu-sm-cc-major=8}))' -split-input-file %s | FileCheck %s
 
 // CHECK-LABEL: @main
 func.func @main(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<?x8x7x16xf32> {

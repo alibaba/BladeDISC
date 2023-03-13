@@ -1,7 +1,7 @@
-diff --git a/lib/Dialect/mhlo/IR/hlo_ops.cc b/lib/Dialect/mhlo/IR/hlo_ops.cc
+diff --git a/mhlo/IR/hlo_ops.cc b/mhlo/IR/hlo_ops.cc
 index feb575f0..923b53e1 100644
---- a/lib/Dialect/mhlo/IR/hlo_ops.cc
-+++ b/lib/Dialect/mhlo/IR/hlo_ops.cc
+--- a/mhlo/IR/hlo_ops.cc
++++ b/mhlo/IR/hlo_ops.cc
 @@ -1784,7 +1784,7 @@ LogicalResult simplifyDynamicGatherToGather(DynamicGatherOp op,
  
  void DynamicGatherOp::getCanonicalizationPatterns(RewritePatternSet& result,

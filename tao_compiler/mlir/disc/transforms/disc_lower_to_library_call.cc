@@ -25,9 +25,9 @@ limitations under the License.
 //   of one op for different devices and different element types. For example,
 //   we may have GEMM ops with different element types.
 
+#include "lhlo/IR/lhlo_ops.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -52,6 +52,7 @@ limitations under the License.
 #include "mlir/disc/transforms/placement_utils.h"
 #include "mlir/disc/transforms/rewriters.h"
 
+#define DEBUG_TYPE "disc_lower_to_library_call.cc"
 namespace mlir {
 namespace disc_ral {
 

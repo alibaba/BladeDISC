@@ -78,17 +78,26 @@ GraphModPass = Callable[['GraphModContext'], None]
 
 class GraphModContext:
     def __init__(self, gm: GraphModule, root: nn.Module,
-                 act_ob_ctr: Callable[..., Observer],
-                 w_ob_ctr: Callable[..., Observer],
-                 bias_ob_ctr: Callable[..., Observer],
-                 module_filter: Optional[ModuleFilter]) -> None:
+                 module_filter: Optional[ModuleFilter] = None,
+                 act_ob_ctr: Optional[Callable[..., Observer]] = None,
+                 w_ob_ctr: Optional[Callable[..., Observer]] = None,
+                 bias_ob_ctr: Optional[Callable[..., Observer]] = None,
+                 is_override_module: bool = True,
+                 is_override_qconfig: bool = True
+                 ) -> None:
         self.gm = gm
         self.root = root
         self.modules = dict(self.root.named_modules(remove_duplicate=False))
+        self.module_filter = module_filter
         self.act_ob_ctr = act_ob_ctr
         self.w_ob_ctr = w_ob_ctr
         self.bias_ob_ctr = bias_ob_ctr
-        self.module_filter = module_filter
+        # used to determine whether a new observer will be constructed to
+        # override the original one when calling get_or_create_module. If
+        # the current implementation can not satisfy some situations, consider
+        # to make it a callable function.
+        self.is_override_module = is_override_module
+        self.is_override_qconfig = is_override_qconfig
 
     @property
     def quantizable_module_types(self) -> List[nn.Module]:
@@ -157,7 +166,17 @@ class GraphModContext:
     def get_or_create_module(self, full_path: str, constructor: Callable[[], nn.Module]) -> nn.Module:
         for n, m in self.root.named_modules(remove_duplicate=False):
             if n == full_path:
-                _add_module(self.gm, full_path, m)
+                if self.is_override_module:
+                    # If the following conditions are met:
+                    # 1. An observer module with the same full_path already exists
+                    # 2. The existing observer have is qparams
+                    # 3. The observer corresponding to the constructor has a from_qparams class method
+                    # then a new observer will be instantiated.
+                    # TODO (bohua.cbh): consider the situation that a module is referenced and
+                    # is duplicate in `named_modules()`
+                    if hasattr(m, "qparams") and hasattr(constructor.func, "from_qparams"):
+                        m = constructor.func.from_qparams(m.qparams)
+                self.add_module(full_path, m)
                 return m
 
         m = constructor()
@@ -170,10 +189,12 @@ class GraphModContext:
 # set QConfig to quantizable modules so we can reuse nn.intrinsic/qat modules
 # TODO(litan.ls): support other observer type and dtype
 def set_qconfig(ctx: GraphModContext) -> None:
+    is_override_qconfig = ctx.is_override_qconfig
     for node in ctx.nodes_by_module_type(ctx.quantizable_module_types):
         if ctx.is_quantizable(node.target):
             m = ctx.modules.get(node.target)
-            m.qconfig = QConfig(activation=None, weight=ctx.w_ob_ctr)
+            if is_override_qconfig:
+                m.qconfig = QConfig(activation=None, weight=ctx.w_ob_ctr)
 
 
 def fuse_modules(ctx: GraphModContext) -> None:
@@ -246,10 +267,14 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
             raise ValueError(f'{type(src)} cannot be observed.')
         act_ob = ctx.modules[node.args[0].target]
         w_ob_path = f'{node.target}.w_ob'
-        bias_ob_path = f'{node.target}.bias_ob'
         w_ob = ctx.get_or_create_module(w_ob_path, ctx.w_ob_ctr)
-        bias_ob = ctx.get_or_create_module(
-            bias_ob_path, partial(ctx.bias_ob_ctr, w_ob, act_ob))
+        bias_ob = None
+        bias_ob_ctr = partial(ctx.bias_ob_ctr, w_ob, act_ob) if ctx.bias_ob_ctr else ctx.bias_ob_ctr
+        if bias_ob_ctr:
+            bias_ob_path = f'{node.target}.bias_ob'
+            bias_ob = ctx.get_or_create_module(
+                bias_ob_path,
+                bias_ob_ctr)
         dst = dst_type.from_float(src, w_ob, bias_ob)
         ctx.replace_module(node.target, dst)
     ctx.gm.recompile()

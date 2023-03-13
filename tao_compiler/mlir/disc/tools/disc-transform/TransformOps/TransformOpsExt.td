@@ -16,10 +16,11 @@ include "mlir/Dialect/PDL/IR/PDLTypes.td"
 include "mlir/Dialect/Transform/IR/TransformAttrs.td"
 include "mlir/Dialect/Transform/IR/TransformDialect.td"
 include "mlir/Dialect/Transform/IR/TransformInterfaces.td"
-include "mlir/Interfaces/ControlFlowInterfaces.td"
-include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Dialect/Vector/Transforms/VectorTransformsBase.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/IR/OpBase.td"
+include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def DISCBufferizeOp : Op<Transform_Dialect, "disc.bufferize",
     [FunctionalStyleTransformOpTrait,
@@ -96,7 +97,7 @@ def ApplyPatternsOp : Op<Transform_Dialect, "disc.apply_patterns",
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -134,7 +135,7 @@ def FoldProducerExtractSliceOp : Op<Transform_Dialect, "disc.fold_producer_extra
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -258,7 +259,7 @@ def LowerMultiLevelPackToLoopOp : Op<Transform_Dialect, "disc.lower_multi_level_
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -362,7 +363,7 @@ def DecomposeVectorsOp : Op<Transform_Dialect, "disc.decompose_vectors",
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -417,7 +418,7 @@ def LinalgFuseOperandOp : Op<Transform_Dialect, "disc.linalg.fuse_operand",
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -506,7 +507,7 @@ def ReplaceConstPaddingValueOp : Op<Transform_Dialect, "disc.replace_const_paddi
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -530,7 +531,7 @@ def ConvertPaddingPlaceholderToConstOp : Op<Transform_Dialect, "disc.convert_pad
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -570,7 +571,7 @@ def LinalgEagerlyBackwardInitTensorOp : Op<Transform_Dialect, "disc.linalg.eager
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -774,7 +775,7 @@ def VectorizeConditionalGenericOp : Op<Transform_Dialect, "disc.vectorize_condit
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -819,7 +820,7 @@ def SplitVectorTransferIntoFullAndPartialOp : Op<Transform_Dialect, "disc.split_
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -858,7 +859,72 @@ def LowerConditionalGenericOp : Op<Transform_Dialect, "disc.lower_conditional_ge
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+// Copied from community as an workaournd for some wired bugs, e.g, it'll not
+// converge if the tile of the k is one.
+def DISCLowerVectorsOp : Op<Transform_Dialect, "disc.vector.lower_vectors",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Indicates that the vector operations nested under the isolated from above op
+    `target` should be lowered to finer-grained vector primitives.
+
+    At this time, the transform is all or nothing.
+
+    This is usally a late step that is run after bufferization as part of the
+    process of lowering to e.g. LLVM or NVVM.
+  }];
+
+  // TODO: evolve this to proper enums.
+  let arguments = (ins PDL_Operation:$target,
+     DefaultValuedAttr<VectorContractLoweringAttr,
+       "vector::VectorContractLowering::OuterProduct">:$contraction_lowering,
+     DefaultValuedAttr<VectorMultiReductionLoweringAttr,
+       "vector::VectorMultiReductionLowering::InnerParallel">:
+         $multireduction_lowering,
+     DefaultValuedAttr<VectorTransferSplitAttr,
+       "vector::VectorTransferSplit::LinalgCopy">:$split_transfers,
+     DefaultValuedAttr<VectorTransposeLoweringAttr,
+       "vector::VectorTransposeLowering::EltWise">:$transpose_lowering,
+     DefaultValuedAttr<BoolAttr, "false">:$transpose_avx2_lowering,
+     DefaultValuedAttr<BoolAttr, "true">:$unroll_vector_transfers
+  );
+  let results = (outs PDL_Operation:$results);
+
+  let builders = [
+    OpBuilder<(ins "Type":$resultType, "Value":$target,
+      "const vector::LowerVectorsOptions &":$options), [{
+        return build($_builder, $_state, resultType, target,
+          options.vectorContractLowering,
+          options.vectorMultiReductionLowering, options.vectorTransferSplit,
+          options.vectorTransposeLowering, options.transposeAVX2Lowering,
+          options.unrollVectorTransfers);
+      }]
+    >
+  ];
+
+  let assemblyFormat = [{
+    $target
+    oilist (
+      `contraction_lowering` `=` $contraction_lowering
+      | `multireduction_lowering` `=` $multireduction_lowering
+      | `split_transfers` `=` $split_transfers
+      | `transpose_lowering` `=` $transpose_lowering
+    )
+    attr-dict
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }

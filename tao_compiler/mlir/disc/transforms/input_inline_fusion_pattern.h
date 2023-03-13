@@ -12,7 +12,7 @@
 #ifndef DISC_TRANSFORMS_INPUT_INLINE_FUSION_PATTERN_H_
 #define DISC_TRANSFORMS_INPUT_INLINE_FUSION_PATTERN_H_
 
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/IR/Dominance.h"

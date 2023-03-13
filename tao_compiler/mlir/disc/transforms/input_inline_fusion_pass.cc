@@ -17,8 +17,8 @@ limitations under the License.
 //
 #include <limits>
 
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
+#include "lhlo/IR/lhlo_ops.h"
+#include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"

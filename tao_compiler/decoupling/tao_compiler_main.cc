@@ -105,7 +105,7 @@ Status RealMain(int argc, char** argv) {
 
   if (version) {
     std::cout << version_info() << std::endl;
-    return Status::OK();
+    return tsl::OkStatus();
   }
 
   tensorflow::tao::TaoCompilerInput input;
@@ -143,7 +143,7 @@ Status RealMain(int argc, char** argv) {
   auto* compiler_wrapper = status_or.value();
   TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, output_fn));
   tao::TaoCompilerTrace::Instance()->Shutdown();
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 }  // namespace tensorflow

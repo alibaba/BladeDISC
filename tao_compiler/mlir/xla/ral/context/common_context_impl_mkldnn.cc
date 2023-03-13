@@ -193,7 +193,7 @@ struct MkldnnConvState : public Context::Resource {
 bool useAclAMP() {
   static bool flag = []() {
     const char* env = getenv("DISC_CPU_ACL_USE_AMP");
-    if (!env) return true;
+    if (!env) return false;
     std::string envStr = env;
     std::transform(envStr.begin(), envStr.end(), envStr.begin(),
                    [](unsigned char c) { return std::tolower(c); });

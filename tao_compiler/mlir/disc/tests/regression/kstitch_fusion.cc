@@ -222,6 +222,7 @@ TEST(KStitchFusionCPUTest, MultiOutputs) {
   }
   setenv("DISC_ENABLE_STITCH", "true", 1);
   setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
+  setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR", "true", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_cpu_multioutputs.mlir",
       /*backend_types*/ kSupportedCPUBackendList,
@@ -231,6 +232,7 @@ TEST(KStitchFusionCPUTest, MultiOutputs) {
       /*output_descriptors*/ {"f32_X", "f32_X"}, {input_val}));
   unsetenv("DISC_ENABLE_STITCH");
   unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+  unsetenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR");
 }
 
 }  // namespace mlir_test

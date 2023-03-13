@@ -305,7 +305,7 @@ IValue toIValue(py::handle obj, const TypePtr& type, c10::optional<int32_t> N) {
     case TypeKind::AnyClassType:
     case TypeKind::AnyEnumType:
       break;
-    case TypeKind::EnumType:
+    case TypeKind::EnumType: {
       EnumTypePtr enum_type = type->expect<EnumType>();
       py::object py_obj = py::reinterpret_borrow<py::object>(obj);
       std::string name = py::cast<std::string>(obj.attr("name"));
@@ -313,6 +313,9 @@ IValue toIValue(py::handle obj, const TypePtr& type, c10::optional<int32_t> N) {
       auto enum_holder =
           c10::make_intrusive<c10::ivalue::EnumHolder>(enum_type, name, value);
       return IValue(enum_holder);
+    }
+    default:
+      break;
   }
   throw py::cast_error(c10::str(
       "toIValue() cannot handle converting to type: ", type->repr_str()));

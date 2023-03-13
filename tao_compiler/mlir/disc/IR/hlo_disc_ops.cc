@@ -20,7 +20,7 @@ limitations under the License.
 #include <mutex>
 #include <unordered_map>
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/disc/IR/custom_call_base.h"
@@ -529,7 +529,7 @@ LogicalResult ConvReifyReturnTypeImpl(
     if (lhs_dilation_attr) {
       Value input_dilation =
           to_shape_scalar_type(builder.create<arith::ConstantIndexOp>(
-              loc, lhs_dilation_attr.getValue().getValues<int64_t>()[i]));
+              loc, lhs_dilation_attr.value().getValues<int64_t>()[i]));
       effective_input_value = builder.create<arith::AddIOp>(
           loc,
           builder.create<arith::MulIOp>(
@@ -555,7 +555,7 @@ LogicalResult ConvReifyReturnTypeImpl(
     if (rhs_dilation_attr) {
       Value kernel_dilation =
           to_shape_scalar_type(builder.create<arith::ConstantIndexOp>(
-              loc, rhs_dilation_attr.getValue().getValues<int64_t>()[i]));
+              loc, rhs_dilation_attr.value().getValues<int64_t>()[i]));
       effective_kernel_size_value = builder.create<arith::AddIOp>(
           loc, one,
           builder.create<arith::MulIOp>(
@@ -571,7 +571,7 @@ LogicalResult ConvReifyReturnTypeImpl(
     if (window_strides_attr) {
       Value stride_value =
           to_shape_scalar_type(builder.create<arith::ConstantIndexOp>(
-              loc, window_strides_attr.getValue().getValues<int64_t>()[i]));
+              loc, window_strides_attr.value().getValues<int64_t>()[i]));
       output_dim_value =
           builder.create<arith::DivSIOp>(loc, output_dim_value, stride_value);
     }

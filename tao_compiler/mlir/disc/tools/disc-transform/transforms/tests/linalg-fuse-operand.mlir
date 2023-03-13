@@ -39,10 +39,13 @@ func.func @elemwise_fuse(%arg0: tensor<?x3072xf32>, %arg1: tensor<2xindex>, %arg
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {disc.transform.name = "dynamic_broadcast_in_dim"} in %arg0
-  %1 = transform.structured.match attributes {disc.transform.name = "subtract"} in %arg0
-  %2 = transform.structured.match attributes {disc.transform.name = "add"} in %arg0
+  %arg1 = transform.disc.apply_patterns %arg0 {canonicalization}
+  %0 = transform.structured.match attributes {disc.transform.name = "dynamic_broadcast_in_dim"} in %arg1 : (!pdl.operation) -> !pdl.operation
+  %1 = transform.structured.match attributes {disc.transform.name = "subtract"} in %arg1 : (!pdl.operation) -> !pdl.operation
+  %2 = transform.structured.match attributes {disc.transform.name = "add"} in %arg1 : (!pdl.operation) -> !pdl.operation
   %3 = transform.disc.linalg.fuse_operand %2 {operand_idx = 0 : i64}
-  %4 = transform.structured.match attributes {disc.transform.name = "add"} in %arg0
+  %arg2 = transform.disc.apply_patterns %arg1 {canonicalization}
+  %4 = transform.structured.match attributes {disc.transform.name = "add"} in %arg2 : (!pdl.operation) -> !pdl.operation
   %5 = transform.disc.linalg.fuse_operand %4 {operand_idx = 1 : i64}
+  transform.disc.apply_patterns %arg2 {canonicalization}
 }

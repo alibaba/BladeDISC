@@ -43,8 +43,8 @@ func.func @inline_reduction_loop_initializer(%arg0: memref<?x?xf32>, %arg1: memr
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %fill = transform.structured.match ops{["linalg.fill"]} in %arg0
-  %readers = transform.structured.match ops{["vector.transfer_read"]} in %arg0
+  %fill = transform.structured.match ops{["linalg.fill"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %readers = transform.structured.match ops{["vector.transfer_read"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   %reader_for_output, %reader_for_input = split_handles %readers in [2] : (!pdl.operation) -> (!pdl.operation, !pdl.operation)
   %loop = transform.loop.get_parent_for %reader_for_output {num_loops = 2 : i64} : (!pdl.operation) -> !pdl.operation
   transform.disc.inline_reduction_initializer %fill for reader %reader_for_output into loop %loop

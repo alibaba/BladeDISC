@@ -9,8 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "lhlo/IR/lhlo_ops.h"
 #include "llvm/ADT/Sequence.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"

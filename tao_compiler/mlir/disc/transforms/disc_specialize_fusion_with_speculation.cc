@@ -12,12 +12,11 @@
 // This file implements the logic for specializing the fusion kernel with
 // speculation.
 
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/utils/codegen_utils.h"
+#include "lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/Pass/Pass.h"       // TF:local_config_mlir
 #include "mlir/disc/disc_util.h"
@@ -26,6 +25,7 @@
 #include "mlir/disc/transforms/fusion_utils.h"
 #include "mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/core/util/env_var.h"
+#include "utils/codegen_utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -85,7 +85,7 @@ bool HasCandidateBroadcastOp(FusionOp fusion_op) {
 }
 
 struct ShapeConstraintIRCloneContext {
-  BlockAndValueMapping valueMapping;
+  IRMapping valueMapping;
   DenseMap<Value, SmallVector<SymbolicDimOp>> value2Symbols;
   DenseMap<SymbolicDimOp, SymbolicDimOp> symbolMapping;
   SymbolicDimMgr* mgr = nullptr;
@@ -308,7 +308,7 @@ struct DiscSpecializeFusionWithSpeculationPass
             SymbolicDimOp rootSym = ctx.mgr->getRootSymbolicDim(sym);
             newAttrs.push_back(FlatSymbolRefAttr::get(rootSym));
             newShapeValues.push_back(symbolicDim2SSAValue[rootSym]);
-            newShape.push_back(rootSym.isDynamic() ? ShapedType::kDynamicSize
+            newShape.push_back(rootSym.isDynamic() ? ShapedType::kDynamic
                                                    : rootSym.getDimSize());
           }
           auto oldType = operand.getType().cast<MemRefType>();

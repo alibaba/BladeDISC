@@ -11,6 +11,7 @@
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/Dialect/Vector/TransformOps/VectorTransformOps.h"
 
 namespace mlir {
 class DialectRegistry;

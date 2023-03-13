@@ -1,7 +1,7 @@
-// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=0 DISC_ENABLE_HORIZONTAL_FUSION=0 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=base})' -split-input-file %s -o - | FileCheck %s --check-prefix=BASE
-// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=0 DISC_ENABLE_HORIZONTAL_FUSION=0 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=STITCH
-// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=HORIZONTAL
-// RUN: DISC_ENABLE_COMPUTE_INTENSIVE_FUSE=1 DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=DOTFUSE
+// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=0 DISC_ENABLE_HORIZONTAL_FUSION=0 disc-opt -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=true fusion-strategy=base}))' -split-input-file %s -o - | FileCheck %s --check-prefix=BASE
+// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=0 DISC_ENABLE_HORIZONTAL_FUSION=0 disc-opt -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch}))' -split-input-file %s -o - | FileCheck %s --check-prefix=STITCH
+// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch}))' -split-input-file %s -o - | FileCheck %s --check-prefix=HORIZONTAL
+// RUN: DISC_ENABLE_COMPUTE_INTENSIVE_FUSE=1 DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch}))' -split-input-file %s -o - | FileCheck %s --check-prefix=DOTFUSE
 
 // BASE-LABEL: @simple_kloop_fusion
 // BASE-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?x?xf32, "gpu">, %[[ARG3:.*]]: memref<?x?xf32, "gpu">) -> memref<?x?xf32, "gpu">
@@ -438,7 +438,7 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
     "lmhlo.real_dynamic_slice"(%6, %2, %9, %0, %10) {disc.device = "gpu"} : (memref<?x64xf32, "gpu">, memref<2xindex, "cpu">, memref<2xindex, "cpu">, memref<2xindex, "cpu">, memref<?x32xf32, "gpu">) -> ()
     return %8, %10 : memref<?x32xf32, "gpu">, memref<?x32xf32, "gpu">
   }
-  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
   "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = true, knownNonSizeZero = true, sym_name = "C32", value = 32 : i64} : () -> ()
   "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = true, knownNonSizeZero = true, sym_name = "C64", value = 64 : i64} : () -> ()
   func.func @shape_constraint_graph() {

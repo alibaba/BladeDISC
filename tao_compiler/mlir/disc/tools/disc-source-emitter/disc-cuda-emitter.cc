@@ -68,10 +68,10 @@ static LogicalResult emitCUDASourceAndAttach(func::FuncOp func) {
         return failure();
       }
       auto instruction = source_emitter.EmitOp(&op, binding);
-      if (!instruction.hasValue()) {
+      if (!instruction.has_value()) {
         return failure();
       } else {
-        op.setAttr("cuda-code", builder.getStringAttr(instruction.getValue()));
+        op.setAttr("cuda-code", builder.getStringAttr(instruction.value()));
       }
     }
   }

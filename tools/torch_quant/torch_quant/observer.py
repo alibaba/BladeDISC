@@ -424,8 +424,8 @@ class HistogramObserver(Observer):
         self.register_buffer("histogram", torch.zeros(self.bins))
         self.register_buffer("min_val", torch.tensor(float("inf")))
         self.register_buffer("max_val", torch.tensor(float("-inf")))
-        self.register_buffer("scale", torch.tensor([1.]))
-        self.register_buffer("zero_point", torch.tensor([0], dtype=torch.int32))
+        self.register_buffer("scale", torch.tensor(1.))
+        self.register_buffer("zero_point", torch.tensor(0, dtype=torch.int32))
         self.dst_nbins = 2 ** self.bit
         self.upsample_rate = upsample_rate
 

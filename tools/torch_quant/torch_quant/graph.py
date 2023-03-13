@@ -33,8 +33,6 @@ QUANTIZABLE_MODULE_TYPES = (
     nn.Conv2d,
     nn.Conv3d,
     nn.Linear,
-    nni.LinearReLU,
-    nni.ConvReLU2d,
 )
 
 REF_TO_QUANT_MAP = {
@@ -100,23 +98,32 @@ class GraphModContext:
         self.is_override_qconfig = is_override_qconfig
 
     @property
-    def quantizable_module_types(self) -> List[nn.Module]:
+    def quantizable_module_types(self) -> Tuple[nn.Module]:
         try:
             return self._quantizable_module_types
         except AttributeError:
-            types = QUANTIZABLE_MODULE_TYPES
-            if self.module_filter.include_op_types:
-                types = list(set(types) & set(self.module_filter.include_op_types))
-            elif self.module_filter.exclude_op_types:
-                types = list(set(types) - set(self.module_filter.exclude_op_types))
-            self._quantizable_module_types = types
+
+            def _quantizable_fusion_types(types: List[nn.Module]):
+                return [v for k, v in FUSION_PATTERNS.items() if k[0] in types]
+
+            types = list(QUANTIZABLE_MODULE_TYPES)
+            types += _quantizable_fusion_types(types)
+            if self.module_filter:
+                if self.module_filter.include_op_types:
+                    include_op_types = self.module_filter.include_op_types
+                    include_op_types += _quantizable_fusion_types(include_op_types)
+                    types = list(set(types) & set(include_op_types))
+                elif self.module_filter.exclude_op_types:
+                    types = list(set(types) - set(self.module_filter.exclude_op_types))
+            self._quantizable_module_types = tuple(types)
             return self._quantizable_module_types
 
     def is_quantizable(self, module_name: str) -> bool:
-        if self.module_filter.include_names:
-            return module_name in self.module_filter.include_names
-        if self.module_filter.exclude_names:
-            return module_name not in self.module_filter.exclude_names
+        if self.module_filter:
+            if self.module_filter.include_names:
+                return module_name in self.module_filter.include_names
+            if self.module_filter.exclude_names:
+                return module_name not in self.module_filter.exclude_names
         return True
 
     def modify_graph(self, passes: Iterable[GraphModPass]) -> None:
@@ -205,10 +212,12 @@ def fuse_modules(ctx: GraphModContext) -> None:
     """
     # TODO(wanchen.swc): refactor this code to support other fusion patterns
     for fusion_pattern, fused_type in FUSION_PATTERNS.items():
+        if fusion_pattern[0] not in ctx.quantizable_module_types:
+            continue
         for last_nd in ctx.nodes_by_module_type([fusion_pattern[1]]):
             last_mod = ctx.modules.get(last_nd.target)
             first_nd = last_nd.args[0]
-            if first_nd.op != 'call_module':
+            if first_nd.op != 'call_module' or not ctx.is_quantizable(first_nd.target):
                 continue
             first_mod = ctx.modules.get(first_nd.target)
             if type(first_mod) != fusion_pattern[0]:
@@ -307,7 +316,7 @@ def quantizable_module_to_ref(ctx: GraphModContext) -> None:
         src = ctx.modules[node.target]
         fused_module = None
         if isinstance(src, nn.intrinsic._FusedModule):
-            fused_module= src
+            fused_module = src
             src = fused_module[0]
         dst_type = DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS.get(
             type(src))
@@ -316,8 +325,8 @@ def quantizable_module_to_ref(ctx: GraphModContext) -> None:
                 f'module type {type(src)} is not supported for static quantization.')
         w_ob = src.qconfig.weight()
         w_ob(src.weight)
-        # change symmetric to affine since we do not have symmetric quantized Tensor
-        # https://github.com/pytorch/pytorch/blob/v1.13.1/torch/ao/quantization/utils.py#L141
+        # update qscheme, since we don't have symmetric quant qscheme in quantized Tensor
+        # https://github.com/pytorch/pytorch/blob/v1.13.1/torch/ao/quantization/utils.py#L138
         wq_dict = w_ob.qparams._asdict()
         sym_to_aff_map = {
             torch.per_tensor_symmetric: torch.per_tensor_affine,

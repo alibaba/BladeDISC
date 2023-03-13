@@ -32,6 +32,33 @@ class ModuleFilter:
         exclude_classes: Optional[List[Type[nn.Module]]] = None,
         exclude_op_types: Optional[List[Type[nn.Module]]] = None,
     ):
+        """
+        Args:
+            include_names:
+                List of modules to quantize, identified by name.
+                If not None, only the modules in this list are quantized.
+                Example: ['foo.bar.name']
+            include_classes:
+                List of modules to quantize, identified by class (custom module).
+                If not None, only the modules in this list are quantized.
+                Example: ['MyModule']
+            include_op_types:
+                Specify the types of operators to quantize.
+                For [torch.nn.Conv2d], it will quantize torch.nn.Conv2d only.
+                It quantizes all supported operators by default.
+            exclude_names:
+                List of modules to exclude, identified by name.
+                If not None, modules in this list will be excluded from quantization.
+                Example: ['foo.bar.name']
+            exclude_classes:
+                List of modules to exclude, identified by class (custom module).
+                If not None, modules in this list will be excluded from quantization.
+                Example: ['MyModule']
+            exclude_op_types:
+                Specify the types of operators not to be quantized.
+                For [torch.nn.Conv2d], it will quantize all supported operators except
+                torch.nn.Conv2d.
+        """
         self.include_names = include_names
         self.include_classes = include_classes
         self.include_op_types = include_op_types
@@ -41,7 +68,7 @@ class ModuleFilter:
 
     def _submodule_names(self, names, module_name: str) -> Optional[List[str]]:
         """
-        If module name is 'foo', turn 'foo.bar.0' into 'bar.0'
+        If module name is 'foo', turn full path 'foo.bar.name' into 'bar.name'
         """
         if names and module_name:
             lstrip_func = lambda x : x.replace(f'{module_name}.', '', 1)
@@ -123,7 +150,7 @@ def fx_trace(root: nn.Module, module_filter: Optional[ModuleFilter] = None,
 def copy_and_replace(root: nn.Module, trace_mapping: Dict[str, TracePair]) -> nn.Module:
     def _parent_name(name):
         """
-        Turn 'foo.bar' into ['foo', 'bar']
+        Turn 'foo.bar.name' into ['foo.bar', 'name']
         """
         r = name.rsplit('.', 1)
         if len(r) == 1:

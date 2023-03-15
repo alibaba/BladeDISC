@@ -51,8 +51,7 @@ class FxTraceTest(unittest.TestCase):
 
     def test_filter_include_names(self) -> None:
         module = SimpleModule()
-        mapping = fx_trace(
-            module, module_filter=ModuleFilter(include_names=['conv']))
+        mapping = fx_trace(module, module_filter=ModuleFilter(include_names=['conv']))
         self.assertIn('conv', mapping)
         self.assertEqual(len(mapping), 1)
         self.assertIs(mapping['conv'].m, module.conv)
@@ -91,7 +90,23 @@ class FxTraceTest(unittest.TestCase):
             'untraceable_sub', module.untraceable_sub, mapping[''].gm.graph
         )
 
-    def _test_filter_include_names_with_exclude_module(
+    @parameterized.expand(
+        [
+            (
+                ModuleFilter(
+                    include_names=['traceable_sub', 'untraceable_sub.linear_relu'],
+                    exclude_names=['traceable_sub.sub'],
+                ),
+            ),
+            (
+                ModuleFilter(
+                    include_names=['traceable_sub', 'untraceable_sub.linear_relu'],
+                    exclude_classes=[SubModule],
+                ),
+            ),
+        ]
+    )
+    def test_filter_include_names_with_exclude_modules(
         self, module_filter: ModuleFilter
     ) -> None:
         module = UntraceableSimpleModule()
@@ -103,19 +118,22 @@ class FxTraceTest(unittest.TestCase):
             'sub', module.traceable_sub.sub, mapping['traceable_sub'].gm.graph
         )
 
-    def test_filter_include_names_with_exclude_names(self) -> None:
-        module_filter = ModuleFilter()
-        module_filter.include_names = ['traceable_sub', 'untraceable_sub.linear_relu']
-        module_filter.exclude_names =['traceable_sub.sub']
-        self._test_filter_include_names_with_exclude_module(module_filter)
-
-    def test_filter_include_names_with_exclude_classes(self) -> None:
-        module_filter = ModuleFilter()
-        module_filter.include_names = ['traceable_sub', 'untraceable_sub.linear_relu']
-        module_filter.exclude_classes =[SubModule]
-        self._test_filter_include_names_with_exclude_module(module_filter)
-
-    def _test_filter_include_classes_with_exclude_module(
+    @parameterized.expand(
+        [
+            (
+                ModuleFilter(
+                    include_classes=[SimpleModule],
+                    exclude_names=['traceable_sub.sub'],
+                ),
+            ),
+            (
+                ModuleFilter(
+                    include_classes=[SimpleModule], exclude_classes=[SubModule]
+                ),
+            ),
+        ]
+    )
+    def test_filter_include_classes_with_exclude_modules(
         self, module_filter: ModuleFilter
     ) -> None:
         module = UntraceableSimpleModule()
@@ -125,18 +143,6 @@ class FxTraceTest(unittest.TestCase):
         self._check_is_leaf_module(
             'sub', module.traceable_sub.sub, mapping['traceable_sub'].gm.graph
         )
-
-    def test_filter_include_classes_with_exclude_names(self) -> None:
-        module_filter = ModuleFilter()
-        module_filter.include_classes = [SimpleModule]
-        module_filter.exclude_names = ['traceable_sub.sub']
-        self._test_filter_include_classes_with_exclude_module(module_filter)
-
-    def test_filter_include_classes_with_exclude_classes(self) -> None:
-        module_filter = ModuleFilter()
-        module_filter.include_classes = [SimpleModule]
-        module_filter.exclude_classes =[SubModule]
-        self._test_filter_include_classes_with_exclude_module(module_filter)
 
     def test_custom_tracer(self) -> None:
         class CustomTracer(torch.fx.Tracer):

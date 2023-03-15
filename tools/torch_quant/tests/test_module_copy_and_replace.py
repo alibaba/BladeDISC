@@ -9,8 +9,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 import unittest
+
+import torch
+from parameterized import parameterized
 
 from tests.models import SimpleModule
 from torch_quant.module import ModuleFilter, copy_and_replace, fx_trace
@@ -23,21 +25,10 @@ class CopyAndReplaceTest(unittest.TestCase):
         copied = copy_and_replace(model, mapping)
         self.assertIs(copied, mapping[''].gm)
 
-    def test_replace_single(self) -> None:
+    @parameterized.expand([(['conv'],), (['conv', 'sub', 'linear'],)])
+    def test_replace(self, include_names) -> None:
         model = SimpleModule()
         dummy_input = torch.randn((1, 2, 5, 5))
-        include_name = 'conv'
-        module_filter = ModuleFilter(include_names=[include_name])
-        mapping = fx_trace(model, module_filter)
-        copied = copy_and_replace(model, mapping)
-        self.assertEqual(len(mapping), 1)
-        self.assertIs(getattr(copied, include_name), mapping[include_name].gm)
-        self.assertTrue(torch.equal(model(dummy_input), copied(dummy_input)))
-
-    def test_replace_multiple(self) -> None:
-        model = SimpleModule()
-        dummy_input = torch.randn((1, 2, 5, 5))
-        include_names = ['conv', 'sub', 'linear']
         module_filter = ModuleFilter(include_names=include_names)
         mapping = fx_trace(model, module_filter)
         copied = copy_and_replace(model, mapping)

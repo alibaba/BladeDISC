@@ -23,6 +23,7 @@ class TracePair(NamedTuple):
 
 # eval priority: exclude > include, name > type
 class ModuleFilter:
+    # TODO(wanchen.swc): better names for *_classes, *_op_types arguments
     def __init__(
         self,
         include_names: Optional[List[str]] = None,

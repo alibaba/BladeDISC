@@ -1378,11 +1378,19 @@ Type convertIfIntegerType(Type type) {
   return type;
 }
 
-bool needUpgradingUnsignedInteger(Operation* op) {
-  if (!llvm::any_of(op->getResults(), isUnsignedIntegerValue) &&
-      !llvm::any_of(op->getOperands(), isUnsignedIntegerValue))
-    return false;
-  return isa<lmhlo::AddOp, lmhlo::SubtractOp, lmhlo::MulOp, lmhlo::DivOp>(op);
+SmallVector<Value> convertValuesIfIntegerType(Location loc, OpBuilder* b,
+                                              ValueRange operands) {
+  SmallVector<Value> newOperands;
+  for (Value operand : operands) {
+    Type oldType = operand.getType();
+    Type newType = convertIfIntegerType(oldType);
+    Value newOperand = operand;
+    if (oldType != newType)
+      newOperand = b->create<UnrealizedConversionCastOp>(loc, newType, operand)
+                       ->getResult(0);
+    newOperands.push_back(newOperand);
+  }
+  return newOperands;
 }
 
 }  // namespace disc_ral

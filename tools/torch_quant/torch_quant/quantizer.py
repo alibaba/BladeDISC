@@ -114,22 +114,24 @@ DEFAULT_W_OB_CTR = {
 
 
 DEFAULT_BIAS_OB_CTR = BiasObserver
+DEFAULT_QAT_OB_TYPE = LSQObserver
 
 
+# Generally we will keep the qat's dtype & qscheme settings the same as the settings in ptq.
 DEFAULT_X86_QAT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    Backend.REFERENCE: partial(LSQObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
-    Backend.DISC: partial(LSQObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
-    Backend.FBGEMM: partial(LSQObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
+    Backend.REFERENCE: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_ACT_OB_CTR[Backend.REFERENCE].keywords),
+    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_ACT_OB_CTR[Backend.DISC].keywords),
+    Backend.FBGEMM: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_ACT_OB_CTR[Backend.FBGEMM].keywords),
 }
 
 
 DEFAULT_AARCH64_QAT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    Backend.DISC: partial(LSQObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
+    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_AARCH64_ACT_OB_CTR[Backend.DISC].keywords),
 }
 
 
 DEFAULT_GPU_QAT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    Backend.DISC: partial(LSQObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
+    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_GPU_ACT_OB_CTR[Backend.DISC].keywords),
 }
 
 
@@ -144,9 +146,9 @@ DEFAULT_QAT_X86_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
     # According to the url below, PyTorch's reference module does not support
     # symmetric quantization, which is confusing...
     # https://github.com/pytorch/pytorch/blob/28e69954a1fb25c20153c0e3636b9052e6962ffa/torch/ao/nn/quantized/reference/modules/utils.py#L19
-    Backend.REFERENCE: partial(LSQObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
-    Backend.DISC: partial(LSQObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
-    Backend.FBGEMM: partial(LSQObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
+    Backend.REFERENCE: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_W_OB_CTR[Backend.REFERENCE].keywords),
+    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_W_OB_CTR[Backend.DISC].keywords),
+    Backend.FBGEMM: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_W_OB_CTR[Backend.FBGEMM].keywords),
 }
 
 
@@ -154,12 +156,12 @@ DEFAULT_QAT_AARCH64_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
     # Numerical overflow happens on GEMMLowpOutputStage when use per-channel symmetric
     # So we use per-tensor symmetric for weight
     # https://github.com/ARM-software/ComputeLibrary/issues/1012
-    Backend.DISC: partial(LSQObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
+    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_AARCH64_W_OB_CTR[Backend.DISC].keywords),
 }
 
 
 DEFAULT_QAT_GPU_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    Backend.DISC: partial(LSQObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
+    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_GPU_W_OB_CTR[Backend.DISC].keywords),
 }
 
 

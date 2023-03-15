@@ -206,12 +206,10 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
         w_ob_path = f'{node.target}.w_ob'
         w_ob = ctx.get_or_create_module(w_ob_path, ctx.w_ob_ctr)
         bias_ob = None
-        bias_ob_ctr = partial(ctx.bias_ob_ctr, w_ob, act_ob) if ctx.bias_ob_ctr else ctx.bias_ob_ctr
-        if bias_ob_ctr:
+        if getattr(src, 'bias', None) is not None and ctx.bias_ob_ctr:
+            bias_ob_ctr = partial(ctx.bias_ob_ctr, w_ob, act_ob)
             bias_ob_path = f'{node.target}.bias_ob'
-            bias_ob = ctx.get_or_create_module(
-                bias_ob_path,
-                bias_ob_ctr)
+            bias_ob = ctx.get_or_create_module(bias_ob_path, bias_ob_ctr)
         dst = dst_type.from_float(src, w_ob, bias_ob)
         ctx.replace_module(node.target, dst)
     ctx.gm.recompile()

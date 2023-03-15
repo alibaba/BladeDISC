@@ -23,7 +23,15 @@ from tests.models import LinearReLU, SimpleModule, SubModule, UntraceableSimpleM
 from torch_quant.amp_module import AmpModule
 from torch_quant.module import ModuleFilter
 from torch_quant.observer import toggle_observer
-from torch_quant.quantizer import Backend, Quantizer
+from torch_quant.quantizer import (
+    DEFAULT_ACT_OB_CTR,
+    DEFAULT_QAT_ACT_OB_CTR,
+    DEFAULT_QAT_W_OB_CTR,
+    DEFAULT_W_OB_CTR,
+    Backend,
+    Device,
+    Quantizer
+)
 
 
 def parameterized_with_backends(parameters: Optional[List] = None):
@@ -84,6 +92,7 @@ class QuantizerTest(unittest.TestCase):
 
         with tempfile.NamedTemporaryFile() as tmp_file:
             torch.jit.save(ts_quant_model, tmp_file.name)
+            loaded = torch.jit.load(tmp_file.name)
             loaded = torch.jit.load(tmp_file.name)
         loaded_output = loaded(dummy_input)
         torch.testing.assert_close(quant_output, loaded_output)
@@ -233,6 +242,44 @@ class QuantizerTest(unittest.TestCase):
             self.assertTrue(isinstance(quant_model.sub.conv[0], nnqr.Conv2d))
         elif backend == Backend.FBGEMM:
             self.assertTrue(isinstance(quant_model.sub.conv, nniq.ConvReLU2d))
+
+
+    def _test_observer_type(self, t, target_t):
+        self.assertEqual(type(t), type(target_t))
+        self.assertEqual(t.dtype, target_t.dtype)
+        self.assertEqual(t.qscheme, target_t.qscheme)
+
+    @parameterized.expand([
+        (Device.X86, Backend.DISC,),
+        (Device.X86, Backend.REFERENCE,),
+        (Device.X86, Backend.FBGEMM),
+        (Device.AARCH64, Backend.DISC),
+        (Device.GPU, Backend.DISC)
+    ])
+    def test_different_device_backend(self, device, backend):
+        def check_each_observer_type(model, target_w_ob, target_act_ob):
+            linear = model.linear
+            conv = model.conv
+            if hasattr(linear, "w_ob"):
+                self._test_observer_type(linear.w_ob, target_w_ob)
+            if hasattr(conv, "w_ob"):
+                self._test_observer_type(conv.w_ob, target_w_ob)
+            self._test_observer_type(model.x_ob, target_act_ob)
+            self._test_observer_type(model.conv_ob, target_act_ob)
+            self._test_observer_type(model.flatten_ob, target_act_ob)
+            self._test_observer_type(model.linear_ob, target_act_ob)
+        dummy_input = torch.randn((1, 2, 5, 5))
+        model = SimpleModule()
+        quantizer = Quantizer(backend=backend, device=device)
+        calib_model = quantizer.calib(model)
+        ptq_w_ob = DEFAULT_W_OB_CTR[device][backend]()
+        ptq_act_ob = DEFAULT_ACT_OB_CTR[device][backend]()
+        check_each_observer_type(calib_model, ptq_w_ob, ptq_act_ob)
+        calib_model(dummy_input)
+        qat_model = quantizer.qat(model)
+        qat_w_ob = DEFAULT_QAT_W_OB_CTR[device][backend]()
+        qat_act_ob = DEFAULT_QAT_ACT_OB_CTR[device][backend]()
+        check_each_observer_type(qat_model, qat_w_ob, qat_act_ob)
 
 
 if __name__ == '__main__':

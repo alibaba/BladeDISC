@@ -180,7 +180,8 @@ def fuse_modules(ctx: GraphModContext) -> None:
         Linear + ReLU -> LinearRelu
         Conv2d + ReLU -> Conv2dRelu
     """
-    # TODO(wanchen.swc): refactor this code to support other fusion patterns
+    # TODO(wanchen.swc): refactor to support other fusion patterns
+    # TODO(wanchen.swc): refactor to extract generic pattern matching functions
     for fusion_pattern, fused_type in FUSION_PATTERNS.items():
         for last_nd in ctx.nodes_by_module_type([fusion_pattern[1]]):
             last_mod = ctx.modules.get(last_nd.target)

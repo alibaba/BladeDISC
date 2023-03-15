@@ -33,8 +33,7 @@ bool iskSparseReductionOutputFusible(Operation* op) {
 }
 
 bool isFusibleSparseReductionOp(Operation* op) {
-  return isa<lmhlo_disc::SparseSegmentReductionOp>(op) ||
-         isa<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(op);
+  return isa<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(op);
 }
 
 ////////////////////// CPU SparseOp FusionStrategy Implemenation ////////////

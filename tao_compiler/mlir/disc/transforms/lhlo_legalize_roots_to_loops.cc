@@ -4877,8 +4877,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
   if (!sparse_segment_reduction_op) {
     return dominant_op->emitError()
            << "can not cast root_ops[0] or dominant_op to "
-              "lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp "
-              "or lmhlo_disc::SparseSegmentSumOp";
+              "lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp";
   }
 
   auto loc = sparse_segment_reduction_op.getLoc();

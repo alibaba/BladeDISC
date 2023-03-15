@@ -18,7 +18,9 @@ import torch.nn.intrinsic as nni
 import torch.nn.intrinsic.quantized as nniq
 import torch.nn.quantized._reference as nnqr
 from parameterized import parameterized
+
 from tests.models import LinearReLU, SimpleModule, SubModule, UntraceableSimpleModule
+from torch_quant.amp_module import AmpModule
 from torch_quant.module import ModuleFilter
 from torch_quant.observer import toggle_observer
 from torch_quant.quantizer import Backend, Quantizer
@@ -26,11 +28,12 @@ from torch_quant.quantizer import Backend, Quantizer
 
 def parameterized_backends(backends: Optional[List] = None):
     if backends is None:
-        backends = [(Backend.REFERENCE, ), (Backend.FBGEMM, ), (Backend.DISC, )]
+        backends = [(Backend.REFERENCE,), (Backend.FBGEMM,), (Backend.DISC,)]
     # skip if fbgemm not available
     if torch.backends.quantized.engine != 'fbgemm':
-        backends.remove((Backend.FBGEMM, ))
+        backends.remove((Backend.FBGEMM,))
     return parameterized.expand(backends)
+
 
 class QuantizerTest(unittest.TestCase):
     @parameterized_backends()
@@ -116,6 +119,36 @@ class QuantizerTest(unittest.TestCase):
         out3 = quant_model(dummy_input)
         self.assertTrue(torch.equal(out2, out3))
 
+    @parameterized_backends()
+    def test_calib_amp_quantize(self, backend: Backend) -> None:
+        model = SimpleModule()
+        dummy_input = torch.randn((1, 2, 5, 5))
+        quantizer = Quantizer(backend=backend)
+        original_output = model(dummy_input)
+
+        calib_model = quantizer.calib(model)
+        calib_output = calib_model(dummy_input)
+        self.assertTrue(torch.equal(original_output, calib_output))
+
+        amp_model = quantizer.amp(model)
+        amp_modules = dict(amp_model.named_modules())
+        for name, mod in model.named_modules():
+            if type(mod) in [torch.nn.Conv2d, torch.nn.Linear]:
+                self.assertTrue(isinstance(amp_modules[name], AmpModule))
+        amp_output = amp_model(dummy_input)
+        self.assertTrue(torch.equal(original_output, amp_output))
+        quantizer.fallback(amp_model, num=2)
+        self.assertEqual(len(quantizer.module_filter.exclude_names), 2)
+
+        quant_model = quantizer.quantize(model)
+        modules = dict(model.named_modules())
+        quant_modules = dict(quant_model.named_modules())
+        for name in quantizer.module_filter.exclude_names:
+            self.assertEqual(quant_modules[name], modules[name])
+        quant_output = quant_model(dummy_input)
+        self.assertFalse(torch.equal(original_output, quant_output))
+        torch.testing.assert_close(quant_output, original_output, rtol=0.1, atol=0.5)
+
     def _test_calib_and_quantize_with_op_types_filter(
         self, backend: Backend, module_filter: ModuleFilter
     ) -> None:
@@ -137,8 +170,7 @@ class QuantizerTest(unittest.TestCase):
 
         quant_output = quant_model(dummy_input)
         self.assertFalse(torch.equal(original_output, quant_output))
-        torch.testing.assert_close(
-            quant_output, original_output, rtol=0.1, atol=0.5)
+        torch.testing.assert_close(quant_output, original_output, rtol=0.1, atol=0.5)
 
     @parameterized_backends()
     def test_calib_and_quantize_with_include_op_types(self, backend: Backend) -> None:
@@ -151,7 +183,7 @@ class QuantizerTest(unittest.TestCase):
         self._test_calib_and_quantize_with_op_types_filter(backend, module_filter)
 
     def _test_calib_and_quantize_with_module_filter(
-        self, backend: Backend, module_filter: ModuleFilter,
+        self, backend: Backend, module_filter: ModuleFilter
     ) -> None:
         model = UntraceableSimpleModule()
         quantizer = Quantizer(backend=backend, module_filter=module_filter)
@@ -171,13 +203,12 @@ class QuantizerTest(unittest.TestCase):
 
         quant_output = qmodel(dummy_input)
         self.assertFalse(torch.equal(original_output, quant_output))
-        torch.testing.assert_close(
-            quant_output, original_output, rtol=0.1, atol=0.5)
+        torch.testing.assert_close(quant_output, original_output, rtol=0.1, atol=0.5)
 
     @parameterized_backends()
     def test_calib_and_quantize_with_name_filter(self, backend: Backend) -> None:
         module_filter = ModuleFilter(
-            include_names=['traceable_sub',],
+            include_names=['traceable_sub'],
             exclude_names=['traceable_sub.sub.conv'],
             exclude_op_types=[torch.nn.Linear],
         )
@@ -186,19 +217,19 @@ class QuantizerTest(unittest.TestCase):
     @parameterized_backends()
     def test_calib_and_quantize_with_class_filter(self, backend: Backend) -> None:
         module_filter = ModuleFilter(
-            include_classes=[SimpleModule,],
+            include_classes=[SimpleModule],
             exclude_classes=[SubModule],
             include_op_types=[torch.nn.Conv2d],
         )
         self._test_calib_and_quantize_with_module_filter(backend, module_filter)
 
-    @parameterized_backends([(Backend.REFERENCE, ), (Backend.FBGEMM, )])
+    @parameterized_backends([(Backend.REFERENCE,), (Backend.FBGEMM,)])
     def test_calib_and_quantize_with_module_fusion_conv_relu(self, backend):
         model = SimpleModule()
         quantizer = Quantizer(backend=backend)
         dummy_input = torch.randn((1, 2, 5, 5))
         calib_model = quantizer.calib(model)
-        calib_output = calib_model(dummy_input)
+        calib_model(dummy_input)
         quant_model = quantizer.quantize(model)
         self.assertTrue(isinstance(calib_model.sub.conv, nni.ConvReLU2d))
         if backend == Backend.REFERENCE:
@@ -206,13 +237,13 @@ class QuantizerTest(unittest.TestCase):
         elif backend == Backend.FBGEMM:
             self.assertTrue(isinstance(quant_model.sub.conv, nniq.ConvReLU2d))
 
-    @parameterized_backends([(Backend.REFERENCE, ), (Backend.FBGEMM, )])
+    @parameterized_backends([(Backend.REFERENCE,), (Backend.FBGEMM,)])
     def test_calib_and_quantize_with_module_fusion_linear_relu(self, backend):
         model = LinearReLU()
         quantizer = Quantizer(backend=backend)
         dummy_input = torch.randn((1, 8))
         calib_model = quantizer.calib(model)
-        calib_output = calib_model(dummy_input)
+        calib_model(dummy_input)
         quant_model = quantizer.quantize(model)
         self.assertTrue(isinstance(calib_model.linear, nni.LinearReLU))
         if backend == Backend.REFERENCE:

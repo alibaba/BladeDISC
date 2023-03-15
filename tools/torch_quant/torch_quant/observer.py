@@ -164,11 +164,15 @@ class Observer(torch.nn.Module, ABC):
     def from_qparams(cls, qparams: QParams):
         raise RuntimeError(f"Instantiating a {type(cls)} from QParams is not implemented")
 
+    def set_mode(self, observe: bool, fake_quant: bool) -> None:
+        self.observe = observe
+        self.fake_quant = fake_quant
+
+
 def toggle_observer(root: nn.Module, *, observe: bool, fake_quant: bool) -> None:
     for m in root.modules():
         if isinstance(m, Observer):
-            m.observe = observe
-            m.fake_quant = fake_quant
+            m.set_mode(observe=observe, fake_quant=fake_quant)
 
 
 DTYPE_TO_BIT_SIGN = {

@@ -34,7 +34,7 @@ def create_ctx(model: nn.Module) -> GraphModContext:
 class SubModule(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.conv = nn.Conv2d(4, 4, 1)
+        self.conv = nn.Conv2d(4, 4, 1, bias=False)
         self.relu = nn.ReLU()
 
     def forward(self, x):

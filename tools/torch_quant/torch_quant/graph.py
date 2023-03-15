@@ -9,6 +9,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import logging
 from collections import defaultdict
 from functools import partial
@@ -22,6 +23,7 @@ import torch.nn.quantized as nnq
 import torch.nn.quantized._reference as nnqr
 from torch.fx import GraphModule, Node
 from torch.quantization import DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS, QConfig
+from torch_quant.amp_module import AmpModule
 from torch_quant.module import ModuleFilter
 from torch_quant.observed_module import OB_MODULE_MAPPING
 from torch_quant.observer import Observer
@@ -278,12 +280,10 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
         w_ob_path = f'{node.target}.w_ob'
         w_ob = ctx.get_or_create_module(w_ob_path, ctx.w_ob_ctr)
         bias_ob = None
-        bias_ob_ctr = partial(ctx.bias_ob_ctr, w_ob, act_ob) if ctx.bias_ob_ctr else ctx.bias_ob_ctr
-        if bias_ob_ctr:
+        if getattr(src, 'bias', None) is not None and ctx.bias_ob_ctr:
+            bias_ob_ctr = partial(ctx.bias_ob_ctr, w_ob, act_ob)
             bias_ob_path = f'{node.target}.bias_ob'
-            bias_ob = ctx.get_or_create_module(
-                bias_ob_path,
-                bias_ob_ctr)
+            bias_ob = ctx.get_or_create_module(bias_ob_path, bias_ob_ctr)
         dst = dst_type.from_float(src, w_ob, bias_ob)
         ctx.replace_module(node.target, dst)
     ctx.gm.recompile()
@@ -391,4 +391,42 @@ def fold_qdq(ctx: GraphModContext) -> None:
             ctx.gm.graph.erase_node(dq)
             ctx.gm.graph.erase_node(q)
     ctx.gm.graph.eliminate_dead_code()
+    ctx.gm.recompile()
+
+
+def quantizable_module_to_amp(ctx: GraphModContext) -> None:
+    for node in ctx.nodes_by_module_type(ctx.quantizable_module_types):
+        if not ctx.is_quantizable(node.target):
+            continue
+        src = ctx.modules[node.target]
+        fused_module = None
+        if isinstance(src, nn.intrinsic._FusedModule):
+            fused_module = src
+            src = fused_module[0]
+        dst_type = OB_MODULE_MAPPING.get(type(src))
+        if dst_type is None:
+            raise ValueError(f'{type(src)} cannot be observed.')
+        act = node.args[0]
+        act_name = act.name if act.op == 'call_function' else act.target
+        act_ob = ctx.modules[f'{act_name}_ob']
+        out_ob = ctx.modules[f'{node.target}_ob']
+        w_ob = ctx.modules.get(f'{node.target}.w_ob')
+        if w_ob is None:
+            w_ob = ctx.w_ob_ctr()
+            w_ob.set_mode(observe=True, fake_quant=False)
+            w_ob(src.weight)
+        bias_ob = None
+        if getattr(src, 'bias', None) is not None:
+            bias_ob = ctx.modules.get(f'{node.target}.bias_ob')
+            if bias_ob is None and ctx.bias_ob_ctr:
+                bias_ob = ctx.bias_ob_ctr(w_ob, act_ob)
+                bias_ob.set_mode(observe=True, fake_quant=False)
+                bias_ob(src.bias)
+        dst = dst_type.from_float(src, w_ob, bias_ob)
+        if fused_module is not None:
+            copied = copy.deepcopy(fused_module)
+            copied[0] = dst
+            dst = copied
+        amp = AmpModule(ctx.modules[node.target], dst, act_ob, out_ob)
+        ctx.replace_module(node.target, amp)
     ctx.gm.recompile()

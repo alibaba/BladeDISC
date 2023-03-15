@@ -409,13 +409,14 @@ def test_tao_compiler(root, args):
                 flag += ' --config=disc_mkldnn'
             if args.platform_alibaba:
                 flag += " --config=platform_alibaba"
+            flag += ' --test_tag_filters=-gpu'
             mlir_test_list = [
                 TARGET_DISC_IR_TEST,
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
             ] + TARGET_DISC_RAL_TESTS \
               + TARGET_DISC_TRANSFORM_DIALECT_TESTS \
-              + TARGET_DISC_PDLL_TESTS 
+              + TARGET_DISC_PDLL_TESTS
             MLIR_TESTS = " ".join(mlir_test_list)
             bazel_test(MLIR_TESTS, flag=flag)
         else:
@@ -431,6 +432,7 @@ def test_tao_compiler(root, args):
                 flag += ' --cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"'
 
             flag = test_tao_compiler_add_flags_platform_alibaba(root, args, flag)
+            flag += ' --test_tag_filters=-no_gpu'
 
             mlir_tests_list = [
                 TARGET_DISC_IR_TEST,

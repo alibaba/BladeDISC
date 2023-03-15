@@ -180,7 +180,8 @@ bool isUnsignedIntegerValue(Value val);
 
 Type convertIfIntegerType(Type type);
 
-bool needUpgradingUnsignedInteger(Operation* op);
+SmallVector<Value> convertValuesIfIntegerType(Location loc, OpBuilder* b,
+                                              ValueRange vs);
 
 struct LhloOpToStdScalarOp {
   template <typename OpTy>
@@ -190,25 +191,19 @@ struct LhloOpToStdScalarOp {
 template <typename OpTy>
 Value LhloOpToStdScalarOp::map(OpTy op, Type resultType, ValueRange operands,
                                OpBuilder* b) {
-  if (!needUpgradingUnsignedInteger(op))
-    return lmhlo::LhloOpToStdScalarOp::map<OpTy>(cast<OpTy>(op), resultType,
-                                                 operands, b);
   Location loc = op->getLoc();
-  SmallVector<Value> newOperands;
-  for (Value operand : operands) {
-    Type oldType = operand.getType();
-    Type newType = convertIfIntegerType(oldType);
-    Value newOperand = operand;
-    if (oldType != newType)
-      newOperand = b->create<UnrealizedConversionCastOp>(loc, newType, operand)
-                       ->getResult(0);
-    newOperands.push_back(newOperand);
-  }
+  auto newOperands = convertValuesIfIntegerType(loc, b, operands);
   Type newResultType = convertIfIntegerType(resultType);
-  Value result = lmhlo::LhloOpToStdScalarOp::map<OpTy>(
-      cast<OpTy>(op), resultType, newOperands, b);
+  Value result;
+  if (std::is_same<OpTy, lmhlo::ConvertOp>::value) {
+    result = mhlo::impl::mapConvertOpToStdScalarOp(
+        loc, resultType, newResultType,
+        llvm::to_vector<>(op->getOperandTypes()), newOperands, b);
+  } else {
+    result = lmhlo::LhloOpToStdScalarOp::map<OpTy>(
+        cast<OpTy>(op), newResultType, newOperands, b);
+  }
   if (newResultType != resultType) {
-    result.setType(newResultType);
     result = b->create<UnrealizedConversionCastOp>(loc, resultType, result)
                  ->getResult(0);
   }

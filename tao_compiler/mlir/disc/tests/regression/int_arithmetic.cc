@@ -130,4 +130,16 @@ TEST(I32AddTest, I32AddTest) {
       /*input_vals*/ {{-1, 127, 0, 63, -127, 33}, {1, -1}}));
 }
 
+TEST(IntTest, UI8ConvertTest) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "int_arithmetic_convert_d_ui8.mlir",
+      /*backend_types*/
+      kSupportedBackendList,
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"2x3xui8_X"},
+      /*output_descriptors*/ {"i1_X"},
+      /*input_vals*/ {{1, 127, 0, 63, 22, 33}}));
+}
+
 }  // namespace mlir_test

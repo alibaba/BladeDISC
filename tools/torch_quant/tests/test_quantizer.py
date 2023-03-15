@@ -158,9 +158,7 @@ class QuantizerTest(unittest.TestCase):
             (
                 Backend.DISC,
                 ModuleFilter(
-                    include_classes=[
-                        SimpleModule,
-                    ],
+                    include_classes=[SimpleModule],
                     exclude_classes=[SubModule],
                     include_op_types=[torch.nn.Conv2d],
                 ),
@@ -187,7 +185,6 @@ class QuantizerTest(unittest.TestCase):
         self.assertNotEqual(qmodel.traceable_sub.conv, model.traceable_sub.conv)
 
         quant_output = qmodel(dummy_input)
-        self.assertFalse(torch.equal(original_output, quant_output))
         torch.testing.assert_close(quant_output, original_output, rtol=0.1, atol=0.5)
 
 

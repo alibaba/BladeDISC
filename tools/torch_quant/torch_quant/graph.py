@@ -107,6 +107,11 @@ class GraphModContext:
                 return module_name not in self.module_filter.exclude_names
         return True
 
+    def quantizable_nodes(self) -> Iterable[Node]:
+        for node in self.nodes_by_module_type(self.quantizable_module_types):
+            if self.is_quantizable(node.target):
+                yield node
+
     def modify_graph(self, passes: Iterable[GraphModPass]) -> None:
         for p in passes:
             p(self)
@@ -178,23 +183,21 @@ class GraphModContext:
 # TODO(litan.ls): support other observer type and dtype
 def set_qconfig(ctx: GraphModContext) -> None:
     is_override_qconfig = ctx.is_override_qconfig
-    for node in ctx.nodes_by_module_type(ctx.quantizable_module_types):
-        if ctx.is_quantizable(node.target):
-            m = ctx.modules.get(node.target)
-            if is_override_qconfig:
-                m.qconfig = QConfig(activation=None, weight=ctx.w_ob_ctr)
+    for node in ctx.quantizable_nodes():
+        m = ctx.modules.get(node.target)
+        if is_override_qconfig:
+            m.qconfig = QConfig(activation=None, weight=ctx.w_ob_ctr)
 
 
 def insert_act_observer(ctx: GraphModContext) -> None:
     # key: activation node to be observed, value: consumers of observed activation
     # note that not all consumers of original activation need consum observed activation.
     act_nodes: Dict[Node, Set[Node]] = defaultdict(set)
-    for node in ctx.nodes_by_module_type(ctx.quantizable_module_types):
-        if ctx.is_quantizable(node.target):
-            for arg in node.args:
-                if isinstance(arg, Node):
-                    act_nodes[arg].add(node)
-            act_nodes[node].update(node.users)
+    for node in ctx.quantizable_nodes():
+        for arg in node.args:
+            if isinstance(arg, Node):
+                act_nodes[arg].add(node)
+        act_nodes[node].update(node.users)
     for act in act_nodes:
         # TODO(litan.ls): act.op == call_method
         if act.op == 'call_function':
@@ -224,9 +227,7 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
     Args:
         ctx (GraphModContext): Context object for graph modification.
     """
-    for node in ctx.nodes_by_module_type(ctx.quantizable_module_types):
-        if not ctx.is_quantizable(node.target):
-            continue
+    for node in ctx.quantizable_nodes():
         src = ctx.modules[node.target]
         dst_type = OB_MODULE_MAPPING.get(type(src))
         if dst_type is None:
@@ -267,9 +268,7 @@ def observer_to_qdq(ctx: GraphModContext) -> None:
 
 
 def quantizable_module_to_ref(ctx: GraphModContext) -> None:
-    for node in ctx.nodes_by_module_type(ctx.quantizable_module_types):
-        if not ctx.is_quantizable(node.target):
-            continue
+    for node in ctx.quantizable_nodes():
         src = ctx.modules[node.target]
         dst_type = DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS.get(
             type(src))

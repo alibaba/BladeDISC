@@ -138,8 +138,13 @@ void add_fake_quant_for_weight(Module& model) {
       auto scale_option =
           torch::TensorOptions().dtype(torch::kFloat32).device(device);
       at::Tensor scale_t = torch::ones(min_val_neg_t.sizes(), scale_option);
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 10
       auto zero_point_option =
           torch::TensorOptions().dtype(torch::kInt32).device(device);
+#else
+      auto zero_point_option =
+          torch::TensorOptions().dtype(torch::kInt64).device(device);
+#endif
       at::Tensor zero_point_t =
           torch::zeros(min_val_neg_t.sizes(), zero_point_option);
       // for per_channel_symmetric

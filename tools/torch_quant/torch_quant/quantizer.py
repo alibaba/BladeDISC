@@ -51,9 +51,6 @@ DEFAULT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
 }
 
 DEFAULT_W_OB_CTR = {
-    # According to the url below, PyTorch's reference module does not support
-    # symmetric quantization, which is confusing...
-    # https://github.com/pytorch/pytorch/blob/28e69954a1fb25c20153c0e3636b9052e6962ffa/torch/ao/nn/quantized/reference/modules/utils.py#L19
     Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
     Backend.DISC: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
     Backend.FBGEMM: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
@@ -95,6 +92,8 @@ class Quantizer:
         self.module_filter = module_filter
         self.backend = backend
         self.tracer = tracer
+        if backend == Backend.FBGEMM and torch.backends.quantized.engine != 'fbgemm':
+            raise ValueError('fbgemm is not available, it only for x86_64')
 
     def calib_gm(self, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes) -> None:
         ctx = GraphModContext(gm, root, ob_types.act_ob_ctr, ob_types.w_ob_ctr, ob_types.bias_ob_ctr)

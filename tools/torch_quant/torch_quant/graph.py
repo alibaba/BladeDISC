@@ -245,7 +245,16 @@ def quantizable_module_to_ref(ctx: GraphModContext) -> None:
                 f'module type {type(src)} is not supported for static quantization.')
         w_ob = src.qconfig.weight()
         w_ob(src.weight)
-        dst = dst_type.from_float(src, w_ob.qparams._asdict())
+        # update qscheme, since we don't have symmetric quant qscheme in quantized Tensor
+        # https://github.com/pytorch/pytorch/blob/v1.13.1/torch/ao/quantization/utils.py#L138
+        wq_dict = w_ob.qparams._asdict()
+        sym_to_aff_map = {
+            torch.per_tensor_symmetric: torch.per_tensor_affine,
+            torch.per_channel_symmetric: torch.per_channel_affine,
+        }
+        wq_dict['qscheme'] = sym_to_aff_map.get(wq_dict['qscheme'], wq_dict['qscheme'])
+        wq_dict['axis'] = wq_dict.pop('ch_axis')
+        dst = dst_type.from_float(src, wq_dict)
         # TODO(litan.ls): copy forward hooks
         ctx.replace_module(node.target, dst)
         LOGGER.debug(f'to_ref: {node.target}({type(src)}->{dst_type})')

@@ -143,7 +143,7 @@ class Quantizer:
     def amp_gm(
         self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes
     ) -> None:
-        mf = self.module_filter.submodule_filter(name) if self.module_filter else None
+        mf = submodule_filter(self.module_filter, name) if self.module_filter else None
         ctx = GraphModContext(
             gm, root, mf, ob_types.act_ob_ctr, ob_types.w_ob_ctr, ob_types.bias_ob_ctr
         )

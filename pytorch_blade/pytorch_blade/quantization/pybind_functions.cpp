@@ -92,7 +92,7 @@ const static std::unordered_set<std::string> weight_only_list{"aten::linear"};
 // TODO: Currently, there is not difference between the fake-quant used in
 // static quantization and that used in weight-only quantization. This will
 // make it impossible for use to distinguish between the two when doing mix
-// type quantization (e.g. use static and weight-only quantization
+// type quantization. (e.g. use static and weight-only quantization
 // simultaneously) Consider to add a new attribute like weight-only for
 // torch_blade::fake_quant
 void add_fake_quant_for_weight(Module& model) {
@@ -121,7 +121,7 @@ void add_fake_quant_for_weight(Module& model) {
       at::Tensor weight_min_t, weight_max_t;
 
       // TODO: determine dim according to the type of layer to be quantized
-      std::tie(weight_min_t, weight_max_t) = at::aminmax(weight_t, 1);
+      std::tie(weight_min_t, weight_max_t) = at::_aminmax(weight_t, 1);
 
       // TODO: calculate the quantization info based on the backend
       int32_t quant_min = -128;

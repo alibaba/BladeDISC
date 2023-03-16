@@ -45,6 +45,9 @@ amp_model = quantizer.amp(model)
 amp_model(typical_data)
 quantizer.fallback(amp_model, num=1)
 
+# create a proxy model representing quantized model
+quant_model = quantizer.quantize(model)
+
 # run inference on quantized model
 output = quant_model(typical_data)
 

@@ -91,9 +91,11 @@ def _jit_pass_quantization_postprocess(c_module):
     if is_enabled_quantization:
         if quantization_type == QuantizationType.static:
             _jit_pass_remove_all_placeholder(c_module)
-        else:
-            # dynamic quantization
+        elif quantization_type == QuantizationType.weight_only:
+            # weight-only quantization
             _jit_add_fake_quant_for_weight(c_module)
+        else:
+            raise RuntimeError(f"Unsupported quantization type: {quantization_type}")
 
 
 def is_fake_quant_op(inp_node_kind):

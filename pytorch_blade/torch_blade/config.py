@@ -32,7 +32,7 @@ class OptPipelines:
 
 class QuantizationType(Enum):
     static = 'static'
-    dynamic = 'dynamic'
+    weight_only = 'weight_only'
 
     @classmethod
     def _missing_(cls, value):

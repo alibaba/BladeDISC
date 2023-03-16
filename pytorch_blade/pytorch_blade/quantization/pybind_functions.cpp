@@ -77,18 +77,24 @@ torch::jit::Value* insert_prim_constant(
     constant_node->moveBefore(n);
   }
   return constant_node->output();
+}
 
-const static std::unordered_set<std::string> dynamic_quant_list{"aten::linear"};
+const static std::unordered_set<std::string> weight_only_list{"aten::linear"};
 
-// Prepare graph for dynamic quantization.
-// 1. extract the weight of each dynamic quantizable op
+// Prepare graph for weight-only quantization.
+// 1. extract the weight of each weight-only quantizable op
 // 2. calculate the scale & zero_point of each weight. (currently use min/max
 // observer)
 // 3. add a torch_blade.fake_quant to each weight
-
 // NOTE: This pass assumes that the graph is frozen.
 // In other words, the weight tensor of aten op is from
 // prim::Constant op instead of prim::GetAttr.
+// TODO: Currently, there is not difference between the fake-quant used in
+// static quantization and that used in weight-only quantization. This will
+// make it impossible for use to distinguish between the two when doing mix
+// type quantization (e.g. use static and weight-only quantization
+// simultaneously) Consider to add a new attribute like weight-only for
+// torch_blade::fake_quant
 void add_fake_quant_for_weight(Module& model) {
   auto g = model.get_method("forward").graph();
   Symbol sym = Symbol::fromQualString(
@@ -96,7 +102,7 @@ void add_fake_quant_for_weight(Module& model) {
 
   for (auto&& n : g->nodes()) {
     std::string node_kind_str = n->kind().toQualString();
-    if (dynamic_quant_list.find(node_kind_str) != dynamic_quant_list.end()) {
+    if (weight_only_list.find(node_kind_str) != weight_only_list.end()) {
       Value* weight_val = n->inputs()[1];
       auto weight_val_type = weight_val->type()->cast<c10::TensorType>();
       if (!weight_val_type) {

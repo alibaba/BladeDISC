@@ -155,18 +155,25 @@ class Observer(torch.nn.Module, ABC):
             zero_point = torch.clamp(zero_point, q_min, q_max)
 
         LOGGER.debug(
-            f'calc qparams: {self.min_val=}, {self.max_val=}, {self.q_min=}, {self.q_max=}, {self.bit=}, {self.signed=}, {scale=}, {zero_point=}')
+            f'calc qparams: min_val={self.min_val}, max_val={self.max_val}, '
+            f'q_min={self.q_min}, q_max={self.q_max}, bit={self.bit}, '
+            f'signed={self.signed}, scale={scale}, zero_point={zero_point}'
+        )
         return scale, zero_point
 
     @classmethod
     def from_qparams(cls, qparams: QParams):
         raise RuntimeError(f"Instantiating a {type(cls)} from QParams is not implemented")
 
+    def set_mode(self, *, observe: bool, fake_quant: bool) -> None:
+        self.observe = observe
+        self.fake_quant = fake_quant
+
+
 def toggle_observer(root: nn.Module, *, observe: bool, fake_quant: bool) -> None:
     for m in root.modules():
         if isinstance(m, Observer):
-            m.observe = observe
-            m.fake_quant = fake_quant
+            m.set_mode(observe=observe, fake_quant=fake_quant)
 
 
 DTYPE_TO_BIT_SIGN = {
@@ -422,8 +429,8 @@ class HistogramObserver(Observer):
         self.register_buffer("histogram", torch.zeros(self.bins))
         self.register_buffer("min_val", torch.tensor(float("inf")))
         self.register_buffer("max_val", torch.tensor(float("-inf")))
-        self.register_buffer("scale", torch.tensor([1.]))
-        self.register_buffer("zero_point", torch.tensor([0], dtype=torch.int32))
+        self.register_buffer("scale", torch.tensor(1.))
+        self.register_buffer("zero_point", torch.tensor(0, dtype=torch.int32))
         self.dst_nbins = 2 ** self.bit
         self.upsample_rate = upsample_rate
 

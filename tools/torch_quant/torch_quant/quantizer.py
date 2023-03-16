@@ -16,6 +16,7 @@ from typing import Callable, Dict, NamedTuple, Optional
 import torch
 import torch.nn as nn
 from torch.fx import GraphModule, Tracer
+from torch_quant.amp_module import get_fallback_names
 from torch_quant.graph import (
     GraphModContext,
     fold_qdq,
@@ -23,6 +24,7 @@ from torch_quant.graph import (
     insert_act_observer,
     observer_to_qdq,
     q_ref_dq_to_fbgemm,
+    quantizable_module_to_amp,
     quantizable_module_to_observed,
     quantizable_module_to_ref,
     set_qconfig
@@ -102,7 +104,7 @@ class Quantizer:
             raise ValueError('fbgemm is not available, it only for x86_64')
 
     def calib_gm(
-        self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes,
+        self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes
     ) -> None:
         mf = submodule_filter(self.module_filter, name) if self.module_filter else None
         ctx = GraphModContext(
@@ -137,6 +139,44 @@ class Quantizer:
         for name, traced in trace_mapping.items():
             self.calib_gm(name, traced.gm, traced.m, ob_types)
         return copy_and_replace(model, trace_mapping)
+
+    def amp_gm(
+        self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes
+    ) -> None:
+        mf = self.module_filter.submodule_filter(name) if self.module_filter else None
+        ctx = GraphModContext(
+            gm, root, mf, ob_types.act_ob_ctr, ob_types.w_ob_ctr, ob_types.bias_ob_ctr
+        )
+        if self.backend == Backend.DISC:
+            ctx.modify_graph([set_qconfig, quantizable_module_to_amp])
+        else:
+            ctx.modify_graph([set_qconfig, fuse_modules, quantizable_module_to_amp])
+        toggle_observer(gm, observe=False, fake_quant=True)
+
+    def amp(
+        self,
+        model: nn.Module,
+        act_ob_ctr: Optional[Callable[..., Observer]] = None,
+        w_ob_ctr: Optional[Callable[..., Observer]] = None,
+        bias_ob_ctr: Optional[Callable[..., Observer]] = None,
+    ) -> nn.Module:
+        ob_types = get_observer_types(
+            act_ob_ctr,
+            w_ob_ctr,
+            bias_ob_ctr,
+            DEFAULT_ACT_OB_CTR[self.backend],
+            DEFAULT_W_OB_CTR[self.backend],
+            DEFAULT_BIAS_OB_CTR,
+        )
+        trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
+        for name, traced in trace_mapping.items():
+            self.amp_gm(name, traced.gm, traced.m, ob_types)
+        return copy_and_replace(model, trace_mapping)
+
+    def fallback(self, model: nn.Module, num: int) -> None:
+        self.module_filter = self.module_filter or ModuleFilter()
+        self.module_filter.exclude_names = self.module_filter.exclude_names or list()
+        self.module_filter.exclude_names.extend(get_fallback_names(model, num))
 
     def qat_gm(
         self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes

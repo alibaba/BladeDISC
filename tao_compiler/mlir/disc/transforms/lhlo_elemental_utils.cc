@@ -18,10 +18,10 @@ limitations under the License.
 
 #include "mlir/disc/transforms/lhlo_elemental_utils.h"
 
+#include "lhlo/IR/lhlo_ops.h"
+#include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
-#include "mlir-hlo/Dialect/mhlo/transforms/map_mhlo_to_scalar_op.h"
+#include "mhlo/transforms/map_mhlo_to_scalar_op.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -332,7 +332,7 @@ Value elementalLowerImplForBroadcastInDimOps(OpBuilder* b, Location loc,
         // we know this dim is to be broadcasted at compile time
         auto zero = b->create<arith::ConstantIndexOp>(loc, 0);
         input_index.push_back(zero);
-      } else if (static_dim_size == ShapedType::kDynamicSize) {
+      } else if (static_dim_size == ShapedType::kDynamic) {
         // we are not sure if this dim is to be broadcasted at compile time.
         // To enable more optimization opportunities when dim sizes of operand
         // value and output value are the same SSA value.
@@ -798,7 +798,7 @@ Value lowerGatherOpInternal(OpBuilder* b, Location loc, Operation* op,
     add_to_operand_index(gather_dim_component, 0);
   } else {
     int64_t index_vector_size = start_indices_ty.getDimSize(index_vector_dim);
-    assert((index_vector_size != ShapedType::kDynamicSize) &&
+    assert((index_vector_size != ShapedType::kDynamic) &&
            "dynamic index_vector_dim size for GatherOp is unexpected");
     for (int64_t i = 0; i < index_vector_size; ++i) {
       gather_index_index[index_vector_dim] =
@@ -1251,7 +1251,7 @@ memref::ReinterpretCastOp createMemRef1DReinterpretCast(OpBuilder& b,
   Value stride = b.create<arith::ConstantIndexOp>(loc, 1);
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   auto memref_1d_type =
-      MemRefType::get({ShapedType::kDynamicSize}, memref_ty.getElementType(),
+      MemRefType::get({ShapedType::kDynamic}, memref_ty.getElementType(),
                       memref_ty.getLayout(), memref_ty.getMemorySpace());
   auto cast = b.create<memref::ReinterpretCastOp>(
       loc, memref_1d_type, memref, zero, ValueRange{size}, ValueRange{stride});
@@ -1378,11 +1378,19 @@ Type convertIfIntegerType(Type type) {
   return type;
 }
 
-bool needUpgradingUnsignedInteger(Operation* op) {
-  if (!llvm::any_of(op->getResults(), isUnsignedIntegerValue) &&
-      !llvm::any_of(op->getOperands(), isUnsignedIntegerValue))
-    return false;
-  return isa<lmhlo::AddOp, lmhlo::SubtractOp, lmhlo::MulOp, lmhlo::DivOp>(op);
+SmallVector<Value> convertValuesIfIntegerType(Location loc, OpBuilder* b,
+                                              ValueRange operands) {
+  SmallVector<Value> newOperands;
+  for (Value operand : operands) {
+    Type oldType = operand.getType();
+    Type newType = convertIfIntegerType(oldType);
+    Value newOperand = operand;
+    if (oldType != newType)
+      newOperand = b->create<UnrealizedConversionCastOp>(loc, newType, operand)
+                       ->getResult(0);
+    newOperands.push_back(newOperand);
+  }
+  return newOperands;
 }
 
 }  // namespace disc_ral

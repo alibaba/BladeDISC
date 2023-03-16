@@ -94,9 +94,40 @@ cc_library(
     visibility = [
         "//visibility:private"
     ],
-    deps = if_torch_disc(
-        ["@mlir-hlo//:mlir_hlo"],
-        ["@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo"]
+    deps = if_torch_disc([
+         "@mlir-hlo//:mlir_hlo",
+         "@mlir-hlo//:legalize_to_linalg_utils",
+         "@mlir-hlo//:mhlo_passes",
+         "@mlir-hlo//:codegen_utils",
+         "@mlir-hlo//:placement_utils",
+        ], [
+         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mhlo_passes",
+         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:legalize_to_linalg_utils",
+         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:codegen_utils",
+         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:placement_utils",
+        ]
+    )
+)
+
+cc_library(
+    name = "mlir_lhlo_delegate",
+    visibility = [
+        "//visibility:private"
+    ],
+    deps = if_torch_disc([
+         "@mlir-hlo//:lhlo",
+         "@mlir-hlo//:lhlo_gpu",
+         "@mlir-hlo//:map_hlo_to_lhlo_op",
+         "@mlir-hlo//:lmhlo_passes",
+         "@mlir-hlo//:map_lmhlo_to_scalar_op",
+        ], [
+         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo_gpu",
+         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lmhlo_passes",
+         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_hlo_to_lhlo_op",
+         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+       ]
     )
 )
 
@@ -337,6 +368,7 @@ cc_library(
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:placement_utils",
         "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
@@ -436,25 +468,6 @@ cc_library(
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:Transforms",
         "@org_tensorflow//tensorflow/core:lib",
-    ],
-    alwayslink = 1,
-)
-
-cc_library(
-    name = "disc_mhlo_cse",
-    srcs = ["transforms/disc_cse.cc"],
-    hdrs = ["transforms/passes.h"],
-    includes = [
-        "tensorflow/compiler/xla/mlir_hlo/include",
-        "."
-    ],
-    deps = [
-        ":pass_details",
-        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "@llvm-project//mlir:FuncDialect",
-        "@llvm-project//mlir:IR",
-        "@llvm-project//mlir:Pass",
-        "@llvm-project//mlir:Transforms",
     ],
     alwayslink = 1,
 )
@@ -621,6 +634,7 @@ cc_library(
         ":pass_details",
         ":placement_utils",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:codegen_utils",
         "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Core",
         "@llvm-project//mlir:Dialect",
@@ -784,6 +798,7 @@ cc_library(
         ":placement_utils",
         ":shape_utils",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:placement_utils",
         "@llvm-project//llvm:Core",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
@@ -2119,6 +2134,7 @@ cc_library(
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:Transforms",
         "@llvm-project//mlir:VectorDialect",
+        "@llvm-project//mlir:VectorTransformOps",
     ],
     alwayslink = 1,
 )
@@ -2194,7 +2210,6 @@ cc_library(
         ":disc_lower_tf",
         ":disc_lower_quantize_and_dequantize",
         ":disc_lower_to_library_call",
-        ":disc_mhlo_cse",
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
         ":disc_outline_cpu_kernel",
@@ -2479,6 +2494,7 @@ cc_library(
         ":mhlo_disc_enums_inc_gen",
         ":mhlo_disc_ops_inc_gen",
         ":mlir_hlo_delegate",
+        ":mlir_lhlo_delegate",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Analysis",
         "@llvm-project//mlir:ControlFlowInterfaces",

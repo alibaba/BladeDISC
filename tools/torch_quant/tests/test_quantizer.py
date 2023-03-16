@@ -14,6 +14,9 @@ import unittest
 from typing import Optional
 
 import torch
+import torch.nn.intrinsic as nni
+import torch.nn.intrinsic.quantized as nniq
+import torch.nn.quantized._reference as nnqr
 from parameterized import parameterized
 
 from tests.models import SimpleModule, SubModule, UntraceableSimpleModule
@@ -22,10 +25,16 @@ from torch_quant.observer import toggle_observer
 from torch_quant.quantizer import Backend, Quantizer
 
 
+def parameterized_backend(backend):
+    # skip if fbgemm not available
+    if torch.backends.quantized.engine != 'fbgemm':
+        backend.remove((Backend.FBGEMM, ))
+    return parameterized.expand(backend)
+
 class QuantizerTest(unittest.TestCase):
-    @parameterized.expand([
+    @parameterized_backend([
         (Backend.REFERENCE, ),
-        # (Backend.FBGEMM, ), TODO(litan.ls): select test according to ci env
+        (Backend.FBGEMM, ),
         (Backend.DISC, ),
     ])
     def test_calib_and_quantize(self, backend: Backend) -> None:
@@ -58,8 +67,8 @@ class QuantizerTest(unittest.TestCase):
         with tempfile.NamedTemporaryFile() as tmp_file:
             torch.save(model.state_dict(), tmp_file.name)
             loaded_model = SimpleModule()
-            quantizer.calib(loaded_model).load_state_dict(
-                torch.load(tmp_file.name))
+            quantizer.calib(loaded_model)
+            loaded_model.load_state_dict(torch.load(tmp_file.name))
             loaded_quant_output = quantizer.quantize(loaded_model)(dummy_input)
         quant_output = quantizer.quantize(model)(dummy_input)
         self.assertTrue(torch.equal(loaded_quant_output, quant_output))
@@ -186,6 +195,27 @@ class QuantizerTest(unittest.TestCase):
 
         quant_output = qmodel(dummy_input)
         torch.testing.assert_close(quant_output, original_output, rtol=0.1, atol=0.5)
+
+
+    @parameterized.expand([
+        (Backend.REFERENCE, ),
+        # (Backend.FBGEMM, ),
+    ])
+    def test_calib_and_quantize_with_module_fusion(self, backend):
+        model = SimpleModule()
+        quantizer = Quantizer(backend=backend)
+        dummy_input = torch.randn((1, 2, 5, 5))
+        calib_model = quantizer.calib(model)
+        calib_output = calib_model(dummy_input)
+        quant_model = quantizer.quantize(model)
+        self.assertTrue(isinstance(calib_model.sub.conv, nni.ConvReLU2d))
+        self.assertTrue(isinstance(calib_model.linear, nni.LinearReLU))
+        if backend == Backend.REFERENCE:
+            self.assertTrue(isinstance(quant_model.sub.conv[0], nnqr.Conv2d))
+            self.assertTrue(isinstance(quant_model.linear[0], nnqr.Linear))
+        elif backend == Backend.FBGEMM:
+            self.assertTrue(isinstance(quant_model.sub.conv, nniq.ConvReLU2d))
+            self.assertTrue(isinstance(quant_model.linear, nniq.LinearReLU))
 
 
 if __name__ == '__main__':

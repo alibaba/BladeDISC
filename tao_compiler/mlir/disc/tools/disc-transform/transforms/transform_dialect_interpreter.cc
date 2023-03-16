@@ -13,7 +13,7 @@
 #include "iree-dialects/Dialect/LinalgExt/TransformOps/LinalgExtTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/LinalgTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
-#include "iree-dialects/Dialect/LinalgTransform/TransformInterpreterUtils.h"
+#include "iree-dialects/Dialect/LinalgTransform/TransformInterpreterPassBase.h"
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -134,7 +134,7 @@ void DiscTransformDialectInterpreterPass::runOnOperation() {
     for (auto op :
          transformModule.getBody()->getOps<transform::TransformOpInterface>()) {
       if (failed(transform::applyTransforms(
-              module, op,
+              module, op, {},
               transform::TransformOptions().enableExpensiveChecks(
                   enableExpensiveChecks_))))
         return signalPassFailure();
@@ -152,7 +152,7 @@ void DiscTransformDialectInterpreterPass::runOnOperation() {
                        .getBody()
                        ->getOps<transform::TransformOpInterface>()) {
       if (failed(transform::applyTransforms(
-              module, op,
+              module, op, {},
               transform::TransformOptions().enableExpensiveChecks(
                   enableExpensiveChecks_))))
         return signalPassFailure();

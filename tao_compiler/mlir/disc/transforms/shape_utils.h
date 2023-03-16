@@ -15,7 +15,7 @@
 
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallVector.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_SHAPE_UTILS_H_
@@ -27,11 +27,11 @@ namespace disc_ral {
 // Represents a symbolic dimension.
 class SymbolDim {
  public:
-  SymbolDim(int64_t dim_size = ShapedType::kDynamicSize) : dimSize_(dim_size) {}
+  SymbolDim(int64_t dim_size = ShapedType::kDynamic) : dimSize_(dim_size) {}
 
   int64_t getDimSize() { return dimSize_; }
 
-  bool isDynamic() { return getDimSize() == ShapedType::kDynamicSize; }
+  bool isDynamic() { return getDimSize() == ShapedType::kDynamic; }
 
   LogicalResult Merge(SymbolDim* other);
 

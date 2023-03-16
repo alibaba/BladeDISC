@@ -18,7 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
+#include "mhlo/IR/hlo_ops.h" // from mhlo
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
@@ -97,7 +97,7 @@ class VerifyMhloBackendContractPass
     auto module = getOperation();
     SmallVector<mlir::Operation*> toDestroy;
     module.walk([&](func::FuncOp func) {
-      reduceTensorConversions(func);
+      (void)reduceTensorConversions(func);
       // After the refinement all used arguments are changed to builtin tensor.
       // There exists some arguments have no users, but should be update.
       // Such as the following `%arg1`:
@@ -127,7 +127,10 @@ class VerifyMhloBackendContractPass
       op->erase();
     }
 
-    ::mlir::PassManager pm(context, ::mlir::OpPassManager::Nesting::Implicit);
+    ::mlir::PassManager pm(
+        context,
+        module.getOperationName(),
+        ::mlir::OpPassManager::Nesting::Implicit);
     // Clean up any non-canonical code introduced above..
     pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
     // The resolution of `dim` ops tends to create identical ops. CSE them.

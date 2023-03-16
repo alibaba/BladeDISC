@@ -1,5 +1,5 @@
 // RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=0 DISC_ENABLE_HORIZONTAL_FUSION=0 disc-opt \
-// RUN:   -pass-pipeline='func.func(disc-specialize-fusion-with-speculation{core-count=72 max-threads-per-core=1536})' \
+// RUN:   -pass-pipeline='builtin.module(func.func(disc-specialize-fusion-with-speculation{core-count=72 max-threads-per-core=1536}))' \
 // RUN:   %s --split-input-file | FileCheck %s
 
 // CHECK-LABEL: simple_broadcast_specialization

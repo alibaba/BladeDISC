@@ -47,7 +47,7 @@ struct Canonicalizer : public CanonicalizerBase<Canonicalizer> {
   }
 
   void runOnOperation() override {
-    (void)applyPatternsAndFoldGreedily(getOperation()->getRegions(), patterns);
+    (void)applyPatternsAndFoldGreedily(getOperation(), patterns);
   }
 
   FrozenRewritePatternSet patterns;

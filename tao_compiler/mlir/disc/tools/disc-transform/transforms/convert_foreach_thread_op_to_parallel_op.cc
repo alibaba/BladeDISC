@@ -13,7 +13,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -48,7 +48,7 @@ struct ForeachThreadToParallel : public OpRewritePattern<ForeachThreadOp> {
 
     auto parallelOp =
         rewriter.create<scf::ParallelOp>(loc, lowerBounds, upperBounds, steps);
-    BlockAndValueMapping mapping;
+    IRMapping mapping;
     for (const auto& z : llvm::zip(foreachThreadOp.getThreadIndices(),
                                    parallelOp.getInductionVars()))
       mapping.map(std::get<0>(z), std::get<1>(z));

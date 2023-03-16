@@ -93,8 +93,8 @@ func.func @dynamic_broadcast_in_dim(%arg0 : tensor<?x?xf32, [@S0, @S1]>, %arg1: 
 // CHECK-SAME: sym_name = "S0"
 // CHECK-DAG: "disc_shape.SymbolicDim"()
 // CHECK-SAME: sym_name = "S1"
-"disc_shape.SymbolicDim"() {sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {sym_name = "S1", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
 
 // -----
 
@@ -146,9 +146,9 @@ func.func @dynamic_broadcast_in_dim_of_reshape(%arg0: tensor<?x?xf32, [@S0, @S1]
 // CHECK-SAME: sym_name = "S2"
 // CHECK-DAG: "disc_shape.SymbolicDim"()
 // CHECK-SAME: sym_name = "C1"
-"disc_shape.SymbolicDim"() {sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {sym_name = "S1", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {sym_name = "S2", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {sym_name = "S2", value = -9223372036854775808 : i64} : () -> ()
 "disc_shape.SymbolicDim"() {sym_name = "C1", value = 1 : i64} : () -> ()
 
 // -----

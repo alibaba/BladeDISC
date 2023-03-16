@@ -1,5 +1,5 @@
 // RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt \
-// RUN:   -pass-pipeline='func.func(disc-specialize-fusion-with-speculation{core-count=72 max-threads-per-core=1536})' \
+// RUN:   -pass-pipeline='builtin.module(func.func(disc-specialize-fusion-with-speculation{core-count=72 max-threads-per-core=1536}))' \
 // RUN:   %s --split-input-file | FileCheck %s
 
 // CHECK-LABEL: simple_broadcast_specialization
@@ -29,34 +29,35 @@ func.func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
   // CHECK-DAG: %[[TT8:.*]] = memref.reinterpret_cast %[[T8]]
 
   // CHECK: %[[c0_1:.*]] = arith.constant 0 : index
-  // CHECK: %[[T9:.*]] = memref.dim %[[TT3]], %[[c0_1]] : memref<?x?xf32, "gpu">
+  // CHECK: %[[TT9:.*]] = memref.dim %[[TT3]], %[[c0_1]] : memref<?x?xf32, "gpu">
   // CHECK: %[[c0_2:.*]] = arith.constant 0 : index
-  // CHECK: %[[T10:.*]] = memref.dim %[[TT7]], %[[c0_2]] : memref<?x?xf32, "gpu">
-  // CHECK: %[[T11:.*]] = arith.cmpi eq, %[[T9]], %[[T10]] : index
+  // CHECK: %[[TT10:.*]] = memref.dim %[[TT7]], %[[c0_2]] : memref<?x?xf32, "gpu">
+  // CHECK: %[[TT11:.*]] = arith.cmpi eq, %[[TT9]], %[[TT10]] : index
   // CHECK: %[[c1_3:.*]] = arith.constant 1 : index
-  // CHECK: %[[T12:.*]] = memref.dim %[[TT3]], %[[c1_3]] : memref<?x?xf32, "gpu">
+  // CHECK: %[[TT12:.*]] = memref.dim %[[TT3]], %[[c1_3]] : memref<?x?xf32, "gpu">
   // CHECK: %[[c1_4:.*]] = arith.constant 1 : index
-  // CHECK: %[[T13:.*]] = memref.dim %[[TT7]], %[[c1_4]] : memref<?x?xf32, "gpu">
-  // CHECK: %[[T14:.*]] = arith.cmpi eq, %[[T12]], %[[T13]] : index
-  // CHECK: %[[T15:.*]] = arith.andi %[[T14]], %[[T11]] : i1
-  // CHECK: scf.if %[[T15]] {
-  // CHECK-DAG:   %[[CastedT3:.*]] = memref.reinterpret_cast %[[TT3]]
-  // CHECK-DAG:   %[[CastedT6:.*]] = memref.reinterpret_cast %[[TT6]]
-  // CHECK-DAG:   %[[CastedT8:.*]] = memref.reinterpret_cast %[[TT8]]
+  // CHECK: %[[TT13:.*]] = memref.dim %[[TT7]], %[[c1_4]] : memref<?x?xf32, "gpu">
+  // CHECK: %[[TT14:.*]] = arith.cmpi eq, %[[TT12]], %[[TT13]] : index
+  // CHECK: %[[TT15:.*]] = arith.andi %[[TT14]], %[[TT11]] : i1
+  // CHECK: scf.if %[[TT15]] {
+  // CHECK-DAG: %[[TTT3:.*]] = memref.reinterpret_cast %[[TT3]]
+  // CHECK-DAG: %[[TTT6:.*]] = memref.reinterpret_cast %[[TT6]]
+  // CHECK-DAG: %[[TTT8:.*]] = memref.reinterpret_cast %[[TT8]]
   // CHECK:   "lmhlo.fusion"() ({
-  // CHECK:     "lmhlo.constant"
-  // CHECK:     "lmhlo.dynamic_broadcast_in_dim"(%[[T9:.*]], %[[T5:.*]], %[[CastedT6]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (memref<f32, "gpu">, memref<2xindex>, memref<?x?xf32, "gpu">) -> ()
-  // CHECK:     "lmhlo.add"(%[[CastedT6]], %[[CastedT3]], %[[CastedT8]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  // CHECK:     "lmhlo.terminator"() : () -> ()
-  // CHECK:   })
-  // CHECK: } else {
-  // CHECK:   "lmhlo.fusion"() ({
-  // CHECK:     "lmhlo.constant"
-  // CHECK:     "lmhlo.dynamic_broadcast_in_dim"(%[[T9]], %[[T5]], %[[T6]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (memref<f32, "gpu">, memref<2xindex>, memref<?x?xf32, "gpu">) -> ()
-  // CHECK:     "lmhlo.dynamic_broadcast_in_dim"(%[[T3]], %[[T5]], %[[T7]]) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (memref<?x?xf32, "gpu">, memref<2xindex>, memref<?x?xf32, "gpu">) -> ()
-  // CHECK:     "lmhlo.add"(%[[T6]], %[[T7]], %[[T8]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  // CHECK:     "lmhlo.terminator"() : () -> ()
-  // CHECK:   })
+  // CHECK-NEXT:     "lmhlo.constant"
+  // CHECK-NEXT:     "lmhlo.dynamic_broadcast_in_dim"(%[[T9]], %[[T5:.*]], %[[TTT6]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (memref<f32, "gpu">, memref<2xindex>, memref<?x?xf32, "gpu">) -> ()
+  // CHECK-NEXT:     "lmhlo.add"(%[[TTT6]], %[[TTT3]], %[[TTT8]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
+  // CHECK-NEXT:     "lmhlo.terminator"() : () -> ()
+  // CHECK-NEXT:   })
+  // CHECK-NEXT: } else {
+  // CHECK-NEXT:   "lmhlo.fusion"() ({
+  // CHECK-NEXT:     "lmhlo.constant"
+  // CHECK-NEXT:     "lmhlo.dynamic_broadcast_in_dim"(%[[T9]], %[[T5]], %[[T6]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (memref<f32, "gpu">, memref<2xindex>, memref<?x?xf32, "gpu">) -> ()
+  // CHECK-NEXT:     "lmhlo.dynamic_broadcast_in_dim"(%[[T3]], %[[T5]], %[[T7]]) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (memref<?x?xf32, "gpu">, memref<2xindex>, memref<?x?xf32, "gpu">) -> ()
+  // CHECK-NEXT:     "lmhlo.add"(%[[T6]], %[[T7]], %[[T8]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
+  // CHECK-NEXT:     "lmhlo.terminator"() : () -> ()
+  // CHECK-NEXT:   })
+  // CHECK-SAME: disc.fusion.name = "test1"
   // CHECK: }
   "lmhlo.fusion"() ({
     "lmhlo.constant"(%9) {value = dense<1.000000e+00> : tensor<f32>} : (memref<f32, "gpu">) -> ()
@@ -69,10 +70,10 @@ func.func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
   "disc_ral.send_output"(%arg0, %c0_1, %8) : (!disc_ral.context, index, memref<?x?xf32, "gpu">) -> ()
   return
 }
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -1 : i64} : () -> ()
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -9223372036854775808 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -9223372036854775808 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return
 }

@@ -52,11 +52,11 @@ limitations under the License.
 #include <unordered_set>
 #include <utility>
 
+#include "lhlo/IR/lhlo_ops.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
@@ -320,10 +320,10 @@ class DynamicBroadcastInDimOpSimplifier
     for (std::size_t i = 0; i < inputTy.getRank(); i++) {
       bool matched = false;
       for (; reshapeDimIdx < reshapeTy.getRank() && !matched; reshapeDimIdx++) {
-        // Either both kDynamicSize, or the same static-shape value.
+        // Either both kDynamic, or the same static-shape value.
         if (reshapeDimValues[reshapeDimIdx].value == inputShape[i]) {
           // Check dynamic dim value.
-          if (inputShape[i] == ShapedType::kDynamicSize) {
+          if (inputShape[i] == ShapedType::kDynamic) {
             // It should be the dim-op of input's i-th dim. That is, the `index`
             // of dim-op should be `i`. Note that we already checked that the
             // source of dim-op is the input of reshape.

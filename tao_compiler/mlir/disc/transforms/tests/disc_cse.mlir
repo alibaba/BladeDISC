@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-mhlo-cse -split-input-file %s -o - | FileCheck %s
+// RUN: disc-opt -cse -split-input-file %s -o - | FileCheck %s
 
 // CHECK-LABEL: func.func @multiple_reduce
 func.func @multiple_reduce(%arg0: tensor<?x?x?x?xf16>) -> tensor<?xf16> {

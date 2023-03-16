@@ -59,13 +59,13 @@ Status CompilerMLIR_GPU::Init(const TaoCompilerInput& input,
   //                          CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK,
   //                          device),
   //     "cuDeviceGetAttribute (MAX_THREADS_PER_BLOCK)");
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 Status CompilerMLIR_GPU::FillDeviceInfo(
     mlir::disc_ral::DISCLoweringOptions& options) {
   options.gpu_info = impl_->device_context;
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 }  // namespace tao

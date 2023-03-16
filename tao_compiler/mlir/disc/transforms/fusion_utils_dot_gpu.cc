@@ -263,7 +263,7 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
       return false;
     }
     auto dim_1 = memref_ty.getDimSize(1);
-    if (dim_1 == ShapedType::kDynamicSize) {
+    if (dim_1 == ShapedType::kDynamic) {
       return false;
     }
   }

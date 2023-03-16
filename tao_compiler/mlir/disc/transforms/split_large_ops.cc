@@ -18,7 +18,7 @@ limitations under the License.
 
 #include <iostream>
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Attributes.h"                          // TF:llvm-project
 #include "mlir/IR/Location.h"                            // TF:llvm-project
@@ -67,7 +67,7 @@ struct ConvertConcatOp : public OpRewritePattern<mhlo::ConcatenateOp> {
     }
 
     auto rank = result_tp.getRank();
-    SmallVector<int64_t, 4> sub_result_shape(rank, ShapedType::kDynamicSize);
+    SmallVector<int64_t, 4> sub_result_shape(rank, ShapedType::kDynamic);
     for (int64_t i = 0; i < rank; i++) {
       if (i != op.getDimension()) {
         sub_result_shape[i] = result_tp.getDimSize(i);

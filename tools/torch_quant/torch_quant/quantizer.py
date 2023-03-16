@@ -19,6 +19,7 @@ from torch.fx import GraphModule, Tracer
 from torch_quant.graph import (
     GraphModContext,
     fold_qdq,
+    fuse_modules,
     insert_act_observer,
     observer_to_qdq,
     q_ref_dq_to_fbgemm,
@@ -34,6 +35,7 @@ from torch_quant.module import (
 )
 from torch_quant.observer import (
     BiasObserver,
+    HistogramObserver,
     LSQObserver,
     MinMaxObserver,
     Observer,
@@ -51,13 +53,10 @@ class Backend(Enum):
 DEFAULT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
     Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
     Backend.DISC: partial(MinMaxObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
-    Backend.FBGEMM: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
+    Backend.FBGEMM: partial(HistogramObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
 }
 
 DEFAULT_W_OB_CTR = {
-    # According to the url below, PyTorch's reference module does not support
-    # symmetric quantization, which is confusing...
-    # https://github.com/pytorch/pytorch/blob/28e69954a1fb25c20153c0e3636b9052e6962ffa/torch/ao/nn/quantized/reference/modules/utils.py#L19
     Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
     Backend.DISC: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
     Backend.FBGEMM: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
@@ -99,6 +98,8 @@ class Quantizer:
         self.module_filter = module_filter
         self.backend = backend
         self.tracer = tracer
+        if backend == Backend.FBGEMM and torch.backends.quantized.engine != 'fbgemm':
+            raise ValueError('fbgemm is not available, it only for x86_64')
 
     def calib_gm(
         self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes,
@@ -120,7 +121,7 @@ class Quantizer:
                 quantizable_module_to_observed,
             ])
         else:
-            ctx.modify_graph([set_qconfig, insert_act_observer])
+            ctx.modify_graph([set_qconfig, fuse_modules, insert_act_observer])
         toggle_observer(gm, observe=True, fake_quant=False)
 
     def calib(self, model: nn.Module,
@@ -192,6 +193,7 @@ class Quantizer:
         elif self.backend == Backend.REFERENCE:
             ctx.modify_graph([
                 set_qconfig,
+                fuse_modules,
                 insert_act_observer,
                 observer_to_qdq,
                 quantizable_module_to_ref,
@@ -199,6 +201,7 @@ class Quantizer:
         elif self.backend == Backend.FBGEMM:
             ctx.modify_graph([
                 set_qconfig,
+                fuse_modules,
                 insert_act_observer,
                 observer_to_qdq,
                 quantizable_module_to_ref,
@@ -207,6 +210,8 @@ class Quantizer:
             ])
         else:
             raise ValueError(f'Unsupported backend {self.backend.name}')
+        # remove unused modules (e.g. observers) or the following tracing might fail
+        ctx.gm.delete_all_unused_submodules()
 
     def quantize(self, model: nn.Module) -> nn.Module:
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)

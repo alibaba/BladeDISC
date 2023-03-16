@@ -21,7 +21,7 @@ func.func @fold_extracted_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: ind
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
-  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1
+  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %slice = get_producer_of_operand %fill[1] : (!pdl.operation) -> !pdl.operation
   transform.disc.fold_producer_extract_slice %slice {max_repeat_num = 1}
 }
@@ -51,7 +51,7 @@ func.func @fold_two_extracted_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2:
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
-  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1
+  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %slice = get_producer_of_operand %fill[1] : (!pdl.operation) -> !pdl.operation
   transform.disc.fold_producer_extract_slice %slice {max_repeat_num = 2}
 }

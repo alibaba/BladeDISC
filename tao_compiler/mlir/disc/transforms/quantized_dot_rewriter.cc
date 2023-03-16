@@ -10,7 +10,7 @@
 // limitations under the License.
 #include <unordered_set>
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Attributes.h"                          // TF:llvm-project
 #include "mlir/IR/Operation.h"                           // TF:llvm-project

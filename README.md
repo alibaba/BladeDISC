@@ -1,5 +1,6 @@
 # BladeDISC Introduction <!-- omit in toc -->
 
+- [What's New](#whats-new)
 - [Overview](#overview)
   - [Features and Roadmap](#features-and-roadmap)
     - [Frontend Framework Support Matrix](#frontend-framework-support-matrix)
@@ -18,6 +19,7 @@
 - [Building Status](#building-status)
 - [FAQ](#faq)
   - [Roadmap with mlir-hlo Project](#roadmap-with-mlir-hlo-project)
+  - [Roadmap with Torch-MLIR Project](#roadmap-with-torch-mlir-project)
 - [Contact Us](#contact-us)
 
 ## What's New
@@ -189,6 +191,8 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 * [2022/07/07 BladeDISC and Torch-MLIR Roadmap Talk on Torch-MLIR Community](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/BladeDISC-and-TorchMLIR-Roadmap-tts.pptx)
 * [GTC22-S41073, Generalized and Transparent AI Optimization Solutions with AI Compilers from Cloud Service](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/GTC22%20S41073%2C%20Generalized%20and%20Transparent%20AI%20Optimization%20Solutions%20with%20AI%20Compilers%20from%20Cloud%20Service.pdf)
 * [GTC22-S41395, Easier-to-use and More Robust TensorRT via PAI-Blade](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/GTC22-S41395%2C%20Easier-to-use%20and%20More%20Robust%20TensorRT%20via%20PAI-Blade.pdf)
+* [2023/2/17 bladedisc intro. (cpu vendor oriented)](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/bladedisc-intro-for-intel.pdf)
+* [2023/3/10 transform dialect based codegen in bladedisc](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/transform-dialect-based-codegen-in-bladedisc.pdf)
 
 ## How to Contribute
 

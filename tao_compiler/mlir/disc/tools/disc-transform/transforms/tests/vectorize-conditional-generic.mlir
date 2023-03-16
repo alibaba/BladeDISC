@@ -32,6 +32,6 @@ func.func @vectorize_conditional_generic(
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0
+  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   transform.disc.vectorize_conditional_generic %0
 }

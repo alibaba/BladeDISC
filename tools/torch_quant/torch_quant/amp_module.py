@@ -38,13 +38,14 @@ class AmpModule(nn.Module):
         self.observed_op = observed_op
         self.act_ob = act_ob
         self.out_ob = out_ob
-        self.noise = 0.0
+        self.register_buffer('noise', torch.tensor(0.0))
         toggle_observer(self, observe=False, fake_quant=True)
 
     def forward(self, x):
         y = self.float_op(x)
         quant_y = self.out_ob(self.observed_op(self.act_ob(x)))
-        self.noise += torch.mean(torch.pow(y - quant_y, 2))
+        noise = torch.mean(torch.pow(y.detach() - quant_y.detach(), 2))
+        self.noise.copy_(self.noise + noise)
         return y
 
 

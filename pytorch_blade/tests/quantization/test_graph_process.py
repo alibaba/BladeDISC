@@ -112,8 +112,8 @@ class TestReplaceAtenFakeQuant(QuantizationTestCase):
             model = PerTensorFakeQuant(
                 scale=0.1,
                 zero_point=0,
-                quant_min=-2**(bit-1),
-                quant_max=2**(bit-1)-1
+                quant_min=-2 ** (bit - 1),
+                quant_max=2 ** (bit - 1) - 1
             ).eval().to(self.device)
 
             target_val = {
@@ -191,7 +191,7 @@ class TestReplaceAtenFakeQuant(QuantizationTestCase):
                 scale=scale,
                 zero_point=zero_point,
                 quant_min=0,
-                quant_max=2**bit-1,
+                quant_max=2 ** bit - 1,
                 axis=1
             ).eval().to(self.device)
             target_val = {
@@ -238,7 +238,7 @@ class TestReplaceAtenFakeQuant(QuantizationTestCase):
 
 
 class TestAddFakeQuantForWeight(QuantizationTestCase):
-    def _test_add_fake_quant_for_weight(self,  model, inp, target_quant_info, target_output, target_graph):
+    def _test_add_fake_quant_for_weight(self, model, inp, target_quant_info, target_output, target_graph):
         traced_model = torch.jit.trace(model, inp)
         c_module = traced_model._c
         c_module = tools.freeze_module(c_module, [], disableShapePeephole=False)
@@ -275,12 +275,12 @@ class TestAddFakeQuantForWeight(QuantizationTestCase):
         observer(model.linear.weight)
         scale, zero_point = observer.calculate_qparams()
         fake_quantized_weight = torch.fake_quantize_per_channel_affine(
-            model.linear.weight, scale, zero_point.int(), 0, -128, 127)
+            model.linear.weight, scale, zero_point.to(zero_point_dtype), 0, -128, 127)
         target_output = F.linear(inp, fake_quantized_weight, model.linear.bias)
 
         target_quant_info = [{
             "scale": scale,
-            "zero_point": zero_point.int(),
+            "zero_point": zero_point.to(zero_point_dtype),
             "quant_min": -128,
             "quant_max": 127,
             "num_bits": 8,

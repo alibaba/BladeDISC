@@ -12,7 +12,7 @@
 import logging
 from collections import defaultdict
 from functools import partial
-from typing import Any, Callable, Dict, Iterable, Optional, Set, Tuple, Type
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import torch
 import torch.nn as nn
@@ -23,6 +23,7 @@ import torch.nn.quantized._reference as nnqr
 from torch.fx import GraphModule, Node
 from torch.quantization import DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS, QConfig
 
+from torch_quant.module import ModuleFilter
 from torch_quant.observed_module import OB_MODULE_MAPPING
 from torch_quant.observer import Observer
 
@@ -78,6 +79,7 @@ GraphModPass = Callable[['GraphModContext'], None]
 
 class GraphModContext:
     def __init__(self, gm: GraphModule, root: nn.Module,
+                 module_filter: Optional[ModuleFilter] = None,
                  act_ob_ctr: Optional[Callable[..., Observer]] = None,
                  w_ob_ctr: Optional[Callable[..., Observer]] = None,
                  bias_ob_ctr: Optional[Callable[..., Observer]] = None,
@@ -87,6 +89,7 @@ class GraphModContext:
         self.gm = gm
         self.root = root
         self.modules = dict(self.root.named_modules(remove_duplicate=False))
+        self.module_filter = module_filter
         self.act_ob_ctr = act_ob_ctr
         self.w_ob_ctr = w_ob_ctr
         self.bias_ob_ctr = bias_ob_ctr
@@ -96,6 +99,40 @@ class GraphModContext:
         # to make it a callable function.
         self.is_override_module = is_override_module
         self.is_override_qconfig = is_override_qconfig
+
+    @property
+    def quantizable_module_types(self) -> Tuple[nn.Module]:
+        try:
+            return self._quantizable_module_types
+        except AttributeError:
+
+            def _quantizable_fusion_types(types: List[nn.Module]):
+                return [v for k, v in FUSION_PATTERNS.items() if k[0] in types]
+
+            types = list(QUANTIZABLE_MODULE_TYPES)
+            types += _quantizable_fusion_types(types)
+            if self.module_filter:
+                if self.module_filter.include_op_types:
+                    include_op_types = self.module_filter.include_op_types
+                    include_op_types += _quantizable_fusion_types(include_op_types)
+                    types = list(set(types) & set(include_op_types))
+                elif self.module_filter.exclude_op_types:
+                    types = list(set(types) - set(self.module_filter.exclude_op_types))
+            self._quantizable_module_types = tuple(types)
+            return self._quantizable_module_types
+
+    def is_quantizable(self, module_name: str) -> bool:
+        if self.module_filter:
+            if self.module_filter.include_names:
+                return module_name in self.module_filter.include_names
+            if self.module_filter.exclude_names:
+                return module_name not in self.module_filter.exclude_names
+        return True
+
+    def quantizable_nodes(self) -> Iterable[Node]:
+        for node in self.nodes_by_module_type(self.quantizable_module_types):
+            if self.is_quantizable(node.target):
+                yield node
 
     def modify_graph(self, passes: Iterable[GraphModPass]) -> None:
         for p in passes:
@@ -168,7 +205,7 @@ class GraphModContext:
 # TODO(litan.ls): support other observer type and dtype
 def set_qconfig(ctx: GraphModContext) -> None:
     is_override_qconfig = ctx.is_override_qconfig
-    for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
+    for node in ctx.quantizable_nodes():
         m = ctx.modules.get(node.target)
         if is_override_qconfig:
             m.qconfig = QConfig(activation=None, weight=ctx.w_ob_ctr)
@@ -183,10 +220,12 @@ def fuse_modules(ctx: GraphModContext) -> None:
     # TODO(wanchen.swc): refactor to support other fusion patterns
     # TODO(wanchen.swc): refactor to extract generic pattern matching functions
     for fusion_pattern, fused_type in FUSION_PATTERNS.items():
+        if fusion_pattern[0] not in ctx.quantizable_module_types:
+            continue
         for last_nd in ctx.nodes_by_module_type([fusion_pattern[1]]):
             last_mod = ctx.modules.get(last_nd.target)
             first_nd = last_nd.args[0]
-            if first_nd.op != 'call_module':
+            if first_nd.op != 'call_module' or not ctx.is_quantizable(first_nd.target):
                 continue
             first_mod = ctx.modules.get(first_nd.target)
             if type(first_mod) != fusion_pattern[0]:
@@ -201,7 +240,7 @@ def insert_act_observer(ctx: GraphModContext) -> None:
     # key: activation node to be observed, value: consumers of observed activation
     # note that not all consumers of original activation need consum observed activation.
     act_nodes: Dict[Node, Set[Node]] = defaultdict(set)
-    for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
+    for node in ctx.quantizable_nodes():
         for arg in node.args:
             if isinstance(arg, Node):
                 act_nodes[arg].add(node)
@@ -235,7 +274,7 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
     Args:
         ctx (GraphModContext): Context object for graph modification.
     """
-    for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
+    for node in ctx.quantizable_nodes():
         src = ctx.modules[node.target]
         dst_type = OB_MODULE_MAPPING.get(type(src))
         if dst_type is None:
@@ -274,11 +313,11 @@ def observer_to_qdq(ctx: GraphModContext) -> None:
 
 
 def quantizable_module_to_ref(ctx: GraphModContext) -> None:
-    for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
+    for node in ctx.quantizable_nodes():
         src = ctx.modules[node.target]
         fused_module = None
         if isinstance(src, nn.intrinsic._FusedModule):
-            fused_module= src
+            fused_module = src
             src = fused_module[0]
         dst_type = DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS.get(
             type(src))

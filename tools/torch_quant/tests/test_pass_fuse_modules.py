@@ -12,15 +12,19 @@
 import torch
 import unittest
 
-from tests.models import SimpleModule, create_ctx
+from tests.models import LinearReLU, SimpleModule, create_ctx
 from torch_quant.graph import fuse_modules
 
 
 class FuseModulesTest(unittest.TestCase):
-    def test_base(self) -> None:
+    def test_conv_relu(self) -> None:
         ctx = create_ctx(SimpleModule())
         fuse_modules(ctx)
         self.assertTrue(isinstance(ctx.gm.sub.conv, torch.nn.intrinsic.ConvReLU2d))
+
+    def test_linear_relu(self) -> None:
+        ctx = create_ctx(LinearReLU())
+        fuse_modules(ctx)
         self.assertTrue(isinstance(ctx.gm.linear, torch.nn.intrinsic.LinearReLU))
 
 

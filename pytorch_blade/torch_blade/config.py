@@ -324,6 +324,14 @@ class Config(ConfigContext):
 
     @property
     def quantization_type(self):
+        """Types of quantization, the following types are supported:
+        static: Both activations & weights are quantized to low bit and the execution
+                process is done on low bit representation.
+        weight-only: Only the weights are quantized to low bit, and they are de-quantized
+                to high bit on-the-fly. The execution process is done on high bit
+                representation. This type of quantization is mainly used to save memory
+                consumption during inference process (especially for big language models).
+        """
         return self._quantization_type
 
     @quantization_type.setter

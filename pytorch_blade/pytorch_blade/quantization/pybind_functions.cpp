@@ -103,6 +103,8 @@ void add_fake_quant_for_weight(Module& model) {
   for (auto&& n : g->nodes()) {
     std::string node_kind_str = n->kind().toQualString();
     if (weight_only_list.find(node_kind_str) != weight_only_list.end()) {
+      // TODO: If support quantizing other types of layers, check whether index
+      // 1 meets the requirements.
       Value* weight_val = n->inputs()[1];
       auto weight_val_type = weight_val->type()->cast<c10::TensorType>();
       if (!weight_val_type) {

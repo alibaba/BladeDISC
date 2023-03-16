@@ -20,7 +20,12 @@ from tests.quantization import (
     zero_point_dtype
 )
 from torch import nn
-from torch.ao.quantization.observer import PerChannelMinMaxObserver
+
+try:
+    from torch.ao.quantization.observer import PerChannelMinMaxObserver
+except ModuleNotFoundError:
+    from torch.quantization.observer import PerChannelMinMaxObserver
+
 from torch.nn import functional as F
 from torch.testing import FileCheck
 from torch_blade import tools

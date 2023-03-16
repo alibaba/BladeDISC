@@ -29,6 +29,7 @@ from torch_quant.graph import (
 from torch_quant.module import ModuleFilter, copy_and_replace, fx_trace
 from torch_quant.observer import (
     BiasObserver,
+    HistogramObserver,
     LSQObserver,
     MinMaxObserver,
     Observer,
@@ -46,7 +47,7 @@ class Backend(Enum):
 DEFAULT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
     Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
     Backend.DISC: partial(MinMaxObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
-    Backend.FBGEMM: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
+    Backend.FBGEMM: partial(HistogramObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
 }
 
 DEFAULT_W_OB_CTR = {
@@ -175,6 +176,8 @@ class Quantizer:
             ])
         else:
             raise ValueError(f'Unsupported backend {self.backend.name}')
+        # remove unused modules (e.g. observers) or the following tracing might fail
+        ctx.gm.delete_all_unused_submodules()
 
     def quantize(self, model: nn.Module) -> nn.Module:
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)

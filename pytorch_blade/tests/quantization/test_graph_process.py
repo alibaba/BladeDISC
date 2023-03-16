@@ -277,12 +277,12 @@ class TestAddFakeQuantForWeight(QuantizationTestCase):
         observer(model.linear.weight)
         scale, zero_point = observer.calculate_qparams()
         fake_quantized_weight = torch.fake_quantize_per_channel_affine(
-            model.linear.weight, scale, zero_point.to(zero_point_dtype), 0, -128, 127)
+            model.linear.weight, scale, zero_point, 0, -128, 127)
         target_output = F.linear(inp, fake_quantized_weight, model.linear.bias)
 
         target_quant_info = [{
             "scale": scale,
-            "zero_point": zero_point.to(zero_point_dtype),
+            "zero_point": zero_point,
             "quant_min": -128,
             "quant_max": 127,
             "num_bits": 8,

@@ -26,7 +26,12 @@ from torch_quant.graph import (
     quantizable_module_to_ref,
     set_qconfig
 )
-from torch_quant.module import ModuleFilter, copy_and_replace, fx_trace
+from torch_quant.module import (
+    ModuleFilter,
+    copy_and_replace,
+    fx_trace,
+    submodule_filter
+)
 from torch_quant.observer import (
     BiasObserver,
     LSQObserver,
@@ -98,12 +103,11 @@ class Quantizer:
     def calib_gm(
         self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes,
     ) -> None:
-        module_filter = self.module_filter or ModuleFilter()
-        module_filter = module_filter.submodule_filter(name)
+        mf = submodule_filter(self.module_filter, name) if self.module_filter else None
         ctx = GraphModContext(
             gm=gm,
             root=root,
-            module_filter=module_filter,
+            module_filter=mf,
             act_ob_ctr=ob_types.act_ob_ctr,
             w_ob_ctr=ob_types.w_ob_ctr,
             bias_ob_ctr=ob_types.bias_ob_ctr,
@@ -136,12 +140,11 @@ class Quantizer:
     def qat_gm(
         self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes
     ) -> None:
-        module_filter = self.module_filter or ModuleFilter()
-        module_filter = module_filter.submodule_filter(name)
+        mf = submodule_filter(self.module_filter, name) if self.module_filter else None
         ctx = GraphModContext(
             gm=gm,
             root=root,
-            module_filter=module_filter,
+            module_filter=mf,
             act_ob_ctr=ob_types.act_ob_ctr,
             w_ob_ctr=ob_types.w_ob_ctr,
             bias_ob_ctr=ob_types.bias_ob_ctr,
@@ -170,12 +173,11 @@ class Quantizer:
         return copy_and_replace(model, trace_mapping)
 
     def quantize_gm(self, name: str, gm: GraphModule, root: nn.Module) -> None:
-        module_filter = self.module_filter or ModuleFilter()
-        module_filter = module_filter.submodule_filter(name)
+        mf = submodule_filter(self.module_filter, name) if self.module_filter else None
         ctx = GraphModContext(
             gm=gm,
             root=root,
-            module_filter=module_filter,
+            module_filter=mf,
             is_override_module=False,
             is_override_qconfig=False,
         )

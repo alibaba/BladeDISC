@@ -67,25 +67,26 @@ class ModuleFilter:
         self.exclude_classes = exclude_classes
         self.exclude_op_types = exclude_op_types
 
-    def submodule_filter(self, module_name: str):
-        def _submodule_names(names, module_name: str) -> Optional[List[str]]:
-            """
-            If module name is 'foo', turn full path 'foo.bar.name' into 'bar.name'
-            """
-            if names and module_name:
-                lstrip_f = lambda x: x.replace(f'{module_name}.', '', 1)
-                names = [lstrip_f(m) for m in names if m.startswith(f'{module_name}.')]
-            return names or None
 
-        module_filter = ModuleFilter(
-            include_names=_submodule_names(self.include_names, module_name),
-            include_classes=self.include_classes,
-            include_op_types=self.include_op_types,
-            exclude_names=_submodule_names(self.exclude_names, module_name),
-            exclude_classes=self.exclude_classes,
-            exclude_op_types=self.exclude_op_types,
-        )
-        return module_filter
+def submodule_filter(module_filter: ModuleFilter, module_name: str) -> ModuleFilter:
+    def _submodule_names(names, module_name: str) -> Optional[List[str]]:
+        """
+        If module name is 'foo', turn full path 'foo.bar.name' into 'bar.name'
+        """
+        if names and module_name:
+            lstrip_func = lambda x: x.replace(f'{module_name}.', '', 1)
+            names = [lstrip_func(m) for m in names if m.startswith(f'{module_name}.')]
+        return names or None
+
+    _submodule_filter = ModuleFilter(
+        include_names=_submodule_names(module_filter.include_names, module_name),
+        include_classes=module_filter.include_classes,
+        include_op_types=module_filter.include_op_types,
+        exclude_names=_submodule_names(module_filter.exclude_names, module_name),
+        exclude_classes=module_filter.exclude_classes,
+        exclude_op_types=module_filter.exclude_op_types,
+    )
+    return _submodule_filter
 
 
 class PatchTracer:
@@ -137,7 +138,7 @@ def fx_trace(
             trace_mapping: Dict[str, TracePair] = dict()
             for n, m in root.named_modules():
                 if (in_names and n in in_names) or (in_types and type(m) in in_types):
-                    module_ex_names = module_filter.submodule_filter(n).exclude_names
+                    module_ex_names = submodule_filter(module_filter, n).exclude_names
                     if module_ex_names or ex_types:
                         with PatchTracer(tracer, module_ex_names, ex_types) as tracer:
                             fx_graph = tracer.trace(copy.deepcopy(m))

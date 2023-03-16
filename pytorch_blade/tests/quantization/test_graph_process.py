@@ -13,6 +13,7 @@ import unittest
 
 import torch
 from tests.quantization import (
+    TORCH_VERSION,
     ModelWithFakeQuant,
     PerChannelFakeQuant,
     PerTensorFakeQuant,
@@ -255,6 +256,7 @@ class TestAddFakeQuantForWeight(QuantizationTestCase):
 
         FileCheck().run(target_graph, graph)
 
+    @unittest.skipIf(TORCH_VERSION < (1, 9), "Unsupported torch version")
     def test_per_channel_symmetry(self):
         class Model(nn.Module):
             def __init__(self):

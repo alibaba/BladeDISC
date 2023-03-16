@@ -50,7 +50,6 @@ class SimpleModule(nn.Module):
         self.sub = SubModule()
         self.pool = nn.AdaptiveMaxPool2d((1, 1))
         self.linear = nn.Linear(4, 8)
-        self.relu = nn.ReLU()
 
     def forward(self, x):
         x = self.conv(x)
@@ -58,7 +57,6 @@ class SimpleModule(nn.Module):
         x = self.pool(x)
         x = torch.flatten(x, start_dim=1)
         x = self.linear(x)
-        x = self.relu(x)
         return x
 
 

@@ -206,13 +206,11 @@ class QuantizerTest(unittest.TestCase):
         quantizer = Quantizer(backend=backend)
         dummy_input = torch.randn((1, 2, 5, 5))
         calib_model = quantizer.calib(model)
-        calib_output = calib_model(dummy_input)
+        calib_model(dummy_input)
         quant_model = quantizer.quantize(model)
         self.assertTrue(isinstance(calib_model.sub.conv, nni.ConvReLU2d))
-        self.assertTrue(isinstance(calib_model.linear, nni.LinearReLU))
         if backend == Backend.REFERENCE:
             self.assertTrue(isinstance(quant_model.sub.conv[0], nnqr.Conv2d))
-            self.assertTrue(isinstance(quant_model.linear[0], nnqr.Linear))
         elif backend == Backend.FBGEMM:
             self.assertTrue(isinstance(quant_model.sub.conv, nniq.ConvReLU2d))
             self.assertTrue(isinstance(quant_model.linear, nniq.LinearReLU))

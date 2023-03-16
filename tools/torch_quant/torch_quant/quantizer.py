@@ -19,6 +19,7 @@ from torch.fx import GraphModule, Tracer
 from torch_quant.graph import (
     GraphModContext,
     fold_qdq,
+    fuse_modules,
     insert_act_observer,
     observer_to_qdq,
     q_ref_dq_to_fbgemm,
@@ -105,7 +106,7 @@ class Quantizer:
                 quantizable_module_to_observed,
             ])
         else:
-            ctx.modify_graph([set_qconfig, insert_act_observer])
+            ctx.modify_graph([set_qconfig, fuse_modules, insert_act_observer])
         toggle_observer(gm, observe=True, fake_quant=False)
 
     def calib(self, model: nn.Module,
@@ -160,6 +161,7 @@ class Quantizer:
         elif self.backend == Backend.REFERENCE:
             ctx.modify_graph([
                 set_qconfig,
+                fuse_modules,
                 insert_act_observer,
                 observer_to_qdq,
                 quantizable_module_to_ref,
@@ -167,6 +169,7 @@ class Quantizer:
         elif self.backend == Backend.FBGEMM:
             ctx.modify_graph([
                 set_qconfig,
+                fuse_modules,
                 insert_act_observer,
                 observer_to_qdq,
                 quantizable_module_to_ref,

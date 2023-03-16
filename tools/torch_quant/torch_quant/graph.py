@@ -16,10 +16,13 @@ from typing import Any, Callable, Dict, Iterable, Optional, Set, Tuple, Type
 
 import torch
 import torch.nn as nn
+import torch.nn.intrinsic as nni
+import torch.nn.intrinsic.quantized as nniq
 import torch.nn.quantized as nnq
 import torch.nn.quantized._reference as nnqr
 from torch.fx import GraphModule, Node
 from torch.quantization import DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS, QConfig
+
 from torch_quant.observed_module import OB_MODULE_MAPPING
 from torch_quant.observer import Observer
 
@@ -30,6 +33,8 @@ QUANTIZABLE_MODULE_TYPES = (
     nn.Conv2d,
     nn.Conv3d,
     nn.Linear,
+    nni.LinearReLU,
+    nni.ConvReLU2d,
 )
 
 REF_TO_QUANT_MAP = {
@@ -37,6 +42,16 @@ REF_TO_QUANT_MAP = {
     nnqr.Conv2d: nnq.Conv2d,
     nnqr.Conv3d: nnq.Conv3d,
     nnqr.Linear: nnq.Linear,
+}
+
+FUSION_PATTERNS = {
+    (nn.Linear, nn.ReLU): nni.LinearReLU,
+    (nn.Conv2d, nn.ReLU): nni.ConvReLU2d,
+}
+
+FUSED_REF_TO_QUANT_MAP = {
+    nni.LinearReLU: (nnqr.Linear, nniq.LinearReLU),
+    nni.ConvReLU2d: (nnqr.Conv2d, nniq.ConvReLU2d),
 }
 
 
@@ -159,6 +174,29 @@ def set_qconfig(ctx: GraphModContext) -> None:
             m.qconfig = QConfig(activation=None, weight=ctx.w_ob_ctr)
 
 
+def fuse_modules(ctx: GraphModContext) -> None:
+    """ Fuse modules for quantization
+    Fuses only the following sequence of modules:
+        Linear + ReLU -> LinearRelu
+        Conv2d + ReLU -> Conv2dRelu
+    """
+    # TODO(wanchen.swc): refactor to support other fusion patterns
+    # TODO(wanchen.swc): refactor to extract generic pattern matching functions
+    for fusion_pattern, fused_type in FUSION_PATTERNS.items():
+        for last_nd in ctx.nodes_by_module_type([fusion_pattern[1]]):
+            last_mod = ctx.modules.get(last_nd.target)
+            first_nd = last_nd.args[0]
+            if first_nd.op != 'call_module':
+                continue
+            first_mod = ctx.modules.get(first_nd.target)
+            if type(first_mod) != fusion_pattern[0]:
+                continue
+            last_nd.replace_all_uses_with(first_nd)
+            ctx.gm.graph.erase_node(last_nd)
+            fused_mod = fused_type(first_mod, last_mod)
+            ctx.replace_module(first_nd.target, fused_mod)
+
+
 def insert_act_observer(ctx: GraphModContext) -> None:
     # key: activation node to be observed, value: consumers of observed activation
     # note that not all consumers of original activation need consum observed activation.
@@ -238,6 +276,10 @@ def observer_to_qdq(ctx: GraphModContext) -> None:
 def quantizable_module_to_ref(ctx: GraphModContext) -> None:
     for node in ctx.nodes_by_module_type(QUANTIZABLE_MODULE_TYPES):
         src = ctx.modules[node.target]
+        fused_module = None
+        if isinstance(src, nn.intrinsic._FusedModule):
+            fused_module= src
+            src = fused_module[0]
         dst_type = DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS.get(
             type(src))
         if dst_type is None:
@@ -256,7 +298,10 @@ def quantizable_module_to_ref(ctx: GraphModContext) -> None:
         wq_dict['axis'] = wq_dict.pop('ch_axis')
         dst = dst_type.from_float(src, wq_dict)
         # TODO(litan.ls): copy forward hooks
-        ctx.replace_module(node.target, dst)
+        if fused_module is None:
+            ctx.replace_module(node.target, dst)
+        else:
+            fused_module[0] = dst
         LOGGER.debug(f'to_ref: {node.target}({type(src)}->{dst_type})')
     ctx.gm.recompile()
 
@@ -272,13 +317,18 @@ def q_ref_dq_to_fbgemm(ctx: GraphModContext) -> None:
         ref_node = q_node.args[0]
         LOGGER.debug(f'ref_node: {ref_node.target}')
         ref = ctx.modules.get(ref_node.target)
-        if type(ref) not in REF_TO_QUANT_MAP:
+        if type(ref) in REF_TO_QUANT_MAP:
+            dst_type = REF_TO_QUANT_MAP[type(ref)]
+        elif type(ref) in FUSED_REF_TO_QUANT_MAP:
+            inner_ref_type, dst_type = FUSED_REF_TO_QUANT_MAP[type(ref)]
+            if type(ref[0]) != inner_ref_type:
+                continue
+        else:
             continue
         dq_node = ref_node.args[0]
         LOGGER.debug(f'dq_node: {dq_node.target}')
         if dq_node.op != 'call_method' or dq_node.target != 'dequantize':
             continue
-        dst_type = REF_TO_QUANT_MAP[type(ref)]
         scale = ctx.get_attr(q_node.args[1].target)
         zero_point = ctx.get_attr(q_node.args[2].target)
         dst = dst_type.from_reference(ref, scale, zero_point)

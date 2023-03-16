@@ -17,7 +17,7 @@ setup(
     version=version.__version__,
     author='Alibaba PAI Team',
     description='PyTorch Quantization Toolkit For BladeDISC',
-    url='https://github.com/alibaba/BladeDISC',
+    url='https://github.com/alibaba/BladeDISC/tree/main/tools/torch_quant',
     packages=find_packages(include=["torch_quant*"]),
     install_requires=[],
     zip_safe=False,

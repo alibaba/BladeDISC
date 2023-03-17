@@ -1632,11 +1632,15 @@ class ShapePropagator : public PropertyPropBase {
 #if PYTORCH_VERSION_GE(1, 14)
             "aten::sum.dim_IntList(Tensor self, int[]? dim, bool keepdim, *, int? dtype) -> Tensor",
             "aten::mean.dim(Tensor self, int[]? dim, bool keepdim, *, int? dtype) -> Tensor",
-            "aten::var.correction(Tensor self, int[1]? dim, *, int? correction, bool keepdim=False) -> Tensor",
             "aten::amax(Tensor self, int[1] dim=[], bool keepdim=False) -> Tensor",
 #else
             "aten::sum(Tensor self, int[] dim, bool keepdim, *, int? dtype) -> Tensor",
             "aten::mean(Tensor self, int[] dim, bool keepdim, *, int? dtype) -> Tensor",
+#endif
+#if PYTORCH_VERSION_GE(2, 1)
+            "aten::var.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor",
+#elif PYTORCH_VERSION_GE(1, 14)
+            "aten::var.correction(Tensor self, int[1]? dim, *, int? correction, bool keepdim=False) -> Tensor",
 #endif
         },
         [](Node* node) -> type_vec_t {
@@ -1647,7 +1651,14 @@ class ShapePropagator : public PropertyPropBase {
           }
 
           at::optional<IValue> opt_dtype;
-#if PYTORCH_VERSION_GE(1, 14)
+#if PYTORCH_VERSION_GE(2, 1)
+          if (!(node->matches(
+                    "aten::var.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor") ||
+                node->matches(
+                    "aten::amax(Tensor self, int[1] dim=[], bool keepdim=False) -> Tensor"))) {
+            opt_dtype = node->get(attr::dtype);
+          }
+#elif PYTORCH_VERSION_GE(1, 14)
           if (!(node->matches(
                     "aten::var.correction(Tensor self, int[1]? dim, *, int? correction, bool keepdim=False) -> Tensor") ||
                 node->matches(
@@ -1656,7 +1667,7 @@ class ShapePropagator : public PropertyPropBase {
           }
 #else
           opt_dtype = node->get(attr::dtype);
-#endif // PYTORCH_VERSION_GE(1, 14)
+#endif
           auto dims = constant_as<c10::List<int64_t>>(list);
           return multidim_reduce_with_keepdim(
               node,

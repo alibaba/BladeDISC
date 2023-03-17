@@ -17,11 +17,16 @@ from collections import namedtuple
 from numbers import Number
 
 import torch
-from torch._six import string_classes
 from torch.testing import assert_allclose
 from torch.testing._internal.common_utils import TestCase as TorchTestCase
 from torch.testing._internal.common_utils import is_iterable
 from torch_blade import version
+
+try:
+    # used when PT 1.x
+    from torch._six import string_classes
+except:
+    string_classes = str
 
 __all__ = ['benchmark', 'assert_almost_equal', 'TestCase']
 

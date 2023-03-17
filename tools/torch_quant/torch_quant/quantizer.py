@@ -29,12 +29,7 @@ from torch_quant.graph import (
     quantizable_module_to_ref,
     set_qconfig
 )
-from torch_quant.module import (
-    ModuleFilter,
-    copy_and_replace,
-    fx_trace,
-    submodule_filter
-)
+from torch_quant.module import ModuleFilter, copy_and_replace, fx_trace, submodule_filter
 from torch_quant.observer import (
     BiasObserver,
     HistogramObserver,
@@ -52,26 +47,93 @@ class Backend(Enum):
     FBGEMM = 2
 
 
-DEFAULT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
+class Device(Enum):
+    X86 = 0
+    AARCH64 = 1
+    # TODO:  support different brands of GPUs (e.g. NVIDIA, AMD, INTEL)
+    GPU = 2
+
+
+DEFAULT_X86_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
     Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
     Backend.DISC: partial(MinMaxObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
     Backend.FBGEMM: partial(HistogramObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
 }
 
-DEFAULT_W_OB_CTR = {
+
+DEFAULT_AARCH64_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
+    Backend.DISC: partial(MinMaxObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
+}
+
+
+DEFAULT_GPU_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
+    Backend.DISC: partial(MinMaxObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
+}
+
+
+DEFAULT_ACT_OB_CTR = {
+    Device.X86: DEFAULT_X86_ACT_OB_CTR,
+    Device.AARCH64: DEFAULT_AARCH64_ACT_OB_CTR,
+    Device.GPU: DEFAULT_GPU_ACT_OB_CTR
+}
+
+
+DEFAULT_X86_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
     Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
     Backend.DISC: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
     Backend.FBGEMM: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
 }
 
-DEFAULT_BIAS_OB_CTR = BiasObserver
 
-DEFAULT_QAT_W_OB_CTR = partial(LSQObserver, dtype=torch.qint8)
-DEFAULT_QAT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    Backend.REFERENCE: partial(LSQObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
-    Backend.DISC: partial(LSQObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
-    Backend.FBGEMM: partial(LSQObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
+DEFAULT_AARCH64_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
+    # Numerical overflow happens on GEMMLowpOutputStage when use per-channel symmetric
+    # So we use per-tensor symmetric for weight
+    # https://github.com/ARM-software/ComputeLibrary/issues/1012
+    Backend.DISC: partial(MinMaxObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
 }
+
+
+DEFAULT_GPU_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
+    Backend.DISC: partial(MinMaxObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
+}
+
+
+DEFAULT_W_OB_CTR = {
+    Device.X86: DEFAULT_X86_W_OB_CTR,
+    Device.AARCH64: DEFAULT_AARCH64_W_OB_CTR,
+    Device.GPU: DEFAULT_GPU_W_OB_CTR
+}
+
+
+DEFAULT_BIAS_OB_CTR = BiasObserver
+DEFAULT_QAT_OB_TYPE = LSQObserver
+
+
+# Generally we will keep the qat's dtype & qscheme settings the same as the settings in ptq.
+DEFAULT_QAT_ACT_OB_CTR = {
+    device: {
+        backend: partial(DEFAULT_QAT_OB_TYPE, **ctr.keywords)
+        for backend, ctr in device_ctr.items()
+    }
+    for device, device_ctr in DEFAULT_ACT_OB_CTR.items()
+}
+
+DEFAULT_QAT_W_OB_CTR = {
+    device: {
+        backend: partial(DEFAULT_QAT_OB_TYPE, **ctr.keywords)
+        for backend, ctr in device_ctr.items()
+    }
+    for device, device_ctr in DEFAULT_W_OB_CTR.items()
+}
+
+
+def get_default_ctr(all_ctr, device, backend):
+    if device not in all_ctr:
+        raise RuntimeError(f"Device: {device} is not supported. Please raise an issue on github.")
+    device_setting = all_ctr[device]
+    if backend not in device_setting:
+        raise RuntimeError(f"Backend: {backend} is not supported on the device: {device}")
+    return device_setting[backend]
 
 
 class ObserverTypes(NamedTuple):
@@ -95,10 +157,12 @@ def get_observer_types(
 class Quantizer:
     def __init__(self, module_filter: Optional[ModuleFilter] = None,
                  backend: Backend = Backend.REFERENCE,
+                 device: Device = Device.X86,
                  tracer: Optional[Tracer] = None,
                  ) -> None:
         self.module_filter = module_filter
         self.backend = backend
+        self.device = device
         self.tracer = tracer
         if backend == Backend.FBGEMM and torch.backends.quantized.engine != 'fbgemm':
             raise ValueError('fbgemm is not available, it only for x86_64')
@@ -131,9 +195,11 @@ class Quantizer:
               w_ob_ctr: Optional[Callable[..., Observer]] = None,
               bias_ob_ctr: Optional[Callable[..., Observer]] = None,
               ) -> nn.Module:
+        default_act_ob_ctr = get_default_ctr(DEFAULT_ACT_OB_CTR, self.device, self.backend)
+        default_w_ob_ctr = get_default_ctr(DEFAULT_W_OB_CTR, self.device, self.backend)
         ob_types = get_observer_types(
             act_ob_ctr, w_ob_ctr, bias_ob_ctr,
-            DEFAULT_ACT_OB_CTR[self.backend], DEFAULT_W_OB_CTR[self.backend],
+            default_act_ob_ctr, default_w_ob_ctr,
             DEFAULT_BIAS_OB_CTR)
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
         for name, traced in trace_mapping.items():
@@ -160,12 +226,14 @@ class Quantizer:
         w_ob_ctr: Optional[Callable[..., Observer]] = None,
         bias_ob_ctr: Optional[Callable[..., Observer]] = None,
     ) -> nn.Module:
+        default_act_ob_ctr = get_default_ctr(DEFAULT_ACT_OB_CTR, self.device, self.backend)
+        default_w_ob_ctr = get_default_ctr(DEFAULT_W_OB_CTR, self.device, self.backend)
         ob_types = get_observer_types(
             act_ob_ctr,
             w_ob_ctr,
             bias_ob_ctr,
-            DEFAULT_ACT_OB_CTR[self.backend],
-            DEFAULT_W_OB_CTR[self.backend],
+            default_act_ob_ctr,
+            default_w_ob_ctr,
             DEFAULT_BIAS_OB_CTR,
         )
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
@@ -204,9 +272,11 @@ class Quantizer:
             w_ob_ctr: Optional[Callable[..., Observer]] = None,
             bias_ob_ctr: Optional[Callable[..., Observer]] = None,
             ) -> nn.Module:
+        default_qat_act_ob_ctr = get_default_ctr(DEFAULT_QAT_ACT_OB_CTR, self.device, self.backend)
+        default_qat_w_ob_ctr = get_default_ctr(DEFAULT_QAT_W_OB_CTR, self.device, self.backend)
         ob_types = get_observer_types(
             act_ob_ctr, w_ob_ctr, bias_ob_ctr,
-            DEFAULT_QAT_ACT_OB_CTR[self.backend], DEFAULT_QAT_W_OB_CTR,
+            default_qat_act_ob_ctr, default_qat_w_ob_ctr,
             None)
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
         for name, traced in trace_mapping.items():

@@ -248,7 +248,7 @@ class QuantizerTest(unittest.TestCase):
         self.assertEqual(t.dtype, target_t.dtype)
         self.assertEqual(t.qscheme, target_t.qscheme)
 
-    @parameterized.expand([
+    @parameterized_with_backends([
         (Device.X86, Backend.DISC,),
         (Device.X86, Backend.REFERENCE,),
         (Device.X86, Backend.FBGEMM),

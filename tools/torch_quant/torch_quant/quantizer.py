@@ -110,54 +110,20 @@ DEFAULT_QAT_OB_TYPE = LSQObserver
 
 
 # Generally we will keep the qat's dtype & qscheme settings the same as the settings in ptq.
-DEFAULT_X86_QAT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    Backend.REFERENCE: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_ACT_OB_CTR[Backend.REFERENCE].keywords),
-    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_ACT_OB_CTR[Backend.DISC].keywords),
-    Backend.FBGEMM: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_ACT_OB_CTR[Backend.FBGEMM].keywords),
-}
-
-
-DEFAULT_AARCH64_QAT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_AARCH64_ACT_OB_CTR[Backend.DISC].keywords),
-}
-
-
-DEFAULT_GPU_QAT_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_GPU_ACT_OB_CTR[Backend.DISC].keywords),
-}
-
-
 DEFAULT_QAT_ACT_OB_CTR = {
-    Device.X86: DEFAULT_X86_QAT_ACT_OB_CTR,
-    Device.AARCH64: DEFAULT_AARCH64_QAT_ACT_OB_CTR,
-    Device.GPU: DEFAULT_GPU_QAT_ACT_OB_CTR
+    device: {
+        backend: partial(DEFAULT_QAT_OB_TYPE, **ctr.keywords)
+        for backend, ctr in device_ctr.items()
+    }
+    for device, device_ctr in DEFAULT_ACT_OB_CTR.items()
 }
-
-
-DEFAULT_QAT_X86_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    Backend.REFERENCE: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_W_OB_CTR[Backend.REFERENCE].keywords),
-    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_W_OB_CTR[Backend.DISC].keywords),
-    Backend.FBGEMM: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_W_OB_CTR[Backend.FBGEMM].keywords),
-}
-
-
-DEFAULT_QAT_AARCH64_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    # Numerical overflow happens on GEMMLowpOutputStage when use per-channel symmetric
-    # So we use per-tensor symmetric for weight
-    # https://github.com/ARM-software/ComputeLibrary/issues/1012
-    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_AARCH64_W_OB_CTR[Backend.DISC].keywords),
-}
-
-
-DEFAULT_QAT_GPU_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_GPU_W_OB_CTR[Backend.DISC].keywords),
-}
-
 
 DEFAULT_QAT_W_OB_CTR = {
-    Device.X86: DEFAULT_QAT_X86_W_OB_CTR,
-    Device.AARCH64: DEFAULT_QAT_AARCH64_W_OB_CTR,
-    Device.GPU: DEFAULT_QAT_GPU_W_OB_CTR
+    device: {
+        backend: partial(DEFAULT_QAT_OB_TYPE, **ctr.keywords)
+        for backend, ctr in device_ctr.items()
+    }
+    for device, device_ctr in DEFAULT_W_OB_CTR.items()
 }
 
 

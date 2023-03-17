@@ -29,12 +29,7 @@ from torch_quant.graph import (
     quantizable_module_to_ref,
     set_qconfig
 )
-from torch_quant.module import (
-    ModuleFilter,
-    copy_and_replace,
-    fx_trace,
-    submodule_filter
-)
+from torch_quant.module import ModuleFilter, copy_and_replace, fx_trace, submodule_filter
 from torch_quant.observer import (
     BiasObserver,
     HistogramObserver,
@@ -84,9 +79,6 @@ DEFAULT_ACT_OB_CTR = {
 
 
 DEFAULT_X86_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    # According to the url below, PyTorch's reference module does not support
-    # symmetric quantization, which is confusing...
-    # https://github.com/pytorch/pytorch/blob/28e69954a1fb25c20153c0e3636b9052e6962ffa/torch/ao/nn/quantized/reference/modules/utils.py#L19
     Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
     Backend.DISC: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
     Backend.FBGEMM: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
@@ -143,9 +135,6 @@ DEFAULT_QAT_ACT_OB_CTR = {
 
 
 DEFAULT_QAT_X86_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
-    # According to the url below, PyTorch's reference module does not support
-    # symmetric quantization, which is confusing...
-    # https://github.com/pytorch/pytorch/blob/28e69954a1fb25c20153c0e3636b9052e6962ffa/torch/ao/nn/quantized/reference/modules/utils.py#L19
     Backend.REFERENCE: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_W_OB_CTR[Backend.REFERENCE].keywords),
     Backend.DISC: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_W_OB_CTR[Backend.DISC].keywords),
     Backend.FBGEMM: partial(DEFAULT_QAT_OB_TYPE, **DEFAULT_X86_W_OB_CTR[Backend.FBGEMM].keywords),
@@ -271,12 +260,14 @@ class Quantizer:
         w_ob_ctr: Optional[Callable[..., Observer]] = None,
         bias_ob_ctr: Optional[Callable[..., Observer]] = None,
     ) -> nn.Module:
+        default_act_ob_ctr = get_default_ctr(DEFAULT_ACT_OB_CTR, self.device, self.backend)
+        default_w_ob_ctr = get_default_ctr(DEFAULT_W_OB_CTR, self.device, self.backend)
         ob_types = get_observer_types(
             act_ob_ctr,
             w_ob_ctr,
             bias_ob_ctr,
-            DEFAULT_ACT_OB_CTR[self.backend],
-            DEFAULT_W_OB_CTR[self.backend],
+            default_act_ob_ctr,
+            default_w_ob_ctr,
             DEFAULT_BIAS_OB_CTR,
         )
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)

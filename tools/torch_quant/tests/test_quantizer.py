@@ -18,8 +18,7 @@ import torch.nn.intrinsic as nni
 import torch.nn.intrinsic.quantized as nniq
 import torch.nn.quantized._reference as nnqr
 from parameterized import parameterized
-
-from tests.models import LinearReLU, SimpleModule, SubModule, UntraceableSimpleModule
+from tests.models import SimpleModule, SubModule, UntraceableSimpleModule
 from torch_quant.amp_module import AmpModule
 from torch_quant.module import ModuleFilter
 from torch_quant.observer import toggle_observer

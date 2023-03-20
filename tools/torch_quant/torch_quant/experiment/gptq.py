@@ -27,6 +27,10 @@ if is_transformers_avail:
     QUANT_LAYERS.append(transformers.Conv1D)
 
 
+def is_transformer_conv1d(layer):
+    return is_transformers_avail and isinstance(layer, transformers.Conv1D)
+
+
 class GPTQObserver:
     def __init__(self, observer: Observer):
         self.observer = observer
@@ -62,7 +66,7 @@ class GPTQLayerWrapper:
         if len(x.shape) == 2:
             x = x.unsqueeze(0)
         batch = x.shape[0]
-        if isinstance(self.layer, nn.Linear) or (is_transformers_avail and isinstance(self.layer, transformers.Conv1D)):
+        if isinstance(self.layer, nn.Linear) or is_transformer_conv1d(self.layer):
             if len(x.shape) == 3:
                 x = x.reshape((-1, x.shape[-1]))
             x = x.t()
@@ -87,7 +91,7 @@ class GPTQLayerWrapper:
         weight = self.layer.weight.data.clone()
         if isinstance(self.layer, nn.Conv2d):
             weight = weight.flatten(1)
-        if is_transformers_avail and isinstance(self.layer, transformers.Conv1D):
+        if is_transformer_conv1d(self.layer):
             weight = weight.t()
         weight = weight.float()
 
@@ -154,7 +158,7 @@ class GPTQLayerWrapper:
 
         torch.cuda.synchronize()
 
-        if isinstance(self.layer, transformers.Conv1D):
+        if is_transformer_conv1d(self.layer):
             Q = Q.t()
         self.layer.weight.data = Q.reshape(self.layer.weight.shape).to(self.layer.weight.data.dtype)
 

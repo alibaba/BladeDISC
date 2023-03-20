@@ -183,7 +183,7 @@ class GraphModContext:
                 if self.is_override_module:
                     # If the following conditions are met:
                     # 1. An observer module with the same full_path already exists
-                    # 2. The kind of the existed module is same as that in the constructor
+                    # 2. The kind of the existed module is not same as that in the constructor
                     # 3. The existing observer have its qparams
                     # 4. The observer corresponding to the constructor has a from_qparams class method
                     # then a new observer will be instantiated.

@@ -14,6 +14,7 @@ import os
 import time
 from argparse import ArgumentParser
 from inspect import signature
+import sklearn # to avoid the error "cannot allocate memory in static TLS block" in aarch64 platform
 
 import torch
 from datasets import load_dataset

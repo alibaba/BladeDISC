@@ -40,6 +40,11 @@ class GPTQObserver:
         self.zero_points.append(self.observer.zero_point)
         # todo: reset the observer
 
+    def fake_quant(self, x):
+        self.observer.set_mode(observe=False, fake_quant=True)
+        x = self.observer(x)
+        return x
+
 
 class GPTQLayerWrapper:
     def __init__(self, layer, observer):
@@ -107,9 +112,11 @@ class GPTQLayerWrapper:
             H = torch.cholesky_inverse(H)
             H = torch.linalg.cholesky(H, upper=True)
         except Exception:
+            # TODO: should handle this situation
             logging.warning(f"Warning:  cannot do compression for inverse error")
 
         if H.isnan().any():
+            # TODO: should handle this situation
             logging.warning(f"Warning:  cannot do compression for inverse error")
 
         hinv = H
@@ -132,15 +139,11 @@ class GPTQLayerWrapper:
                 if groupsize != -1:
                     if (i1 + i) % groupsize == 0:
                         self.gptq_observer.find_quant_info(weight[:, (i1 + i):(i1 + i + groupsize)])
-
-                q = quantize(
-                    w.unsqueeze(1), self.quantizer.scale, self.quantizer.zero, self.quantizer.maxq
-                ).flatten()
-
+                q = self.gptq_observer.fake_quant(w.unsqueeze(1)).flatten()
 
                 q1[:, i] = q
                 losses1[:, i] = (w - q) ** 2 / d ** 2
-                err1 = (w - q) / d  # 此处量化和稀疏不太一样啊，damo (w - q)**2 / d
+                err1 = (w - q) / d
                 w1[:, i:] -= err1.unsqueeze(1).matmul(hinv1[i, i:].unsqueeze(0))
                 err1[:, i] = err1
 

@@ -24,7 +24,6 @@ import torch.nn.quantized._reference as nnqr
 from torch.fx import GraphModule, Node
 from torch.quantization import DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS, QConfig
 from torch_quant.amp_module import AmpModule
-
 from torch_quant.module import ModuleFilter
 from torch_quant.observed_module import OB_MODULE_MAPPING
 from torch_quant.observer import Observer
@@ -184,12 +183,14 @@ class GraphModContext:
                 if self.is_override_module:
                     # If the following conditions are met:
                     # 1. An observer module with the same full_path already exists
-                    # 2. The existing observer have is qparams
-                    # 3. The observer corresponding to the constructor has a from_qparams class method
+                    # 2. The kind of the existed module is same as that in the constructor
+                    # 3. The existing observer have its qparams
+                    # 4. The observer corresponding to the constructor has a from_qparams class method
                     # then a new observer will be instantiated.
                     # TODO (bohua.cbh): consider the situation that a module is referenced and
                     # is duplicate in `named_modules()`
-                    if hasattr(m, "qparams") and hasattr(constructor.func, "from_qparams"):
+                    if not isinstance(m, type(constructor())) and hasattr(m, "qparams") and \
+                            hasattr(constructor.func, "from_qparams"):
                         m = constructor.func.from_qparams(m.qparams)
                 self.add_module(full_path, m)
                 return m
@@ -262,7 +263,7 @@ def insert_act_observer(ctx: GraphModContext) -> None:
     ctx.gm.recompile()
 
 
-def quantizable_module_to_observed(ctx: GraphModContext) -> None:
+def quantizable_module_to_observed(ctx: GraphModContext, is_observe_bias=False) -> None:
     """
     Replace quantizable modules with observed version.
 
@@ -273,6 +274,8 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
 
     Args:
         ctx (GraphModContext): Context object for graph modification.
+        is_observe_bias (bool): whether introduce fake-quant for bias through
+            a bias observer
     """
     for node in ctx.quantizable_nodes():
         src = ctx.modules[node.target]
@@ -283,10 +286,13 @@ def quantizable_module_to_observed(ctx: GraphModContext) -> None:
         w_ob_path = f'{node.target}.w_ob'
         w_ob = ctx.get_or_create_module(w_ob_path, ctx.w_ob_ctr)
         bias_ob = None
-        if getattr(src, 'bias', None) is not None and ctx.bias_ob_ctr:
-            bias_ob_ctr = partial(ctx.bias_ob_ctr, w_ob, act_ob)
+        if getattr(src, 'bias', None) is not None and is_observe_bias:
+            # If we use the existed bias observer, ctx.bias_ob_ctr should be None
             bias_ob_path = f'{node.target}.bias_ob'
-            bias_ob = ctx.get_or_create_module(bias_ob_path, bias_ob_ctr)
+            bias_ob = ctx.modules.get(bias_ob_path)
+            if ctx.bias_ob_ctr:
+                bias_ob_ctr = partial(ctx.bias_ob_ctr, w_ob, act_ob)
+                bias_ob = ctx.get_or_create_module(bias_ob_path, bias_ob_ctr)
         dst = dst_type.from_float(src, w_ob, bias_ob)
         ctx.replace_module(node.target, dst)
     ctx.gm.recompile()

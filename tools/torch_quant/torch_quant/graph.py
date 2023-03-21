@@ -199,12 +199,6 @@ class GraphModContext:
         self.add_module(full_path, m)
         return m
 
-    def get_existed_module(self, path):
-        for n, m in self.root.named_modules(remove_duplicate=False):
-            if n == path:
-                return m
-        return None
-
 
 # Some basic and generic graph modification passes:
 
@@ -295,7 +289,7 @@ def quantizable_module_to_observed(ctx: GraphModContext, is_observe_bias=False) 
         if getattr(src, 'bias', None) is not None and is_observe_bias:
             # If we use the existed bias observer, ctx.bias_ob_ctr should be None
             bias_ob_path = f'{node.target}.bias_ob'
-            bias_ob = ctx.get_existed_module(bias_ob_path)
+            bias_ob = ctx.modules.get(bias_ob_path)
             if ctx.bias_ob_ctr:
                 bias_ob_ctr = partial(ctx.bias_ob_ctr, w_ob, act_ob)
                 bias_ob = ctx.get_or_create_module(bias_ob_path, bias_ob_ctr)

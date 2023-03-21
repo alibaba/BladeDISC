@@ -20,6 +20,9 @@ class TestBiasReleatedSituations(unittest.TestCase):
         qat_model = quantizer.qat(model)
         self.assertTrue(qat_model.linear.bias_ob is None)
 
+        quantized_model = quantizer.quantize(model)
+        self.assertTrue(isinstance(quantized_model.linear.bias_ob, BiasObserver))
+
 
 if __name__ == "__main__":
     unittest.main()

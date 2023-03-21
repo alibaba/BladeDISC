@@ -1,5 +1,5 @@
-Performing DISC Quantization Optimization
-----
+# Performing DISC Quantization Optimization
+
 
 This folder provides an end-to-end examples about how to perform DISC **quantization** optimization on PyTorch's models.
 

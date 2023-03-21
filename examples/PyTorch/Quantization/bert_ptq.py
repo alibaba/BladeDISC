@@ -12,7 +12,9 @@
 import contextlib
 import os
 import time
+from argparse import ArgumentParser
 from inspect import signature
+import sklearn # to avoid the error "cannot allocate memory in static TLS block" in aarch64 platform
 
 import torch
 from datasets import load_dataset
@@ -20,7 +22,7 @@ from evaluate import load
 from torch.utils.data import DataLoader
 from torch_blade.config import Config
 from torch_blade.optimization import optimize
-from torch_quant.quantizer import Backend, Quantizer
+from torch_quant.quantizer import Backend, Device, Quantizer
 from tqdm import tqdm
 from transformers import (
     AutoConfig,
@@ -30,6 +32,9 @@ from transformers import (
     set_seed
 )
 from transformers.utils.fx import HFTracer
+
+os.environ["DISC_CPU_LARGE_CONCAT_NUM_OPERANDS"] = "4"
+os.environ["DISC_CPU_ENABLE_WEIGHT_PRE_PACKING"] = "1"
 
 
 @contextlib.contextmanager
@@ -44,7 +49,7 @@ def set_env(**environ):
 
 
 @torch.no_grad()
-def benchmark(model, inp):
+def benchmark(model, inp, model_type):
     warmup = 5
     bench = 10
     for _ in range(warmup):
@@ -55,11 +60,11 @@ def benchmark(model, inp):
         model(*inp)
     end = time.time()
     ms = (end - start) * 1000 / bench
-    print(f"avg ms: {ms}")
+    print(f"{model_type} avg ms: {ms}")
 
 
 @torch.no_grad()
-def evaluate(model, dataloader, device):
+def evaluate(model, dataloader, device, model_type):
     metric = load("glue", "mrpc")
     model.eval().to(device)
     for batch in tqdm(dataloader, desc='Running evaluation'):
@@ -74,7 +79,7 @@ def evaluate(model, dataloader, device):
         metric.add_batch(predictions=predictions, references=batch["labels"])
 
     print("************************")
-    print("evaluation result: ")
+    print(f"{model_type} evaluation result: ")
     for k, v in metric.compute().items():
         print(f"  {k: <{10}} = {round(v, 4):>{8}}")
     print("************************")
@@ -106,6 +111,10 @@ def get_dummy_input():
     dummy_input = (input_ids, attention_mask, token_type_ids)
     return dummy_input
 
+
+parser = ArgumentParser("Blade bert-mini quantization optimization")
+parser.add_argument('--device', choices=['x86', 'aarch64'], default='x86')
+args = parser.parse_args()
 
 set_seed(0)
 # model for quantization
@@ -151,7 +160,7 @@ eval_dataloader = DataLoader(eval_dataset, batch_size=1, collate_fn=default_data
 #   accuracy   =   0.8113
 #   f1         =   0.8651
 # ************************
-evaluate(model, eval_dataloader, device)
+evaluate(model, eval_dataloader, device, "PyTorch fp32 model")
 
 # optimize the model using DISC on fp32 precision
 dummy_input = get_dummy_input()
@@ -164,7 +173,7 @@ fp32_disc_model = optimize(fp32_torchscript_model, True, dummy_input)
 #   accuracy   =   0.8113
 #   f1         =   0.8651
 # ************************
-evaluate(fp32_disc_model, eval_dataloader, device)
+evaluate(fp32_disc_model, eval_dataloader, device, "DISC fp32 model")
 
 
 # optimize the model using DISC on INT8 precision
@@ -182,7 +191,14 @@ class HFTracerWrapper(HFTracer):
 
 # should use huggingface tracer to transform the model to fx model
 tracer = HFTracerWrapper(["input_ids", "attention_mask", "token_type_ids"])
-quantizer = Quantizer(tracer=tracer, backend=Backend.DISC)
+if args.device == "x86":
+    target_device = Device.X86
+elif args.device == "aarch64":
+    target_device = Device.AARCH64
+else:
+    raise RuntimeError(f"Unsupported device: {args.device}")
+
+quantizer = Quantizer(tracer=tracer, backend=Backend.DISC, device=target_device)
 # Convert the nn.Module to fx.Module and modify the inference
 # graph to meet the needs of converting it to the DISC int8 model.
 calib_model = quantizer.calib(model)
@@ -209,14 +225,14 @@ env_var["DISC_TORCH_PDL_FILES"] = ",".join(disc_torch_pdll_files)
 cfg = Config()
 cfg.enable_int8 = True
 cfg.disc_cluster_max_iter_count = 100
+cfg.quantization_type = "static"
 # optimize the model through the DISC optimization interface
 with set_env(**env_var), cfg:
     int8_disc_model = optimize(traced_model, True, dummy_input)
-    print(int8_disc_model.inlined_graph)
 # evaluate the real quantized DISC model
-evaluate(int8_disc_model, eval_dataloader, device)
+evaluate(int8_disc_model, eval_dataloader, device, "DISC int8 model")
 
 # benchmark the origin model, DISC fp32 model and disc int8 model
-benchmark(model, dummy_input)
-benchmark(fp32_disc_model, dummy_input)
-benchmark(int8_disc_model, dummy_input)
+benchmark(model, dummy_input, "PyTorch fp32 model")
+benchmark(fp32_disc_model, dummy_input, "DISC fp32 model")
+benchmark(int8_disc_model, dummy_input, "DISC int8 model")

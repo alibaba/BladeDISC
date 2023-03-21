@@ -1,4 +1,5 @@
-Performing DISC Quantization Optimization
+# Performing DISC Quantization Optimization
+
 
 This folder provides an end-to-end examples about how to perform DISC **quantization** optimization on PyTorch's models.
 
@@ -56,7 +57,8 @@ To build and install `torch_blade` package, please refer to
 #### Run the example
 ```shell
 # use OMP_NUM_THREADS to control the number of cpu cores to use
-OMP_NUM_THREADS=1 python bert_ptq.py
+# If the target device is aarch66, use --device aarch64 instead
+OMP_NUM_THREADS=1 python bert_ptq.py --device x86
 ```
 
 #### Performance results

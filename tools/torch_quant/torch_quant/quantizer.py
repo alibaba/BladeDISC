@@ -184,7 +184,7 @@ class Quantizer:
             ctx.modify_graph([
                 set_qconfig,
                 insert_act_observer,
-                quantizable_module_to_observed,
+                partial(quantizable_module_to_observed, is_observe_bias=True),
             ])
         else:
             ctx.modify_graph([set_qconfig, fuse_modules, insert_act_observer])
@@ -264,7 +264,7 @@ class Quantizer:
             # Generally we do not add fake-quant to bias during qat fine-tuning. If
             # users want to evaluate the accuracy of a model in specific state, they
             # should use the model returned by `quantizer.quantize`
-            quantizable_module_to_observed])
+            partial(quantizable_module_to_observed, is_observe_bias=False)])
         toggle_observer(gm, observe=False, fake_quant=True)
 
     def qat(self, model: nn.Module,
@@ -296,7 +296,7 @@ class Quantizer:
             ctx.modify_graph([
                 set_qconfig,
                 insert_act_observer,
-                quantizable_module_to_observed,
+                partial(quantizable_module_to_observed, is_observe_bias=True),
             ])
             toggle_observer(gm, observe=False, fake_quant=True)
 

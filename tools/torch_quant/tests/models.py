@@ -43,6 +43,16 @@ class SubModule(nn.Module):
         return x
 
 
+class SimpleLinearWithBias(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(3, 4, bias=True)
+
+    def forward(self, x):
+        x = self.linear(x)
+        return x
+
+
 class SimpleModule(nn.Module):
     def __init__(self) -> None:
         super().__init__()

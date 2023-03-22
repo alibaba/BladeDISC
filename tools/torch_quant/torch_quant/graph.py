@@ -263,7 +263,49 @@ def insert_act_observer(ctx: GraphModContext) -> None:
     ctx.gm.recompile()
 
 
-def quantizable_module_to_observed(ctx: GraphModContext, is_observe_bias=False) -> None:
+def _is_fused_module(m: nn.Module) -> Tuple[nn.Module, Optional[nn.Module]]:
+    """If input is a FusedModule, return it's quantizable module and itself."""
+    fused_module = None
+    if isinstance(m, nn.intrinsic._FusedModule):
+        fused_module = m
+        m = fused_module[0]
+    return m, fused_module
+
+
+def insert_w_observer(ctx: GraphModContext) -> None:
+    def _create_observer(
+        ob_path: str,
+        ob_ctr: Optional[Callable[..., Observer]],
+        params: torch.nn.Parameter,
+        fused_module: Optional[nn.Module],
+    ) -> Optional[Observer]:
+        ob = ctx.modules.get(ob_path)
+        no_ob = ob is None
+        if no_ob or ctx.is_override_module:
+            ob = ctx.get_or_create_module(ob_path, ob_ctr)
+            if fused_module:
+                fused_module.pop(-1)
+            if no_ob:
+                ob.set_mode(observe=True, fake_quant=False)
+                ob(params)
+        return ob
+
+    for node in ctx.quantizable_nodes():
+        m, fused_module = _is_fused_module(ctx.modules[node.target])
+        w_ob_path = f'{node.target}.w_ob'
+        w_ob = _create_observer(w_ob_path, ctx.w_ob_ctr, m.weight, fused_module)
+        if getattr(m, 'bias', None) is not None and ctx.bias_ob_ctr:
+            bias_ob_path = f'{node.target}.bias_ob'
+            act = node.args[0]
+            act_name = act.name if act.op == 'call_function' else act.target
+            act_ob = ctx.modules.get(act_name)
+            if act_ob is None or not isinstance(act_ob, Observer):
+                act_ob = ctx.modules[f'{act_name}_ob']
+            bias_ob_ctr = partial(ctx.bias_ob_ctr, w_ob, act_ob)
+            _create_observer(bias_ob_path, bias_ob_ctr, m.bias, fused_module)
+
+
+def quantizable_module_to_observed(ctx: GraphModContext) -> None:
     """
     Replace quantizable modules with observed version.
 
@@ -274,27 +316,20 @@ def quantizable_module_to_observed(ctx: GraphModContext, is_observe_bias=False) 
 
     Args:
         ctx (GraphModContext): Context object for graph modification.
-        is_observe_bias (bool): whether introduce fake-quant for bias through
-            a bias observer
     """
     for node in ctx.quantizable_nodes():
-        src = ctx.modules[node.target]
+        src, fused_module = _is_fused_module(ctx.modules[node.target])
         dst_type = OB_MODULE_MAPPING.get(type(src))
         if dst_type is None:
             raise ValueError(f'{type(src)} cannot be observed.')
         act_ob = ctx.modules[node.args[0].target]
-        w_ob_path = f'{node.target}.w_ob'
-        w_ob = ctx.get_or_create_module(w_ob_path, ctx.w_ob_ctr)
-        bias_ob = None
-        if getattr(src, 'bias', None) is not None and is_observe_bias:
-            # If we use the existed bias observer, ctx.bias_ob_ctr should be None
-            bias_ob_path = f'{node.target}.bias_ob'
-            bias_ob = ctx.modules.get(bias_ob_path)
-            if ctx.bias_ob_ctr:
-                bias_ob_ctr = partial(ctx.bias_ob_ctr, w_ob, act_ob)
-                bias_ob = ctx.get_or_create_module(bias_ob_path, bias_ob_ctr)
+        w_ob = ctx.modules[f'{node.target}.w_ob']
+        bias_ob = ctx.modules.get(f'{node.target}.bias_ob') if ctx.bias_ob_ctr else None
         dst = dst_type.from_float(src, w_ob, bias_ob)
-        ctx.replace_module(node.target, dst)
+        if fused_module is None:
+            ctx.replace_module(node.target, dst)
+        else:
+            fused_module[0] = dst
     ctx.gm.recompile()
 
 
@@ -320,18 +355,16 @@ def observer_to_qdq(ctx: GraphModContext) -> None:
 
 def quantizable_module_to_ref(ctx: GraphModContext) -> None:
     for node in ctx.quantizable_nodes():
-        src = ctx.modules[node.target]
-        fused_module = None
-        if isinstance(src, nn.intrinsic._FusedModule):
-            fused_module = src
-            src = fused_module[0]
+        src, fused_module = _is_fused_module(ctx.modules[node.target])
         dst_type = DEFAULT_REFERENCE_STATIC_QUANT_MODULE_MAPPINGS.get(
             type(src))
         if dst_type is None:
             raise ValueError(
                 f'module type {type(src)} is not supported for static quantization.')
-        w_ob = src.qconfig.weight()
-        w_ob(src.weight)
+        w_ob = ctx.modules.get(f'{node.target}.w_ob')
+        if w_ob is None:
+            w_ob = src.qconfig.weight()
+            w_ob(src.weight)
         # update qscheme, since we don't have symmetric quant qscheme in quantized Tensor
         # https://github.com/pytorch/pytorch/blob/v1.13.1/torch/ao/quantization/utils.py#L138
         wq_dict = w_ob.qparams._asdict()
@@ -341,6 +374,8 @@ def quantizable_module_to_ref(ctx: GraphModContext) -> None:
         }
         wq_dict['qscheme'] = sym_to_aff_map.get(wq_dict['qscheme'], wq_dict['qscheme'])
         wq_dict['axis'] = wq_dict.pop('ch_axis')
+        wq_dict['scale'] = wq_dict['scale'].to(torch.float32)
+        wq_dict['zero_point'] = wq_dict['zero_point'].to(torch.int32)
         dst = dst_type.from_float(src, wq_dict)
         # TODO(litan.ls): copy forward hooks
         if fused_module is None:
@@ -403,11 +438,7 @@ def fold_qdq(ctx: GraphModContext) -> None:
 
 def quantizable_module_to_amp(ctx: GraphModContext) -> None:
     for node in ctx.quantizable_nodes():
-        src = ctx.modules[node.target]
-        fused_module = None
-        if isinstance(src, nn.intrinsic._FusedModule):
-            fused_module = src
-            src = fused_module[0]
+        src, fused_module = _is_fused_module(ctx.modules[node.target])
         dst_type = OB_MODULE_MAPPING.get(type(src))
         if dst_type is None:
             raise ValueError(f'{type(src)} cannot be observed.')
@@ -415,18 +446,8 @@ def quantizable_module_to_amp(ctx: GraphModContext) -> None:
         act_name = act.name if act.op == 'call_function' else act.target
         act_ob = ctx.modules[f'{act_name}_ob']
         out_ob = ctx.modules[f'{node.target}_ob']
-        w_ob = ctx.modules.get(f'{node.target}.w_ob')
-        if w_ob is None:
-            w_ob = ctx.w_ob_ctr()
-            w_ob.set_mode(observe=True, fake_quant=False)
-            w_ob(src.weight)
-        bias_ob = None
-        if getattr(src, 'bias', None) is not None:
-            bias_ob = ctx.modules.get(f'{node.target}.bias_ob')
-            if bias_ob is None and ctx.bias_ob_ctr:
-                bias_ob = ctx.bias_ob_ctr(w_ob, act_ob)
-                bias_ob.set_mode(observe=True, fake_quant=False)
-                bias_ob(src.bias)
+        w_ob = ctx.modules[f'{node.target}.w_ob']
+        bias_ob = ctx.modules.get(f'{node.target}.bias_ob') if ctx.bias_ob_ctr else None
         dst = dst_type.from_float(src, w_ob, bias_ob)
         if fused_module is not None:
             copied = copy.deepcopy(fused_module)

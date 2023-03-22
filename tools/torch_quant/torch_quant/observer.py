@@ -692,7 +692,6 @@ class HistogramObserver(Observer):
             x_orig = torch.fake_quantize_per_tensor_affine(x_orig, self.scale, self.zero_point, self.q_min, self.q_max)
         return x_orig
 
-    @torch.jit.export
     def calculate_qparams(self):
         is_uninitialized = self.min_val == float("inf") and self.max_val == float(
             "-inf"

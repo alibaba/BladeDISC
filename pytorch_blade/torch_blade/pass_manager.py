@@ -358,8 +358,9 @@ def _optimize_common(c_module):
 
     if not is_training:
         # optimization passes only work in eval mode
-        presv_attrs = cfg.preserved_attributes
-        #c_module = tools.freeze_module(c_module, presv_attrs, disableShapePeephole=not static_shape)
+        if cfg.freeze_module:
+            presv_attrs = cfg.preserved_attributes
+            c_module = tools.freeze_module(c_module, presv_attrs, disableShapePeephole=not static_shape)
         torch._C._jit_pass_remove_dropout(c_module)
         _fixup_for_dynamic_shape(cfg, c_module)
         graph = c_module.forward.graph

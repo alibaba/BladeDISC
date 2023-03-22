@@ -197,6 +197,7 @@ class Config(ConfigContext):
         self._enable_force_to_cuda = False
         self._enable_onnx_shape_white_list = True
         self._enable_static_shape = False
+        self._freeze_module = True
         self._customize_op_white_list = []
         self._customize_op_black_list = []
         self._customize_jit_passes = []
@@ -223,6 +224,20 @@ class Config(ConfigContext):
         :default: False
         """
         return self._disable_optimization_for_inference
+    
+    @property
+    def freeze_module(self):
+        """The flag to freeze module.
+
+        :type: bool
+        :default: True
+        """
+        return self._freeze_module
+    
+    @property.setter
+    def freeze_module(self, val):
+        assert isinstance(val, bool), "freeze_module should be bool, got {}".format(type(val))
+        self._freeze_module = val
 
     @disable_optimization_for_inference.setter
     def disable_optimization_for_inference(self, val):

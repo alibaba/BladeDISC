@@ -234,7 +234,7 @@ class Config(ConfigContext):
         """
         return self._freeze_module
     
-    @property.setter
+    @freeze_module.setter
     def freeze_module(self, val):
         assert isinstance(val, bool), "freeze_module should be bool, got {}".format(type(val))
         self._freeze_module = val

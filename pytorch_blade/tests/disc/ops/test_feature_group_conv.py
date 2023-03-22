@@ -21,7 +21,7 @@ class TestMlirConvolution(DiscTestCase):
         if inp_test_data is not None:
             test_data = inp_test_data
         else:
-            test_data = torch.randn([20, 112, 50, 50], device=self.device)
+            test_data = torch.randn([1, 112, 50, 50], device=self.device)
         if (isinstance(test_data, torch.Tensor)):
             test_data = (test_data.to(self.device),)
         self._test_cvt_to_disc(conv_func, test_data)

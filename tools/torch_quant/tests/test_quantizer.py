@@ -127,7 +127,6 @@ class QuantizerTest(unittest.TestCase):
         if backend != Backend.FBGEMM:
             self.assertTrue(torch.equal(out4, out5))
 
-
     @parameterized_with_backends()
     def test_calib_amp_quantize(self, backend: Backend) -> None:
         model = SimpleModule()

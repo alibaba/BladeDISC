@@ -284,7 +284,7 @@ def insert_w_observer(ctx: GraphModContext) -> None:
         if no_ob or ctx.is_override_module:
             ob = ctx.get_or_create_module(ob_path, ob_ctr)
             if fused_module:
-                fused_module.pop(-1)
+                fused_module._modules.pop(ob_path.split('.')[-1])
             if no_ob:
                 ob.set_mode(observe=True, fake_quant=False)
                 ob(params)

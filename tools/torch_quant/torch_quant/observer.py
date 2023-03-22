@@ -433,6 +433,7 @@ class HistogramObserver(Observer):
         self.register_buffer("zero_point", torch.tensor(0, dtype=torch.int32))
         self.dst_nbins = 2 ** self.bit
         self.upsample_rate = upsample_rate
+        self.qparams_calculated = False
 
     def _get_norm(
             self, delta_begin: torch.Tensor, delta_end: torch.Tensor, density: torch.Tensor
@@ -682,11 +683,6 @@ class HistogramObserver(Observer):
                 self.min_val.copy_(combined_min)
                 self.max_val.detach_().resize_(combined_max.shape)
                 self.max_val.copy_(combined_max)
-            scale, zero_point = self.calculate_qparams()
-            self.scale.resize_(scale.shape)
-            self.zero_point.resize_(zero_point.shape)
-            self.scale.copy_(scale)
-            self.zero_point.copy_(zero_point)
 
         if self.fake_quant:
             x_orig = torch.fake_quantize_per_tensor_affine(x_orig, self.scale, self.zero_point, self.q_min, self.q_max)
@@ -702,13 +698,18 @@ class HistogramObserver(Observer):
                 "must run observer before calling calculate_qparams.\
                                     Returning default scale and zero point "
             )
-            return torch.tensor([1.0], device=self.min_val.device.type), torch.tensor([0],
-                                                                                      device=self.min_val.device.type)
-        assert self.bins == len(self.histogram), (
-            "The number of bins in histogram should be equal to the number of bins "
-            "supplied while making this observer"
-        )
+            scale = torch.tensor([1.0], device=self.min_val.device.type)
+            zero_point = torch.tensor([0], device=self.min_val.device.type)
+        else:
+            assert self.bins == len(self.histogram), (
+                "The number of bins in histogram should be equal to the number of bins "
+                "supplied while making this observer"
+            )
+            new_min, new_max = self._non_linear_param_search()
+            scale, zero_point = self._calculate_qparams(new_min, new_max)
 
-        new_min, new_max = self._non_linear_param_search()
-
-        return self._calculate_qparams(new_min, new_max)
+        self.qparams_calculated = True
+        self.scale.resize_(scale.shape)
+        self.zero_point.resize_(zero_point.shape)
+        self.scale.copy_(scale)
+        self.zero_point.copy_(zero_point)

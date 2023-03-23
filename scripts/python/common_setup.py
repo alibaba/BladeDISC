@@ -328,7 +328,7 @@ def config_mkldnn(root, args):
             envs += " ACL_ROOT_DIR={} ".format(acl_dir)
             flags += " -DDNNL_AARCH64_USE_ACL=ON "
 
-        if args.ral_cxx11_abi:
+        if hasattr(args, 'ral_cxx11_abi') and args.ral_cxx11_abi:
             flags += " -DUSE_CXX11_ABI=ON"
 
         cmake_cmd = "{}  cmake .. {}".format(envs, flags)

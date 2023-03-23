@@ -172,7 +172,7 @@ class Config(ConfigContext):
         self._disc_cluster_max_iter_count = 10
         # Ahead of time compile for multi cuda compute_capacity..
         # Note that it will take longer time to optimize when the flag is on.
-        self._disc_cuda_compile_for_multi_cuda_compute_capacity = True
+        self._disc_compile_for_multi_cuda_targets = True
         # min/max/opt settings for tuning trt engines with dynamic input shapes
         # looks like:
         # {
@@ -362,7 +362,7 @@ class Config(ConfigContext):
         self._disc_cpu_fast_math_level = val
 
     @property
-    def disc_cuda_compile_for_multi_cuda_compute_capacity(self):
+    def disc_compile_for_multi_cuda_targets(self):
         """The flag to enable multi_cc commpilation.
 
         # Ahead of time compile for multi cuda compute_capacity..
@@ -371,12 +371,12 @@ class Config(ConfigContext):
         :type: bool
         :default: True
         """
-        return self._disc_cuda_compile_for_multi_cuda_compute_capacity
+        return self._disc_compile_for_multi_cuda_targets
 
-    @disc_cuda_compile_for_multi_cuda_compute_capacity.setter
-    def disc_cuda_compile_for_multi_cuda_compute_capacity(self, val):
-        assert isinstance(val, bool), "disc_cuda_compile_for_multi_cuda_compute_capacity should be bool, got {}".format(type(val))
-        self._disc_cuda_compile_for_multi_cuda_compute_capacity = val
+    @disc_compile_for_multi_cuda_targets.setter
+    def disc_compile_for_multi_cuda_targets(self, val):
+        assert isinstance(val, bool), "disc_compile_for_multi_cuda_targets should be bool, got {}".format(type(val))
+        self._disc_compile_for_multi_cuda_targets = val
 
     @property
     def disc_cluster_max_iter_count(self):

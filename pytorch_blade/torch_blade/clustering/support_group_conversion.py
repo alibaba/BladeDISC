@@ -188,6 +188,11 @@ def group_node_to_engine(
     logger.debug(f"Group converting complete: {group_name}")
 
 
+def group_node_to_engine_with_cfg(config, *args, **kwargs):
+    local_config = config or Config.get_current_context_or_new()
+    with local_config:
+        group_node_to_engine(*args, **kwargs)
+
 def group_nodes(block):
     grp_nodes = []
     for node in block.node_list():
@@ -258,7 +263,8 @@ def group_to_engine_conversion(
                 logger.debug(f"Submit to convert fusion group {idx} ...")
                 group_id = idx + start_id
                 grp_calib_data = all_calib_data[idx] if all_calib_data is not None else None
-                f = executor.submit(group_node_to_engine,
+                f = executor.submit(group_node_to_engine_with_cfg,
+                                    Config.get_current_context_or_new(),
                                     module,
                                     node,
                                     try_cvt_to_engine_func,

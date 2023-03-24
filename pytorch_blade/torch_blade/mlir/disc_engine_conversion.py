@@ -81,8 +81,11 @@ def _compile_torchscript(graph):
             env['DISC_CPU_FAST_MATH_LEVEL'] = str(cfg.disc_cpu_fast_math_level)
             # RUN: disc_compiler_main input_mlir_file.mlir output_file.so
             # redirect stdout to devnull
+            extra_flags = []
+            if cfg.disc_compile_for_multi_cuda_targets:
+                extra_flags += ["--multi-cc-support"]
             subprocess.check_call(
-                [mhlo_compile_cmd, inp_mlir_file.name, out_file_name, "--multi-cc-support", "--mlir-elide-elementsattrs-if-larger=8"],
+                [mhlo_compile_cmd, inp_mlir_file.name, out_file_name, "--mlir-elide-elementsattrs-if-larger=8"] + extra_flags,
                 stdout=devnull,
                 stderr=devnull,
                 env=env,

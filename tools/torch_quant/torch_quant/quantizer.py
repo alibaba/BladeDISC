@@ -9,6 +9,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from enum import Enum
 from functools import partial
 from typing import Callable, Dict, NamedTuple, Optional
@@ -40,6 +41,8 @@ from torch_quant.observer import (
     PerChannelMinMaxObserver,
     toggle_observer
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Backend(Enum):
@@ -150,7 +153,10 @@ class Quantizer:
         qat_ob_ctr: Optional[Callable[..., Observer]] = None,
     ) -> None:
         if backend == Backend.FBGEMM and torch.backends.quantized.engine != 'fbgemm':
-            raise ValueError('fbgemm is not available, it only for x86_64')
+            LOGGER.warning(
+                'FBGEMM is not available, which is only for x86_64. '
+                'This might cause the final quantization to fail.'
+            )
         self.module_filter = module_filter
         self.backend = backend
         self.device = device

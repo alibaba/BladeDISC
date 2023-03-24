@@ -215,6 +215,10 @@ bool isAclSupportedDepthwiseConv(
       !std::is_same<Toutput, float>::value) {
     return false;
   }
+  // ACL currently do not support num_groups != 1
+  if (params.groups != 1) {
+    return false;
+  }
   // NHWC + HWIO
   // TODO(disc): support other formats
   if (params.input_format == format_tag::acdb &&
@@ -344,6 +348,10 @@ bool isAclSupportedConv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
   if (!std::is_same<Tinput, float>::value ||
       !std::is_same<Tfilter, float>::value ||
       !std::is_same<Toutput, float>::value) {
+    return false;
+  }
+  // ACL currently do not support num_groups != 1
+  if (params.groups != 1) {
     return false;
   }
   // NHWC + OHWI

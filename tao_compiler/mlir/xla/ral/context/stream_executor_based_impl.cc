@@ -1319,7 +1319,7 @@ Status RunCudnnConvolution(CudnnConvParams& params,
   AlgorithmConfig algorithm{AlgorithmDesc(
       params.algo_id, params.tensor_ops_enabled, params.workspace_size)};
 #else
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 4) || TF_MAJOR_VERSION > 2
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 7) || TF_MAJOR_VERSION > 2
   absl::optional<uint64_t> workspace_size;
   if (!profile_result) {
     workspace_size = params.workspace_size;

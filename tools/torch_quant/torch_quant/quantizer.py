@@ -123,8 +123,8 @@ def get_default_ctr(all_ctr, device, backend):
 
 
 class ObserverTypes(NamedTuple):
-    act_ob_ctr: Callable[..., Observer]
-    w_ob_ctr: Callable[..., Observer]
+    act_ob_ctr: Optional[Callable[..., Observer]]
+    w_ob_ctr: Optional[Callable[..., Observer]]
     bias_ob_ctr: Optional[Callable[..., Observer]] = None
 
 def get_observer_types(
@@ -170,15 +170,17 @@ class Quantizer:
         self.bias_ob_ctr = bias_ob_ctr or DEFAULT_BIAS_OB_CTR
         self.qat_ob_ctr = qat_ob_ctr or DEFAULT_QAT_OB_CTR
 
-    def calib_gm(self, name: str, gm: GraphModule, root: nn.Module) -> None:
+    def calib_gm(
+        self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes
+    ) -> None:
         mf = submodule_filter(self.module_filter, name) if self.module_filter else None
         ctx = GraphModContext(
             gm=gm,
             root=root,
             module_filter=mf,
-            act_ob_ctr=self.act_ob_ctr,
-            w_ob_ctr=self.w_ob_ctr,
-            bias_ob_ctr=self.bias_ob_ctr,
+            act_ob_ctr=ob_types.act_ob_ctr,
+            w_ob_ctr=ob_types.w_ob_ctr,
+            bias_ob_ctr=ob_types.bias_ob_ctr,
         )
         # TODO(litan.ls): unify graph modification for different backends
         if self.backend == Backend.DISC:
@@ -187,10 +189,21 @@ class Quantizer:
             ctx.modify_graph([set_qconfig, fuse_modules, insert_act_observer])
         toggle_observer(gm, observe=True, fake_quant=False)
 
-    def calib(self, model: nn.Module) -> nn.Module:
+    def calib(
+        self,
+        model: nn.Module,
+        act_ob_ctr: Optional[Callable[..., Observer]] = None,
+        w_ob_ctr: Optional[Callable[..., Observer]] = None,
+        bias_ob_ctr: Optional[Callable[..., Observer]] = None,
+    ) -> nn.Module:
+        ob_types = ObserverTypes(
+            act_ob_ctr or self.act_ob_ctr,
+            w_ob_ctr or self.w_ob_ctr,
+            bias_ob_ctr or self.bias_ob_ctr,
+        )
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
         for name, traced in trace_mapping.items():
-            self.calib_gm(name, traced.gm, traced.m)
+            self.calib_gm(name, traced.gm, traced.m, ob_types)
         return copy_and_replace(model, trace_mapping)
 
     def amp_gm(self, name: str, gm: GraphModule, root: nn.Module) -> None:
@@ -211,13 +224,7 @@ class Quantizer:
             ctx.modify_graph([set_qconfig, fuse_modules, insert_w_observer, quantizable_module_to_amp])
         toggle_observer(gm, observe=False, fake_quant=True)
 
-    def amp(
-        self,
-        model: nn.Module,
-        act_ob_ctr: Optional[Callable[..., Observer]] = None,
-        w_ob_ctr: Optional[Callable[..., Observer]] = None,
-        bias_ob_ctr: Optional[Callable[..., Observer]] = None,
-    ) -> nn.Module:
+    def amp(self, model: nn.Module) -> nn.Module:
         trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
         for name, traced in trace_mapping.items():
             self.amp_gm(name, traced.gm, traced.m)
@@ -307,7 +314,6 @@ class Quantizer:
                 quantizable_module_to_observed,
             ])
             toggle_observer(gm, observe=False, fake_quant=True)
-
         elif self.backend == Backend.REFERENCE:
             ctx.modify_graph([
                 set_qconfig,

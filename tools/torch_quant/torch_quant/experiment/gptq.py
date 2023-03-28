@@ -61,7 +61,7 @@ class GPTQLayerWrapper:
         self.H = torch.zeros((columns, columns), device=self.device)
         self.nsamples = 0
 
-    def record(self, x):
+    def record_h(self, x):
         x = x.detach().clone()
         if len(x.shape) == 2:
             x = x.unsqueeze(0)
@@ -87,7 +87,7 @@ class GPTQLayerWrapper:
         x = math.sqrt(2 / self.nsamples) * x.float()
         self.H += x.matmul(x.t())
 
-    def quant(self, blocksize=128, percdamp=.01, groupsize=-1):
+    def quant_weight(self, blocksize=128, percdamp=.01, groupsize=-1):
         weight = self.layer.weight.data.clone()
         if isinstance(self.layer, nn.Conv2d):
             weight = weight.flatten(1)
@@ -106,7 +106,6 @@ class GPTQLayerWrapper:
 
         losses = torch.zeros_like(weight)
         Q = torch.zeros_like(weight)
-        mask = torch.ones_like(weight)
 
         damp = percdamp * torch.mean(torch.diag(H))
         diag = torch.arange(self.columns, device=self.device)
@@ -117,14 +116,13 @@ class GPTQLayerWrapper:
             H = torch.linalg.cholesky(H, upper=True)
         except Exception:
             # TODO: should handle this situation
-            logging.warning(f"Warning:  cannot do compression for inverse error")
+            logging.warning("Warning:  cannot do compression for inverse error")
 
         if H.isnan().any():
             # TODO: should handle this situation
-            logging.warning(f"Warning:  cannot do compression for inverse error")
+            logging.warning("Warning:  cannot do compression for inverse error")
 
         hinv = H
-        hinv_diag = torch.diag(hinv)
 
         for i1 in range(0, self.columns, blocksize):
             i2 = min(i1 + blocksize, self.columns)
@@ -132,7 +130,7 @@ class GPTQLayerWrapper:
 
             w1 = weight[:, i1:i2].clone()
             q1 = torch.zeros_like(w1)
-            err1 = torch.zeros_like(w1)
+            total_err = torch.zeros_like(w1)
             losses1 = torch.zeros_like(w1)
             hinv1 = hinv[i1:i2, i1:i2]
 
@@ -147,16 +145,16 @@ class GPTQLayerWrapper:
 
                 q1[:, i] = q
                 losses1[:, i] = (w - q) ** 2 / d ** 2
-                err1 = (w - q) / d
-                w1[:, i:] -= err1.unsqueeze(1).matmul(hinv1[i, i:].unsqueeze(0))
-                err1[:, i] = err1
+                err = (w - q) / d
+                w1[:, i:] -= err.unsqueeze(1).matmul(hinv1[i, i:].unsqueeze(0))
+                total_err[:, i] = err
 
             Q[:, i1:i2] = q1
             losses[:, i1:i2] = losses1 / 2
 
-            weight[:, i2:] -= err1.matmul(hinv[i1:i2, i2:])
+            weight[:, i2:] -= total_err.matmul(hinv[i1:i2, i2:])
 
-        torch.cuda.synchronize()
+        # torch.cuda.synchronize()
 
         if is_transformer_conv1d(self.layer):
             Q = Q.t()
@@ -167,16 +165,24 @@ class GPTQModuleWrapper:
     def __init__(self, module: nn.Module, w_ob_ctr):
         self.all_layers = {}
         self.all_handles = []
-        def get_hook(name):
-            def record(_, x):
-                self.all_layers[name].record(x[0])
-            return record
+
+        def get_hook(layer_name):
+            def record_hook(_, x):
+                self.all_layers[layer_name].record_h(x[0])
+            return record_hook
 
         for name, layer in module.named_modules():
             if isinstance(layer, tuple(QUANT_LAYERS)):
                 self.all_layers[name] = GPTQLayerWrapper(layer, w_ob_ctr())
                 handle = layer.register_forward_pre_hook(get_hook(name))
                 self.all_handles.append(handle)
+
+    def quant_module(self):
+        for _, wrapper in self.all_layers.items():
+            wrapper.quant_weight()
+
+        for h in self.all_handles:
+            h.remove()
 
 
 class GPTQuantizer:
@@ -204,15 +210,17 @@ class GPTQuantizer:
         return model
 
     def quantize(self, model: nn.Module):
-        pass
+        for _, module_wrapper in self.all_module_wrappers.items():
+            module_wrapper.quant_module()
 
+        return model
 
 
 if __name__ == "__main__":
     class MyModel(nn.Module):
         def __init__(self):
             super().__init__()
-            self.linear = nn.Linear(3, 4)
+            self.linear = nn.Linear(2048, 2048)
 
         def forward(self, x):
             return self.linear(x)
@@ -221,6 +229,6 @@ if __name__ == "__main__":
     ss = dict(model.named_modules())
     quantizer = GPTQuantizer()
     calib_model = quantizer.calib(model)
-    dummy = torch.randn(1, 3)
+    dummy = torch.randn(1, 2048, 2048)
     calib_model(dummy)
     quant_model = quantizer.quantize(model)

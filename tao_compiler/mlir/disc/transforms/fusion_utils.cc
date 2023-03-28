@@ -1162,6 +1162,16 @@ bool FusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
   auto& operands = target.getOperands();
   auto& results = target.getResults();
 
+  // TODO(Yancey): support fusion with different reduction type
+  bool has_row_reduction = llvm::any_of(
+      op_list, [](Operation* op) { return isRank2RowReduction(op); });
+  bool has_col_reduciton = llvm::any_of(
+      op_list, [](Operation* op) { return isRank2ColReduction(op); });
+
+  if (has_row_reduction && has_col_reduciton) {
+    return false;
+  }
+
   if (results.size() + operands.size() >
       options_.max_num_arguments_per_kernel) {
     // some backend devices (e.g. GPU) do not support a kernel with

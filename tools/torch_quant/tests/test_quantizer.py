@@ -11,6 +11,7 @@
 
 import tempfile
 import unittest
+from functools import partial
 from typing import List, Optional
 
 import torch
@@ -24,8 +25,7 @@ from torch_quant.module import ModuleFilter
 from torch_quant.observer import toggle_observer
 from torch_quant.quantizer import (
     DEFAULT_ACT_OB_CTR,
-    DEFAULT_QAT_ACT_OB_CTR,
-    DEFAULT_QAT_W_OB_CTR,
+    DEFAULT_QAT_OB_CTR,
     DEFAULT_W_OB_CTR,
     Backend,
     Device,
@@ -96,24 +96,11 @@ class QuantizerTest(unittest.TestCase):
         loaded_output = loaded(dummy_input)
         torch.testing.assert_close(quant_output, loaded_output)
 
-    def test_calib_and_quantize_with_bias_observer(self):
+    @parameterized_with_backends()
+    def test_calib_quantize_qat_quantize_state_equal(self, backend):
         dummy_input = torch.randn((1, 2, 5, 5))
         model = SimpleModule()
-        quantizer = Quantizer(backend=Backend.DISC)
-        calib_model = quantizer.calib(model)
-        calib_model(dummy_input)
-
-        toggle_observer(calib_model, observe=False, fake_quant=True)
-        out1 = calib_model(dummy_input)
-
-        fake_quant_model = quantizer.quantize(model)
-        out2 = fake_quant_model(dummy_input)
-        self.assertTrue(torch.equal(out1, out2))
-
-    def test_calib_quantize_qat_quantize_state_equal(self):
-        dummy_input = torch.randn((1, 2, 5, 5))
-        model = SimpleModule()
-        quantizer = Quantizer(backend=Backend.DISC)
+        quantizer = Quantizer(backend=backend)
         calib_model = quantizer.calib(model)
         calib_model(dummy_input)
         fake_quant_model1 = quantizer.quantize(model)
@@ -121,11 +108,24 @@ class QuantizerTest(unittest.TestCase):
 
         qat_model = quantizer.qat(model)
         out2 = qat_model(dummy_input)
-        self.assertTrue(torch.equal(out1, out2))
+        # TODO(wanchen.swc): skip only for x86 cpu without vnni or reduce range
+        if backend != Backend.FBGEMM:
+            self.assertTrue(torch.equal(out1, out2))
 
         quant_model = quantizer.quantize(model)
         out3 = quant_model(dummy_input)
-        self.assertTrue(torch.equal(out2, out3))
+        self.assertTrue(torch.equal(out1, out3))
+
+        optimizer = torch.optim.SGD(qat_model.parameters(), lr=0.1)
+        qat_model(dummy_input).sum().backward()
+        optimizer.step()
+        out4 = qat_model(dummy_input)
+        self.assertFalse(torch.equal(out2, out4))
+
+        quant_model = quantizer.quantize(model)
+        out5 = quant_model(dummy_input)
+        if backend != Backend.FBGEMM:
+            self.assertTrue(torch.equal(out4, out5))
 
     @parameterized_with_backends()
     def test_calib_amp_quantize(self, backend: Backend) -> None:
@@ -149,6 +149,7 @@ class QuantizerTest(unittest.TestCase):
         self.assertEqual(len(quantizer.module_filter.exclude_names), 2)
 
         quant_model = quantizer.quantize(model)
+        torch.jit.trace(quant_model, dummy_input)
         modules = dict(model.named_modules())
         quant_modules = dict(quant_model.named_modules())
         for name in quantizer.module_filter.exclude_names:
@@ -242,15 +243,14 @@ class QuantizerTest(unittest.TestCase):
         elif backend == Backend.FBGEMM:
             self.assertTrue(isinstance(quant_model.sub.conv, nniq.ConvReLU2d))
 
-
     def _test_observer_type(self, t, target_t):
         self.assertEqual(type(t), type(target_t))
         self.assertEqual(t.dtype, target_t.dtype)
         self.assertEqual(t.qscheme, target_t.qscheme)
 
     @parameterized_with_backends([
-        (Device.X86, Backend.DISC,),
-        (Device.X86, Backend.REFERENCE,),
+        (Device.X86, Backend.DISC),
+        (Device.X86, Backend.REFERENCE),
         (Device.X86, Backend.FBGEMM),
         (Device.AARCH64, Backend.DISC),
         (Device.GPU, Backend.DISC)
@@ -267,6 +267,7 @@ class QuantizerTest(unittest.TestCase):
             self._test_observer_type(model.conv_ob, target_act_ob)
             self._test_observer_type(model.flatten_ob, target_act_ob)
             self._test_observer_type(model.linear_ob, target_act_ob)
+
         dummy_input = torch.randn((1, 2, 5, 5))
         model = SimpleModule()
         quantizer = Quantizer(backend=backend, device=device)
@@ -276,8 +277,9 @@ class QuantizerTest(unittest.TestCase):
         check_each_observer_type(calib_model, ptq_w_ob, ptq_act_ob)
         calib_model(dummy_input)
         qat_model = quantizer.qat(model)
-        qat_w_ob = DEFAULT_QAT_W_OB_CTR[device][backend]()
-        qat_act_ob = DEFAULT_QAT_ACT_OB_CTR[device][backend]()
+        kwds = lambda ob: {k: getattr(ob, k) for k in ['qscheme', 'dtype']}
+        qat_w_ob = DEFAULT_QAT_OB_CTR(**kwds(ptq_w_ob))
+        qat_act_ob = DEFAULT_QAT_OB_CTR(**kwds(ptq_act_ob))
         check_each_observer_type(qat_model, qat_w_ob, qat_act_ob)
 
 

@@ -18,6 +18,7 @@ from torch_quant.amp_module import AmpModule
 from torch_quant.graph import (
     GraphModContext,
     insert_act_observer,
+    insert_w_observer,
     quantizable_module_to_amp,
     set_qconfig,
 )
@@ -35,6 +36,7 @@ class QuantizableModuleToAmpTest(unittest.TestCase):
             bias_ob_ctr=BiasObserver,
         )
         insert_act_observer(ctx)
+        insert_w_observer(ctx)
         ctx.gm = torch.fx.symbolic_trace(model)
         set_qconfig(ctx)
         quantizable_module_to_amp(ctx)

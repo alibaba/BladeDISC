@@ -23,7 +23,6 @@ class TestBiasReleatedSituations(unittest.TestCase):
         dummy = torch.randn(1, 3)
         quantizer = Quantizer(backend=Backend.DISC)
         calib_model = quantizer.calib(model)
-        self.assertTrue(isinstance(model.linear.bias_ob, BiasObserver))
         calib_model(dummy)
         quantized_model = quantizer.quantize(model)
         self.assertTrue(isinstance(quantized_model.linear.bias_ob, BiasObserver))

@@ -166,10 +166,13 @@ class Config(ConfigContext):
         #   Level 3: Level 2 + NoNaNs + NoSignedZeros
         #   Level 4: Level 3 + fully llvm fast math
         self._disc_cpu_fast_math_level = 4
-        # Note that default cluster max_iter_count number has risk of early stopping before 
-        # cluster final convergence. If this phenomenon happens and it drastically influence 
+        # Note that default cluster max_iter_count number has risk of early stopping before
+        # cluster final convergence. If this phenomenon happens and it drastically influence
         # the latency, user can try to enlarge this number.
         self._disc_cluster_max_iter_count = 10
+        # Ahead of time compile for multi cuda compute_capacity..
+        # Note that it will take longer time to optimize when the flag is on.
+        self._disc_compile_for_multi_cuda_targets = True
         # min/max/opt settings for tuning trt engines with dynamic input shapes
         # looks like:
         # {
@@ -237,7 +240,7 @@ class Config(ConfigContext):
 
     @property
     def enable_onnx_shape_white_list(self):
-        """The flag is used to force convert shape aten operations to TensorRT. Currently the list contains, 
+        """The flag is used to force convert shape aten operations to TensorRT. Currently the list contains,
         'aten::view', 'aten::size', 'aten::reshape', 'aten::floor_divide', 'aten::Int', 'prim::NumToTensor'.
 
         :type: bool
@@ -357,6 +360,23 @@ class Config(ConfigContext):
     def disc_cpu_fast_math_level(self, val):
         assert isinstance(val, int), "disc_cpu_fast_math_level should be int, got {}".format(type(val))
         self._disc_cpu_fast_math_level = val
+
+    @property
+    def disc_compile_for_multi_cuda_targets(self):
+        """The flag to enable multi_cc commpilation.
+
+        # Ahead of time compile for multi cuda compute_capacity..
+        # Note that it will take longer time to optimize when the flag is on.
+
+        :type: bool
+        :default: True
+        """
+        return self._disc_compile_for_multi_cuda_targets
+
+    @disc_compile_for_multi_cuda_targets.setter
+    def disc_compile_for_multi_cuda_targets(self, val):
+        assert isinstance(val, bool), "disc_compile_for_multi_cuda_targets should be bool, got {}".format(type(val))
+        self._disc_compile_for_multi_cuda_targets = val
 
     @property
     def disc_cluster_max_iter_count(self):

@@ -25,14 +25,20 @@ class TestConfig(TestCase):
         new_cfg.fp16_fallback_op_ratio = 0.5
         new_cfg.enable_mlir_amp = True
         new_cfg.disc_cpu_fast_math_level = 0
+        new_cfg.disc_compile_for_multi_cuda_targets = False
         with new_cfg:
             self.assertEqual(len(Config.get_contexts()), 1)
             now_cfg = Config.get_current_context_or_new()
             self.assertEqual(now_cfg.disc_cpu_fast_math_level, 0)
+            self.assertEqual(now_cfg.disc_compile_for_multi_cuda_targets, False)
         now_cfg = Config.get_current_context_or_new()
         self.assertEqual(default_cfg.fp16_fallback_op_ratio, now_cfg.fp16_fallback_op_ratio)
         self.assertEqual(default_cfg.enable_mlir_amp, now_cfg.enable_mlir_amp)
         self.assertEqual(default_cfg.disc_cpu_fast_math_level, now_cfg.disc_cpu_fast_math_level)
+        self.assertEqual(
+            default_cfg.disc_compile_for_multi_cuda_targets,
+            now_cfg.disc_compile_for_multi_cuda_targets
+        )
 
     def test_config_work(self):
         new_cfg = Config()

@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "mlir/disc/disc_compiler.h"
 
+#include <chrono>
 #include <fstream>
 
 #include "lhlo/transforms/passes.h"
@@ -914,21 +915,40 @@ LogicalResult BinaryStrToSharedLibrary(const DISCLoweringOptions& options,
 
 LogicalResult LowerHLOToSharedLibrary(ModuleOp m,
                                       const DISCLoweringOptions& options) {
+  std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
   if (failed(LowerHLOToLLVM(m, options))) {
     llvm::errs() << "lower hlo to llvm failed\n";
     return failure();
   }
+  std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+  llvm::errs() << "[DISC] LowerHLOToLLVM takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0)
+                          .count() /
+                      1e6
+               << " s.\n";
 
   std::string binary;
   if (failed(LowerLLVMToBinary(m, options, binary))) {
     llvm::errs() << "lower llvm to binary failed\n";
     return failure();
   }
+  std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+  llvm::errs() << "[DISC] LowerLLVMToBinary takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1)
+                          .count() /
+                      1e6
+               << " s.\n";
 
   if (failed(BinaryStrToSharedLibrary(options, binary))) {
     llvm::errs() << "lower binary to shared library failed\n";
     return failure();
   }
+  std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
+  llvm::errs() << "[DISC] BinaryStrToSharedLibrary takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2)
+                          .count() /
+                      1e6
+               << " s.\n";
 
   return success();
 }

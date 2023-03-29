@@ -1,0 +1,7 @@
+// RUN: shape_analysis_tool -f %s | FileCheck %s
+
+// CHECK-LABEL: graph
+graph(%p1 : Half(2, 3, 1, 1)):
+  %1 : int[] = prim::Constant[value=[2, 3]]()
+  %squeeze.1 : Tensor = aten::squeeze(%p1, %1) # <eval_with_key>.1228:16:14
+  return (%squeeze.1)

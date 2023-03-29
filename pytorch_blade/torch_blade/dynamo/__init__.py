@@ -69,6 +69,7 @@ def _disc_compile(fx_g: fx.GraphModule, inps, use_ts=False, is_training=True) ->
 
         fx_g.graph.lint()
         fx_g.recompile()
+        print(fx_g.graph)
         f = torch.jit.script(fx_g)
         torch._C._jit_pass_remove_mutation(f.graph)
         if not is_training:
@@ -79,6 +80,7 @@ def _disc_compile(fx_g: fx.GraphModule, inps, use_ts=False, is_training=True) ->
             return f
         cfg = torch_blade.Config()
         cfg.disable_optimization_for_inference = is_training
+        cfg.experimental_subgraph_conversion_parallelism = 40
         with cfg:
             f = torch_blade.optimize(f, True, tuple(inps))
         with open('aot_disc.py', 'a') as writer:
@@ -162,7 +164,7 @@ def _get_disc_decomp():
             aten.native_dropout_backward,
             aten.native_group_norm,
             aten.native_group_norm_backward,
-            aten.native_layer_norm,
+            #aten.native_layer_norm,
             aten.native_layer_norm_backward,
             aten.new_empty,
             aten.new_full,

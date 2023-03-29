@@ -29,3 +29,5 @@ third_party/bazel/blade_service_common/blade_service_common_workspace.bzl.tpl
 *.egg-info
 build/
 .pytest_cache
+scripts/ci/.disc_conf
+tao_compiler/tao

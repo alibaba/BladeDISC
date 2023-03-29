@@ -28,6 +28,8 @@
 #include "compiler/jit/shape_type_spec.h"
 #include "compiler/jit/tool_funcs.h"
 
+#include <torch/csrc/lazy/core/hash.h>
+
 namespace torch {
 namespace blade {
 namespace {
@@ -167,6 +169,12 @@ Getting record cluster IO(Inputs/Outputs) flag configured in current thread.
             method_name, graph);
         self.type()->addMethod(fn);
       });
+
+  // py::class<torch::lazy::hash_t>(tools,
+  // "HashValue").def_readwrite(torch::lazy::hash_t::hash_t());
+  tools.def("hash_block", &torch::lazy::HashBlock);
+  tools.def("hash_combine", &torch::lazy::HashCombine);
+  tools.def("data_hash", &torch::lazy::DataHash);
 }
 
 } // namespace blade

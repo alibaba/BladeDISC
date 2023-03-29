@@ -686,14 +686,9 @@ LogicalResult ConvertAtenOp<AtenFillScalarOp>::matchAndRewrite(
   if (!outElemTy.isIntOrFloat())
     return op.emitError(
         "only floating-point or integer datatype legalization supported");
-  op.getOperation()->dump();
   auto atenEMFOp =
       dyn_cast<AtenEmptyMemoryFormatOp>(op.getSelf().getDefiningOp());
   if (!atenEMFOp) {
-    llvm::dbgs() << "parent is not AtenEmptyMemoryFormatOp!!\n";
-    op.getSelf().getDefiningOp()->dump();
-    llvm::dbgs() << "dump the owened graph: \n";
-    op->getParentOp()->dump();
     return op.emitError("the producer of fill.Scaler should be aten.empty.");
   }
   auto shape = atenEMFOp.getSize();

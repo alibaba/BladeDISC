@@ -177,7 +177,7 @@ bool IsMlirMhloSupported(const torch::jit::Node& node) {
 
 std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
-  // torch::blade::PropagateInputShapes(graph);
+  torch::blade::PropagateInputShapes(graph);
   GRAPH_DEBUG("TorchMhlo input graph:\n", *graph);
   std::shared_ptr<const torch::jit::Graph> const_graph = graph;
   mlir::DialectRegistry registry;

@@ -2186,11 +2186,30 @@ class ShapePropagator : public PropertyPropBase {
           return {in_type};
         }};
 #endif
+    static const register_formula_for reshape_op{
+        {
+            "aten::reshape(Tensor(a) self, int[] shape) -> Tensor(a)",
+        },
+        [&](Node* node) -> type_vec_t {
+          auto self = node->namedInput(attr::self);
+          auto shape = node->namedInput(attr::shape);
+          if (auto self_type = self->type()->cast<TensorType>()) {
+            if (auto dims = constant_as<c10::List<int64_t>>(shape)) {
+              std::vector<int64_t> newDims;
+              for (size_t i = 0; i < dims->size(); ++i)
+                newDims.push_back((*dims)[i]);
+              return {self_type->withSizes(newDims)};
+            }
+            if (auto list_size = determineListSize(shape)) {
+              return {self_type->withDim(*list_size)};
+            }
+          }
+          return {};
+        }};
     static const register_formula_for reshape_broadcast_ops{
         {
             "aten::as_strided(Tensor self, int[] size, int[] stride, int? storage_offset) -> Tensor",
             "aten::expand(Tensor self, int[] size, *, bool implicit) -> Tensor",
-            "aten::reshape(Tensor(a) self, int[] shape) -> Tensor(a)",
             "aten::repeat(Tensor self, int[] repeats) -> Tensor",
             "aten::view(Tensor self, int[] size) -> Tensor",
 #if PYTORCH_VERSION_GE(1, 14)
@@ -2198,17 +2217,6 @@ class ShapePropagator : public PropertyPropBase {
 #endif
         },
         [&](Node* node) -> type_vec_t {
-          if (node->matches(
-                  "aten::reshape(Tensor(a) self, int[] shape) -> Tensor(a)")) {
-            auto shape = node->namedInput(attr::shape);
-            auto inpTy = node->input(0)->type()->cast<TensorType>();
-            auto dims = constant_as<c10::List<int64_t>>(shape);
-            std::vector<int64_t> newDims;
-            for (size_t i = 0; i < dims.value().size(); ++i) {
-              newDims.push_back(dims.value()[i]);
-            }
-            return {inpTy->withSizes(newDims)};
-          }
           if (auto list_size = determineListSize(node->input(1))) {
             auto inpTy = node->input(0)->type()->cast<TensorType>();
             return {inpTy->withDim(*list_size)};

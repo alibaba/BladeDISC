@@ -23,7 +23,7 @@ from torch_blade._torch_blade import _backends
 from torch_blade.clustering import support_fusion_group, support_group_conversion
 from torch_blade.config import Config
 from torch_blade.logging import logger
-from torch_blade.mlir.cache import get_graph_hash, DiscCompilationCache, CompilationResult, DEFAULT_DISC_CACHE_DIR
+from torch_blade.mlir.cache import get_graph_hash, DiscCompilationCache, CompilationResult, enable_compilation_cache
 from collections import defaultdict
 
 def _dump_to_tempfile(tmp_dir, dump_bytes):
@@ -32,13 +32,9 @@ def _dump_to_tempfile(tmp_dir, dump_bytes):
     inp_file.close()
     return inp_file
 
-def enable_compilation_cache():
-    return tools.read_bool_from_env('TORCH_BLADE_ENABLE_COMPILATION_CACHE', True)
-
 disc_cache = None
 if enable_compilation_cache():
-    cache_dir = os.getenv('TORCH_BLADE_COMPILATION_CACHE_DIR', DEFAULT_DISC_CACHE_DIR)
-    disc_cache = DiscCompilationCache(cache_dir)
+    disc_cache = DiscCompilationCache()
 
 def _compile_torchscript(graph):
     # NB: Some MLIR debug information would be dump to mlir_dump_dir,

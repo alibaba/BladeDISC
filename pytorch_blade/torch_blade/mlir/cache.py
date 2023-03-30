@@ -14,12 +14,16 @@ import os
 import shutil
 import logging
 from enum import Enum
-from torch_blade.tools import hash_combine, data_hash
+from torch_blade.tools import hash_combine, data_hash, read_bool_from_env
 from torch_blade._torch_blade import _backends
 from torch_blade.logging import logger
 
 HASH_SEED = 1
 DEFAULT_DISC_CACHE_DIR = os.path.join(os.path.expanduser('~'), ".cache/disc")
+
+def enable_compilation_cache():
+    return read_bool_from_env('TORCH_BLADE_ENABLE_COMPILATION_CACHE', False)
+
 
 class ResultEnum(str, Enum):
     SO_BYTES = "so_bytes"
@@ -106,7 +110,6 @@ def get_graph_hash(graph):
         hash_value = hash_combine(hash_value, data_hash(val_info.dtype))
         hash_value = hash_combine(hash_value, data_hash(val_info.device))
         hash_value = hash_combine(hash_value, data_hash(str(rank)))
-        logger.debug("input tensor info: {}, {}, {}, {}, hash_value: {}".format(val_info.dtype, val_info.device, val_info.name, rank, hash_value))
     # hash node info
     for n in nodes:
         hash_value = hash_combine(hash_value, data_hash(n.kind()))

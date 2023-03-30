@@ -23,6 +23,7 @@ from torch_blade._torch_blade import _backends
 from torch_blade.clustering import support_fusion_group, support_group_conversion
 from torch_blade.config import Config
 from torch_blade.logging import logger
+from torch_blade.mlir.cache import get_graph_hash, DiscCompilationCache, CompilationResult, DEFAULT_DISC_CACHE_DIR
 from collections import defaultdict
 
 def _dump_to_tempfile(tmp_dir, dump_bytes):
@@ -31,6 +32,13 @@ def _dump_to_tempfile(tmp_dir, dump_bytes):
     inp_file.close()
     return inp_file
 
+def enable_compilation_cache():
+    return tools.read_bool_from_env('TORCH_BLADE_ENABLE_COMPILATION_CACHE', True)
+
+disc_cache = None
+if enable_compilation_cache():
+    cache_dir = os.getenv('TORCH_BLADE_COMPILATION_CACHE_DIR', DEFAULT_DISC_CACHE_DIR)
+    disc_cache = DiscCompilationCache(cache_dir)
 
 def _compile_torchscript(graph):
     # NB: Some MLIR debug information would be dump to mlir_dump_dir,
@@ -51,7 +59,6 @@ def _compile_torchscript(graph):
 
         if not debug_log_enabled:
             mlir_dump_dir = os.path.join(tmp_dir, mlir_dump_dir)
-
         # copy mlir files to mlir_dump_dir
         if not os.path.exists(mlir_dump_dir):
             os.makedirs(mlir_dump_dir)
@@ -84,6 +91,7 @@ def _compile_torchscript(graph):
             extra_flags = []
             if cfg.disc_compile_for_multi_cuda_targets:
                 extra_flags += ["--multi-cc-support"]
+            
             subprocess.check_call(
                 [mhlo_compile_cmd, inp_mlir_file.name, out_file_name, "--mlir-elide-elementsattrs-if-larger=8"] + extra_flags,
                 stdout=devnull,
@@ -146,7 +154,21 @@ def _disc_engine_conversion(module):
     ):
         attr_name = f"{mlir._DISC_GROUP_NAME}{group_name}"
         try:
-            so_bytes, pb_bytes, input_dev_str, output_dev_str = _compile_torchscript(subgraph)
+            graph_hash = get_graph_hash(subgraph)
+            logger.info(f"graph hash: {graph_hash}")
+            if disc_cache:
+                if disc_cache.has(graph_hash):
+                    logger.info(f"hit disc cache {graph_hash}")
+                    result = disc_cache.get(graph_hash)
+                    so_bytes, pb_bytes, input_dev_str, output_dev_str = result.unpack()
+                else:
+                    logger.info(f"compile torchscript for {graph_hash}")
+                    so_bytes, pb_bytes, input_dev_str, output_dev_str = _compile_torchscript(subgraph)
+                    logger.info(f"so_bytes: {len(so_bytes)}, pb_bytes: {len(pb_bytes)}, input_dev_str: {input_dev_str}, output_dev_str: {output_dev_str}")
+                    logger.info(f"set disc cache {graph_hash}")
+                    disc_cache.set(graph_hash, CompilationResult(so_bytes, pb_bytes, input_dev_str, output_dev_str))
+            else:
+                so_bytes, pb_bytes, input_dev_str, output_dev_str = _compile_torchscript(subgraph)
 
             state = _backends.EngineState()
             state.inputs = [_backends.TensorInfo(inp) for inp in subgraph.inputs()]

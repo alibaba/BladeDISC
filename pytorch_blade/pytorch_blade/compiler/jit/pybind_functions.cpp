@@ -17,6 +17,7 @@
 
 #include <torch/csrc/jit/frontend/tracer.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
+#include <torch/csrc/lazy/core/hash.h>
 
 #include "common_utils/utils.h"
 #include "compiler/jit/torch/const_loop_unroll.h"
@@ -167,6 +168,12 @@ Getting record cluster IO(Inputs/Outputs) flag configured in current thread.
             method_name, graph);
         self.type()->addMethod(fn);
       });
+  tools.def("hash_combine", [](size_t a, size_t b) {
+    return torch::lazy::StdHashCombine(a, b);
+  });
+  tools.def("data_hash", [](const std::string& val) {
+    return torch::lazy::StdDataHash(val.c_str(), val.size());
+  });
 }
 
 } // namespace blade

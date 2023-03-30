@@ -25,7 +25,7 @@ def logger_level_context(level):
     # create console handler and set level to debug
     ch = logging.StreamHandler()
     # create formatter
-    formatter = logging.Formatter('%(asctime)s - [%(levelname)-05s] %(message)s')
+    formatter = logging.Formatter('%(asctime)s %(filename)s:%(lineno)d - [%(levelname)-05s] %(message)s')
     # add formatter to ch
     ch.setFormatter(formatter)
     # add ch to logger

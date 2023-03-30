@@ -23,7 +23,8 @@ from torch_blade._torch_blade import _backends
 from torch_blade.clustering import support_fusion_group, support_group_conversion
 from torch_blade.config import Config
 from torch_blade.logging import logger
-from torch_blade.mlir.cache import get_graph_hash, DiscCompilationCache, CompilationResult, enable_compilation_cache
+from torch_blade.mlir.cache import DiscCompilationCache, CompilationResult, enable_compilation_cache
+from torch_blade.mlir.hash import get_graph_hash
 from collections import defaultdict
 
 def _dump_to_tempfile(tmp_dir, dump_bytes):

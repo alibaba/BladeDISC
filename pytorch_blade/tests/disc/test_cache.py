@@ -11,11 +11,12 @@
 
 
 import torch
-from torch_blade.mlir.cache import DiscCompilationCache, get_graph_hash, CompilationResult
-#from torch_blade.testing.common_utils import TestCase
+from torch_blade.mlir.cache import DiscCompilationCache, CompilationResult
+from torch_blade.mlir.hash import get_graph_hash
+from tests.disc.testing_base import DiscTestCase
 import unittest
 
-class TestCache(unittest.TestCase):
+class TestCache(DiscTestCase):
     def test_disc_cache(self):
         gstr = """graph(%x.1 : Float(*, *),
                 %y.1 : Float(*, *)):

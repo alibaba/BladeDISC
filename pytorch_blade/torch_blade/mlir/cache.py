@@ -24,6 +24,11 @@ DEFAULT_DISC_CACHE_DIR = os.path.join(os.path.expanduser('~'), ".cache/disc")
 def enable_compilation_cache():
     return read_bool_from_env('TORCH_BLADE_ENABLE_COMPILATION_CACHE', False)
 
+def data_hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+def hash_combine(seed: int, value: int) -> int:
+    return seed ^ value + 0x9e3779b9 + (seed << 6) + (seed >> 2)
 
 class ResultEnum(str, Enum):
     SO_BYTES = "so_bytes"
@@ -95,22 +100,3 @@ class DiscCompilationCache:
         if not os.path.exists(path):
             os.makedirs(path)
         return result.dump(path)
-
-
-def get_graph_hash(graph):
-    nodes = []
-    for node in graph.nodes():
-        if node.kind() != 'prim::Constant':
-            nodes.append(node)
-    hash_value = HASH_SEED
-    # hash input tensor info
-    for input in graph.inputs():
-        val_info = _backends.TensorInfo(input)
-        rank = len(val_info.sizes)
-        hash_value = hash_combine(hash_value, data_hash(val_info.dtype))
-        hash_value = hash_combine(hash_value, data_hash(val_info.device))
-        hash_value = hash_combine(hash_value, data_hash(str(rank)))
-    # hash node info
-    for n in nodes:
-        hash_value = hash_combine(hash_value, data_hash(n.kind()))
-    return hash_value

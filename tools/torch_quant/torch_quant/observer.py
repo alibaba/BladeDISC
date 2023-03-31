@@ -711,3 +711,50 @@ class HistogramObserver(Observer):
         new_min, new_max = self._non_linear_param_search()
 
         return self._calculate_qparams(new_min, new_max)
+
+
+class FakeQuantizer(Observer):
+    def __init__(
+        self,
+        dtype: torch.dtype,
+        qscheme: torch.qscheme,
+        ch_axis: int = -1,
+        **kwargs,
+    ) -> None:
+        super().__init__(dtype, qscheme, ch_axis, **kwargs)
+        self.register_buffer('scale', torch.tensor([1.]))
+        self.register_buffer('zero_point', torch.tensor([0], dtype=torch.int32))
+
+    def forward(self, x):
+        # TODO: provide the option to enable round correct
+        inputs = [
+            x,
+            self.scale.data,
+            self.zero_point.data.to(torch.int32),
+            self.q_min,
+            self.q_max,
+        ]
+        if self.per_channel:
+            inputs.insert(3, self.ch_axis)
+            if torch.onnx.is_in_onnx_export():
+                # set the default value for grad_factor
+                x = FakeQuantizeLearnablePerChannelAffine.apply(*inputs, 1.0)
+            else:
+                x = torch.fake_quantize_per_channel_affine(*inputs)
+        else:
+            if torch.onnx.is_in_onnx_export():
+                # set the default value for grad_factor
+                x = FakeQuantizeLearnablePerTensorAffine.apply(*inputs, 1.0)
+            else:
+                x = torch.fake_quantize_per_tensor_affine(*inputs)
+        return x
+
+    @classmethod
+    def from_qparams(cls, qparams: QParams):
+        fq = cls(dtype=qparams.dtype, qscheme=qparams.qscheme, ch_axis=qparams.ch_axis)
+        if is_per_channel(qparams.qscheme):
+            fq.scale.resize_(qparams.scale.shape)
+            fq.zero_point.resize_(qparams.zero_point.shape)
+        fq.scale.copy_(qparams.scale)
+        fq.zero_point.copy_(qparams.zero_point)
+        return fq

@@ -168,8 +168,8 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "torch_blade::fake_quant"
     };
 
-  auto getListFromEnvString = [](const std::string& env_name) -> std::unordered_set<std::string> {
-    auto custom_ops = env::ReadStringFromEnvVar(env_name, "");
+  auto readListFromEnvString = [](const std::string& env_name) -> std::unordered_set<std::string> {
+    auto custom_ops = env::ReadStringFromEnvVar(env_name.c_str(), "");
     std::istringstream f(custom_ops);
     std::string s;
     std::unordered_set<std::string> ret;
@@ -180,16 +180,16 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
   };
 
   static std::once_flag white, black;
-  std::call_once(white, []() {
+  std::call_once(white, [&]() {
     std::ostringstream ostr;
-    for (auto s : getListFromEnvString("TORCH_MHLO_OP_WHITE_LIST")) {
+    for (auto s : readListFromEnvString("TORCH_MHLO_OP_WHITE_LIST")) {
       white_list.insert(s);
     }
   });
 
-  std::call_once(black, []() {
+  std::call_once(black, [&]() {
     std::ostringstream ostr;
-    for (auto s : getListFromEnvString("TORCH_MHLO_OP_BLACK_LIST")) {
+    for (auto s : readListFromEnvString("TORCH_MHLO_OP_BLACK_LIST")) {
       white_list.erase(s);
     }
   });

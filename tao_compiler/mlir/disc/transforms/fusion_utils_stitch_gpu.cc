@@ -55,6 +55,23 @@ bool StitchGpuFusionStrategy::isFusible(Operation* op) {
   return true;
 }
 
+bool StitchGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
+                                      FusionPattern& lhs, FusionPattern& rhs,
+                                      FusionPattern& target) {
+  // TODO(Yancey): support fusion with different reduction type
+  bool has_row_reduction = llvm::any_of(target.getOpList(), [](Operation* op) {
+    return isRank2RowReduction(op);
+  });
+  bool has_col_reduciton = llvm::any_of(target.getOpList(), [](Operation* op) {
+    return isRank2ColReduction(op);
+  });
+
+  if (has_row_reduction && has_col_reduciton) {
+    return false;
+  }
+  return FusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target);
+}
+
 Value StitchGpuFusionStrategy::getEffectiveShape(FusionPattern& target,
                                                  Value v) {
   Operation* result_op = target.findLastWriter(v);

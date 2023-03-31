@@ -3060,6 +3060,7 @@ class ShapePropagator : public PropertyPropBase {
             tensor_types.at(0)->sizes().concrete_sizes().value()));
       }
       return true;
+#if PYTORCH_VERSION_GE(1, 13)
     } else if (
         node->matches(
             "aten::expand(Tensor self, int[] size, *, bool implicit) -> Tensor",
@@ -3072,6 +3073,7 @@ class ShapePropagator : public PropertyPropBase {
       node->output()->setType(
           tp->withSizesStrides(sizesAndStrides.sizes, sizesAndStrides.strides));
       return true;
+#endif
     } else if (
         node->matches(
             "aten::index_select(Tensor self, int dim, Tensor index) -> Tensor",

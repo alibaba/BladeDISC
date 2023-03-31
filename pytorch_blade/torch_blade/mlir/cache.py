@@ -14,7 +14,7 @@ import os
 import shutil
 import logging
 from enum import Enum
-from torch_blade.tools import hash_combine, data_hash, read_bool_from_env
+from torch_blade.tools import read_bool_from_env
 from torch_blade._torch_blade import _backends
 from torch_blade.logging import logger
 
@@ -23,12 +23,6 @@ DEFAULT_DISC_CACHE_DIR = os.path.join(os.path.expanduser('~'), ".cache/disc")
 
 def enable_compilation_cache():
     return read_bool_from_env('TORCH_BLADE_ENABLE_COMPILATION_CACHE', False)
-
-def data_hash(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-def hash_combine(seed: int, value: int) -> int:
-    return seed ^ value + 0x9e3779b9 + (seed << 6) + (seed >> 2)
 
 class ResultEnum(str, Enum):
     SO_BYTES = "so_bytes"

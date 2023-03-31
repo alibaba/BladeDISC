@@ -2443,7 +2443,7 @@ class ShapePropagator : public PropertyPropBase {
         node->outputs()[1]->setType(type->withDim(0));
         return true;
       }
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 10
+#if PYTORCH_VERSION_GE(1, 10)
     } else if (
         node->matches(
             "aten::native_dropout(Tensor input, float p, bool? train) -> (Tensor, Tensor)")) {
@@ -2453,6 +2453,7 @@ class ShapePropagator : public PropertyPropBase {
         return true;
       }
 #endif
+#if PYTORCH_VERSION_GE(1, 14)
     } else if (
         node->matches(
             "aten::convolution_backward(Tensor grad_output, Tensor input, Tensor weight, SymInt[]? bias_sizes, int[] stride, SymInt[] padding, int[] dilation, bool transposed, SymInt[] output_padding, int groups, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")) {
@@ -2481,6 +2482,7 @@ class ShapePropagator : public PropertyPropBase {
         }
       }
       return true;
+#endif
     } else if (
         node->matches(
             "aten::upsample_nearest2d_backward(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, float? scales_h=None, float? scales_w=None) -> Tensor")) {

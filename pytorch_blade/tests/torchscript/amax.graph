@@ -1,8 +1,0 @@
-// RUN: shape_analysis_tool -f %s | FileCheck %s
-
-// CHECK-LABEL: graph
-graph(%p1 : Float(2, 3, 3)):
-  %1 : int[] = prim::Constant[value=[-1]]()
-  %true : bool = prim::Constant[value=1]()
-  %result : Tensor = aten::amax(%p1, %1, %true)
-  return (%result)

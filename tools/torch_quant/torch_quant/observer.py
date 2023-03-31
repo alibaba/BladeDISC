@@ -730,7 +730,7 @@ class FakeQuantizer(Observer):
         inputs = [
             x,
             self.scale.data,
-            self.zero_point.data.to(torch.int32),
+            self.zero_point.data.to(torch.float32),
             self.q_min,
             self.q_max,
         ]

@@ -12,8 +12,10 @@
 import unittest
 import torch
 from torch_blade import mlir, jit_pass_constant_propagation
+from tests.disc.testing_base import skipTorchLE
 
 class TestConstantPropagation(unittest.TestCase):
+    @skipTorchLE("1.13.0")
     def test_constant_propagation(self):
         gstr = """
 graph(%p1 : Float(1, 512, strides=[512, 1], device=cpu)):

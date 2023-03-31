@@ -27,14 +27,15 @@
 
 #include <stack>
 #include <utility>
-//#include "pytorch_blade/compiler/jit/torch/constant_propagation.h"
+#include "pytorch_blade/common_utils/macros.h"
 #include "pytorch_blade/compiler/jit/torch/alias_analysis.h"
+#include "pytorch_blade/compiler/jit/torch/constant_propagation.h"
 
 namespace torch {
 namespace blade {
 using ClassType = c10::ClassType;
 using namespace torch::jit;
-
+#if PYTORCH_VERSION_GE(1, 13)
 namespace {
 void listConstruct(
     Stack& stack,
@@ -465,6 +466,12 @@ bool ConstantPropagationImmutableTypes(std::shared_ptr<Graph>& graph) {
   GRAPH_DUMP("After ConstantPropagationImmutableTypes: ", graph);
   return made_change;
 }
+#else
 
+bool ConstantPropagation(std::shared_ptr<Graph>& graph) {
+  TORCH_CHECK(false, "only works on PyTorch version >= 1.13.0 ")
+  return false;
+}
+#endif
 } // namespace blade
 } // namespace torch

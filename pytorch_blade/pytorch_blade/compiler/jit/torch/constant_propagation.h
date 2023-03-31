@@ -38,7 +38,7 @@ bool ConstantPropagation(std::shared_ptr<Graph>& graph);
 
 // runs constant propagation only on ops that have non-aliasing inputs & outputs
 // Returns True if the pass made a change to the graph
-bool ConstantPropagationImmutableTypes(std::shared_ptr<Graph>& graph);
+// bool ConstantPropagationImmutableTypes(std::shared_ptr<Graph>& graph);
 
 // Runs the node if its inputs are constants. Callers of this function must
 // make their own determination if constant prop is appropriate - for example

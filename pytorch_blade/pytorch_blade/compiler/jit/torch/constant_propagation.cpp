@@ -8,7 +8,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "pytorch_blade/compiler/jit/torch/constant_propagation.h"
+#include <stack>
+#include <utility>
+#include "pytorch_blade/common_utils/macros.h"
+#include "pytorch_blade/compiler/jit/torch/alias_analysis.h"
 
+#if PYTORCH_VERSION_GE(1, 13)
 #include <ATen/core/functional.h>
 #include <ATen/core/ivalue.h>
 #include <ATen/core/jit_type.h>
@@ -24,12 +30,7 @@
 #include <torch/csrc/jit/runtime/operator.h>
 #include <torch/csrc/jit/runtime/vararg_functions.h>
 #include <torch/csrc/utils/memory.h>
-
-#include <stack>
-#include <utility>
-#include "pytorch_blade/common_utils/macros.h"
-#include "pytorch_blade/compiler/jit/torch/alias_analysis.h"
-#include "pytorch_blade/compiler/jit/torch/constant_propagation.h"
+#endif
 
 namespace torch {
 namespace blade {

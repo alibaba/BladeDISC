@@ -34,6 +34,6 @@ graph(%p1 : Float(*, *, *)):
 // CHECK-LABEL: graph
 graph(%p1 : Half(2, 3, 1, 1)):
   %1 : int[] = prim::Constant[value=[2, 3]]()
-  # CHECK: Half(2, 3, strides=[3, 1]) = aten::squeeze
+// CHECK: Half(2, 3, strides=[3, 1]) = aten::squeeze
   %squeeze.1 : Tensor = aten::squeeze(%p1, %1) # <eval_with_key>.1228:16:14
   return (%squeeze.1)

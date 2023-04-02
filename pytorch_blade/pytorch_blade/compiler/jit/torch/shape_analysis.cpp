@@ -805,7 +805,7 @@ class ShapePropagator : public PropertyPropBase {
         node->kind() == prim::FusedConcat) {
       return PropagateCatShape(node);
     }
-
+#if PYTORCH_VERSION_GE(1, 14)
     if (auto maybe_complete_types =
             gatherTensorTypes(node, /*complete=*/true)) {
       if (PropagateCompleteShapeOnNode(
@@ -813,6 +813,7 @@ class ShapePropagator : public PropertyPropBase {
         return;
       }
     }
+#endif
 
     SchemaSet scalar_schemas{
         "aten::gt.int(int a, int b) -> bool",
@@ -2443,7 +2444,7 @@ class ShapePropagator : public PropertyPropBase {
         node->outputs()[1]->setType(type->withDim(0));
         return true;
       }
-#if PYTORCH_VERSION_GE(1, 10)
+#if PYTORCH_VERSION_GE(1, 14)
     } else if (
         node->matches(
             "aten::native_dropout(Tensor input, float p, bool? train) -> (Tensor, Tensor)")) {
@@ -2452,8 +2453,6 @@ class ShapePropagator : public PropertyPropBase {
         node->outputs()[1]->setType(type->withScalarType(at::kBool));
         return true;
       }
-#endif
-#if PYTORCH_VERSION_GE(1, 14)
     } else if (
         node->matches(
             "aten::convolution_backward(Tensor grad_output, Tensor input, Tensor weight, SymInt[]? bias_sizes, int[] stride, SymInt[] padding, int[] dilation, bool transposed, SymInt[] output_padding, int groups, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")) {
@@ -2862,6 +2861,7 @@ class ShapePropagator : public PropertyPropBase {
     }
     return false;
   }
+#if PYTORCH_VERSION_GE(1, 14)
   bool PropagateCompleteShapeOnNode(
       Node* node,
       bool insert_expands,
@@ -3120,6 +3120,7 @@ class ShapePropagator : public PropertyPropBase {
     setUnshapedType(node);
     return false;
   }
+#endif
 };
 } // anonymous namespace
 

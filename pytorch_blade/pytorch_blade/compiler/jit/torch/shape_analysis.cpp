@@ -2482,7 +2482,6 @@ class ShapePropagator : public PropertyPropBase {
         }
       }
       return true;
-#endif
     } else if (
         node->matches(
             "aten::upsample_nearest2d_backward(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, float? scales_h=None, float? scales_w=None) -> Tensor")) {
@@ -2497,6 +2496,7 @@ class ShapePropagator : public PropertyPropBase {
         }
       }
       return true;
+#endif
     } else if (node->matches(
                    "aten::dot(Tensor self, Tensor tensor) -> Tensor")) {
       if (auto type = any_tensor_type(node)) {

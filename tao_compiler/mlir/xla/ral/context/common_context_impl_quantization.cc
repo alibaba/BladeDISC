@@ -149,11 +149,11 @@ void ral_qconv_s8_s8_s8(
   };
 
   std::shared_ptr<AclConvInfo> info;
-  std::shared_ptr<AclConvThreadSafeInfoV2> thread_safe_info;
+  std::shared_ptr<AclConvThreadSafeInfo> thread_safe_info;
   if (isWeightPrePackingEnabled() && params.weight_is_const) {
     std::string unique_name = "tao_ral.cpu.acl_qconv_s8s8s8";
-    auto state = ctx->getOrCreateResource<AclConvStateV2>(
-        unique_name, []() { return new AclConvStateV2; });
+    auto state = ctx->getOrCreateResource<AclConvState>(
+        unique_name, []() { return new AclConvState; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
                                  kDiscCpuDefaultThreadId);
     auto dynamicKey = makeDynamicShapeConvParamsKey(

@@ -102,8 +102,6 @@ def _tf_blade_repositories():
             "@org_third_party//bazel/acl:acl_makefile.patch",
             "@org_third_party//bazel/acl:acl_yitian.patch",
             "@org_third_party//bazel/acl:acl_gemm_hybrid_indirect.patch",
-            "@org_third_party//bazel/acl:acl_cpu_gemm_assembly_dispatch.patch",
-            "@org_third_party//bazel/acl:acl_cpu_winograd_conv2d_kernel.patch",
         ],
         urls = tf_mirror_urls("https://github.com/ARM-software/ComputeLibrary/archive/v22.02.tar.gz"),
     )

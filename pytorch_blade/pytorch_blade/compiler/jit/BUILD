@@ -58,6 +58,7 @@ cc_library(
         ":tool_funcs",
         "//pytorch_blade/compiler/jit/torch:shape_analysis",
         "//pytorch_blade/compiler/jit/torch:freeze_module",
+        "//pytorch_blade/compiler/jit/torch:constant_propagation",
         "//pytorch_blade/common_utils:torch_blade_common",
         "@local_org_torch//:libtorch",
     ],
@@ -66,7 +67,7 @@ cc_library(
 
 filegroup(
     name = "torch_blade_jit_test_srcs",
-    srcs = glob(["*_test.cpp"]),
+    srcs = glob(["*_test.cpp", "torch/constant_propagation_test.cpp"]),
 )
 
 cc_test(

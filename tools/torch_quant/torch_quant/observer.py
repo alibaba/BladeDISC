@@ -722,31 +722,33 @@ class FakeQuantizer(Observer):
         **kwargs,
     ) -> None:
         super().__init__(dtype, qscheme, ch_axis, **kwargs)
-        self.register_buffer('scale', torch.tensor([1.]))
+        self.register_buffer('scale', torch.tensor([1.0]))
         self.register_buffer('zero_point', torch.tensor([0], dtype=torch.int32))
 
     def forward(self, x):
         # TODO: provide the option to enable round correct
-        inputs = [
-            x,
-            self.scale.data,
-            self.zero_point.data.to(torch.float32),
-            self.q_min,
-            self.q_max,
-        ]
-        if self.per_channel:
-            inputs.insert(3, self.ch_axis)
-            if torch.onnx.is_in_onnx_export():
-                # set the default value for grad_factor
-                x = FakeQuantizeLearnablePerChannelAffine.apply(*inputs, 1.0)
+        scale = self.scale.data
+        if torch.onnx.is_in_onnx_export():
+            zero_point = self.zero_point.data.to(torch.float32)
+            factor = 1.0  # set the default value for grad_factor
+            if self.per_channel:
+                x = FakeQuantizeLearnablePerChannelAffine.apply(
+                    x, scale, zero_point, self.ch_axis, self.q_min, self.q_max, factor
+                )
             else:
-                x = torch.fake_quantize_per_channel_affine(*inputs)
+                x = FakeQuantizeLearnablePerTensorAffine.apply(
+                    x, scale, zero_point, self.q_min, self.q_max, factor
+                )
         else:
-            if torch.onnx.is_in_onnx_export():
-                # set the default value for grad_factor
-                x = FakeQuantizeLearnablePerTensorAffine.apply(*inputs, 1.0)
+            zero_point = self.zero_point.data.to(torch.int32)
+            if self.per_channel:
+                x = torch.fake_quantize_per_channel_affine(
+                    x, scale, zero_point, self.ch_axis, self.q_min, self.q_max
+                )
             else:
-                x = torch.fake_quantize_per_tensor_affine(*inputs)
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, scale, zero_point, self.q_min, self.q_max
+                )
         return x
 
     @classmethod

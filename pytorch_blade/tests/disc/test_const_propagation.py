@@ -11,6 +11,7 @@
 
 import unittest
 import torch
+from torch.testing import FileCheck
 from torch_blade import mlir, jit_pass_constant_propagation
 from tests.disc.testing_base import skipTorchLE
 
@@ -26,9 +27,14 @@ graph(%p1 : Float(1, 512, strides=[512, 1], device=cpu)):
     return (%permute_1.1)
         """
         graph = torch._C.parse_ir(gstr)
-        #torch._C._jit_pass_constant_propagation(graph)
+        expect_gstr = """
+graph(%p1 : Float(1, 512, strides=[512, 1], device=cpu)):
+    # CHECK: %5 : int[] = prim::Constant[value=[0, 1]]()
+    %permute_1.1 : Tensor = aten::permute(%p1, %5)
+    return (%permute_1.1)
+        """
         jit_pass_constant_propagation(graph)
-        print(graph)
+        FileCheck().run(expect_gstr, graph)
     
 
 

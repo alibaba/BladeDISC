@@ -42,6 +42,7 @@ from common_setup import (
     get_version_file,
     execute,
     which,
+    remote_cache_token,
     safe_run,
     symlink_disc_files_deprecated,
     add_ral_link_if_not_exist,
@@ -135,6 +136,11 @@ def configure(args):
             f.write(f"{cmd} --config={cfg_name}\n")
 
         # Common
+        cache_token = remote_cache_token()
+        if cache_token:
+            _write(f"--remote_cache={cache_token}", cmd="build")
+            _write(f"--remote_cache={cache_token}", cmd="test")
+            logger.info("Bazel remote cache enabled.")
         _config("debug" if args.debug_build else "release")
         _action_env("PYTHON_BIN_PATH", which("python3"))
         _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))

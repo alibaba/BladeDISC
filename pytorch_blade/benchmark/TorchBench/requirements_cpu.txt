@@ -2,7 +2,9 @@
 pandas
 librosa
 torchaudio==2.0.0.dev20230315+cpu
-torchtext==0.15.0.dev20230315
+# may depend on the same day or the previous day
+# better verify this dependency locally
+torchtext==0.15.0.dev20230316
 onnx
 onnxruntime
 pyyaml

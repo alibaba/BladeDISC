@@ -26,15 +26,15 @@ def _blade_disc_dnn_repositories():
 
     tf_http_archive(
         name = "acl_compute_library",
-        sha256 = "11244b05259fb1c4af7384d0c3391aeaddec8aac144774207582db4842726540",
-        strip_prefix = "ComputeLibrary-22.02",
+        sha256 = "c3a443e26539f866969242e690cf0651ef629149741ee18732f954c734da6763",
+        strip_prefix = "ComputeLibrary-23.02.1",
         build_file = "@org_third_party//bazel/acl:acl.BUILD",
         patch_file = [
             "@org_third_party//bazel/acl:acl_makefile.patch",
             "@org_third_party//bazel/acl:acl_yitian.patch",
             "@org_third_party//bazel/acl:acl_gemm_hybrid_indirect.patch",
         ],
-        urls = tf_mirror_urls("https://github.com/ARM-software/ComputeLibrary/archive/v22.02.tar.gz"),
+        urls = tf_mirror_urls("https://github.com/ARM-software/ComputeLibrary/archive/v23.02.1.tar.gz"),
     )
 
     # ACL_ROOT setting is done in `onednn_configure`

@@ -20,7 +20,6 @@ from __future__ import print_function
 import argparse
 import os
 import re
-import shutil
 import socket
 import tarfile
 import fnmatch
@@ -31,15 +30,12 @@ from common_setup import (
     time_stage,
     build_mkldnn,
     config_mkldnn,
-    mkl_install_dir,
     symlink_disc_files,
     internal_root_dir,
     tao_bridge_dir,
     get_version_file,
-    ensure_empty_dir,
     cwd,
     get_source_root_dir,
-    add_ral_link_if_not_exist,
     logger,
     which,
     running_on_ci,
@@ -49,7 +45,6 @@ from common_setup import (
     acl_root_dir,
     get_tf_info,
     deduce_cuda_info,
-    add_arguments_platform_alibaba,
     configure_bridge_platform_alibaba,
     configure_compiler_platform_alibaba,
     build_tao_compiler_add_flags_platform_alibaba,
@@ -64,9 +59,7 @@ from tao_common import (
     git_head,
     get_tf_gpu_version,
     execute,
-    default_env,
     gcc_env,
-    overwrite_file,
 )
 
 PYTHON_BIN_NAME = os.getenv("PYTHON", "python")
@@ -476,6 +469,13 @@ def tao_bridge_bazel_config(args):
         bazel_config += " --config=platform_alibaba"
     return bazel_config
 
+def ignore_acl_in_bazel(tao_bazel_root):
+    acl_path = acl_root_dir(None)
+    # .bazelignore uses relative path
+    relative_path = os.path.relpath(acl_path, tao_bazel_root)
+    command = f"echo {relative_path} > .bazelignore"
+    return command
+
 @time_stage()
 def build_tao_bridge(root, args):
     tao_bazel_root = tao_bazel_dir(root)
@@ -524,6 +524,11 @@ def test_tao_bridge(root, args, cpp=True, python=True):
     with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
         if cpp:
             output_file = os.path.join(tao_bazel_root, "cpp_test.out")
+            # The new version of ACL has added the feature of using bazel to build.
+            # This makes the `bazel test` command to parse BUILD files in it and will
+            # result some errors. So we add the directory of acl to .bazelignore to
+            # avoid this behavior
+            execute(ignore_acl_in_bazel(tao_bazel_root))
             execute(f"bazel test {tao_bridge_bazel_config(args)} //...")
             logger.info("Stage [test_tao_bridge_cpp] with bazel success, output: " + output_file)
         if python:

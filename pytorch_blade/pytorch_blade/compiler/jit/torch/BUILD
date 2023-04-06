@@ -41,6 +41,22 @@ cc_library(
     alwayslink = True,
 )
 
+cc_library(
+    name = "constant_propagation",
+    srcs = [
+        "constant_propagation.cpp",
+    ],
+    hdrs = [
+        "alias_analysis.h",
+	    "constant_propagation.h",
+    ],
+    deps = [
+        "//pytorch_blade/common_utils:torch_blade_macros",
+        "@local_org_torch//:libtorch",
+    ],
+    alwayslink = True,
+)
+
 cc_test(
     name = "shape_analysis_test",
     srcs = [

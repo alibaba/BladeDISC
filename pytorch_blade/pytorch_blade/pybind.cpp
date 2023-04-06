@@ -16,6 +16,7 @@
 #include "compiler/backends/engine_interface.h"
 #include "compiler/jit/onnx_funcs.h"
 #include "compiler/jit/pybind_functions.h"
+#include "compiler/jit/torch/constant_propagation.h"
 #include "compiler/jit/torch/shape_analysis.h"
 
 #ifdef TORCH_BLADE_BUILD_QUANTIZATION
@@ -67,7 +68,8 @@ void initModules<false>(py::module& m) {
        &torch::blade::CastDownAllConstantDoubleToFloat)
       .def(
           "jit_pass_propagate_input_shapes",
-          &torch::blade::PropagateInputShapes);
+          &torch::blade::PropagateInputShapes)
+      .def("jit_pass_constant_propagation", &torch::blade::ConstantPropagation);
 
 #ifdef TORCH_BLADE_BUILD_QUANTIZATION
   torch::blade::quantization::initQuantizationBindings(m);

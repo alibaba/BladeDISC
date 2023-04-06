@@ -42,7 +42,6 @@ from common_setup import (
     ci_build_flag,
     remote_cache_token,
     update_cpu_specific_setting,
-    acl_root_dir,
     get_tf_info,
     deduce_cuda_info,
     configure_bridge_platform_alibaba,
@@ -469,13 +468,6 @@ def tao_bridge_bazel_config(args):
         bazel_config += " --config=platform_alibaba"
     return bazel_config
 
-def ignore_acl_in_bazel(tao_bazel_root):
-    acl_path = acl_root_dir(None)
-    # .bazelignore uses relative path
-    relative_path = os.path.relpath(acl_path, tao_bazel_root)
-    command = f"echo {relative_path} > .bazelignore"
-    return command
-
 @time_stage()
 def build_tao_bridge(root, args):
     tao_bazel_root = tao_bazel_dir(root)
@@ -524,11 +516,6 @@ def test_tao_bridge(root, args, cpp=True, python=True):
     with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
         if cpp:
             output_file = os.path.join(tao_bazel_root, "cpp_test.out")
-            # The new version of ACL has added the feature of using bazel to build.
-            # This makes the `bazel test` command to parse BUILD files in it and will
-            # result some errors. So we add the directory of acl to .bazelignore to
-            # avoid this behavior
-            execute(ignore_acl_in_bazel(tao_bazel_root))
             execute(f"bazel test {tao_bridge_bazel_config(args)} //...")
             logger.info("Stage [test_tao_bridge_cpp] with bazel success, output: " + output_file)
         if python:

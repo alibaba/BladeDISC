@@ -845,7 +845,6 @@ class ShapePropagator : public PropertyPropBase {
       // dtype already known or shape inference skipped
       return;
     }
-
     if (PropagateTensorShapeOnNode(node, insert_expands)) {
       return;
     }
@@ -1079,7 +1078,6 @@ class ShapePropagator : public PropertyPropBase {
 #else
             "aten::narrow.Tensor(Tensor(a) self, int dim, Tensor start, int length) -> Tensor(a)",
 #endif
-            "aten::permute(Tensor self, int[] dims) -> Tensor",
             "aten::t(Tensor self) -> Tensor",
             "aten::transpose(Tensor self, int dim0, int dim1) -> Tensor",
 #if PYTORCH_VERSION_GE(1, 11)
@@ -1104,17 +1102,16 @@ class ShapePropagator : public PropertyPropBase {
           if (auto input_type = node->input(0)->type()->cast<TensorType>()) {
             if (auto dims = constant_as<c10::List<int64_t>>(
                     node->namedInput(attr::dims))) {
-              auto input_sizes = input_type->sizes().concrete_sizes();
-              if (input_sizes.has_value()) {
-                std::vector<int64_t> new_dims(dims->size());
-                for (size_t i = 0; i < dims->size(); ++i) {
-                  new_dims[i] = input_sizes.value()[dims.value()[i]];
-                }
-                return type_vec_t{input_type->withSizes(new_dims)};
+              std::vector<ShapeSymbol> new_dims(dims->size());
+              for (size_t i = 0; i < dims->size(); ++i) {
+                auto dim_size = getSymDimSize(input_type, dims.value()[i]);
+                new_dims[i] = dim_size;
               }
+              return type_vec_t{input_type->withSymbolicShapes(new_dims)};
             }
             return type_vec_t{input_type->dimensionedOnly()};
           }
+          return type_vec_t{};
         }};
     // Requirements:
     //   dims           : preserved
@@ -2988,7 +2985,7 @@ class ShapePropagator : public PropertyPropBase {
       return true;
     } else if (
         node->matches(
-            "aten::sum(Tensor self, int[]? dim, bool keepdim, *, int? dtype) -> Tensor",
+            "aten::sum.dim_IntList(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor",
             /*const_inputs=*/{attr::dim, attr::keepdim})) {
       auto& tp = tensor_types.at(0);
       auto sizes = tp->sizes().concrete_sizes().value();

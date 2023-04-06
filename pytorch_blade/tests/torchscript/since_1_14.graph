@@ -43,4 +43,30 @@ graph(%p1 : Half(*, *)):
   %1 : int = prim::Constant[value=2]()
 // CHECK: Half(*, *, *) = aten::unsqueeze
   %unsqueeze.1 : Tensor = aten::unsqueeze(%p1, %1) # <eval_with_key>.1228:16:14
-  return (%unsqueeze.1) 
+  return (%unsqueeze.1)
+
+// CHECK-LABEL: graph
+graph(%p1 : Half(2, *, 8, 80)):
+  %1 : int[] = prim::Constant[value=[0, 2, 1, 3]]()
+// CHECK: Half(2, 8, *, 80) = aten::permute
+  %permute.1 : Tensor = aten::permute(%p1, %1) # <eval_with_key>.1228:16:14
+  return (%permute.1)
+
+// CHECK-LABEL: graph
+graph(%p : Half(*, *),
+      %p1 : Long(*, *),
+      %p2 : Long(*)):
+  %none : None = prim::Constant()
+  %list : Tensor?[] = prim::ListConstruct(%none, %none, %p1, %p2)
+// CHECK: Half(*, *) = aten::index
+  %2 : Tensor = aten::index(%p, %list)
+  return (%2)
+
+// CHECK-LABEL: graph
+graph(%input : Half(2, 320, 64, 64, strides=[1310720, 4096, 64, 1], device=cuda:0)):
+  %dims : int[] = prim::Constant[value=[0, 1]]()
+  %false : bool = prim::Constant[value=0]()
+  %none : None = prim::Constant()
+// CHECK: Half(64, 64, strides=[64, 1], device=cuda:0) = aten::sum
+  %result : Tensor = aten::sum(%input, %dims, %false, %none)
+  return (%result)

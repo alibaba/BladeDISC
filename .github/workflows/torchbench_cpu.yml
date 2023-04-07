@@ -11,7 +11,7 @@ on:
 
 jobs:
   TorchBenchIntelTiny-131:
-    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
+    if: github.event.schedule == '30 15 * * *'
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
@@ -25,7 +25,7 @@ jobs:
     secrets: inherit
 
   TorchBenchCpuPartial-131:
-    if: github.event.schedule == '30 15 * * *'
+    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
@@ -69,7 +69,7 @@ jobs:
     secrets: inherit
 
   TorchBenchYitianTiny-131:
-    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
+    if: github.event.schedule == '30 15 * * *'
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
@@ -84,7 +84,7 @@ jobs:
     secrets: inherit
 
   TorchBenchYitianPartial-131:
-    if: github.event.schedule == '30 15 * * *'
+    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
@@ -198,7 +198,7 @@ jobs:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.13.1-cpu
       device: g7a-bench
-      timeout_minutes: 10080 # 7 days
+      timeout_minutes: 14400 # 10 days
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh X86-amd full 131

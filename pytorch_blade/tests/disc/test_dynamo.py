@@ -10,11 +10,9 @@
 # limitations under the License.
 
 import torch
-import torch._dynamo as dynamo
 import logging
-import torch_blade.dynamo
 import unittest
-from tests.disc.testing_base import DiscTestCase
+from tests.disc.testing_base import DiscTestCase, skipTorchLT
 
 def func(a, b):
     return a + b
@@ -22,8 +20,11 @@ def func(a, b):
 def func1(**kwargs):
     return func(a=1, **kwargs)
 
+@skipTorchLT("2.0.0")
 class TestDynamoCapture(DiscTestCase):
     def test_capture(self):
+        import torch._dynamo as dynamo
+        import torch_blade.dynamo
         explain_out = dynamo.explain(func1, b=torch.rand([2]))
         self.assertEqual(len(explain_out[2]), 1)
 

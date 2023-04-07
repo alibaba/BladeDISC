@@ -13,20 +13,13 @@ import yaml
 import os
 import argparse
 
-tiny_models = ["hf_Bert"]
-partial_models = [
-"alexnet",
-"hf_Bert",
-"hf_Bart",
-"pyhpc_equation_of_state",
-"resnet50",
-"mobilenet_v3_large",
-"timm_efficientnet"
-]
+mini_backends = [
+        "",
+        "--backend blade",
+        "--torchdynamo blade_optimize_dynamo"
+        ]
 
-full_models = []
-
-backends = [
+full_backends = [
         "",
         "--backend blade",
         "--backend torchscript --no-ofi",
@@ -37,13 +30,19 @@ backends = [
         "--torchdynamo ofi",
         "--torchdynamo ipex"
         ]
-
+# tiny job:    one model,   eager/disc/dynamo-disc
+# partial job: full models, eager/disc/dynamo-disc
+# full job:    full models, all backends
 def generate_yaml(path, job, models):
     assert(os.path.exists(path))
     yaml_file_name = "CPU_"+job+".yaml"
     yaml_file_path = os.path.join(path, "configs", yaml_file_name)
     if os.path.exists(yaml_file_path):
         os.remove(yaml_file_path)
+    if job == "full":
+        backends = full_backends
+    else:
+        backends = mini_backends
     dict_file = {
         'device' : ['cpu'],
         'test' : ['eval'],

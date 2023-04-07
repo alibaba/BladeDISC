@@ -1,2 +1,1 @@
 hf_Bert
-vgg16

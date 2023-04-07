@@ -52,7 +52,7 @@ python3 torchbenchmark/.github/scripts/run-config.py \
 
 # results
 oss_link=https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com
-oss_dir=oss://bladedisc-ci/TorchBench/gpu/${bench_target}/${date_str}
+oss_dir=oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}
 OSSUTIL=ossutil
 GH=gh
 

@@ -40,8 +40,8 @@ else
     source venv/bin/activate
 fi
 
-#git pull && git checkout main
-#git submodule update --init --recursive --depth 1
+git pull && git checkout main
+git submodule update --init --recursive --depth 1
 models_file=${script_dir}/cpu-utils/${JOB}_models.txt
 while read line
 do
@@ -63,13 +63,19 @@ if [[ $HARDWARE == AArch64* ]]; then
     GH=gh_arm64
 fi
 
-threads2cores=('1_0' \
-               '2_0-1' '2_0-3' \
-               '4_0-3' '4_0-7' \
-               '8_0-7' '8_0-15' \
-               '16_0-15' '16_0-31' \
-               '32_0-31' '32_0-63' \
-               '64_0-63')
+# tiny job: one thread mode, one model, eager/disc/dynamo-disc
+# partial job: one thread mode, full models, eager/disc/dynamo-disc
+# full job: multi thread mode, full models, all possible backends
+threads2cores=('2_0-1')
+if [[ ${JOB} == 'full' ]]; then
+    threads2cores=('1_0' \
+                   '2_0-1' '2_0-3' \
+                   '4_0-3' '4_0-7' \
+                   '8_0-7' '8_0-15' \
+                   '16_0-15' '16_0-31' \
+                   '32_0-31' '32_0-63' \
+                   '64_0-63')
+fi
 ## generate config file for cpu
 rm -rf $HOME/.cache/torchmark/CPU_${JOB}*.yaml
 python3 cpu-utils/generate_yaml_for_cpu.py -j $JOB -p ${benchmark_repo_dir}
@@ -81,7 +87,8 @@ export DISC_CPU_ENABLE_WEIGHT_PRE_PACKING=1
 export DISC_ACL_HWCAP2=29695  ## only work on yitian
 export TORCHBENCH_ATOL=1e-3 TORCHBENCH_RTOL=1e-3
 if [[ $HARDWARE == "AArch64-yitian-amp" ]]; then
-    export TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2
+    # torchbenchmark using consin similarity when using lower precision
+    # export TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2
     export DISC_CPU_ACL_USE_AMP=1
     export DNNL_DEFAULT_FPMATH_MODE=any
 fi

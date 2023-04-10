@@ -329,6 +329,13 @@ void ral_base_cuda_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
     return;
   }
 
+  if (TAO_VLOG_IS_ON(1)) {
+    TAO_VLOG(1) << "ral_base_cuda_launch kernel@" << kernel_name << "[" << gridZ
+                << ", " << gridY << ", " << gridX << "," << blockZ << ", "
+                << blockY << "," << blockX << "] "
+                << "shared_mem = " << smem << "\n";
+  }
+
   auto* state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
   ::stream_executor::CudaComputeCapability cc = state->se_stream->parent()
@@ -649,6 +656,7 @@ void ral_base_cuda_d2h(ExecutionContext* ctx, void* stream_handle,
   TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast_0d<T, 7, 0>) \
   TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast_0d<T, 8, 0>);
 
+RAL_REGISTER_BITCAST_FUNC_0D(Eigen::half);
 RAL_REGISTER_BITCAST_FUNC_0D(float);
 RAL_REGISTER_BITCAST_FUNC_0D(double);
 RAL_REGISTER_BITCAST_FUNC_0D(int32_t);

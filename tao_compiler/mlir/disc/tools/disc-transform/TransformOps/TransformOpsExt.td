@@ -929,4 +929,71 @@ def DISCLowerVectorsOp : Op<Transform_Dialect, "disc.vector.lower_vectors",
   }];
 }
 
+
+def DISCSplitReductionSerialOp : Op<Transform_Dialect, "disc.split_reduction_serial",
+       [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
+        TransformEachOpTrait, TransformOpInterface]> {
+  let description = [{
+    Indicates that the given `target` op should be transformed with the
+    `tileReduction` transformation with the tile size provided as attribute.
+
+    This transformation tiles the `target` along the reduction dimensions. It
+    creates a tensor initialized with the identity value. Then it creates nested
+    loops with a parallel version of `target` op inside. The parallel op
+    dimensions are less or equal to the tile size passed by user.
+    The only difference with `structured.tile_reduction_using_foreach_thread` is
+    that, the splitted tiles are executed inplace in serial.
+    The initial tensor always uses the tile size dimension. This may overallocate
+    if the tile size is greater than the reduction dimension.
+
+    #### Return modes
+
+    This 1 returned handle point to:
+      - the parent for op,
+
+    #### Example:
+
+    ```
+      %matmul = linalg.matmul ins(%lhs, %rhs : tensor<128x1024xf32>, tensor<1024x128xf32>)
+                              outs(%out : tensor<128x128xf32>) -> tensor<128x128xf32>
+    ```
+
+    is transformed into:
+
+    ```
+      %1 = scf.for %arg0 = %c0 to %c1024 step %c32 iter_args(%arg1 = %out) -> tensor<128x128xf32> {
+        %extraced_slice_lhs = tensor.extract_slice %lhs[0, %arg0] [128, 32] [1, 1] : tensor<128x1024xf32> -> tensor<128x32xf32>
+        %extraced_slice_rhs = tensor.extract_slice %rhs[%arg0, 0] [32, 128] [1, 1] : tensor<1024x128xf32> -> tensor<32x128xf32>
+        %matmul = linalg.matmul ins(%extraced_slice_lhs, %extraced_slice_rhs : tensor<128x1024xf32>, tensor<1024x128xf32>)
+                                outs(%arg1 : tensor<128x128xf32>) -> tensor<128x128xf32>
+      }
+    ```
+  }];
+
+  // TODO: support mixed static-dynamic (see TileToForeachThreadOp).
+  let arguments = (ins PDL_Operation:$target,
+                   DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$tile_sizes);
+  let results = (outs PDL_Operation:$for_op);
+
+  let builders = [
+    OpBuilder<(ins "Value":$target,
+                   "ArrayRef<int64_t>":$staticTileSizes)>
+  ];
+
+  let assemblyFormat = [{
+    $target
+    `by` `tile_sizes` `=` $tile_sizes
+    attr-dict
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+
 #endif // DISC_TRANSFORM_OPS_EXT

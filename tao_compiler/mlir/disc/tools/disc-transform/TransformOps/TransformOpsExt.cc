@@ -3226,6 +3226,93 @@ DiagnosedSilenceableFailure DISCLowerVectorsOp::applyToOne(
   return DiagnosedSilenceableFailure::success();
 }
 
+//===---------------------------------------------------------------------===//
+// DISCSplitReductionSerialOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
+    mlir::Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  // ::mlir::DiagnosedSilenceableFailure applyToOne(
+  // ::mlir::linalg::LinalgOp target,
+  // ::mlir::transform::ApplyToEachResultList &results,
+  // ::mlir::transform::TransformState &state);
+
+  // Currently, we only support linalg.matmul op. An example is to transform
+  // from
+  // ```
+  //   %matmul = linalg.matmul ins(%lhs, %rhs : tensor<128x1024xf32>,
+  //   tensor<1024x128xf32>)
+  //                           outs(%out : tensor<128x128xf32>) ->
+  //                           tensor<128x128xf32>
+  // ```
+  // to
+  // ```
+  //   %1 = scf.for %arg0 = %c0 to %c1024 step %c32 iter_args(%arg1 = %out) ->
+  //   tensor<128x128xf32> {
+  //     %extraced_slice_lhs = tensor.extract_slice %lhs[0, %arg0] [128, 32] [1,
+  //     1] : tensor<128x1024xf32> -> tensor<128x32xf32> %extraced_slice_rhs =
+  //     tensor.extract_slice %rhs[%arg0, 0] [32, 128] [1, 1] :
+  //     tensor<1024x128xf32> -> tensor<32x128xf32> %matmul = linalg.matmul
+  //     ins(%extraced_slice_lhs, %extraced_slice_rhs : tensor<128x1024xf32>,
+  //     tensor<1024x128xf32>)
+  //                             outs(%arg1 : tensor<128x128xf32>) ->
+  //                             tensor<128x128xf32>
+  //   }
+  auto matmulOp = dyn_cast<linalg::MatmulOp>(target);
+  if (!matmulOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to linalg::MatmulOp");
+  }
+
+  // TODO: support other types of reduction ops.
+
+  OpBuilder b(target);
+  Location loc = target->getLoc();
+  MLIRContext* ctx = target->getContext();
+  const ArrayRef<int64_t> tileSizes = getTileSizes();
+  if (tileSizes.size() != 1) {
+    return mlir::emitDefiniteFailure(target,
+                                     "only one reduction dim for matmul");
+  }
+  int64_t staticTileSize = tileSizes[0];
+
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
+  Value step = b.create<arith::ConstantIndexOp>(loc, staticTileSize);
+  Value lhs = matmulOp.getDpsInputOperand(0)->get();
+  Value rhs = matmulOp.getDpsInputOperand(1)->get();
+  Value output = matmulOp.getOutputs()[0];
+  Value dimM = b.create<tensor::DimOp>(loc, lhs, zero);
+  Value dimN = b.create<tensor::DimOp>(loc, rhs, one);
+  Value dimK = b.create<tensor::DimOp>(loc, lhs, one);
+
+  scf::ForOp forOp =
+      b.create<scf::ForOp>(loc, zero, dimK, step, ValueRange{output});
+  b.setInsertionPoint(forOp.getBody(), forOp.getBody()->begin());
+  Value iv = forOp.getInductionVar();
+  SmallVector<Value> lhsOffsets{zero, iv};
+  SmallVector<Value> lhsDimUppers{dimM, step};
+  SmallVector<Value> lhsStrides{one, one};
+  Value lhsSlice = b.create<tensor::ExtractSliceOp>(loc, lhs, lhsOffsets,
+                                                    lhsDimUppers, lhsStrides);
+  SmallVector<Value> rhsOffsets{iv, zero};
+  SmallVector<Value> rhsDimUppers{step, dimN};
+  SmallVector<Value> rhsStrides{one, one};
+  Value rhsSlice = b.create<tensor::ExtractSliceOp>(loc, rhs, rhsOffsets,
+                                                    rhsDimUppers, rhsStrides);
+  ShapedType resultType = output.getType().cast<ShapedType>();
+  Value iterArg = forOp.getRegionIterArg(0);
+  linalg::MatmulOp res = b.create<linalg::MatmulOp>(
+      loc, resultType, ValueRange{lhsSlice, rhsSlice}, ValueRange{iterArg});
+  b.create<scf::YieldOp>(loc, ValueRange{res.getResult(0)});
+
+  target->getResult(0).replaceAllUsesWith(forOp->getResult(0));
+  results.push_back(forOp);
+
+  return DiagnosedSilenceableFailure::success();
+}
+
 }  // namespace transform_dialect
 
 void registerTransformDialectCommonExtension(DialectRegistry& registry) {

@@ -29,8 +29,8 @@ def do_inference_with_fixed_seed(model, tokenizer, prompt):
 
 prompt = "晚上睡不着应该怎么办"
 
-# If use local mode, change it to the folder that contains model files
-target_model = "chatglm_6b"
+# If local mode is used, change it to the folder that contains model files
+target_model = "THUDM/chatglm-6b"
 
 # The basic block within which all layers are calibrated together
 target_block = get_class_from_dynamic_module(target_model, "modeling_chatglm.py", "GLMBlock")

@@ -9,15 +9,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import logging
 import math
 from typing import Callable, List, Optional
 
 import torch
 from torch import nn
-from torch_quant.module import ModuleFilter
 from torch_quant.observer import Observer
-from torch_quant.quantizer import DEFAULT_W_OB_CTR, Backend, Device, get_default_ctr
+from torch_quant.quantizer import (DEFAULT_W_OB_CTR, Backend, Device,
+                                   get_default_ctr)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -26,7 +27,8 @@ try:
     import transformers
     is_transformers_avail = True
 except ModuleNotFoundError:
-    LOGGER.warning("transformers is not installed, so that gptq can not be applied to transformers.Conv1D")
+    LOGGER.warning("transformers is not installed, "
+                   "so that gptq can not be applied to transformers.Conv1D")
     is_transformers_avail = False
 
 
@@ -62,41 +64,44 @@ class GPTQObserver:
 
 
 class GPTQLayerWrapper:
-    def __init__(self, layer, observer):
+    def __init__(self, layer_name, layer, observer_ctr):
         super().__init__()
+        self.layer_name = layer_name
         self.layer = layer
-        self.gptq_observer = GPTQObserver(observer)
         self.device = layer.weight.device
+        self.gptq_observer = GPTQObserver(observer_ctr().to(self.device))
         columns = layer.weight.shape[1]
         self.columns = columns
         self.H = torch.zeros((columns, columns), device=self.device)
         self.nsamples = 0
+        self.is_record = True
 
     def record_h(self, x):
-        x = x.detach().clone()
-        if len(x.shape) == 2:
-            x = x.unsqueeze(0)
-        batch = x.shape[0]
-        if isinstance(self.layer, nn.Linear) or is_transformer_conv1d(self.layer):
-            if len(x.shape) == 3:
-                x = x.reshape((-1, x.shape[-1]))
-            x = x.t()
+        if self.is_record:
+            x = x.detach().clone()
+            if len(x.shape) == 2:
+                x = x.unsqueeze(0)
+            batch = x.shape[0]
+            if isinstance(self.layer, nn.Linear) or is_transformer_conv1d(self.layer):
+                if len(x.shape) == 3:
+                    x = x.reshape((-1, x.shape[-1]))
+                x = x.t()
 
-        if isinstance(self.layer, nn.Conv2d):
-            unfold = nn.Unfold(
-                self.layer.kernel_size,
-                dilation=self.layer.dilation,
-                padding=self.layer.padding,
-                stride=self.layer.stride
-            )
-            x = unfold(x)
-            x = x.permute([1, 0, 2])
-            x = x.flatten(1)
+            if isinstance(self.layer, nn.Conv2d):
+                unfold = nn.Unfold(
+                    self.layer.kernel_size,
+                    dilation=self.layer.dilation,
+                    padding=self.layer.padding,
+                    stride=self.layer.stride
+                )
+                x = unfold(x)
+                x = x.permute([1, 0, 2])
+                x = x.flatten(1)
 
-        self.H *= self.nsamples / (self.nsamples + batch)
-        self.nsamples += batch
-        x = math.sqrt(2 / self.nsamples) * x.float()
-        self.H += x.matmul(x.t())
+            self.H *= self.nsamples / (self.nsamples + batch)
+            self.nsamples += batch
+            x = math.sqrt(2 / self.nsamples) * x.float()
+            self.H += x.matmul(x.t())
 
     def quant_weight(self, blocksize=128, percdamp=.01, groupsize=-1):
         weight = self.layer.weight.data.clone()
@@ -110,7 +115,6 @@ class GPTQLayerWrapper:
             self.gptq_observer.find_quant_info(weight)
 
         H = self.H
-        # del self.H
         dead = torch.diag(H) == 0
         H[dead, dead] = 1
         weight[:, dead] = 0
@@ -126,12 +130,12 @@ class GPTQLayerWrapper:
             H = torch.cholesky_inverse(H)
             H = torch.linalg.cholesky(H, upper=True)
         except Exception:
-            # TODO: should handle this situation
-            logging.warning("Warning:  cannot do compression for inverse error")
+            logging.warning(f"Warning:  cannot do compression on layer {self.layer_name} because of inverse error")
+            return
 
         if H.isnan().any():
-            # TODO: should handle this situation
-            logging.warning("Warning:  cannot do compression for inverse error")
+            logging.warning(f"Warning:  cannot do compression on layer {self.layer_name} because of inverse error")
+            return
 
         hinv = H
 
@@ -165,27 +169,36 @@ class GPTQLayerWrapper:
 
             weight[:, i2:] -= total_err.matmul(hinv[i1:i2, i2:])
 
-        # torch.cuda.synchronize()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
 
         if is_transformer_conv1d(self.layer):
             Q = Q.t()
         self.layer.weight.data = Q.reshape(self.layer.weight.shape).to(self.layer.weight.data.dtype)
+        del self.H
+        del self.gptq_observer
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 class GPTQModuleWrapper:
-    def __init__(self, module: nn.Module, w_ob_ctr):
+    def __init__(self, module_name: str, module: nn.Module, w_ob_ctr):
         self.all_layers = {}
         self.all_handles = []
+        # module order in the whole network
+        self.order = 0
+        self.module_name = module_name
 
         def get_hook(layer_name):
             def record_hook(_, x):
                 self.all_layers[layer_name].record_h(x[0])
             return record_hook
 
-        for name, layer in module.named_modules():
+        for layer_name, layer in module.named_modules():
             if isinstance(layer, tuple(QUANT_LAYERS)):
-                self.all_layers[name] = GPTQLayerWrapper(layer, w_ob_ctr())
-                handle = layer.register_forward_pre_hook(get_hook(name))
+                full_layer_name = f"{module_name}.{layer_name}" if layer_name else f"{module_name}"
+                self.all_layers[full_layer_name] = GPTQLayerWrapper(full_layer_name, layer, w_ob_ctr)
+                handle = layer.register_forward_pre_hook(get_hook(full_layer_name))
                 self.all_handles.append(handle)
 
     def quant_module(self):
@@ -195,14 +208,27 @@ class GPTQModuleWrapper:
         for h in self.all_handles:
             h.remove()
 
+    def set_order(self, idx):
+        self.order = idx
+
+    def get_order(self):
+        return self.order
+
+    def enable(self):
+        for n, l in self.all_layers.items():
+            l.is_record = True
+
+    def disable(self):
+        for n, l in self.all_layers.items():
+            l.is_record = False
+
 
 class GPTQuantizer:
-    def __init__(self, module_filter: Optional[ModuleFilter] = None,
+    def __init__(self,
                  backend: Backend = Backend.DISC,
                  device: Device = Device.GPU,
-                 block: Optional[List[nn.Module]] = None
+                 block: Optional[List[type]] = None
                  ) -> None:
-        self.module_filter = module_filter
         self.backend = backend
         self.device = device
         self.all_module_wrappers = {}
@@ -212,12 +238,19 @@ class GPTQuantizer:
               w_ob_ctr: Optional[Callable[..., Observer]] = None):
         default_w_ob_ctr = get_default_ctr(DEFAULT_W_OB_CTR, self.device, self.backend)
         w_ob_ctr = w_ob_ctr or default_w_ob_ctr
+
         # GPTQ only quantize the weight of LLMs, so there is no need to
         # convert it to fx module
-        for name, module in model.named_modules():
-            if isinstance(module, tuple(self.block)):
-                self.all_module_wrappers[name] = GPTQModuleWrapper(module, w_ob_ctr)
+        def wrap_target_module(m, prefix=""):
+            for name, child in m.named_children():
+                new_prefix = f"{prefix}.{name}" if prefix else name
+                if isinstance(child, tuple(self.block)):
+                    self.all_module_wrappers[name] = GPTQModuleWrapper(new_prefix, child, w_ob_ctr)
+                    LOGGER.debug(f"Calibrate module {new_prefix} as a whole block in GPTQ")
+                else:
+                    wrap_target_module(child, new_prefix)
 
+        wrap_target_module(model)
         return model
 
     def quantize(self, model: nn.Module):
@@ -226,20 +259,59 @@ class GPTQuantizer:
 
         return model
 
+    @property
+    def calibration_iters(self):
+        return len(self.all_module_wrappers)
 
-if __name__ == "__main__":
-    class MyModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.linear = nn.Linear(2048, 2048)
+    @contextlib.contextmanager
+    def record_order(self):
+        counter = 0
+        record_handles = []
+        orders = {}
+        try:
+            def get_record_order_hook(module_name):
+                def record_hook(*args, **kwargs):
+                    nonlocal counter
+                    if module_name not in orders:
+                        orders[module_name] = counter
+                        counter += 1
+                return record_hook
 
-        def forward(self, x):
-            return self.linear(x)
+            for module_name, module_wrapper in self.all_module_wrappers.items():
+                # disable the record
+                for _, layer_wrapper in module_wrapper.all_layers.items():
+                    layer_wrapper.is_record = False
 
-    model = MyModel()
-    ss = dict(model.named_modules())
-    quantizer = GPTQuantizer()
-    calib_model = quantizer.calib(model)
-    dummy = torch.randn(1, 2048, 2048)
-    calib_model(dummy)
-    quant_model = quantizer.quantize(model)
+                one_layer_wrapper_in_module = list(module_wrapper.all_layers.values())[0]
+                handles = one_layer_wrapper_in_module.layer.register_forward_pre_hook(get_record_order_hook(module_name))
+                record_handles.append(handles)
+            yield
+        except Exception as e:
+            logging.warning(e)
+        finally:
+            for module_name, order in orders.items():
+                self.all_module_wrappers[module_name].set_order(order)
+
+            for h in record_handles:
+                h.remove()
+
+            for module_name, module_wrapper in self.all_module_wrappers.items():
+                # disable the record
+                for _, layer_wrapper in module_wrapper.all_layers.items():
+                    layer_wrapper.is_record = True
+
+
+    @contextlib.contextmanager
+    def start_calib_iter(self, i):
+        assert i < len(self.all_module_wrappers)
+        target_module_wrapper = None
+        try:
+            for _, module_wrapper in self.all_module_wrappers.items():
+                if module_wrapper.get_order() == i:
+                    module_wrapper.enable()
+                    target_module_wrapper = module_wrapper
+                else:
+                    module_wrapper.disable()
+            yield
+        finally:
+            target_module_wrapper.quant_module()

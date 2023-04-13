@@ -55,7 +55,7 @@ pushd $script_dir # pytorch_blade/benchmark/TorchBench
 date_str=$(date '+%Y%m%d-%H')
 echo ${date_str}
 oss_link=https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com
-oss_dir=oss://bladedisc-ci/TorchBench/cpu/${HARDWARE}/${JOB}/${date_str}/${VERSION}
+oss_dir=oss://bladedisc-ci/TorchBench/cpu/${HARDWARE}/${JOB}/${date_str}-${VERSION}
 OSSUTIL=ossutil
 GH=gh
 if [[ $HARDWARE == AArch64* ]]; then

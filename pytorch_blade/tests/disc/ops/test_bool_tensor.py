@@ -19,7 +19,7 @@ class TestMlirBoolTensor(DiscTestCase):
         if inp_test_data is not None:
             test_data = inp_test_data
         else:
-            test_data = torch.randn([2, 2], device=self.device, dtype=torch.float32)
+            test_data = torch.randn([2, 2], device=self.device, dtype=torch.double)
         if (isinstance(test_data, torch.Tensor)):
             test_data = (test_data.to(self.device),)
         self._test_cvt_to_disc(conv_func, test_data)
@@ -28,7 +28,7 @@ class TestMlirBoolTensor(DiscTestCase):
         @torch.jit.script
         def where_func(mat):
             mask = torch.tensor([[True, True], [False, True]])
-            where = torch.where(mask, mat, 0.0)
+            where = torch.where(mask, mat, 0.)
             return where
         self._test_bool_tensor(where_func)
 

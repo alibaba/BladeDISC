@@ -19,7 +19,7 @@ class TestMlirBoolTensor(DiscTestCase):
         if inp_test_data is not None:
             test_data = inp_test_data
         else:
-            test_data = torch.randn([2, 2], device=self.device)
+            test_data = torch.randn([2, 2], device=self.device, dtype=torch.float32)
         if (isinstance(test_data, torch.Tensor)):
             test_data = (test_data.to(self.device),)
         self._test_cvt_to_disc(conv_func, test_data)

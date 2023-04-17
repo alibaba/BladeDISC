@@ -993,15 +993,17 @@ Value elementalLower<lmhlo_disc::H2DOp>(OpBuilder* b, Location loc,
                                         bool check_cache,
                                         LowerConfig* lower_config) {
   Value operand_memref = op->getOperand(0);
-  auto operand_index = output_index;
+  int rank = operand_memref.getType().cast<MemRefType>().getRank();
+  SmallVector<Value> zeroIndices(rank,
+                                 b->create<arith::ConstantIndexOp>(loc, 0));
 
   Value result;
   if (!check_cache) {
     result = createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
-                                   operand_index, lower_config);
+                                   zeroIndices, lower_config);
   } else {
     result = createLoadOrUseCachedValue(loc, b, op.getOperation(),
-                                        operand_memref, operand_index,
+                                        operand_memref, zeroIndices,
                                         b->saveInsertionPoint(), lower_config);
   }
   mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);

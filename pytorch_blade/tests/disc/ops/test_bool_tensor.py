@@ -15,22 +15,17 @@ from tests.disc.testing_base import DiscTestCase, skipTorchLE
 
 @skipTorchLE("1.6.1")
 class TestMlirBoolTensor(DiscTestCase):
-    def _test_bool_tensor(self, conv_func, inp_test_data=None):
-        if inp_test_data is not None:
-            test_data = inp_test_data
-        else:
-            test_data = torch.randn([2, 2], device=self.device, dtype=torch.double)
-        if (isinstance(test_data, torch.Tensor)):
-            test_data = (test_data.to(self.device),)
-        self._test_cvt_to_disc(conv_func, test_data)
-
     def test_bool_tensor(self):
         @torch.jit.script
         def where_func(mat):
-            mask = torch.tensor([[True, True], [False, True]], device=self.device)
+            mask = torch.tensor([[True, True], [False, False]]).to(mat.device)
             where = torch.where(mask, mat, 0.)
             return where
-        self._test_bool_tensor(where_func)
+
+        mat = torch.randn([2, 2], device=self.device, dtype=torch.double)
+        if (isinstance(mat, torch.Tensor)):
+            mat = (mat.to(self.device),)
+        self._test_cvt_to_disc(where_func, mat)
 
 if __name__ == "__main__":
     unittest.main()

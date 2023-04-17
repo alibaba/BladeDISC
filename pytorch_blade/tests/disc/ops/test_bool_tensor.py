@@ -27,7 +27,7 @@ class TestMlirBoolTensor(DiscTestCase):
     def test_bool_tensor(self):
         @torch.jit.script
         def where_func(mat):
-            mask = torch.tensor([[True, True], [False, True]])
+            mask = torch.tensor([[True, True], [False, True]], device=self.device)
             where = torch.where(mask, mat, 0.)
             return where
         self._test_bool_tensor(where_func)

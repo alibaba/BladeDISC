@@ -606,3 +606,18 @@ func.func @main(%arg0: tensor<8xf32>, %arg1: tensor<2xindex>) -> (tensor<1x?xf32
   return %0 : tensor<1x?xf32>
 }
 
+// -----
+
+// Test mhlo.compute_reshape_shape
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@S0, @S1]>, %[[ARG1:.*]]: tensor<?x?x?xf32, [@S2, @S3, @S4]>, %[[ARG2:.*]]: index, %[[ARG3:.*]]: tensor<3xindex>)
+// CHECK-SAME: tensor<?x?x?xf32, [@S2, @S3, @S4]>
+func.func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?x?xf32>, %arg2: index, %arg3: tensor<3xindex>) -> tensor<?x?x?xf32> {
+  %0 = shape.shape_of %arg1 : tensor<?x?x?xf32> -> tensor<3xindex>
+  %1 = mhlo.compute_reshape_shape %arg2, %0 : (index, tensor<3xindex>) -> tensor<3xindex>
+  %2 = "mhlo.dynamic_reshape"(%arg0, %1)
+      : (tensor<?x?xf32>, tensor<3xindex>) -> tensor<?x?x?xf32>
+  func.return %2 : tensor<?x?x?xf32>
+}
+

@@ -117,10 +117,7 @@ void BaseCpuExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
     // TODO: make compiler use ral to alloc cpu memory as well to remove this
     // part.
     static_cast<BaseOutputBufferWrapper*>(&output)->set_deleter(
-        [state](buffer_t data) {
-          std::cout << "dealloc cpu buffer" << data << std::endl;
-          // cpu_dealloc(data);
-        });
+        [state](buffer_t data) { cpu_dealloc(data); });
   }
 }
 

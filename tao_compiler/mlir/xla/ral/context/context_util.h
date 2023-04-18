@@ -66,6 +66,28 @@ tao::ral::MemRefType<T, N> assignMemRef(void* ptr, const ShapeTy& shape) {
   return memref;
 }
 
+template <typename T, int N, typename ShapeTy>
+tao::ral::MemRefType<T, N> assignMemRef(void* ptr, const ShapeTy& shape,
+                                        const ShapeTy& strides) {
+  tao::ral::MemRefType<T, N> memref;
+  memref.basePtr = reinterpret_cast<T*>(ptr);
+  memref.data = reinterpret_cast<T*>(ptr);
+  memref.offset = 0;
+  for (int i = 0; i < N; ++i) {
+    memref.sizes[i] = shape[i];
+  }
+
+  for (int i = 0; i < N; ++i) {
+    memref.strides[i] = strides[i];
+  }
+
+  if (TAO_VLOG_IS_ON(1)) {
+    print_memref(memref, "assigned");
+  }
+
+  return memref;
+}
+
 template <typename T>
 tao::ral::MemRefType<T, 0> assignMemRef_0d(void* ptr) {
   tao::ral::MemRefType<T, 0> memref;

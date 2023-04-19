@@ -13,13 +13,8 @@
 import numpy as np
 import hashlib
 from torch_blade._torch_blade import _backends
+from torch_blade import hash_data, hash_combine
 HASH_SEED = 1
-
-def data_hash(value: str) -> int:
-    return int(hashlib.sha256(value.encode("utf-8")).hexdigest(), 16)
-
-def hash_combine(a: int, b: int) -> int:
-    return a ^ (b + 0x9e3779b9 + (a << 6) + (a >> 2))
 
 def get_graph_hash(graph):
     nodes = []
@@ -31,10 +26,10 @@ def get_graph_hash(graph):
     for input in graph.inputs():
         val_info = _backends.TensorInfo(input)
         rank = len(val_info.sizes)
-        hash_value = hash_combine(hash_value, data_hash(val_info.dtype))
-        hash_value = hash_combine(hash_value, data_hash(val_info.device))
-        hash_value = hash_combine(hash_value, data_hash(str(rank)))
+        hash_value = hash_combine(hash_value, hash_data(val_info.dtype))
+        hash_value = hash_combine(hash_value, hash_data(val_info.device))
+        hash_value = hash_combine(hash_value, hash_data(str(rank)))
     # hash node info
     for n in nodes:
-        hash_value = hash_combine(hash_value, data_hash(n.kind()))
+        hash_value = hash_combine(hash_value, hash_data(n.kind()))
     return hash_value

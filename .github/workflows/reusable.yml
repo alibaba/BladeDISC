@@ -95,7 +95,6 @@ jobs:
           -e GH_TOKEN=${{ secrets.BENCHMARK_GH_TOKEN}} \
           -w /disc \
           disc-dev-${{ inputs.name }} ${{ inputs.exec_command }}
-        docker system prune --force
     - name: Push Docker Image
       env:
         ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}

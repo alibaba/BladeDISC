@@ -39,7 +39,8 @@ def patch_conv2d(mod):
         conv.weight = torch.nn.Parameter(conv.weight_nhwc.permute([0, 3, 1, 2]))
 
         def _patched_conv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
-            return torch.ops.torch_blade.conv2d_weight_nhwc(input, conv.weight_nhwc, bias, stride, padding, dilation, groups)
+            # convert input dtype for some autocast context
+            return torch.ops.torch_blade.conv2d_weight_nhwc(input.type(conv.weight_nhwc.dtype), conv.weight_nhwc, bias, stride, padding, dilation, groups)
 
         torch.nn.functional.conv2d = _patched_conv2d
         fx_conv = symbolic_trace(conv)

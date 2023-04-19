@@ -38,6 +38,8 @@ WRAPPER_MULDIV_TENSOR(div_);
 #undef WRAPPER_MULDIV_TENSOR
 #undef WRAPPER_ADDSUB_TENSOR
 
+#if PYTORCH_MAJOR_VERSION > 1 || \
+    PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
 at::Tensor wrapper_conv2d_weight_nhwc(
     const Tensor& input_,
     const Tensor& weight_nhwc,
@@ -50,6 +52,7 @@ at::Tensor wrapper_conv2d_weight_nhwc(
   return at::conv2d(
       input_, weight, bias_opt, stride, padding, dilation, groups);
 }
+#endif
 } // namespace
 
 namespace {

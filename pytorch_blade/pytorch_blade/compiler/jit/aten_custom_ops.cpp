@@ -93,10 +93,13 @@ C10_REGISTER_OP(
     div,
     "aten::div_inplace.Tensor(Tensor self, Tensor other) -> Tensor");
 
+#if PYTORCH_MAJOR_VERSION > 1 || \
+    PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
 // NOTE: used to lowering conv layout
 C10_REGISTER_OP(
     conv2d_weight_nhwc,
     "torch_blade::conv2d_weight_nhwc(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor");
+#endif
 
 #undef C10_REGISTER_OP
 } // namespace

@@ -67,27 +67,14 @@ struct HloToLhloConcatenateOpConverter
       : OpRewritePattern(context) {}
 
   bool isFixedShape(lmhlo::ConcatenateOp op) const {
-    bool one_size_input = true;
-    bool is_static_shape = true;
-    int num_input_operands = op.getNumOperands() - 1;
-    size_t axis = op.getDimension();
+    int operands = op.getNumOperands();
     disc_ral::ShapeConstraintIRAnalysis shape_analysis(op.getOperation());
-    for (int i = 0; i < num_input_operands; ++i) {
-      auto typ = op.getOperand(i).getType().cast<MemRefType>();
-      if (is_static_shape && typ.hasStaticShape()) {
-        if (one_size_input && i > 0) {
-          auto prev_typ = op.getOperand(i - 1).getType().cast<MemRefType>();
-          one_size_input = (typ.getShape()[axis] == prev_typ.getShape()[axis]);
-        }
-      } else {
-        is_static_shape = false;
-        if (one_size_input && i > 0) {
-          one_size_input = shape_analysis.isShapeEqual(op->getOperand(i),
-                                                       op->getOperand(i - 1));
-        }
-      }
+    bool is_shape_equal = true;
+    for (int i = 0; i < operands - 1; ++i) {
+      is_shape_equal &=
+          shape_analysis.isShapeEqual(op->getOperand(i), op->getOperand(i + 1));
     }
-    return one_size_input;
+    return is_shape_equal;
   }
 
   LogicalResult matchAndRewrite(lmhlo::ConcatenateOp lhloOp,

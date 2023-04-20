@@ -1333,7 +1333,7 @@ LogicalResult PrintfToLLVMPattern::matchAndRewrite(
   return success();
 }
 
-// Converts a ral.dispatch_op to its llvm format.
+// Converts a ral.get_pointer op to its llvm format.
 struct GetPointerToLLVMPattern : public ConvertOpToLLVMPattern<GetPointerOp> {
   GetPointerToLLVMPattern(LLVMTypeConverter& type_converter,
                           SymbolTable& symbol_table)

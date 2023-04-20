@@ -57,8 +57,6 @@ createDiscLhloLegalizeRootsToParallelLoopsPass(int sm_count = -1,
 // Canonicalize conv ops to be suitable for lowering to cudnn lib calls.
 std::unique_ptr<OperationPass<FuncOp>> createDiscConvRewriter(int cc_major = 8,
                                                               int cc_minor = 0);
-// Rewrite rng op to custom call
-// std::unique_ptr<OperationPass<FuncOp>> createDiscRngRewriterPass();
 
 // Canonicalize qconv ops to be suitable for lowering to cudnn lib calls.
 std::unique_ptr<OperationPass<FuncOp>> createDiscQuantizedConvRewriter(

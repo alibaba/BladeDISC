@@ -71,11 +71,6 @@ def MhloDecompositionRewriterPass : Pass<"disc-mhlo-decomp-rewriter", "mlir::fun
   let constructor = "createDiscMhloDecompositionRewriterPass()";
 }
 
-//def RngRewriterPass : Pass<"disc-rng-rewriter", "mlir::func::FuncOp"> {
-//  let summary = "Rewrite rng to custom call op.";
-//  let constructor = "createDiscRngRewriterPass()";
-//}
-
 def DotRewriterPass : Pass<"disc-dot-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite dot to fold transpose.";
   let constructor = "createDiscDotRewriterPass()";

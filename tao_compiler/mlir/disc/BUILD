@@ -449,28 +449,6 @@ cc_library(
     alwayslink = 1,
 )
 
-
-cc_library(
-    name = "rng_rewriter",
-    srcs = ["transforms/rng_rewriter.cc"],
-    hdrs = ["transforms/passes.h"],
-    includes = [
-        "tensorflow/compiler/xla/mlir_hlo/include",
-        "."
-    ],
-    deps = [
-        ":disc_util",
-        ":pass_details",
-        "//tensorflow/compiler/mlir/disc:rng_uniform_custom_call",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "@llvm-project//mlir:FuncDialect",
-        "@llvm-project//mlir:IR",
-        "@llvm-project//mlir:Pass",
-        "@llvm-project//mlir:Transforms",
-    ],
-    alwayslink = 1,
-)
-
 cc_library(
     name = "quantized_dot_rewriter",
     srcs = ["transforms/quantized_dot_rewriter.cc"],
@@ -936,7 +914,7 @@ cc_library(
         ":pass_details",
         ":placement_utils",
         ":shape_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -2490,20 +2468,6 @@ cc_library(
 )
 
 cc_library(
-    name = "rng_uniform_custom_call_hdrs",
-    srcs = [
-        "IR/rng_uniform_custom_call_op_cfg.cpp",
-    ],
-    hdrs = [
-        "IR/rng_uniform_custom_call_op.h",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "@llvm-project//llvm:Support",
-    ]
-)
-
-cc_library(
     name = "rng_uniform_custom_call",
     srcs = [
         "IR/rng_uniform_custom_call_op.cc",
@@ -2518,7 +2482,6 @@ cc_library(
         ":lmhlo_disc",
         ":mhlo_disc",
         ":placement_utils",
-        ":rng_uniform_custom_call_hdrs",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
     ],

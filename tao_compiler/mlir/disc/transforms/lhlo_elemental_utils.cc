@@ -22,9 +22,6 @@ limitations under the License.
 #include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "llvm/Support/Debug.h"
 #include "mhlo/transforms/map_mhlo_to_scalar_op.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
-#include "mlir-hlo/Dialect/mhlo/transforms/map_mhlo_to_scalar_op.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"  // from @llvm-project
 #include "mlir/Conversion/LLVMCommon/Pattern.h"        // from @llvm-project
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"

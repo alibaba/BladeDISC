@@ -156,10 +156,6 @@ struct DiscLhloRewriterPass
     if (failed(
             applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
       signalPassFailure();
-
-    // if (failed(applyPartialConversion(getOperation(), target,
-    //                                  std::move(patterns))))
-    //  signalPassFailure();
   }
 };
 }  // namespace

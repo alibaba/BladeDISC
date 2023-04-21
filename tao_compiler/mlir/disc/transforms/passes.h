@@ -265,6 +265,9 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscDenseToSparsePass(
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscSparseGemmTransposeSimplifierPass();
 
+// Epand ext/trunc of bfloat16
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscBF16ExpansionPass();
+
 // Converts fake_quant annotated graph to the real quantized version.
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertFakeQuantOpPass();
 

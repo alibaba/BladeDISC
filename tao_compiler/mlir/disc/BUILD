@@ -2010,6 +2010,25 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_bf16_expansion",
+    srcs = ["transforms/disc_bf16_expansion.cc"],
+    deps = [
+        ":lmhlo_disc",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:BufferizationTransforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_custom_call_rewriter",
     srcs = ["transforms/disc_custom_call_rewriter.cc"],
     deps = [
@@ -2185,6 +2204,7 @@ cc_library(
         ":disc_algebraic_simplifier",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
+        ":disc_bf16_expansion",
         ":disc_buffer_deallocation",
         ":disc_canonicalizer",
         ":disc_comp_intens_fusion_to_cuda_source",

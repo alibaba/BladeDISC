@@ -511,6 +511,15 @@ def DiscSparseGemmTransposeSimplifierPass : Pass<"disc-sparse-gemm-transpose-sim
   let constructor = "createDiscSparseGemmTransposeSimplifierPass()";
 }
 
+
+def DiscBF16ExpansionPass : Pass<"disc-bf16-expansion", "mlir::func::FuncOp"> {
+  let summary = "expand ext/trunc of bf16";
+  let constructor = "createDiscBF16ExpansionPass()";
+  let dependentDialects = [
+    "arith::ArithDialect"
+  ];
+}
+
 def DiscConvertFakeQuantOpPass : Pass<"disc-convert-fake-quant-op", "mlir::func::FuncOp"> {
   let summary = "Convert fake_quant annotated graph to the real quantized version.";
   let constructor = "createDiscConvertFakeQuantOpPass()";

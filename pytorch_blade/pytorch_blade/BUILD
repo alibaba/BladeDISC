@@ -29,6 +29,7 @@ cc_library(
         "//pytorch_blade/compiler/jit:torch_blade_jit",
         "//pytorch_blade/compiler/mlir:torch_blade_mlir",
         "@local_org_torch//:libtorch",
+        "//pytorch_blade/disc_ops:attention_op",
     ] + if_tensorrt_enabled([
         "//pytorch_blade/compiler/tensorrt:tensorrt_runtime_impl",
     ]) + if_cuda_is_configured([

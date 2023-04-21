@@ -70,7 +70,8 @@ struct HloToLhloConcatenateOpConverter
     int operands = op.getNumOperands();
     disc_ral::ShapeConstraintIRAnalysis shape_analysis(op.getOperation());
     bool is_shape_equal = true;
-    for (int i = 0; i < operands - 1; ++i) {
+    // check all input operand, the last one is output buffer
+    for (int i = 0; i < operands - 2; ++i) {
       is_shape_equal &=
           shape_analysis.isShapeEqual(op->getOperand(i), op->getOperand(i + 1));
     }

@@ -269,11 +269,10 @@ def LHLODISC_SourceCodeOp: LHLODISC_Op<"source_code", [AttrSizedOperandSegments]
 }
 
 def LHLODISC_ConcatenateOp : LHLODISC_Op<"concatenate", []> {
-  let summary = "XLA's concatenate op";
+  let summary = "DISC's concatenate op";
   let description = [{
-     Concatenates a set of tensors along the specified dimension.
-
-     See https://www.tensorflow.org/xla/operation_semantics#concatenate.
+     Concatenates a set of tensors along the specified dimension,
+     please note, this operator only supports fixed shape in the current codebase.
    }];
    let arguments = (ins
      Arg<Variadic<LHLO_Buffer>, "", [MemRead]>:$val,

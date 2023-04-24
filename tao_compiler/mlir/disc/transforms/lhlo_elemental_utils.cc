@@ -978,6 +978,7 @@ Value elementalLower<lmhlo_disc::ConcatenateOp>(OpBuilder* b, Location loc,
 
   auto num_input_operands = op.getNumOperands() - 2;
   auto zero = b->create<arith::ConstantIndexOp>(loc, 0);
+  auto one = b->create<arith::ConstantIndexOp>(loc, 1);
 
   SmallVector<Value> axis_dim_ranges;
   axis_dim_ranges.push_back(zero);
@@ -1001,17 +1002,30 @@ Value elementalLower<lmhlo_disc::ConcatenateOp>(OpBuilder* b, Location loc,
 
   auto output_shape = getShapeValues(b, out);
   Value linear_index = calcLinearIndex(b, loc, output_index, output_shape);
-  auto operand_index = b->create<arith::FloorDivSIOp>(loc, b->getIndexType(),
-                                                      linear_index, inputNumel);
+  llvm::dbgs() << "output_shape: " << output_shape[0] << "\n";
+  auto operand_index = b->create<arith::FloorDivSIOp>(
+      loc, b->getIndexType(), output_index[axis],
+      getDimSizeValue(b, op.getOperand(0), axis));
+  llvm::dbgs() << "operand_index: " << operand_index << "\n";
+  // auto operand_index = b->create<arith::FloorDivSIOp>(loc, b->getIndexType(),
+  //                                                    linear_index,
+  //                                                    inputNumel);
   auto int_ptr =
       b->create<memref::LoadOp>(loc, ptr_array, ValueRange{operand_index});
   Type ptr_type = LLVM::LLVMPointerType::get(FloatType::getF32(ctx));
   auto llvm_ptr = b->create<LLVM::IntToPtrOp>(loc, ptr_type, int_ptr);
 
-  // input_offset = linear_index - operand_index * input_numel
-  Value input_offset = b->create<arith::SubIOp>(
-      loc, linear_index,
-      b->create<arith::MulIOp>(loc, operand_index, inputNumel));
+  SmallVector<Value, 4> input_index;
+  std::copy(output_index.begin(), output_index.end(),
+            std::back_inserter(input_index));
+  // input_index[axis] = output_index[axis] - operand_index * input0_shape[axis]
+  input_index[axis] = b->create<arith::SubIOp>(
+      loc, output_index[axis],
+      b->create<arith::MulIOp>(loc, operand_index,
+                               getDimSizeValue(b, op.getOperand(0), axis)));
+  Value input_offset =
+      calcLinearIndex(b, loc, input_index, getShapeValues(b, op.getOperand(0)));
+
   input_offset = b->create<arith::IndexCastOp>(loc, IntegerType::get(ctx, 32),
                                                input_offset);
   auto llvm_elem =

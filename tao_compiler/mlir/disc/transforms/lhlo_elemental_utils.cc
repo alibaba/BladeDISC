@@ -992,24 +992,12 @@ Value elementalLower<lmhlo_disc::ConcatenateOp>(OpBuilder* b, Location loc,
   auto ptr_array = op.getOperand(op.getNumOperands() - 2);
   auto out = op.getOperand(op.getNumOperands() - 1);
 
-  // TODO(yancey): load operand as index
-  auto input0_memref = op.getOperand(0);
-  Value inputNumel = b->create<arith::ConstantIndexOp>(loc, 1);
-  for (int i = 0; i < rank; ++i) {
-    inputNumel = b->create<arith::MulIOp>(loc, inputNumel,
-                                          getDimSizeValue(b, input0_memref, i));
-  }
-
   auto output_shape = getShapeValues(b, out);
   Value linear_index = calcLinearIndex(b, loc, output_index, output_shape);
-  llvm::dbgs() << "output_shape: " << output_shape[0] << "\n";
   auto operand_index = b->create<arith::FloorDivSIOp>(
       loc, b->getIndexType(), output_index[axis],
       getDimSizeValue(b, op.getOperand(0), axis));
-  llvm::dbgs() << "operand_index: " << operand_index << "\n";
-  // auto operand_index = b->create<arith::FloorDivSIOp>(loc, b->getIndexType(),
-  //                                                    linear_index,
-  //                                                    inputNumel);
+
   auto int_ptr =
       b->create<memref::LoadOp>(loc, ptr_array, ValueRange{operand_index});
   Type ptr_type = LLVM::LLVMPointerType::get(FloatType::getF32(ctx));
@@ -1018,14 +1006,13 @@ Value elementalLower<lmhlo_disc::ConcatenateOp>(OpBuilder* b, Location loc,
   SmallVector<Value, 4> input_index;
   std::copy(output_index.begin(), output_index.end(),
             std::back_inserter(input_index));
-  // input_index[axis] = output_index[axis] - operand_index * input0_shape[axis]
+
   input_index[axis] = b->create<arith::SubIOp>(
       loc, output_index[axis],
       b->create<arith::MulIOp>(loc, operand_index,
                                getDimSizeValue(b, op.getOperand(0), axis)));
   Value input_offset =
       calcLinearIndex(b, loc, input_index, getShapeValues(b, op.getOperand(0)));
-
   input_offset = b->create<arith::IndexCastOp>(loc, IntegerType::get(ctx, 32),
                                                input_offset);
   auto llvm_elem =

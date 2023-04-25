@@ -321,6 +321,8 @@ namespace mhlo_disc {
 // Legalizes mhlo_disc ops to lmhlo_disc ops.
 std::unique_ptr<OperationPass<ModuleOp>> createDiscLegalizeToLhloPass();
 
+std::unique_ptr<OperationPass<ModuleOp>> createDiscLhloRewriterPass();
+
 }  // namespace mhlo_disc
 }  // namespace mlir
 

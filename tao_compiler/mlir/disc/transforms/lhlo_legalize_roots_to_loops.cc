@@ -137,8 +137,8 @@ LogicalResult miscLowerHelper(OpBuilder& b, Location loc, Operation* opaque_op,
   if (!op) return failure();
   Value result_memref = cast<lmhlo::LmhloOp>(&*op).getResultBuffer();
   Value memref = result_memref;
-  // TODO(disc): we acutally don't need this after shape constraint refactor
-  // Remove this part of code after we finish the benchamrk after the refactor.
+  // TODO(disc): we actually don't need this after shape constraint refactor
+  // Remove this part of code after we finish the benchmark after the refactor.
   if (auto analysis_deprecated =
           dynamic_cast<const ShapeAnalysisDeprecated*>(shape_analysis)) {
     lmhlo::FusionOp fusion = opaque_op->getParentOfType<lmhlo::FusionOp>();
@@ -261,6 +261,8 @@ LogicalResult lowerHelper(OpBuilder& b, Location loc, Operation* op,
       succeeded(miscLowerHelper<lmhlo::IsFiniteOp>(
           b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::ConcatenateOp>(
+          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+      succeeded(miscLowerHelper<lmhlo_disc::ConcatenateOp>(
           b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::CopyOp>(
           b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||

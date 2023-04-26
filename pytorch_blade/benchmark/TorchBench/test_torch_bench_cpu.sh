@@ -24,7 +24,7 @@ fi
 # parse the arguments
 HARDWARE=$1; shift  ## AArch64-yitian, AArch64-g6r, X86-intel, X86-amd
 JOB=$1; shift       ## tiny, partial, full
-VERSION=$1; shift   ## 131, 200
+VERSION=$1; shift   ## pre, 200
 
 # setup for torchbenchmark
 pushd $benchmark_repo_dir

@@ -1,4 +1,4 @@
-name: TorchBench
+name: TorchBenchCPU
 
 # Add cronjob later
 # Use workflow dispatch to manual trigger the job for now
@@ -10,48 +10,107 @@ on:
   workflow_dispatch:
 
 jobs:
-  TorchBenchCudaTiny:
+  TorchBenchIntelPartial-Pre:
     if: github.event.schedule != '30 15 * * 5' # daily or dispatch
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu117
-      device: gpu-bench
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
+      device: g7-bench
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
-      extra_run_args: --cap-add=SYS_ADMIN --gpus all
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda tiny
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh X86-intel partial pre
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
 
-  TorchBenchCudaPartial:
-    if: github.event.schedule == '30 15 * * *'
-    uses: ./.github/workflows/reusable.yml
-    with:
-      name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu117
-      device: gpu-bench
-      dockerfile: docker/cronjobs/Dockerfile.torch.bench
-      extra_run_args: --cap-add=SYS_ADMIN --gpus all
-      extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda partial
-      push_command: ""
-      remote_dev_docker: ""
-    secrets: inherit
-
-  TorchBenchCudaFull:
+  TorchBenchIntelFull-Pre:
     if: github.event.schedule == '30 15 * * 5'
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu117
-      device: gpu-bench
-      timeout_minutes: 4320 # 72h
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
+      device: g7-bench
+      timeout_minutes: 10080 # 7 days
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
-      extra_run_args: --cap-add=SYS_ADMIN --gpus all
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda full
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh X86-intel full pre
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchYitianPartial-200:
+    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch2.0.0-cpu-yitian
+      device: yitian-bench-sh2
+      proxy_config: source ~/.cache/proxy_config
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-yitian partial 200
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchYitianAMPPartial-200:
+    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch2.0.0-cpu-yitian
+      device: yitian-bench-sh2
+      proxy_config: source ~/.cache/proxy_config
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-yitian-amp partial 200
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchYitianFull-200:
+    if: github.event.schedule == '30 15 * * 5'
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch2.0.0-cpu-yitian
+      device: yitian-bench
+      timeout_minutes: 14400 # 10 days
+      proxy_config: source ~/.cache/proxy_config
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-yitian full 200
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+ 
+  TorchBenchG6RFull-200:
+    if: github.event.schedule == '30 15 * * 5'
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch2.0.0-cpu-aarch64
+      device: g6r-bench
+      timeout_minutes: 14400 # 10 days
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-g6r full 200
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchAMDFull-Pre:
+    if: github.event.schedule == '30 15 * * 5'
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
+      device: g7a-bench
+      timeout_minutes: 14400 # 10 days
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh X86-amd full pre
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit

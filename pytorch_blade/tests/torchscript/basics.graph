@@ -178,11 +178,13 @@ graph(%p1 : Float(*, *, *, device=cuda:0)):
   %getitem_3 : Tensor = aten::__getitem__(%split, %23)
   return (%getitem_1, %getitem_2, %getitem_3)
 
-// aten::cuda
+// erase tensor shape in tuple inputs
 // CHECK-LABEL: graph
-graph(%p1 : Float(*, *, *, device=cpu)):
-// CHECK: Float(*, *, *, device=cuda) = aten::cuda(%p1)
-  %2 : Tensor = aten::cuda(%p1)
+graph(%p1 : (Tensor, Tensor),
+    %p2 : int):
+// CHECK: Half(*, *, *, *, requires_grad=0, device=cuda:0)
+  %p1.1: Half(1, 1, 1, 1, strides=[1, 1, 1, 1], requires_grad=0, device=cuda:0), %p11.1: Half(1, 1, 1, 1, strides=[1, 1, 1, 1], requires_grad=0, device=cuda:0) = prim::TupleUnpack(%p1)
+  %2 = aten::add(%p1.1, %p11.1, %p2)
   return (%2)
 
 

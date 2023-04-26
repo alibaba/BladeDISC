@@ -695,6 +695,14 @@ class ShapePropagator : public PropertyPropBase {
         return;
       }
       case prim::TupleUnpack: {
+        auto block_inputs = node->owningBlock()->inputs();
+        auto it =
+            std::find(block_inputs.begin(), block_inputs.end(), node->input());
+        if (it != block_inputs.end()) {
+          setUnshapedType(node);
+          return;
+        }
+
         auto tuple_type = node->input()->type()->cast<TupleType>();
         AT_ASSERT(
             tuple_type &&

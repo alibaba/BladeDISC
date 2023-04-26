@@ -549,6 +549,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(disc_ral::createForLoopUnrollInterleavePass());
   }
   pm.addNestedPass<FuncOp>(arith::createArithExpandOpsPass());
+  // Origin: https://reviews.llvm.org/D147585
+  // Should be removed after rebasing to the latest llvm head
   pm.addNestedPass<FuncOp>(disc_ral::createDiscBF16ExpansionPass());
   pm.addNestedPass<FuncOp>(mlir::memref::createFoldMemRefAliasOpsPass());
 

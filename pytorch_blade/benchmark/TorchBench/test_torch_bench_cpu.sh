@@ -34,10 +34,8 @@ if [[ $HARDWARE == AArch64* ]]; then
     python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
     python3 -m pip install -r $script_dir/cpu-utils/requirements_aarch64_${VERSION}.txt
 else
-    rm -rf ./venv
     python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
     python3 -m pip install -r $script_dir/cpu-utils/requirements_cpu_${VERSION}.txt
-    source venv/bin/activate
 fi
 
 git pull && git checkout main

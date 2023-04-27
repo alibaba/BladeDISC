@@ -9,9 +9,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"
@@ -32,7 +32,7 @@ namespace {
 
 /// Create an integer or index constant.
 static Value createConst(Location loc, Type type, int value,
-                         PatternRewriter &rewriter) {
+                         PatternRewriter& rewriter) {
   auto attr = rewriter.getIntegerAttr(getElementTypeOrSelf(type), value);
   if (auto shapedTy = dyn_cast<ShapedType>(type)) {
     return rewriter.create<arith::ConstantOp>(
@@ -45,7 +45,7 @@ static Value createConst(Location loc, Type type, int value,
 struct BFloat16ExtFOpConverter : public OpRewritePattern<arith::ExtFOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(arith::ExtFOp op,
-                                PatternRewriter &rewriter) const final {
+                                PatternRewriter& rewriter) const final {
     ImplicitLocOpBuilder b(op.getLoc(), rewriter);
     auto operand = op.getOperand();
     Type operandTy = operand.getType();
@@ -79,7 +79,7 @@ struct BFloat16ExtFOpConverter : public OpRewritePattern<arith::ExtFOp> {
 struct BFloat16TruncFOpConverter : public OpRewritePattern<arith::TruncFOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(arith::TruncFOp op,
-                                PatternRewriter &rewriter) const final {
+                                PatternRewriter& rewriter) const final {
     ImplicitLocOpBuilder b(op.getLoc(), rewriter);
     auto operand = op.getOperand();
     Type operandTy = operand.getType();
@@ -180,7 +180,7 @@ void DiscBF16ExpansionPass::runOnOperation() {
 
   // clang-format on
   if (failed(
-        applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+          applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
     signalPassFailure();
     return;
   }
@@ -188,8 +188,7 @@ void DiscBF16ExpansionPass::runOnOperation() {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-createDiscBF16ExpansionPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscBF16ExpansionPass() {
   return std::make_unique<DiscBF16ExpansionPass>();
 }
 

@@ -1,0 +1,116 @@
+name: TorchBenchCPU
+
+# Add cronjob later
+# Use workflow dispatch to manual trigger the job for now
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron: '30 15 * * *' # 11:30 pm UTC+8:00
+    - cron: '30 15 * * 5' # 11:30 pm UTC+8:00 every Friday
+  workflow_dispatch:
+
+jobs:
+  TorchBenchIntelPartial-Pre:
+    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
+      device: g7-bench
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh X86-intel partial pre
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchIntelFull-Pre:
+    if: github.event.schedule == '30 15 * * 5'
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
+      device: g7-bench
+      timeout_minutes: 10080 # 7 days
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh X86-intel full pre
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchYitianPartial-200:
+    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch2.0.0-cpu-yitian
+      device: yitian-bench-sh2
+      proxy_config: source ~/.cache/proxy_config
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-yitian partial 200
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchYitianAMPPartial-200:
+    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch2.0.0-cpu-yitian
+      device: yitian-bench-sh2
+      proxy_config: source ~/.cache/proxy_config
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-yitian-amp partial 200
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchYitianFull-200:
+    if: github.event.schedule == '30 15 * * 5'
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch2.0.0-cpu-yitian
+      device: yitian-bench
+      timeout_minutes: 14400 # 10 days
+      proxy_config: source ~/.cache/proxy_config
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-yitian full 200
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+ 
+  TorchBenchG6RFull-200:
+    if: github.event.schedule == '30 15 * * 5'
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch2.0.0-cpu-aarch64
+      device: g6r-bench
+      timeout_minutes: 14400 # 10 days
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-g6r full 200
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchAMDFull-Pre:
+    if: github.event.schedule == '30 15 * * 5'
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
+      device: g7a-bench
+      timeout_minutes: 14400 # 10 days
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench
+      extra_envs: -e RELATED_DIFF_PERCENT=5
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh X86-amd full pre
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit

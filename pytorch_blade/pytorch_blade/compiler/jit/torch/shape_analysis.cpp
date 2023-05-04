@@ -134,11 +134,7 @@ bool mergeTypes(
   for (const auto i : c10::irange(lhs.size())) {
     auto old_output_type = outputs[i]->type();
     auto new_type =
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 7
         unifyTypes(lhs[i]->type(), rhs[i]->type(), /*default_to_union=*/true);
-#else
-        unifyTypes(lhs[i]->type(), rhs[i]->type());
-#endif
     AT_ASSERT(new_type);
     outputs[i]->setType(*new_type);
     if (*old_output_type != *outputs[i]->type())
@@ -498,7 +494,7 @@ class ShapePropagator : public PropertyPropBase {
     // is to uncover any mistakes we could make when editing this code,
     // and eventually it shouldn't matter, because this phase should be
     // preceded by schema checking.
-#if PYTORCH_VERSION_GE(1, 10) || PYTORCH_VERSION_LE(1, 6)
+#if PYTORCH_VERSION_GE(1, 10)
     op(stack);
 #else
     op(&stack);
@@ -972,9 +968,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::sigmoid(Tensor self) -> Tensor",
             "aten::silu(Tensor self) -> Tensor",
             "aten::silu_(Tensor self) -> Tensor",
-#if PYTORCH_VERSION_GE(1, 7)
             "aten::logit(Tensor self, float? eps=None) -> Tensor",
-#endif
             "aten::tanh(Tensor self) -> Tensor",
             "aten::asin(Tensor self) -> Tensor",
             "aten::atan(Tensor self) -> Tensor",

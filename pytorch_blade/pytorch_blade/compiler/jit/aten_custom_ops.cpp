@@ -38,8 +38,6 @@ WRAPPER_MULDIV_TENSOR(div_);
 #undef WRAPPER_MULDIV_TENSOR
 #undef WRAPPER_ADDSUB_TENSOR
 
-#if PYTORCH_MAJOR_VERSION > 1 || \
-    PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
 at::Tensor wrapper_conv2d_weight_nhwc(
     const Tensor& input_,
     const Tensor& weight_nhwc,
@@ -52,7 +50,6 @@ at::Tensor wrapper_conv2d_weight_nhwc(
   return at::conv2d(
       input_, weight, bias_opt, stride, padding, dilation, groups);
 }
-#endif
 } // namespace
 
 namespace {
@@ -93,14 +90,10 @@ C10_REGISTER_OP(
     div,
     "aten::div_inplace.Tensor(Tensor self, Tensor other) -> Tensor");
 
-#if PYTORCH_MAJOR_VERSION > 1 || \
-    PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
 // NOTE: used to lowering conv layout
 C10_REGISTER_OP(
     conv2d_weight_nhwc,
     "torch_blade::conv2d_weight_nhwc(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor");
-#endif
-
 #undef C10_REGISTER_OP
 } // namespace
 

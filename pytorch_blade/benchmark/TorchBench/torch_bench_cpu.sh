@@ -15,6 +15,7 @@ if [ -f $HOME/.cache/proxy_config ]; then
 fi
 script_dir=$(cd $(dirname "$0"); pwd)
 benchmark_repo_dir=$HOME/.cache/torchbenchmark
+disc_compile_cache_dir=$HOME/.cache/disc
 rm -rf ${benchmark_repo_dir}
 # cache benchmark repo
 if [ ! -d $benchmark_repo_dir ]; then
@@ -25,6 +26,12 @@ fi
 HARDWARE=$1; shift  ## AArch64-yitian, AArch64-g6r, X86-intel, X86-amd
 JOB=$1; shift       ## tiny, partial, full
 VERSION=$1; shift   ## pre, 200
+
+# compile cache 
+if [ -d $disc_compile_cache_dir ]; then
+    rm -rf $disc_compile_cache_dir
+fi
+mkdir -p $disc_compile_cache_dir
 
 # setup for torchbenchmark
 pushd $benchmark_repo_dir

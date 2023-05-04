@@ -27,7 +27,7 @@ HARDWARE=$1; shift  ## AArch64-yitian, AArch64-g6r, X86-intel, X86-amd
 JOB=$1; shift       ## tiny, partial, full
 VERSION=$1; shift   ## pre, 200
 
-# compile cache 
+# compile cache
 if [ -d $disc_compile_cache_dir ]; then
     rm -rf $disc_compile_cache_dir
 fi
@@ -90,7 +90,7 @@ rm -rf ${total_dir} && mkdir ${total_dir}
 # setup benchmark env
 export DISC_CPU_ENABLE_WEIGHT_PRE_PACKING=1
 export DISC_ACL_HWCAP2=29695  ## only work on yitian
-export TORCHBENCH_ATOL=1e-3 TORCHBENCH_RTOL=1e-3
+export TORCHBENCH_ATOL=1e-3 TORCHBENCH_RTOL=1e-3 TORCH_BLADE_ENABLE_COMPILATION_CACHE=true
 if [[ $HARDWARE == "AArch64-yitian-amp" ]]; then
     # torchbenchmark using consin similarity when using lower precision
     # export TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2
@@ -118,6 +118,10 @@ python3 cpu-utils/parse_cpu_results.py -p ${total_dir}
 tar -zcf ${script_dir}/${total_dir}.tar.gz ${total_dir}
 /disc/scripts/ci/$OSSUTIL cp ${script_dir}/${total_dir}.tar.gz ${oss_dir}/
 /disc/scripts/ci/$OSSUTIL cp -r ${script_dir}/${total_dir} ${oss_dir}/
+
+if [ -d $disc_compile_cache_dir ]; then
+    rm -rf $disc_compile_cache_dir
+fi
 
 popd # $benchmark_repo_dir
 popd # BladeDISC/

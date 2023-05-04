@@ -22,7 +22,7 @@ if [ ! -d $benchmark_repo_dir ]; then
     git clone -q https://github.com/pai-disc/torchbenchmark.git --recursive $benchmark_repo_dir
 fi
 
-# compile cache 
+# compile cache
 if [ -d $disc_compile_cache_dir ]; then
     rm -rf $disc_compile_cache_dir
 fi
@@ -88,5 +88,8 @@ if [ -f "ISSUE.md" ]; then
     -l Benchmark
 fi
 
+if [ -d $disc_compile_cache_dir ]; then
+    rm -rf $disc_compile_cache_dir
+fi
 popd # $benchmark_repo_dir
 popd # BladeDISC/

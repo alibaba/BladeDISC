@@ -11,9 +11,8 @@
 
 import torch
 import unittest
-from tests.disc.testing_base import DiscTestCase, skipTorchLE
+from tests.disc.testing_base import DiscTestCase
 
-@skipTorchLE("1.6.1")
 class TestMlirBoolTensor(DiscTestCase):
     def test_bool_tensor(self):
         @torch.jit.script

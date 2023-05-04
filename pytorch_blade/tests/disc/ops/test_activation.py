@@ -38,7 +38,6 @@ class TestDiscActivation(DiscTestCase):
     def test_leaky_relu_static_shape(self):
         self._test_activation(torch.nn.LeakyReLU(), torch.nn.functional.leaky_relu, [([2, 4, 16, 16], torch.float)])
 
-    @skipTorchLE("1.6.1")
     def test_silu_static_shape(self):
         self._test_activation(torch.nn.SiLU(), torch.nn.functional.silu, [([2, 4, 16, 16], torch.float)])
 

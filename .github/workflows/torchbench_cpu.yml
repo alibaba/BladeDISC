@@ -19,7 +19,7 @@ jobs:
       device: g7-bench
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh X86-intel partial pre
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_cpu.sh X86-intel partial pre
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
@@ -34,7 +34,7 @@ jobs:
       timeout_minutes: 10080 # 7 days
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh X86-intel full pre
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_cpu.sh X86-intel full pre
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
@@ -49,7 +49,7 @@ jobs:
       proxy_config: source ~/.cache/proxy_config
       dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-yitian partial 200
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_cpu.sh AArch64-yitian partial 200
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
@@ -64,7 +64,7 @@ jobs:
       proxy_config: source ~/.cache/proxy_config
       dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-yitian-amp partial 200
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_cpu.sh AArch64-yitian-amp partial 200
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
@@ -80,7 +80,7 @@ jobs:
       proxy_config: source ~/.cache/proxy_config
       dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-yitian full 200
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_cpu.sh AArch64-yitian full 200
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
@@ -95,7 +95,7 @@ jobs:
       timeout_minutes: 14400 # 10 days
       dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh AArch64-g6r full 200
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_cpu.sh AArch64-g6r full 200
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
@@ -110,7 +110,7 @@ jobs:
       timeout_minutes: 14400 # 10 days
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench_cpu.sh X86-amd full pre
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_cpu.sh X86-amd full pre
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit

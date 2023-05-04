@@ -20,7 +20,7 @@ jobs:
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda tiny
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_gpu.sh cuda tiny
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
@@ -35,7 +35,7 @@ jobs:
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda partial
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_gpu.sh cuda partial
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
@@ -51,7 +51,7 @@ jobs:
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda full
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_gpu.sh cuda full
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit

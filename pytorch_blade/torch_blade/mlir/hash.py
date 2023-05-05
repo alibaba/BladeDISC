@@ -32,4 +32,6 @@ def get_graph_hash(graph):
     # hash node info
     for n in nodes:
         hash_value = hash_combine(hash_value, hash_data(n.kind()))
+        for input in n.inputs():
+            hash_value = hash_combine(hash_value, hash_data(input.type().str()))
     return hash_value

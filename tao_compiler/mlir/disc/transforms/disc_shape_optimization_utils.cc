@@ -957,7 +957,7 @@ template <typename Combiner>
 /* static */ SymbolicDimExpr SymbolicDimExpr::buildMulExpr(
     const SymbolicDimExpr& lhs, const SymbolicDimExpr& rhs) {
   return buildBinaryExpr(lhs, rhs,
-                         [](AffineExpr a, AffineExpr b) { return a + b; });
+                         [](AffineExpr a, AffineExpr b) { return a * b; });
 }
 
 /* static */ bool SymbolicDimExpr::isEqual(const SymbolicDimExpr& lhs,

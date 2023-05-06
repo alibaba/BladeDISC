@@ -949,6 +949,7 @@ def DISCSplitReductionSerialOp : Op<Transform_Dialect, "disc.split_reduction_ser
     #### Return modes
 
     This 1 returned handle point to:
+      - the splitted op,
       - the parent for op,
 
     #### Example:
@@ -973,7 +974,8 @@ def DISCSplitReductionSerialOp : Op<Transform_Dialect, "disc.split_reduction_ser
   // TODO: support mixed static-dynamic (see TileToForeachThreadOp).
   let arguments = (ins PDL_Operation:$target,
                    DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$tile_sizes);
-  let results = (outs PDL_Operation:$for_op);
+  let results = (outs PDL_Operation:$for_op,
+                      PDL_Operation:$splitted_op);
 
   let builders = [
     OpBuilder<(ins "Value":$target,
@@ -984,6 +986,41 @@ def DISCSplitReductionSerialOp : Op<Transform_Dialect, "disc.split_reduction_ser
     $target
     `by` `tile_sizes` `=` $tile_sizes
     attr-dict
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCVectorToMMAConversionOp : Op<Transform_Dialect, "disc.vector.vector_to_mma_conversion",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    This converts slices of operations containing vector.contract op into
+    mma operations, targetting warp level tensorcore operations. If the vector
+    operations are bigger than the native mma size it will first split up those
+    vector operations.
+
+    It uses MMA rather than WMMA.
+
+    #### Return modes
+
+    This transform consumes the target handle and produces a result handle.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type($target, results)
   }];
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 

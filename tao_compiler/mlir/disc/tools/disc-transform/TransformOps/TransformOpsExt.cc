@@ -18,6 +18,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/Conversion/VectorToGPU/VectorToGPU.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
@@ -34,11 +35,15 @@
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
+#include "mlir/Dialect/NVGPU/Transforms/Transforms.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+// #include "mlir/Dialect/Transform/IR/TransformOps.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
+// #include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
 #include "mlir/Interfaces/VectorInterfaces.h"
 #include "mlir/Pass/PassManager.h"
@@ -3308,8 +3313,70 @@ DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
   b.create<scf::YieldOp>(loc, ValueRange{res.getResult(0)});
 
   target->getResult(0).replaceAllUsesWith(forOp->getResult(0));
+  results.push_back(res);
   results.push_back(forOp);
 
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// DISCVectorToMMAConversionOp
+//===---------------------------------------------------------------------===//
+
+// Many code are reused from IREE project, but with customization.
+
+void transform_dialect::DISCVectorToMMAConversionOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::onlyReadsHandle(getTarget(), effects);
+  transform::modifiesPayload(effects);
+}
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCVectorToMMAConversionOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  // TODO: use createConvertVectorToGPUPass pass.
+
+  if (!target->hasTrait<OpTrait::IsIsolatedFromAbove>()) {
+    target->emitOpError(
+        "applies only to isolated-from-above targets because it "
+        "needs to apply "
+        "patterns greedily");
+    return emitDefaultDefiniteFailure(target);
+  }
+
+  auto funcOp = dyn_cast<func::FuncOp>(target);
+  if (!funcOp) {
+    target->emitOpError("Must apply to a func op");
+    return emitDefaultDefiniteFailure(target);
+  }
+
+  MLIRContext* ctx = target->getContext();
+
+  // Unrolling to native vector size must have previously occurred.
+  // TODO: Add pattern to propagate the extract through the scf.for
+  // ops. Convert slice of contract operations to mma_sync ops.
+  RewritePatternSet patterns(ctx);
+  mlir::vector::populateCastAwayVectorLeadingOneDimPatterns(patterns);
+  mlir::populatePrepareVectorToMMAPatterns(patterns, true);
+  if (failed(applyPatternsAndFoldGreedily(target, std::move(patterns)))) {
+    target->emitOpError("vector to mma preparation patterns failed to apply");
+    return emitDefaultDefiniteFailure(target);
+  }
+
+  if (failed(convertVectorToNVVMCompatibleMMASync(funcOp))) {
+    target->emitOpError("vector to mma patterns failed to apply");
+    return emitDefaultDefiniteFailure(target);
+  }
+  // Using TF32 for Float.
+  RewritePatternSet f32ToTF32patterns(funcOp.getContext());
+  nvgpu::populateMmaSyncF32ToTF32Patterns(f32ToTF32patterns,
+                                          nvgpu::MmaSyncF32Lowering::TF32);
+  if (failed(applyPatternsAndFoldGreedily(getOperation(),
+                                          std::move(f32ToTF32patterns)))) {
+    target->emitOpError("vector to mma F32ToTF32 patterns failed to apply");
+    return emitDefaultDefiniteFailure(target);
+  }
   return DiagnosedSilenceableFailure::success();
 }
 

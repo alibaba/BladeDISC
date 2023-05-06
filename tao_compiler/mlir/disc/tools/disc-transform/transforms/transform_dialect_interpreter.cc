@@ -25,6 +25,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -71,7 +72,8 @@ void addTransformDialectDependentDialects(DialectRegistry& registry) {
                   scf::SCFDialect,
                   tensor::TensorDialect,
                   transform::TransformDialect,
-                  vector::VectorDialect
+                  vector::VectorDialect,
+                  nvgpu::NVGPUDialect
       // clang-format on
       >();
 

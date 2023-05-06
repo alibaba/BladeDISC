@@ -62,6 +62,9 @@ LogicalResult parseTransformModuleFromFile(
 // Appends transform dependent dialects.
 void addTransformDialectDependentDialects(DialectRegistry& registry);
 
+/// Return true if the given memref has workgroup memory space.
+bool hasSharedMemoryAddressSpace(MemRefType memrefType);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

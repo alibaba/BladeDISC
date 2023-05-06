@@ -14,6 +14,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SourceMgr.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
@@ -93,6 +94,13 @@ LogicalResult parseTransformModuleFromFile(
   transformModule =
       OwningOpRef<ModuleOp>(parseSourceFile<ModuleOp>(sourceMgr, context));
   return success();
+}
+
+bool hasSharedMemoryAddressSpace(MemRefType memrefType) {
+  auto addrSpace =
+      memrefType.getMemorySpace().dyn_cast_or_null<gpu::AddressSpaceAttr>();
+  return addrSpace &&
+         addrSpace.getValue() == gpu::GPUDialect::getWorkgroupAddressSpace();
 }
 
 }  // namespace disc_ral

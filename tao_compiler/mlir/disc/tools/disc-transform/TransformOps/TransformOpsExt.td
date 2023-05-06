@@ -22,6 +22,8 @@ include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
+/// Some of the following ops are borrowed from IREE project.
+
 def DISCBufferizeOp : Op<Transform_Dialect, "disc.bufferize",
     [FunctionalStyleTransformOpTrait,
      MemoryEffectsOpInterface,
@@ -43,11 +45,16 @@ def DISCBufferizeOp : Op<Transform_Dialect, "disc.bufferize",
     No handles are consumed or produced.
   }];
 
-  let arguments = (ins PDL_Operation:$target);
+  let arguments = (ins PDL_Operation:$target, UnitAttr:$target_gpu);
   let results = (outs PDL_Operation:$result);
 
   let assemblyFormat = "attr-dict $target";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let builders = [
+    OpBuilder<(ins "Value":$target,
+                   CArg<"bool", "false">:$targetGpu)>
+  ];
 }
 
 def ApplyPatternsOp : Op<Transform_Dialect, "disc.apply_patterns",
@@ -1021,6 +1028,43 @@ def DISCVectorToMMAConversionOp : Op<Transform_Dialect, "disc.vector.vector_to_m
     $target
     attr-dict
     `:` functional-type($target, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCPromoteOperandsOp :
+  Op<Transform_Dialect, "disc.promote_operands",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    This op promotes the specified operands of the provided target handle.
+
+    #### Return modes
+    This op consume its target handle and returns a new handle to its target handle
+    as well as an allocTensorOp for each of the provided valid indices.
+
+    If the promotion of any specified operand fails to occur, the op definitely
+    fails.
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                   DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$indices);
+  let results = (outs Variadic<PDL_Operation>:$result);
+
+  let assemblyFormat = [{
+    $target
+    $indices
+    attr-dict
+    `:` functional-type(operands, results)
   }];
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 

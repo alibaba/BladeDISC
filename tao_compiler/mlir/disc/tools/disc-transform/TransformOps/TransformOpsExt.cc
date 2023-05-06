@@ -51,6 +51,8 @@
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/utils.h"
 
+/// Many code in this file are reused from IREE project, but with customization.
+
 namespace mlir {
 namespace disc_ral {
 namespace transform_dialect {
@@ -108,11 +110,60 @@ LogicalResult comprehensiveBufferizeCopyFn(OpBuilder& builder, Location loc,
   return success(createLinalgCopyOp(builder, loc, from, to) != nullptr);
 }
 
-OneShotBufferizationOptions getBufferizationOptions() {
+static FailureOr<Value> gpuComprehensiveBufferizeAllocationFn(
+    OpBuilder& builder, Location loc, MemRefType memRefType,
+    ValueRange dynamicSizes, unsigned alignment) {
+  auto addressSpaceAttr = gpu::AddressSpaceAttr::get(
+      builder.getContext(), gpu::GPUDialect::getWorkgroupAddressSpace());
+  MemRefType allocType =
+      MemRefType::get(memRefType.getShape(), memRefType.getElementType(),
+                      AffineMap(), addressSpaceAttr);
+  return builder
+      .create<memref::AllocOp>(loc, allocType, dynamicSizes,
+                               builder.getI64IntegerAttr(alignment))
+      .getResult();
+}
+
+static LogicalResult gpuComprehensiveBufferizeDeallocationFn(OpBuilder& builder,
+                                                             Location loc,
+                                                             Value allocation) {
+  builder.create<memref::DeallocOp>(loc, allocation);
+  return success();
+}
+
+static LogicalResult gpuComprehensiveBufferizeCopyFn(OpBuilder& builder,
+                                                     Location loc, Value from,
+                                                     Value to) {
+  // Insert barriers for copies from and to shared memory.
+  bool needsBarrier = false;
+  if (hasSharedMemoryAddressSpace(from.getType().cast<MemRefType>()) !=
+      hasSharedMemoryAddressSpace(to.getType().cast<MemRefType>())) {
+    needsBarrier = true;
+  }
+  if (needsBarrier) {
+    builder.create<gpu::BarrierOp>(loc);
+  }
+  // TODO: ideally we should use linalg.copy which was recently reintroduced
+  // as an OpDSL named op. However, IREE-specific patterns to cleanup spurious
+  // post-bufferization copies do not trigger properly.
+  // So we keep using `createLinalgCopyOp` which builds a GenericOp.
+  // builder.create<linalg::CopyOp>(loc, from, to);
+  mlir::disc_ral::createLinalgCopyOp(builder, loc, from, to);
+  if (needsBarrier) {
+    builder.create<gpu::BarrierOp>(loc);
+  }
+
+  return success();
+}
+
+OneShotBufferizationOptions getBufferizationOptions(bool target_gpu) {
   OneShotBufferizationOptions options;
-  options.allocationFn = comprehenciveBufferizeAllocationFn;
-  options.deallocationFn = comprehensiveBufferizeDeallocationFn;
-  options.memCpyFn = comprehensiveBufferizeCopyFn;
+  options.allocationFn = target_gpu ? gpuComprehensiveBufferizeAllocationFn
+                                    : comprehenciveBufferizeAllocationFn;
+  options.deallocationFn = target_gpu ? gpuComprehensiveBufferizeDeallocationFn
+                                      : comprehensiveBufferizeDeallocationFn;
+  options.memCpyFn = target_gpu ? gpuComprehensiveBufferizeCopyFn
+                                : comprehensiveBufferizeCopyFn;
   options.bufferAlignment = 64;
   options.createDeallocs = false;
   options.bufferizeFunctionBoundaries = true;
@@ -190,7 +241,7 @@ DiagnosedSilenceableFailure DISCBufferizeOp::apply(
   }
 
   auto moduleOp = cast<ModuleOp>(payload.front());
-  auto options = getBufferizationOptions();
+  auto options = getBufferizationOptions(getTargetGpu());
 
   // Bufferize tensor.empty
   if (failed(bufferizeTensorEmptyOps(state, moduleOp, options))) {
@@ -3238,32 +3289,29 @@ DiagnosedSilenceableFailure DISCLowerVectorsOp::applyToOne(
 DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
     mlir::Operation* target, transform::ApplyToEachResultList& results,
     transform::TransformState& state) {
-  // ::mlir::DiagnosedSilenceableFailure applyToOne(
-  // ::mlir::linalg::LinalgOp target,
-  // ::mlir::transform::ApplyToEachResultList &results,
-  // ::mlir::transform::TransformState &state);
+  /// Currently, we only support linalg.matmul op. An example is to transform
+  /// from
+  /// ```
+  /// %matmul = linalg.matmul ins(%lhs, %rhs : tensor<128x1024xf32>,
+  ///                                          tensor<1024x128xf32>)
+  ///                         outs(%out : tensor<128x128xf32>) ->
+  ///                         tensor<128x128xf32>
+  /// ```
+  /// to
+  /// ```
+  /// %1 = scf.for %arg0 = %c0 to %c1024 step %c32
+  ///         iter_args(%arg1 = %out) -> tensor<128x128xf32> {
+  ///   %extraced_slice_lhs = tensor.extract_slice %lhs[0, %arg0]
+  ///         [128, 32] [1, 1] : tensor<128x1024xf32> -> tensor<128x32xf32>
+  ///   %extraced_slice_rhs = tensor.extract_slice %rhs[%arg0, 0]
+  ///         [32, 128] [1, 1] : tensor<1024x128xf32> -> tensor<32x128xf32>
+  ///   %matmul = linalg.matmul ins(%extraced_slice_lhs, %extraced_slice_rhs :
+  ///                               tensor<128x1024xf32>, tensor<1024x128xf32>)
+  ///                           outs(%arg1 : tensor<128x128xf32>) ->
+  ///                           tensor<128x128xf32>
+  /// }
+  /// ```
 
-  // Currently, we only support linalg.matmul op. An example is to transform
-  // from
-  // ```
-  //   %matmul = linalg.matmul ins(%lhs, %rhs : tensor<128x1024xf32>,
-  //   tensor<1024x128xf32>)
-  //                           outs(%out : tensor<128x128xf32>) ->
-  //                           tensor<128x128xf32>
-  // ```
-  // to
-  // ```
-  //   %1 = scf.for %arg0 = %c0 to %c1024 step %c32 iter_args(%arg1 = %out) ->
-  //   tensor<128x128xf32> {
-  //     %extraced_slice_lhs = tensor.extract_slice %lhs[0, %arg0] [128, 32] [1,
-  //     1] : tensor<128x1024xf32> -> tensor<128x32xf32> %extraced_slice_rhs =
-  //     tensor.extract_slice %rhs[%arg0, 0] [32, 128] [1, 1] :
-  //     tensor<1024x128xf32> -> tensor<32x128xf32> %matmul = linalg.matmul
-  //     ins(%extraced_slice_lhs, %extraced_slice_rhs : tensor<128x1024xf32>,
-  //     tensor<1024x128xf32>)
-  //                             outs(%arg1 : tensor<128x128xf32>) ->
-  //                             tensor<128x128xf32>
-  //   }
   auto matmulOp = dyn_cast<linalg::MatmulOp>(target);
   if (!matmulOp) {
     return mlir::emitDefiniteFailure(target,
@@ -3323,8 +3371,6 @@ DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
 // DISCVectorToMMAConversionOp
 //===---------------------------------------------------------------------===//
 
-// Many code are reused from IREE project, but with customization.
-
 void transform_dialect::DISCVectorToMMAConversionOp::getEffects(
     SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
   transform::onlyReadsHandle(getTarget(), effects);
@@ -3376,6 +3422,40 @@ transform_dialect::DISCVectorToMMAConversionOp::applyToOne(
                                           std::move(f32ToTF32patterns)))) {
     target->emitOpError("vector to mma F32ToTF32 patterns failed to apply");
     return emitDefaultDefiniteFailure(target);
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCPromoteOperandsOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCPromoteOperandsOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  Location loc = target->getLoc();
+  IRRewriter rewriter(getContext());
+  OpBuilder::InsertionGuard g(rewriter);
+  rewriter.setInsertionPoint(target);
+  SmallVector<int64_t> indices = llvm::to_vector(getIndices());
+  int64_t numOperands = target->getNumOperands();
+
+  results.push_back(target);
+  bufferization::BufferizationOptions options;
+  for (int64_t index : indices) {
+    if ((index >= 0) && (index < numOperands)) {
+      FailureOr<Value> ret = bufferization::allocateTensorForShapedValue(
+          rewriter, loc, target->getOperand(index), false, options, true);
+      if (failed(ret)) {
+        return emitDefaultDefiniteFailure(target)
+               << "failed to promote operand";
+      }
+      target->setOperand(index, ret.value());
+      results.push_back(ret.value().getDefiningOp());
+    } else {
+      return emitDefaultDefiniteFailure(target) << "invalid index specified";
+    }
   }
   return DiagnosedSilenceableFailure::success();
 }

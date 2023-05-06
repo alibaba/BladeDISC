@@ -15,6 +15,7 @@ from torch_blade.mlir.cache import DiscCompilationCache, CompilationResult
 from torch_blade.mlir.hash import get_graph_hash
 from tests.disc.testing_base import DiscTestCase
 import unittest
+import torch_blade
 
 class TestCache(DiscTestCase):
     def test_disc_cache(self):

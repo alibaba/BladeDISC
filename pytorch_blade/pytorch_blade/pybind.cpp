@@ -70,6 +70,12 @@ void initModules<false>(py::module& m) {
           "jit_pass_propagate_input_shapes",
           &torch::blade::PropagateInputShapes)
       .def("jit_pass_constant_propagation", &torch::blade::ConstantPropagation);
+  m.def("hash_data", [&](const std::string& value) -> size_t {
+    return c10::hash<std::string>{}(value);
+  });
+  m.def("hash_combine", [&](size_t a, size_t b) -> size_t {
+    return c10::hash_combine(a, b);
+  });
 
 #ifdef TORCH_BLADE_BUILD_QUANTIZATION
   torch::blade::quantization::initQuantizationBindings(m);

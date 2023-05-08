@@ -12,6 +12,7 @@
 #ifndef RAL_CUSTOM_LIBRARY_TRANSPOSE_H_
 #define RAL_CUSTOM_LIBRARY_TRANSPOSE_H_
 
+#include <cstdint>
 #include <vector>
 
 #if GOOGLE_CUDA

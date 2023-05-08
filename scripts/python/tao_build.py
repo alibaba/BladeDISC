@@ -358,7 +358,7 @@ def test_tao_compiler(root, args):
     TARGET_DISC_TRANSFORMS_TEST = "//mlir/disc/transforms/tests/..."
     TARGET_DISC_E2E_TEST = "//mlir/disc/tests/..."
     TARGET_DISC_RAL_TESTS = [
-        "//mlir/xla/ral:ral_metadata_test"
+        "//mlir/ral:ral_metadata_test"
     ]
     TARGET_DISC_PDLL_TESTS = [
         "//mlir/disc/tools/disc-pdll/tests/..."

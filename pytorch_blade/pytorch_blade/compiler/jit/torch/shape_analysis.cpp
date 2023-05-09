@@ -952,7 +952,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::floor_divide_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
-            "aten::pow(Tensor self, Scalar exponent) -> Tensor",
 #if PYTORCH_VERSION_GE(1, 12)
             "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
 #else
@@ -1223,7 +1222,6 @@ class ShapePropagator : public PropertyPropBase {
     //   tensor outputs : 1
     static const register_formula_for broadcasting_ops{
         {
-            "aten::pow(Tensor self, Tensor exponent) -> Tensor",
             "aten::fmod(Tensor self, Tensor other) -> Tensor",
             "aten::remainder(Tensor self, Tensor other) -> Tensor",
             "aten::lerp(Tensor self, Tensor end, Scalar weight) -> Tensor",
@@ -1322,10 +1320,8 @@ class ShapePropagator : public PropertyPropBase {
     static const register_formula_for broadcasting_tensor_scalar_ops{
         {
 
-            "aten::pow(Tensor self, Scalar exponent) -> Tensor",
             "aten::fmod(Tensor self, Scalar other) -> Tensor",
             "aten::remainder(Tensor self, Scalar other) -> Tensor",
-            "aten::pow(Scalar self, Tensor exponent) -> Tensor",
             "aten::__and__(Tensor self, Scalar other) -> Tensor",
             "aten::__or__(Tensor self, Scalar other) -> Tensor",
             "aten::__xor__(Tensor self, Scalar other) -> Tensor",
@@ -2881,10 +2877,6 @@ class ShapePropagator : public PropertyPropBase {
                     "aten::mul(Tensor self, Tensor other) -> Tensor")
                     ->getOperation();
       return PropagateShapeOnNodeByRunningIt(node, std::move(op));
-    } else if (node->matches(
-                   "aten::pow(Tensor self, Scalar exponent) -> Tensor")) {
-      node->output()->setType(tensor_types.at(0));
-      return true;
     } else if (
         node->matches(
             "aten::add(Tensor self, Scalar other, Scalar alpha) -> Tensor") ||
@@ -2919,8 +2911,7 @@ class ShapePropagator : public PropertyPropBase {
       return true;
     } else if (
         insert_expands &&
-        (node->matches("aten::pow(Tensor self, Tensor exponent) -> Tensor") ||
-         node->matches("aten::min(Tensor self, Tensor other) -> Tensor") ||
+        (node->matches("aten::min(Tensor self, Tensor other) -> Tensor") ||
          node->matches("aten::max(Tensor self, Tensor other) -> Tensor") ||
          node->matches("aten::lt(Tensor self, Tensor other) -> Tensor") ||
          node->matches("aten::le(Tensor self, Tensor other) -> Tensor") ||

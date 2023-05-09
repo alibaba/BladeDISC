@@ -500,6 +500,24 @@ LogicalResult ConvertAtenOp<AtenPowTensorScalarOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<AtenPowTensorTensorOp>::matchAndRewrite(
+    AtenPowTensorTensorOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  auto resType = dyn_cast<BaseTensorType>(op.getType());
+  auto inputType = dyn_cast<BaseTensorType>(op.getOperand(0).getType());
+  auto newInput =
+      convertTensorToDtype(rewriter, loc, op.getOperand(0), resType.getDtype());
+  if (!newInput)
+    return op.emitError("cannot create new input");
+
+  rewriter.replaceOpWithNewOp<AtenPowTensorTensorOp>(
+      op, op.getType(), newInput, op.getExponent());
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<AtenHardtanhOp>::matchAndRewrite(
     AtenHardtanhOp op,
     OpAdaptor adaptor,
@@ -670,6 +688,17 @@ class DiscDecomposeComplexOpsPass
     // unconverted.
     target.addDynamicallyLegalOp<OperatorOp>(opIsDynamicallyLegal);
     patterns.add<ConvertAtenOp<OperatorOp>>(context);
+    target.addDynamicallyLegalOp<AtenPowTensorTensorOp>(
+        [](AtenPowTensorTensorOp op) {
+          auto resType = dyn_cast<BaseTensorType>(op.getType());
+          auto inputType = dyn_cast<BaseTensorType>(op.getOperand(0).getType());
+          if (!resType || !inputType)
+            return true;
+          if (resType.getDtype() == inputType.getDtype())
+            return true;
+          return false;
+        });
+    patterns.add<ConvertAtenOp<AtenPowTensorTensorOp>>(context);
 
 #define INSERT_ATENOP_PATTERN(AtenOp) \
   target.addIllegalOp<AtenOp>();      \

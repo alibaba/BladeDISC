@@ -16,10 +16,17 @@ if [ -f $HOME/.cache/proxy_config ]; then
 fi
 script_dir=$(cd $(dirname "$0"); pwd)
 benchmark_repo_dir=$HOME/.cache/torchbenchmark
+disc_compile_cache_dir=$HOME/.cache/disc
 # cache benchmark repo
 if [ ! -d $benchmark_repo_dir ]; then
     git clone -q https://github.com/pai-disc/torchbenchmark.git --recursive $benchmark_repo_dir
 fi
+
+# compile cache
+if [ -d $disc_compile_cache_dir ]; then
+    rm -rf $disc_compile_cache_dir
+fi
+mkdir -p $disc_compile_cache_dir
 
 # parse the arguments
 HARDWARE=$1; shift
@@ -39,7 +46,7 @@ ln -s $benchmark_repo_dir torchbenchmark
 
 # benchmark
 # setup benchmark env
-export DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE=true \
+export DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE=true TORCH_BLADE_ENABLE_COMPILATION_CACHE=true \
     DISC_CPU_LARGE_CONCAT_NUM_OPERANDS=4 DISC_CPU_ENABLE_EAGER_TRANSPOSE_FUSION=1 \
     TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2
 
@@ -72,7 +79,7 @@ if [ ${#FIELDS[@]} -eq 0 ]; then
 fi
 
 # performance anaysis
-python3 results_analysis.py -t ${results} -i ${oss_dir} -p ${RELATED_DIFF_PERCENT} -f "${FIELDS[@]}"
+python3 results_analysis.py -t ${results[@]} -i ${oss_dir} -p ${RELATED_DIFF_PERCENT} -f "${FIELDS[@]}"
 
 if [ -f "ISSUE.md" ]; then
     wget ${oss_link}/download/github/$GH -O gh && chmod +x ./gh && \
@@ -81,5 +88,8 @@ if [ -f "ISSUE.md" ]; then
     -l Benchmark
 fi
 
+if [ -d $disc_compile_cache_dir ]; then
+    rm -rf $disc_compile_cache_dir
+fi
 popd # $benchmark_repo_dir
 popd # BladeDISC/

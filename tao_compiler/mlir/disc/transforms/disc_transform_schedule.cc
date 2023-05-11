@@ -25,6 +25,7 @@ limitations under the License.
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -110,12 +111,18 @@ MatchOp buildMatchOp(OpBuilder& b, Location& loc, Value target,
                            TypeAttr{});
 }
 
-TileToForeachThreadOp buildTileToForEachThreadOp(OpBuilder& b, Location& loc,
-                                                 Value target,
-                                                 ArrayRef<int64_t> numThreads) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
-  return b.create<TileToForeachThreadOp>(
-      loc, target, numThreads, transform::NumThreadsSpec(), ArrayAttr{});
+TileToForeachThreadOp buildTileToForEachThreadOp(
+    OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> threads,
+    transform::NumThreadsSpec numThreadsSpec, ArrayAttr mapping) {
+  return b.create<TileToForeachThreadOp>(loc, target, threads, numThreadsSpec,
+                                         mapping);
+}
+
+TileToForeachThreadOp buildTileToForEachThreadOp(
+    OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> tiles,
+    transform::TileSizesSpec tileSizesSpec, ArrayAttr mapping) {
+  return b.create<TileToForeachThreadOp>(loc, target, tiles, tileSizesSpec,
+                                         mapping);
 }
 
 FuseIntoContainingOp buildFuseIntoContainingOp(OpBuilder& b, Location& loc,
@@ -128,8 +135,11 @@ FuseOp buildFuseOp(OpBuilder& b, Location& loc, Value target,
                    ArrayRef<int64_t> tileSizes, ArrayRef<int64_t> interchange) {
   auto pdlType = pdl::OperationType::get(b.getContext());
   SmallVector<Type> loopTypes;
-  for (int64_t tileSize : tileSizes)
-    if (tileSize) loopTypes.push_back(pdlType);
+  for (int64_t tileSize : tileSizes) {
+    if (tileSize) {
+      loopTypes.push_back(pdlType);
+    }
+  }
   return b.create<FuseOp>(loc, pdlType, loopTypes, target,
                           b.getI64ArrayAttr(tileSizes),
                           b.getI64ArrayAttr(interchange));
@@ -139,8 +149,11 @@ TileOp buildTileOp(OpBuilder& b, Location& loc, Value target,
                    ArrayRef<int64_t> tileSizes, ArrayRef<int64_t> interchange) {
   auto pdlType = pdl::OperationType::get(b.getContext());
   SmallVector<Type> loopTypes;
-  for (int64_t tileSize : tileSizes)
-    if (tileSize) loopTypes.push_back(pdlType);
+  for (int64_t tileSize : tileSizes) {
+    if (tileSize) {
+      loopTypes.push_back(pdlType);
+    }
+  }
   return b.create<TileOp>(loc, pdlType, loopTypes, target, ValueRange{},
                           tileSizes, interchange);
 }
@@ -212,9 +225,11 @@ VectorizeOp buildVectorize(OpBuilder& b, Location& loc, Value target,
 
 transform_dialect::DISCBufferizeOp buildDISCBufferize(OpBuilder& b,
                                                       Location& loc,
-                                                      Value target) {
+                                                      Value target,
+                                                      bool targetGpu) {
   auto pdlType = pdl::OperationType::get(b.getContext());
-  return b.create<transform_dialect::DISCBufferizeOp>(loc, pdlType, target);
+  return b.create<transform_dialect::DISCBufferizeOp>(loc, pdlType, target,
+                                                      targetGpu);
 }
 
 vector::LowerVectorsOptions getDefaultLowerVectorsOptions() {
@@ -336,6 +351,23 @@ transform_dialect::LowerConditionalGenericOp buildLowerConditionalGenericOp(
                                                                 target);
 }
 
+transform_dialect::DISCPromoteOperandsOp buildPromoteOperandsOp(
+    OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> indices) {
+  return b.create<transform_dialect::DISCPromoteOperandsOp>(loc, target,
+                                                            indices);
+}
+
+transform_dialect::DISCSplitReductionSerialOp buildSplitReductionSerialOp(
+    OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> tileSizes) {
+  return b.create<transform_dialect::DISCSplitReductionSerialOp>(loc, target,
+                                                                 tileSizes);
+}
+
+transform_dialect::DISCVectorToMMAConversionOp buildVectorToMMAConversionOp(
+    OpBuilder& b, Location& loc, Value target) {
+  return b.create<transform_dialect::DISCVectorToMMAConversionOp>(loc, target);
+}
+
 class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
   explicit ParsedFromFileScheduleFactory(int64_t id, PatternKind kind,
@@ -435,7 +467,8 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
   Value matmul = matmulSplitOp->getResult(1);
 
   // transform.structured.tile_to_foreach_thread_op %matmul num_threads [1, 1]
-  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, matmul, {1, 1});
+  auto forEachThreadOp = buildTileToForEachThreadOp(
+      b, loc, matmul, {1, 1}, transform::NumThreadsSpec(), ArrayAttr{});
   Value forEachThreadLoop = forEachThreadOp->getResult(0);
   Value tiledMatmul = forEachThreadOp->getResult(1);
 
@@ -564,7 +597,7 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
   buildVectorize(b, loc, func, true);
 
   variant = buildRunCanonicalizer(b, loc, variant);
-  variant = buildDISCBufferize(b, loc, variant);
+  variant = buildDISCBufferize(b, loc, variant, false);
 
   variant = buildLowerVectors(b, loc, variant);
   b.create<transform::YieldOp>(loc);
@@ -655,7 +688,8 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
     rootHandle = buildMatchOp(b, loc, variant, {}, nameMap[rootOp]);
   }
 
-  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, rootHandle, {1, 1});
+  auto forEachThreadOp = buildTileToForEachThreadOp(
+      b, loc, rootHandle, {1, 1}, transform::NumThreadsSpec(), ArrayAttr{});
   Value forEachThreadLoop = forEachThreadOp->getResult(0);
   rootHandle = forEachThreadOp->getResult(1);
 
@@ -694,7 +728,7 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
     // TODO(wyzero): finetune the schedule for small m or n
     buildTileOp(b, loc, matmul, {1, 1, 1}, {0, 2, 1});
     variant = buildRunCanonicalizer(b, loc, variant);
-    variant = buildDISCBufferize(b, loc, variant);
+    variant = buildDISCBufferize(b, loc, variant, false);
     b.create<transform::YieldOp>(loc);
     return success();
   }
@@ -816,7 +850,7 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
   auto placeholderOps = buildMatchOp(
       b, loc, variant, {"disc_linalg_ext.padding_value_placeholder"}, {});
   buildConvertPaddingPlaceholderToConstOp(b, loc, placeholderOps);
-  variant = buildDISCBufferize(b, loc, variant);
+  variant = buildDISCBufferize(b, loc, variant, false);
 
   variant = buildLowerVectors(b, loc, variant);
   // de-compose large size vector operations
@@ -925,7 +959,8 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
   Value matmul = matmulSplitOp->getResult(1);
 
   // transform.structured.tile_to_foreach_thread_op %matmul num_threads [1, 1]
-  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, matmul, {1, 1});
+  auto forEachThreadOp = buildTileToForEachThreadOp(
+      b, loc, matmul, {1, 1}, transform::NumThreadsSpec(), ArrayAttr{});
   Value forEachThreadLoop = forEachThreadOp->getResult(0);
   Value tiledMatmul = forEachThreadOp->getResult(1);
 
@@ -1052,7 +1087,7 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
   buildVectorize(b, loc, func, true);
 
   variant = buildRunCanonicalizer(b, loc, variant);
-  variant = buildDISCBufferize(b, loc, variant);
+  variant = buildDISCBufferize(b, loc, variant, false);
 
   if (!k0Skipped && !k1Skipped) {
     Value leftFillOp = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
@@ -1157,7 +1192,8 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   }
   rootHandle = buildLinalgEagerlyBackwardInitTensorOp(b, loc, rootHandle);
 
-  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, rootHandle, {1, 1});
+  auto forEachThreadOp = buildTileToForEachThreadOp(
+      b, loc, rootHandle, {1, 1}, transform::NumThreadsSpec(), ArrayAttr{});
   Value forEachThreadLoop = forEachThreadOp->getResult(0);
   rootHandle = forEachThreadOp->getResult(1);
 
@@ -1220,7 +1256,7 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   if (m1Skipped || n1Skipped || k1Skipped) {
     buildTileOp(b, loc, matmul, {1, 1, 1}, {0, 2, 1});
     variant = buildRunCanonicalizer(b, loc, variant);
-    variant = buildDISCBufferize(b, loc, variant);
+    variant = buildDISCBufferize(b, loc, variant, false);
     b.create<transform::YieldOp>(loc);
     return success();
   }
@@ -1339,7 +1375,7 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   buildVectorize(b, loc, func, true);
   variant = buildRunCanonicalizer(b, loc, variant);
 
-  variant = buildDISCBufferize(b, loc, variant);
+  variant = buildDISCBufferize(b, loc, variant, false);
   variant = buildRunCanonicalizer(b, loc, variant);
 
   Value conditionalOps =
@@ -1351,6 +1387,203 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   variant = buildRunCanonicalizer(b, loc, variant);
   variant = buildLowerVectors(b, loc, variant);
   b.create<transform::YieldOp>(loc);
+  return success();
+}
+
+class CUDAMMAGEMMDefaultScheduleFactory : public ScheduleFactoryWithNoGuard {
+ public:
+  using ScheduleFactoryWithNoGuard::ScheduleFactoryWithNoGuard;
+  bool checkFusionPatternProperties(PatternDescription&) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+};
+
+bool CUDAMMAGEMMDefaultScheduleFactory::checkFusionPatternProperties(
+    PatternDescription& pd) {
+  auto& fusionPattern = pd.getFusionPattern();
+  auto& rootOps = fusionPattern.getRootOps();
+  // Only support single output a.t.m.
+  if (rootOps.size() != 1) {
+    return false;
+  }
+
+  // This schedule not support epilogue fusion
+  auto dominantOp = fusionPattern.getDominantOp();
+  return (rootOps[0] == dominantOp) && isa<lmhlo::DotGeneralOp>(dominantOp);
+}
+
+// The schedule structure of TensorCore GEMM:
+//
+// parallel (int cta_n = 0; cta_n < GemmN; cta_n += CtaTileN) {
+//   parallel (int cta_m = 0; cta_m < GemmM; cta_m += CtaTileM) {
+//     for (int cta_k = 0; cta_k < GemmK; cta_k += CtaTileK) {
+//       // All the following loops should be fully unrolled.
+//       for (int warp_n = 0; warp_n < CtaTileN; warp_n += WarpTileN) {
+//         for (int warp_m = 0; warp_m < CtaTileM; warp_m += WarpTileM) {
+//           for (int warp_k = 0; warp_k < CtaTileK; warp_k += WarpTileK) {
+//             for (int mma_k = 0; mma_k < WarpTileK; mma_k += MmaK) {
+//               for (int mma_n = 0; mma_n < WarpTileN; mma_n += MmaN) {
+//                 for (int mma_m = 0; mma_m < WarpTileM; mma_m += MmaM) {
+//                   vector.contract(...) // lowered to MMA intrinsic.
+//                 }   // for mma_m
+//               }   // for mma_n
+//             }   // for mma_k
+//           }   // for warp_k
+//         }   // for warp_m
+//       }   // for warp_n
+//     }   // for cta_k
+//   }   // parallel cta_m
+// }   // parallel cta_n
+LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
+    PatternDescription& pd, ModuleOp m) {
+  OpBuilder b(m);
+  b.setInsertionPointToStart(&m.getBodyRegion().front());
+  Location loc = m.getLoc();
+  MLIRContext* ctx = m->getContext();
+  auto seqOp = b.create<transform_ext::CanonicalizedSequenceOp>(
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{});
+  seqOp.getBody().push_back(new Block);
+  auto& bodyBlock = seqOp.getBody().front();
+  auto pdlOpType = pdl::OperationType::get(ctx);
+  bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
+  b.setInsertionPointToStart(&bodyBlock);
+  Value variant = bodyBlock.getArgument(0);
+
+  auto& fusionPattern = pd.getFusionPattern();
+  auto nameMap = TransformNameAssigner(fusionPattern.getOpList()).getNameMap();
+  auto dotOp =
+      dyn_cast_or_null<lmhlo::DotGeneralOp>(fusionPattern.getDominantOp());
+  if (!dotOp) {
+    return m->emitError() << "expect dot_general op as dominant\n";
+  }
+  Value lhs = dotOp->getOperand(0);
+  Value rhs = dotOp->getOperand(1);
+  auto lhsTy = lhs.getType().cast<MemRefType>();
+  auto rhsTy = rhs.getType().cast<MemRefType>();
+  if (lhsTy.getRank() != 2 || rhsTy.getRank() != 2) {
+    return m->emitError() << "only support rank 2 GEMM a.t.m.\n";
+  }
+
+  auto dimNumbers = dotOp.getDotDimensionNumbers();
+  auto lhsCntractingDims = dimNumbers.getLhsContractingDimensions();
+  auto rhsCntractingDims = dimNumbers.getRhsContractingDimensions();
+  if (lhsCntractingDims.size() != 1 || rhsCntractingDims.size() != 1) {
+    return m->emitError() << "only support exactly 1 contract dim\n";
+  }
+  auto lhsBatchingDims = dimNumbers.getLhsBatchingDimensions();
+  if (lhsBatchingDims.size() != 1 || lhsBatchingDims[0] != 1) {
+    return m->emitError() << "do not support batch matmul\n";
+  }
+  bool lhsTranspose = (lhsCntractingDims[0] == lhsTy.getRank() - 2);
+  bool rhsTranspose = (rhsCntractingDims[0] == rhsTy.getRank() - 1);
+  if (lhsTranspose || rhsTranspose) {
+    return m->emitError() << "only support row-major matmul now\n";
+  }
+  int64_t M = lhsTy.getShape()[lhsTy.getRank() - 2];
+  int64_t K = lhsTy.getShape()[lhsTy.getRank() - 1];
+  int64_t N = rhsTy.getShape()[rhsTy.getRank() - 1];
+
+  // build handle to target dot op.
+  Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
+  auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
+  Value fill = matmulSplitOp->getResult(0);
+  Value matmul = matmulSplitOp->getResult(1);
+
+  // ========================== Multi-level tiling ==========================
+
+  // Thread-block level tiling.
+  //   %for_block, %block_tile =
+  //     transform.structured.tile_to_foreach_thread_op %matmul
+  //     tile_sizes [128, 128](mapping = [#gpu.block<x>, #gpu.block<y>])
+  // Fixed tile size 128 x 128.
+  const SmallVector<int64_t> ctaTileSizes{128, 128, 32};
+  SmallVector<Attribute> blockTileMapping{
+      gpu::GPUBlockMappingAttr::get(ctx, gpu::Blocks::DimX),
+      gpu::GPUBlockMappingAttr::get(ctx, gpu::Blocks::DimY)};
+  auto blockTileMappingAttr = b.getArrayAttr(blockTileMapping);
+  auto forEachThreadOpBlock = buildTileToForEachThreadOp(
+      b, loc, matmul, {ctaTileSizes[0], ctaTileSizes[1]},
+      transform::TileSizesSpec(), blockTileMappingAttr);
+  Value forEachThreadLoopBlock = forEachThreadOpBlock->getResult(0);
+  Value tiledMatmulBlock = forEachThreadOpBlock->getResult(1);
+
+  // TODO: padding on block tile.
+
+  // Promote operands for shared memory buffering.
+  //   %promoted_matmul, %alloc_0, %alloc_1 =
+  //     transform.disc.promote_operands %block_tile [0, 1]
+  //       : (!pdl.operation) -> (!pdl.operation, !pdl.operation,
+  //                              !pdl.operation)
+  auto promoteOperandsOp =
+      buildPromoteOperandsOp(b, loc, tiledMatmulBlock, {0, 1});
+  auto promotedMatmul = promoteOperandsOp->getResult(0);
+
+  // K iteration on block tile.
+  //   %matmul_block_k, %foreach_block_k =
+  //     transform.disc.split_reduction_serial %promoted_matmul
+  //       by tile_sizes = [32]
+  auto splitReductionSerialOpBlock =
+      buildSplitReductionSerialOp(b, loc, promotedMatmul, {ctaTileSizes[2]});
+  auto splitMatmulBlock = splitReductionSerialOpBlock->getResult(0);
+
+  // TODO: software pipelining on k iteration.
+
+  // Warp tile.
+  // %foreach_warp, %warp_tile =
+  //   transform.structured.tile_to_foreach_thread_op %matmul_block_k
+  //     tile_sizes [64, 64]
+  const SmallVector<int64_t> warpTileSizes{64, 64, 32};
+  auto forEachThreadOpWarp = buildTileToForEachThreadOp(
+      b, loc, splitMatmulBlock, {warpTileSizes[0], warpTileSizes[1]},
+      transform::TileSizesSpec(), ArrayAttr{});
+  Value forEachThreadLoopWarp = forEachThreadOpWarp->getResult(0);
+  Value tiledMatmulWarp = forEachThreadOpWarp->getResult(1);
+
+  // K iteration on warp tile.
+  // %matmul_warp_k, %for_warp_k =
+  //   transform.disc.split_reduction_serial %warp_tile by tile_sizes = [32]
+  auto splitReductionSerialOpWarp =
+      buildSplitReductionSerialOp(b, loc, tiledMatmulWarp, {warpTileSizes[2]});
+  auto splitMatmulWarp = splitReductionSerialOpWarp->getResult(0);
+
+  // Vector op tile.
+  // %tiled_vector, %loops:3 =
+  //   transform.structured.tile %matmul_warp_k [16, 8, 16]
+  //     : (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation,
+  //                            !pdl.operation)
+  const SmallVector<int64_t> vectorTileSizes{16, 8, 16};
+  auto tileOpVector =
+      buildTileOp(b, loc, splitMatmulWarp, vectorTileSizes, {0, 1, 2});
+
+  // TODO: fully unroll the vector tiled loops.
+
+  // ============================= Vectorization =============================
+
+  // %func = transform.structured.match ops{["func.func"]} in %arg1
+  //     : (!pdl.operation) -> !pdl.operation
+  Value func4Vec = buildMatchOp(b, loc, variant, {"func.func"});
+  // %func_cano = transform.disc.apply_patterns %func {canonicalization, cse}
+  func4Vec = buildRunCanonicalizer(b, loc, func4Vec);
+  // %func_vec = transform.structured.vectorize %func_cano
+  auto vectorizeOp = buildVectorize(b, loc, func4Vec, true);
+
+  // ============================= Bufferization =============================
+
+  // % bufferized = transform.disc.bufferize {target_gpu} % arg1
+  variant = buildDISCBufferize(b, loc, variant, true);
+
+  // TODO: shared memory swizzle to avoid bank conflict.
+
+  // ========================= Convert vector to mma =========================
+
+  // %func_1 = transform.structured.match ops{["func.func"]} in %bufferized
+  //     : (!pdl.operation) -> !pdl.operation
+  Value func4MMA = buildMatchOp(b, loc, variant, {"func.func"});
+  // transform.disc.vector.vector_to_mma_conversion %func_1
+  //     : (!pdl.operation) -> ()
+  auto vectorToMMAConversionOp = buildVectorToMMAConversionOp(b, loc, func4MMA);
+
+  b.create<transform::YieldOp>(loc);
+
   return success();
 }
 
@@ -1369,6 +1602,11 @@ DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 100,
 DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 110,
                         Aarch64GEMMLargeKScheduleWithEpilogueFactory,
                         ArrayRef<StringRef>{"large_k_epilogue"});
+
+// CUDA schedules
+DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, kDefaultScheduleFactoryPriority,
+                        CUDAMMAGEMMDefaultScheduleFactory,
+                        ArrayRef<StringRef>{"cuda_mma_default"});
 
 }  // namespace
 

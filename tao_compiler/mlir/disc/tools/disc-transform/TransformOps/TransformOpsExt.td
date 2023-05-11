@@ -1060,6 +1060,11 @@ def DISCPromoteOperandsOp :
                    DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$indices);
   let results = (outs Variadic<PDL_Operation>:$result);
 
+  let builders = [
+    OpBuilder<(ins "Value":$target,
+                   "ArrayRef<int64_t>":$indices)>
+  ];
+
   let assemblyFormat = [{
     $target
     $indices

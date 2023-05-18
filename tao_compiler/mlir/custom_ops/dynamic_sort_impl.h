@@ -12,7 +12,8 @@
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_RAL_CUSTOM_LIB_CALL_DYNAMIC_SORT_IMPL_H_
 #define TENSORFLOW_COMPILER_MLIR_XLA_RAL_CUSTOM_LIB_CALL_DYNAMIC_SORT_IMPL_H_
 
-#include "mlir/ral/context/common_context_impl.h"
+//#include "mlir/ral/context/common_context_impl.h"
+#include "mlir/ral/ral_context.h"
 #include "mlir/ral/ral_helper.h"
 
 namespace {

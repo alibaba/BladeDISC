@@ -167,6 +167,19 @@ cc_library(
     alwayslink = 1,
 )
 
+cc_library(
+    name = "ral_interface",
+    deps = [
+        ":ral_context",
+        ":ral_logging",
+        ":ral_library",
+        ":ral_metadata",
+    ] + if_cuda_or_rocm([
+        ":ral_gpu_driver",
+    ]),
+    alwayslink = 1,
+)
+
 tf_cc_test(
     name = "ral_metadata_test",
     size = "small",
@@ -281,9 +294,9 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
-#    ]) + if_cuda([
-#        "context/cuda_impl_sparse.cc",
-#        "context/quantized_gpu_kernel_impl.cc",
+    ]) + if_cuda([
+        "context/cuda_impl_sparse.cc",
+        "context/quantized_gpu_kernel_impl.cc",
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.cc",
         "context/common_context_impl_quantization.cc",
@@ -325,7 +338,7 @@ cc_library(
         ":ral_metadata",
         ":context_util",
         "@com_google_absl//absl/strings",
-	"@org_tensorflow//tensorflow/core/platform:status",
+	    "@org_tensorflow//tensorflow/core/platform:status",
         "@org_tensorflow//tensorflow/core/platform:statusor",
     ] + if_cuda_is_configured([
         "@org_tensorflow//tensorflow/compiler/xla/stream_executor/cuda:all_runtime",
@@ -508,9 +521,9 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
-    #]) + if_cuda([
-    #    "context/cuda_impl_sparse.cc",
-    #    "context/quantized_gpu_kernel_impl.cc",
+    ]) + if_cuda([
+        "context/cuda_impl_sparse.cc",
+        "context/quantized_gpu_kernel_impl.cc",
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.cc",
         "context/common_context_impl_quantization.cc",
@@ -616,10 +629,6 @@ cc_library(
     deps = [
         ":common_context_bridge",
         ":ral_tf_context_bridge",
-    ] + if_cuda_or_rocm([
-        ":dynamic_sort_bridge",
-        ":random_bridge",
-        ":transpose_bridge",
-    ]),
+    ]
     alwayslink = 1,
 )

@@ -123,7 +123,7 @@ std::unique_ptr<PDLAttr> parseArrayAttr(uint8_t*& buffer) {
   auto nElems = parsePOD<int64_t>(buffer);
   TAO_VLOG(1) << "parseArrayAttr try to parse with " << nElems << " elements";
   auto arrayAttr = std::make_unique<ArrayPDLAttr>(type);
-  for (uint64_t i = 0; i < nElems; ++i) {
+  for (size_t i = 0; i < nElems; ++i) {
     auto attrPtr = parsePDLAttr(buffer);
     if (!attrPtr) return attrPtr;
     arrayAttr->push_back(std::move(attrPtr));
@@ -138,7 +138,7 @@ std::unique_ptr<PDLAttr> parseIntArrayAttr(uint8_t*& buffer) {
   TAO_VLOG(1) << "parseIntArrayAttr try to parse with " << nElems
               << " elements";
   auto intArrayAttr = std::make_unique<IntArrayPDLAttr>(type);
-  for (uint64_t i = 0; i < nElems; ++i) {
+  for (size_t i = 0; i < nElems; ++i) {
     int64_t val = parsePOD<int64_t>(buffer);
     intArrayAttr->push_back(val);
   }

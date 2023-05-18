@@ -12,6 +12,7 @@ cc_library(
         "//pytorch_blade/common_utils:torch_blade_common",
         "//pytorch_blade/compiler/jit:torch_blade_jit",
         "@org_disc_compiler//mlir/ral:ral_base_context_lib",
+        "@org_disc_compiler//mlir/custom_ops:disc_custom_ops_lib",
         "@local_org_torch//:ATen",
         "@local_org_torch//:libtorch",
     ] + if_cuda_is_configured([

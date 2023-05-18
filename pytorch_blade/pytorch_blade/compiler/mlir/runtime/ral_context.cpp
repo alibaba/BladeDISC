@@ -69,7 +69,7 @@ class RalAllocator : public tao::ral::Allocator {
 // device.
 void RalContext::CheckCurrentDevice(const at::List<at::Tensor>& inputs) {
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
-  int64_t gpu_device = CheckAndGetGPUDevice();
+  int64_t gpu_device = LazyInitCurrentDevice();
   // TODO(gty): Refactor this function together with the one defined in TensorRT
   // Engine Context
   if (inputs.empty()) {
@@ -241,7 +241,7 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
 
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
 tao::ral::BaseContext* RalContext::LoadCache() {
-  int64_t gpu_device = CheckAndGetGPUDevice();
+  int64_t gpu_device = LazyInitCurrentDevice();
   TORCH_CHECK(
       gpu_device >= 0, "expect gpu device id >= 0, but got ", gpu_device);
   c10::cuda::CUDAStream stream = c10::cuda::getCurrentCUDAStream(gpu_device);
@@ -275,7 +275,7 @@ tao::ral::BaseContext* RalContext::LoadCache() {
 // to make sure no change on current device during inference. So the reasonable
 // restriction is to deny device change during inferences but allow it before
 // the first inference.
-int64_t RalContext::CheckAndGetGPUDevice() {
+int64_t RalContext::LazyInitCurrentDevice() {
   int64_t cur_device = c10::cuda::current_device();
   int64_t prev_device = NULL_GPU_DEVICE;
   bool success = gpu_device_.compare_exchange_strong(prev_device, cur_device);

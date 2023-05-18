@@ -68,7 +68,7 @@ class RalContext {
   TempFile meta_tmpf_{"ral_meta.pb"};
 
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
-  int64_t CheckAndGetGPUDevice();
+  int64_t LazyInitCurrentDevice();
 
   constexpr static int64_t NULL_GPU_DEVICE = -1;
   std::atomic<int64_t> gpu_device_{NULL_GPU_DEVICE};

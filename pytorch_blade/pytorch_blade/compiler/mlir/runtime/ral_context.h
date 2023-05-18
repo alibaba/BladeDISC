@@ -56,12 +56,11 @@ class RalContext {
  private:
   void BindingInputs(
       const at::List<at::Tensor>& inputs,
-      tao::ral::ExecutionContext& exec_ctx) ;
+      tao::ral::ExecutionContext& exec_ctx);
   void CheckCurrentDevice(const at::List<at::Tensor>& inputs);
   at::List<at::Tensor> CreateAndBindingOutputs(
       tao::ral::ExecutionContext& exec_ctx);
-  at::List<at::Tensor> PreProcessInputs(
-      const at::List<at::Tensor>& inputs);
+  at::List<at::Tensor> PreProcessInputs(const at::List<at::Tensor>& inputs);
   std::tuple<void*, void*> LoadEngine(const std::string& ral_engine_bytes);
 
   std::shared_ptr<backends::EngineState> engine_state_;

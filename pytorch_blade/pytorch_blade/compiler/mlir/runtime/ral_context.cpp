@@ -9,11 +9,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pytorch_blade/compiler/mlir/runtime/ral_context.h"
-
+#include <c10/core/CPUAllocator.h>
 #include <dlfcn.h>
 
-#include <c10/core/CPUAllocator.h>
+#include "pytorch_blade/compiler/mlir/runtime/ral_context.h"
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
 #include <c10/core/impl/alloc_cpu.h>
 #endif
@@ -29,7 +28,6 @@
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 
 #include "mlir/xla/ral/ral_api.h"
-
 #include "pytorch_blade/common_utils/utils.h"
 
 #ifdef TORCH_BLADE_USE_ROCM
@@ -86,9 +84,14 @@ void RalContext::CheckCurrentDevice(const at::List<at::Tensor>& inputs) {
     at::Tensor inp = inputs[k];
     auto device = inputs_info[k].device;
     if (device == "cuda") {
-      TORCH_CHECK(inp.device() == cur_cuda_device,
-                  "Input tensor ", k, " device mismatch. Expect: ",
-                  cur_cuda_device, ", got: ", inp.device());
+      TORCH_CHECK(
+          inp.device() == cur_cuda_device,
+          "Input tensor ",
+          k,
+          " device mismatch. Expect: ",
+          cur_cuda_device,
+          ", got: ",
+          inp.device());
     }
   }
   return;
@@ -238,7 +241,8 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
 tao::ral::BaseContext* RalContext::LoadCache() {
   int64_t gpu_device = CheckAndGetGPUDevice();
-  TORCH_CHECK(gpu_device >= 0, "expect gpu device id >= 0, but got ", gpu_device);
+  TORCH_CHECK(
+      gpu_device >= 0, "expect gpu device id >= 0, but got ", gpu_device);
   c10::cuda::CUDAStream stream = c10::cuda::getCurrentCUDAStream(gpu_device);
 
   // TODO: take care of the duplicated const
@@ -265,18 +269,20 @@ tao::ral::BaseContext* RalContext::LoadCache() {
   return ral_ctx_ptr;
 }
 
-// Because weight is loaded by RAL lazily on the first inference. And there's no way to
-// to move loaded weight to another devices in RAL currently. So we need to make sure
-// no change on current device during inference.
-// So the reasonable restriction is to deny device change during inferences but allow it
-// before the first inference.
+// Because weight is loaded by RAL lazily on the first inference. And there's no
+// way to to move loaded weight to another devices in RAL currently. So we need
+// to make sure no change on current device during inference. So the reasonable
+// restriction is to deny device change during inferences but allow it before
+// the first inference.
 int64_t RalContext::CheckAndGetGPUDevice() {
   int64_t cur_device = c10::cuda::current_device();
   int64_t prev_device = NULL_GPU_DEVICE;
   bool success = gpu_device_.compare_exchange_strong(prev_device, cur_device);
   if (!success) {
-    TORCH_CHECK(prev_device == cur_device,
-      "Device changed during inference. Please do NOT change CUDA current device during inference.");
+    TORCH_CHECK(
+        prev_device == cur_device,
+        "Device changed during inference. Please do NOT change CUDA "
+        "current device during inference.");
   }
   TORCH_CHECK(gpu_device_ != NULL_GPU_DEVICE);
   return cur_device;

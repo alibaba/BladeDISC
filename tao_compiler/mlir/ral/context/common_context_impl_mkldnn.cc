@@ -940,8 +940,8 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle,
   data_type result_dtype = toDataType<Toutput>();
   if (((input_dtype == data_type::bf16 && weight_dtype == data_type::bf16 &&
         result_dtype == data_type::f32) ||
-      (input_dtype == data_type::f16 && weight_dtype == data_type::f16 &&
-       result_dtype == data_type::f16)) &&
+       (input_dtype == data_type::f16 && weight_dtype == data_type::f16 &&
+        result_dtype == data_type::f16)) &&
       N == 2) {
     runAclAMPGemmKernel(ctx, stream_handle, A, B, C, tp_a, tp_b,
                         weight_is_const);

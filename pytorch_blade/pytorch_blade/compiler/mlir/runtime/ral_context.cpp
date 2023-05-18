@@ -9,10 +9,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <c10/core/CPUAllocator.h>
+#include "pytorch_blade/compiler/mlir/runtime/ral_context.h"
+
 #include <dlfcn.h>
 
-#include "pytorch_blade/compiler/mlir/runtime/ral_context.h"
+#include <c10/core/CPUAllocator.h>
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
 #include <c10/core/impl/alloc_cpu.h>
 #endif

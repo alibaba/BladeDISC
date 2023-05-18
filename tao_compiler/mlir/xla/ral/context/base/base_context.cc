@@ -78,8 +78,8 @@ void BaseExecutionContext::bindOutput(
     return;
   }
 
-  output->reset(
-      new BaseOutputBufferWrapper(it->second.buffer, it->second.shape));
+  output->reset(new BaseOutputBufferWrapper(it->second.buffer, it->second.shape,
+                                            it->second.strides));
   if (!output_ptr_set.insert(it->second.buffer).second) {
     // This buffer is used as output before, thus is already set a deleter.
     return;
@@ -191,6 +191,9 @@ void ral_base_cuda_send_output(ExecutionContext* ctx, int64_t output_idx,
   Tensor tensor;
   for (int i = 0; i < N; ++i) {
     tensor.shape.push_back(memref.sizes[i]);
+  }
+  for (int i = 0; i < N; ++i) {
+    tensor.strides.push_back(memref.strides[i]);
   }
   for (int i = 0; i < N; ++i) {
     TAO_VLOG(1) << "tensor dim size = " << tensor.shape[i];

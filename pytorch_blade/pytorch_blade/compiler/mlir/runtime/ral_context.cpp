@@ -221,14 +221,16 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
       out_tensor = torch::from_blob(
           const_cast<void*>(out_buf->data()),
           out_buf->shape(),
+          out_buf->strides(),
           deleter,
           option);
       out_buf->release();
     } else {
-      out_tensor =
-          torch::from_blob(
-              const_cast<void*>(out_buf->data()), out_buf->shape(), option)
-              .clone();
+      out_tensor = torch::from_blob(
+          const_cast<void*>(out_buf->data()),
+          out_buf->shape(),
+          out_buf->strides(),
+          option);
     }
     outputs.push_back(out_tensor);
   }

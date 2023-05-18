@@ -100,7 +100,6 @@ void BaseCpuExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
     // This buffer is a pesistent buffer, thus no need to set a deleter.
     return;
   }
-
   auto hid = host_ptr_map.find(buffer);
   if (hid != host_ptr_map.end()) {
     if (--hid->second == 0) {

@@ -140,6 +140,7 @@ class OutputBufferWrapper {
   virtual ~OutputBufferWrapper() {}
   virtual const_buffer_t data() = 0;
   virtual const buffer_shape_t& shape() = 0;
+  virtual const buffer_shape_t& strides() = 0;
   // Returns true if this wrapper is the exclusive owner
   virtual bool owned() const = 0;
   // mark that this wrapper exclusively owns the underlying buffer.

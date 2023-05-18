@@ -43,6 +43,9 @@ class BaseOutputBufferWrapper : public OutputBufferWrapper {
  public:
   BaseOutputBufferWrapper(buffer_t data, buffer_shape_t shape)
       : data_(data), shape_(shape) {}
+  BaseOutputBufferWrapper(buffer_t data, buffer_shape_t shape,
+                          buffer_shape_t strides)
+      : data_(data), shape_(shape), strides_(strides) {}
   ~BaseOutputBufferWrapper() {
     if (deleter_) deleter_(data_);
   }
@@ -51,6 +54,7 @@ class BaseOutputBufferWrapper : public OutputBufferWrapper {
 
   const_buffer_t data() override { return data_; }
   const buffer_shape_t& shape() override { return shape_; }
+  const buffer_shape_t& strides() override { return strides_; }
   void set_deleter(Deleter deleter) { deleter_ = deleter; }
 
   // Returns true if this wrapper is the exclusive owner
@@ -69,6 +73,7 @@ class BaseOutputBufferWrapper : public OutputBufferWrapper {
  private:
   buffer_t data_;
   buffer_shape_t shape_;
+  buffer_shape_t strides_;
   Deleter deleter_;
   bool owned_ = false;
 };
@@ -92,6 +97,7 @@ class InternalAllocator : public Allocator {
 struct Tensor {
   void* buffer;
   std::vector<int64_t> shape;
+  std::vector<int64_t> strides;
 };
 
 struct BaseExecutionContext : public tao::ral::ExecutionContext {

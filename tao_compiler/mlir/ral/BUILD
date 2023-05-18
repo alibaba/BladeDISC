@@ -629,6 +629,6 @@ cc_library(
     deps = [
         ":common_context_bridge",
         ":ral_tf_context_bridge",
-    ]
+    ],
     alwayslink = 1,
 )

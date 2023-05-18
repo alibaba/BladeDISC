@@ -34,6 +34,14 @@ namespace ral {
 class Context;
 class ExecutionContext;
 
+struct bfloat16 {
+  uint16_t value;
+};
+
+struct float16 {
+  uint16_t value;
+};
+
 // A struct that corresponds to how MLIR represents memrefs.
 template <typename T, int N>
 struct MemRefType {
@@ -65,6 +73,8 @@ DEFINE_TAO_TYPE_NAME_HELPER(uint8_t, "ui8");
 DEFINE_TAO_TYPE_NAME_HELPER(int8_t, "i8");
 DEFINE_TAO_TYPE_NAME_HELPER(uint16_t, "ui16");
 DEFINE_TAO_TYPE_NAME_HELPER(int16_t, "i16");
+DEFINE_TAO_TYPE_NAME_HELPER(bfloat16, "bf16");
+DEFINE_TAO_TYPE_NAME_HELPER(float16, "f16");
 DEFINE_TAO_TYPE_NAME_HELPER(uint32_t, "ui32");
 DEFINE_TAO_TYPE_NAME_HELPER(int32_t, "i32");
 DEFINE_TAO_TYPE_NAME_HELPER(int64_t, "i64");

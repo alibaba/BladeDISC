@@ -3,9 +3,9 @@ pyyaml
 pandas
 librosa
 torchvision==0.15.0
-torchaudio==2.0.0
+torchaudio==2.0.1
 torchtext==0.15.0
 onnx
 onnxruntime
 psutil
-
+protobuf==3.20.2

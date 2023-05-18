@@ -48,7 +48,7 @@ tf_gpu_kernel_library(
     ],
     copts = if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
-    ]),
+    ]) + cuda_default_copts(),
     deps = [
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/types:optional",

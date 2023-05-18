@@ -66,6 +66,7 @@ class Dummy(torch.nn.Module):
 )
 class TestDiscEngineDevice(unittest.TestCase):
     def setUp(self):
+        self.old_device = torch.cuda.current_device()
         self.input = torch.randn(10).cuda()
         model = Dummy().eval().cuda()
         self.ref_output = model(self.input)
@@ -78,6 +79,7 @@ class TestDiscEngineDevice(unittest.TestCase):
 
     def tearDown(self):
         self.model_f.close()
+        torch.cuda.set_device(self.old_device)
 
     def test_change_device_before_infer(self):
         # Load in one device
@@ -86,10 +88,10 @@ class TestDiscEngineDevice(unittest.TestCase):
         # Infer in another device
         torch.cuda.set_device(1)
         output = model(self.input.cuda(1))
-        torch.testing.assert_close(output.cpu(), self.ref_output.cpu())
+        self.assertTrue(torch.allclose(output.cpu(), self.ref_output.cpu()))
         # Infer again
         output = model(self.input.cuda(1))
-        torch.testing.assert_close(output.cpu(), self.ref_output.cpu())
+        self.assertTrue(torch.allclose(output.cpu(), self.ref_output.cpu()))
 
     def test_change_device_during_infer(self):
         # Load in one device

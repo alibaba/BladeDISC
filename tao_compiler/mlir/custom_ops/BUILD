@@ -189,7 +189,6 @@ cc_library(
     ]) + if_dcu([
         "-DTENSORFLOW_USE_DCU=1"
     ]) + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
-
     alwayslink = 1,
 )
 
@@ -203,11 +202,12 @@ tf_cc_shared_object(
         ],
     }),
     deps = [
+        "//mlir/ral:context_version_scripts.lds",
+    ] + if_cuda_or_rocm([
         ":dynamic_sort",
         ":transpose",
         ":random",
-        "//mlir/ral:context_version_scripts.lds",
-    ]
+    ])
 )
 cc_library(
     name = "disc_custom_ops_lib",

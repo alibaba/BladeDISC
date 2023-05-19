@@ -28,7 +28,8 @@
 #endif // TORCH_BLADE_USE_ROCM
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 
-#include "mlir/xla/ral/ral_api.h"
+#include "mlir/ral/ral_api.h"
+
 #include "pytorch_blade/common_utils/utils.h"
 
 #ifdef TORCH_BLADE_USE_ROCM

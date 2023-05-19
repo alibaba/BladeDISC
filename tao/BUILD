@@ -103,7 +103,7 @@ cc_library(
     ),
     deps = [
         ":version_header",
-        "@org_tao_compiler//mlir/xla/ral:ral_bridge",
+        "@org_tao_compiler//mlir/custom_ops:disc_custom_ops_bridge",
     ] + if_platform_alibaba([
         "@blade_service_common//blade_service_common:blade_service_common_deps",
     ]) + if_internal_serving(

@@ -984,11 +984,6 @@ def DISCSplitReductionSerialOp : Op<Transform_Dialect, "disc.split_reduction_ser
   let results = (outs PDL_Operation:$for_op,
                       PDL_Operation:$splitted_op);
 
-  let builders = [
-    OpBuilder<(ins "Value":$target,
-                   "ArrayRef<int64_t>":$staticTileSizes)>
-  ];
-
   let assemblyFormat = [{
     $target
     `by` `tile_sizes` `=` $tile_sizes
@@ -1039,8 +1034,8 @@ def DISCVectorToMMAConversionOp : Op<Transform_Dialect, "disc.vector.vector_to_m
   }];
 }
 
-def DISCPromoteOperandsOp :
-  Op<Transform_Dialect, "disc.promote_operands",
+def DISCPromoteDotOperandsOp :
+  Op<Transform_Dialect, "disc.promote_dot_operands",
     [FunctionalStyleTransformOpTrait,
      MemoryEffectsOpInterface,
      TransformEachOpTrait,
@@ -1058,12 +1053,9 @@ def DISCPromoteOperandsOp :
 
   let arguments = (ins PDL_Operation:$target,
                    DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$indices);
-  let results = (outs Variadic<PDL_Operation>:$result);
-
-  let builders = [
-    OpBuilder<(ins "Value":$target,
-                   "ArrayRef<int64_t>":$indices)>
-  ];
+  let results = (outs PDL_Operation:$promoted_dot,
+                      PDL_Operation:$lhs_alloc,
+                      PDL_Operation:$rhs_alloc);
 
   let assemblyFormat = [{
     $target

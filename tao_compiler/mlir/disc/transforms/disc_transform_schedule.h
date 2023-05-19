@@ -33,6 +33,8 @@ namespace disc_ral {
 // schedules within the same category.
 enum class PatternKind : int32_t { kNone, kGEMM };
 
+enum class DeviceType { kCPU, kGPU, kNone };
+
 // Converts a pattern kind to its string representation.
 std::string patternKindToString(PatternKind kind);
 
@@ -57,6 +59,8 @@ class PatternDescription {
 
   const std::set<std::string>& getPatternTagSet() const;
 
+  DeviceType getPatternDeviceType() const;
+
   // Returns the fusion op this descriptor holds.
   lmhlo::FusionOp getFusionOp() { return op_; }
 
@@ -72,6 +76,7 @@ class PatternDescription {
   ShapeAnalysis& shapeAnalysis_;
   PatternKind patternKind_;
   std::set<std::string> tagSet_;
+  DeviceType deviceType_;
 };
 
 // The name of the default schedule factory for a pattern kind.
@@ -85,7 +90,7 @@ constexpr const int kParsedFromFileScheduleFactoryStartPriority = 10000;
 class ScheduleFactory {
  public:
   explicit ScheduleFactory(int64_t id, PatternKind kind,
-                           ArrayRef<StringRef> tags);
+                           ArrayRef<StringRef> tags, DeviceType deviceType);
   virtual ~ScheduleFactory() = default;
 
   // Returns true if the factory accepts the pattern at compile time.
@@ -118,8 +123,12 @@ class ScheduleFactory {
   // Returns the tag set this factory has.
   const std::set<std::string>& getTagSet() { return tagSet_; }
 
+  // Returns the device type this factory corresponds to.
+  DeviceType getDeviceType() { return deviceType_; }
+
  protected:
-  // these are called by `accept`.
+  // These are called by `accept`. No need to check device type as the kind and
+  // tags already determine a unique target.
   virtual bool checkKindAndTags(PatternDescription&);
   virtual bool checkFusionPatternProperties(PatternDescription&);
 
@@ -127,6 +136,7 @@ class ScheduleFactory {
   int64_t id_;
   PatternKind kind_;
   std::set<std::string> tagSet_;
+  DeviceType deviceType_;
 };
 
 class ScheduleFactoryWithNoGuard : public ScheduleFactory {
@@ -163,6 +173,18 @@ class ScheduleFactoryRegistry {
   // is sorted by `priority`. The first one has the highest priority.
   SmallVector<ScheduleFactory*> getAllCandidateScheduleFactories(
       PatternDescription& pd);
+
+  // // Returns all suitable CPU schedule factories for `pd`. The returned
+  // factory
+  // // list is sorted by `priority`. The first one has the highest priority.
+  // SmallVector<ScheduleFactory*> getAllCandidateCPUScheduleFactories(
+  //     PatternDescription& pd);
+
+  // // Returns all suitable GPU schedule factories for `pd`. The returned
+  // factory
+  // // list is sorted by `priority`. The first one has the highest priority.
+  // SmallVector<ScheduleFactory*> getAllCandidateGPUScheduleFactories(
+  //     PatternDescription& pd);
 
  private:
   ScheduleFactoryRegistry() = default;

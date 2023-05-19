@@ -884,6 +884,22 @@ class SparseOpCpuFusionStrategy : public FusionStrategy {
   virtual StringRef getName() override { return "SparseOpCpuFusionStrategy"; }
 };
 
+class TransformBasedGpuFusionStrategy : public FusionStrategy {
+ public:
+  TransformBasedGpuFusionStrategy(const FusionOptions& options)
+      : FusionStrategy(options) {}
+
+  virtual bool isFusible(Operation* op) override;
+  virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
+                                 FusionPattern& fused_pattern) override;
+  virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
+                       FusionPattern& rhs, FusionPattern& target) override;
+
+  virtual StringRef getName() override {
+    return "TransformBasedGpuFusionStrategy";
+  }
+};
+
 }  // namespace disc_ral
 }  // namespace mlir
 

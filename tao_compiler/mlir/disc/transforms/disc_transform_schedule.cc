@@ -75,6 +75,11 @@ std::unordered_map<std::string, PatternKind>& getStringToPatternKindMap() {
   return stringToPatternKindMap;
 }
 
+std::unordered_map<std::string, DeviceType>& getStringToDeviceTypeMap() {
+  static std::unordered_map<std::string, DeviceType> stringToDeviceTypeMap;
+  return stringToDeviceTypeMap;
+}
+
 bool PatternKindAndStringMapRegistrar = []() {
   auto& patternKindToStringMap = getPatternKindToStringMap();
   auto& stringToPatternKindMap = getStringToPatternKindMap();
@@ -83,6 +88,9 @@ bool PatternKindAndStringMapRegistrar = []() {
   for (auto& pair : patternKindToStringMap) {
     stringToPatternKindMap[pair.second] = pair.first;
   }
+  auto& stringToDeviceTypeMap = getStringToDeviceTypeMap();
+  stringToDeviceTypeMap.emplace("CPU", DeviceType::kCPU);
+  stringToDeviceTypeMap.emplace("GPU", DeviceType::kGPU);
   return true;
 }();
 
@@ -351,16 +359,19 @@ transform_dialect::LowerConditionalGenericOp buildLowerConditionalGenericOp(
                                                                 target);
 }
 
-transform_dialect::DISCPromoteOperandsOp buildPromoteOperandsOp(
+transform_dialect::DISCPromoteDotOperandsOp buildPromoteDotOperandsOp(
     OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> indices) {
-  return b.create<transform_dialect::DISCPromoteOperandsOp>(loc, target,
-                                                            indices);
+  // auto pdlType = pdl::OperationType::get(b.getContext());
+  SmallVector<Type> pdlTypes(3, pdl::OperationType::get(b.getContext()));
+  return b.create<transform_dialect::DISCPromoteDotOperandsOp>(loc, pdlTypes,
+                                                               target, indices);
 }
 
 transform_dialect::DISCSplitReductionSerialOp buildSplitReductionSerialOp(
     OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> tileSizes) {
-  return b.create<transform_dialect::DISCSplitReductionSerialOp>(loc, target,
-                                                                 tileSizes);
+  SmallVector<Type> pdlTypes(2, pdl::OperationType::get(b.getContext()));
+  return b.create<transform_dialect::DISCSplitReductionSerialOp>(
+      loc, pdlTypes, target, tileSizes);
 }
 
 transform_dialect::DISCVectorToMMAConversionOp buildVectorToMMAConversionOp(
@@ -372,6 +383,7 @@ class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
   explicit ParsedFromFileScheduleFactory(int64_t id, PatternKind kind,
                                          ArrayRef<StringRef> tags,
+                                         DeviceType deviceType,
                                          ModuleOp transformModule);
   LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
 
@@ -381,8 +393,8 @@ class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
 
 ParsedFromFileScheduleFactory::ParsedFromFileScheduleFactory(
     int64_t id, PatternKind kind, ArrayRef<StringRef> tags,
-    ModuleOp transformModule)
-    : ScheduleFactoryWithNoGuard(id, kind, tags),
+    DeviceType deviceType, ModuleOp transformModule)
+    : ScheduleFactoryWithNoGuard(id, kind, tags, deviceType),
       transformModule_(transformModule) {}
 
 LogicalResult ParsedFromFileScheduleFactory::assignSchedule(
@@ -405,10 +417,15 @@ class Aarch64GEMMDefaultScheduleFactory : public ScheduleFactoryWithNoGuard {
 // TODO(wyzero): merge default schedule and default with epilogue schedule.
 bool Aarch64GEMMDefaultScheduleFactory::checkFusionPatternProperties(
     PatternDescription& pd) {
+  if (!ScheduleFactory::checkFusionPatternProperties(pd)) {
+    return false;
+  }
   auto& fusionPattern = pd.getFusionPattern();
   auto& rootOps = fusionPattern.getRootOps();
   // Only support single output a.t.m.
-  if (rootOps.size() != 1) return false;
+  if (rootOps.size() != 1) {
+    return false;
+  }
 
   // This schedule not support epilogue fusion
   auto dominantOp = fusionPattern.getDominantOp();
@@ -614,6 +631,9 @@ class Aarch64GEMMDefaultScheduleWithEpilogueFactory
 
 bool Aarch64GEMMDefaultScheduleWithEpilogueFactory::
     checkFusionPatternProperties(PatternDescription& pd) {
+  if (!ScheduleFactory::checkFusionPatternProperties(pd)) {
+    return false;
+  }
   auto& fusionPattern = pd.getFusionPattern();
   auto& rootOps = fusionPattern.getRootOps();
   // Only support single output a.t.m.
@@ -870,6 +890,9 @@ class Aarch64GEMMLargeKScheduleFactory : public ScheduleFactory {
 
 bool Aarch64GEMMLargeKScheduleFactory::checkFusionPatternProperties(
     PatternDescription& pd) {
+  if (!ScheduleFactory::checkFusionPatternProperties(pd)) {
+    return false;
+  }
   auto& fusionPattern = pd.getFusionPattern();
   auto& rootOps = fusionPattern.getRootOps();
   // Only support single output a.t.m.
@@ -1118,6 +1141,9 @@ class Aarch64GEMMLargeKScheduleWithEpilogueFactory
 
 bool Aarch64GEMMLargeKScheduleWithEpilogueFactory::checkFusionPatternProperties(
     PatternDescription& pd) {
+  if (!ScheduleFactory::checkFusionPatternProperties(pd)) {
+    return false;
+  }
   auto& fusionPattern = pd.getFusionPattern();
   auto& rootOps = fusionPattern.getRootOps();
   // Only support single output a.t.m.
@@ -1399,6 +1425,9 @@ class CUDAMMAGEMMDefaultScheduleFactory : public ScheduleFactoryWithNoGuard {
 
 bool CUDAMMAGEMMDefaultScheduleFactory::checkFusionPatternProperties(
     PatternDescription& pd) {
+  if (!ScheduleFactory::checkFusionPatternProperties(pd)) {
+    return false;
+  }
   auto& fusionPattern = pd.getFusionPattern();
   auto& rootOps = fusionPattern.getRootOps();
   // Only support single output a.t.m.
@@ -1470,7 +1499,7 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
     return m->emitError() << "only support exactly 1 contract dim\n";
   }
   auto lhsBatchingDims = dimNumbers.getLhsBatchingDimensions();
-  if (lhsBatchingDims.size() != 1 || lhsBatchingDims[0] != 1) {
+  if (!lhsBatchingDims.empty()) {
     return m->emitError() << "do not support batch matmul\n";
   }
   bool lhsTranspose = (lhsCntractingDims[0] == lhsTy.getRank() - 2);
@@ -1490,11 +1519,7 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
   // ========================== Multi-level tiling ==========================
 
-  // Thread-block level tiling.
-  //   %for_block, %block_tile =
-  //     transform.structured.tile_to_foreach_thread_op %matmul
-  //     tile_sizes [128, 128](mapping = [#gpu.block<x>, #gpu.block<y>])
-  // Fixed tile size 128 x 128.
+  // Thread-block level tiling. Fixed tile size 128 x 128.
   const SmallVector<int64_t> ctaTileSizes{128, 128, 32};
   SmallVector<Attribute> blockTileMapping{
       gpu::GPUBlockMappingAttr::get(ctx, gpu::Blocks::DimX),
@@ -1508,48 +1533,33 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
   // TODO: padding on block tile.
 
-  // Promote operands for shared memory buffering.
-  //   %promoted_matmul, %alloc_0, %alloc_1 =
-  //     transform.disc.promote_operands %block_tile [0, 1]
-  //       : (!pdl.operation) -> (!pdl.operation, !pdl.operation,
-  //                              !pdl.operation)
-  auto promoteOperandsOp =
-      buildPromoteOperandsOp(b, loc, tiledMatmulBlock, {0, 1});
-  auto promotedMatmul = promoteOperandsOp->getResult(0);
-
   // K iteration on block tile.
-  //   %matmul_block_k, %foreach_block_k =
-  //     transform.disc.split_reduction_serial %promoted_matmul
-  //       by tile_sizes = [32]
   auto splitReductionSerialOpBlock =
-      buildSplitReductionSerialOp(b, loc, promotedMatmul, {ctaTileSizes[2]});
+      buildSplitReductionSerialOp(b, loc, tiledMatmulBlock, {ctaTileSizes[2]});
   auto splitMatmulBlock = splitReductionSerialOpBlock->getResult(0);
+
+  // Promote operands for shared memory buffering.
+  // TODO: promote operands for register buffering.
+  auto promoteDotOperandsOp =
+      buildPromoteDotOperandsOp(b, loc, splitMatmulBlock, {0, 1});
+  auto promotedMatmul = promoteDotOperandsOp->getResult(0);
 
   // TODO: software pipelining on k iteration.
 
   // Warp tile.
-  // %foreach_warp, %warp_tile =
-  //   transform.structured.tile_to_foreach_thread_op %matmul_block_k
-  //     tile_sizes [64, 64]
   const SmallVector<int64_t> warpTileSizes{64, 64, 32};
   auto forEachThreadOpWarp = buildTileToForEachThreadOp(
-      b, loc, splitMatmulBlock, {warpTileSizes[0], warpTileSizes[1]},
+      b, loc, promotedMatmul, {warpTileSizes[0], warpTileSizes[1]},
       transform::TileSizesSpec(), ArrayAttr{});
   Value forEachThreadLoopWarp = forEachThreadOpWarp->getResult(0);
   Value tiledMatmulWarp = forEachThreadOpWarp->getResult(1);
 
   // K iteration on warp tile.
-  // %matmul_warp_k, %for_warp_k =
-  //   transform.disc.split_reduction_serial %warp_tile by tile_sizes = [32]
   auto splitReductionSerialOpWarp =
       buildSplitReductionSerialOp(b, loc, tiledMatmulWarp, {warpTileSizes[2]});
   auto splitMatmulWarp = splitReductionSerialOpWarp->getResult(0);
 
   // Vector op tile.
-  // %tiled_vector, %loops:3 =
-  //   transform.structured.tile %matmul_warp_k [16, 8, 16]
-  //     : (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation,
-  //                            !pdl.operation)
   const SmallVector<int64_t> vectorTileSizes{16, 8, 16};
   auto tileOpVector =
       buildTileOp(b, loc, splitMatmulWarp, vectorTileSizes, {0, 1, 2});
@@ -1558,28 +1568,19 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
   // ============================= Vectorization =============================
 
-  // %func = transform.structured.match ops{["func.func"]} in %arg1
-  //     : (!pdl.operation) -> !pdl.operation
   Value func4Vec = buildMatchOp(b, loc, variant, {"func.func"});
-  // %func_cano = transform.disc.apply_patterns %func {canonicalization, cse}
   func4Vec = buildRunCanonicalizer(b, loc, func4Vec);
-  // %func_vec = transform.structured.vectorize %func_cano
   auto vectorizeOp = buildVectorize(b, loc, func4Vec, true);
 
   // ============================= Bufferization =============================
 
-  // % bufferized = transform.disc.bufferize {target_gpu} % arg1
   variant = buildDISCBufferize(b, loc, variant, true);
 
   // TODO: shared memory swizzle to avoid bank conflict.
 
   // ========================= Convert vector to mma =========================
 
-  // %func_1 = transform.structured.match ops{["func.func"]} in %bufferized
-  //     : (!pdl.operation) -> !pdl.operation
   Value func4MMA = buildMatchOp(b, loc, variant, {"func.func"});
-  // transform.disc.vector.vector_to_mma_conversion %func_1
-  //     : (!pdl.operation) -> ()
   auto vectorToMMAConversionOp = buildVectorToMMAConversionOp(b, loc, func4MMA);
 
   b.create<transform::YieldOp>(loc);
@@ -1589,24 +1590,28 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
 DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, kDefaultScheduleFactoryPriority,
                         Aarch64GEMMDefaultScheduleFactory,
-                        ArrayRef<StringRef>{kDefaultScheduleFactoryTag});
+                        ArrayRef<StringRef>{kDefaultScheduleFactoryTag},
+                        DeviceType::kCPU);
 
 DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 10,
                         Aarch64GEMMDefaultScheduleWithEpilogueFactory,
-                        ArrayRef<StringRef>{"default_epilogue"});
+                        ArrayRef<StringRef>{"default_epilogue"},
+                        DeviceType::kCPU);
 
 DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 100,
                         Aarch64GEMMLargeKScheduleFactory,
-                        ArrayRef<StringRef>{"large_k"});
+                        ArrayRef<StringRef>{"large_k"}, DeviceType::kCPU);
 
 DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 110,
                         Aarch64GEMMLargeKScheduleWithEpilogueFactory,
-                        ArrayRef<StringRef>{"large_k_epilogue"});
+                        ArrayRef<StringRef>{"large_k_epilogue"},
+                        DeviceType::kCPU);
 
 // CUDA schedules
-DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, kDefaultScheduleFactoryPriority,
+DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 1000,
                         CUDAMMAGEMMDefaultScheduleFactory,
-                        ArrayRef<StringRef>{"cuda_mma_default"});
+                        ArrayRef<StringRef>{"cuda_mma_default"},
+                        DeviceType::kGPU);
 
 }  // namespace
 
@@ -1628,13 +1633,25 @@ PatternKind patternKindFromString(const std::string& str) {
   return PatternKind::kNone;
 }
 
+DeviceType deviceTypeFromString(const std::string& str) {
+  auto& map = getStringToDeviceTypeMap();
+  auto it = map.find(str);
+  if (it != map.end()) {
+    return it->second;
+  }
+  llvm_unreachable("unknown device type str");
+  return DeviceType::kNone;
+}
+
 PatternDescription::PatternDescription(lmhlo::FusionOp op,
                                        FusionPattern& fusionPattern,
                                        ShapeAnalysis& shapeAnalysis)
     : op_(op),
       fusionPattern_(fusionPattern),
       shapeAnalysis_(shapeAnalysis),
-      tagSet_(parsefusionTagSetFromStr(getFusionTagStr(op))) {
+      tagSet_(parsefusionTagSetFromStr(getFusionTagStr(op))),
+      deviceType_(placement_utils::isGpuMhlo(op) ? DeviceType::kGPU
+                                                 : DeviceType::kCPU) {
   // TODO(wyzero): select the pattern kind according to the `fusionPattern`.
   patternKind_ = PatternKind::kGEMM;
 }
@@ -1649,13 +1666,18 @@ const std::set<std::string>& PatternDescription::getPatternTagSet() const {
   return tagSet_;
 }
 
+DeviceType PatternDescription::getPatternDeviceType() const {
+  return deviceType_;
+}
+
 std::string PatternDescription::getTaggedPatternStr() const {
   return patternKindToString(patternKind_) + "@" + getPatternTagStr();
 }
 
 ScheduleFactory::ScheduleFactory(int64_t id, PatternKind kind,
-                                 ArrayRef<StringRef> tags)
-    : id_(id), kind_(kind) {
+                                 ArrayRef<StringRef> tags,
+                                 DeviceType deviceType)
+    : id_(id), kind_(kind), deviceType_(deviceType) {
   tagSet_.insert(Twine(id).str());
   for (auto tag : tags) {
     tagSet_.insert(tag.str());
@@ -1673,7 +1695,12 @@ bool ScheduleFactory::checkKindAndTags(PatternDescription& pattern) {
   return true;
 }
 
-bool ScheduleFactory::checkFusionPatternProperties(PatternDescription&) {
+bool ScheduleFactory::checkFusionPatternProperties(PatternDescription& pd) {
+  // Check the device.
+  if (deviceType_ != pd.getPatternDeviceType()) {
+    return false;
+  }
+
   return true;
 }
 
@@ -1724,14 +1751,58 @@ ScheduleFactoryRegistry::getAllCandidateScheduleFactories(
   SmallVector<ScheduleFactory*> factories;
   auto& factoryMap = patternMap_[pd.getPatternKind()];
   for (auto it = factoryMap.rbegin(); it != factoryMap.rend(); ++it) {
+#if 1
+    llvm::errs() << "[ZZ] to check fac: " << typeid(*(it->second)).name()
+                 << "\n";
+#endif
     if (it->second->accept(pd)) {
       factories.push_back(it->second.get());
       // early stop
-      if (it->second->noGuardCondition(pd)) break;
+      if (it->second->noGuardCondition(pd)) {
+        break;
+      }
     }
   }
   return factories;
 }
+
+// SmallVector<ScheduleFactory*>
+// ScheduleFactoryRegistry::getAllCandidateCPUScheduleFactories(
+//     PatternDescription& pd) {
+//   SmallVector<ScheduleFactory*> factories;
+//   auto& factoryMap = patternMap_[pd.getPatternKind()];
+//   for (auto it = factoryMap.rbegin(); it != factoryMap.rend(); ++it) {
+//     auto& factory = it->second;
+//     if (factory->getDeviceType() == DeviceType::kCPU && factory->accept(pd))
+//     {
+//       factories.push_back(factory.get());
+//       // early stop
+//       if (factory->noGuardCondition(pd)) {
+//         break;
+//       }
+//     }
+//   }
+//   return factories;
+// }
+
+// SmallVector<ScheduleFactory*>
+// ScheduleFactoryRegistry::getAllCandidateGPUScheduleFactories(
+//     PatternDescription& pd) {
+//   SmallVector<ScheduleFactory*> factories;
+//   auto& factoryMap = patternMap_[pd.getPatternKind()];
+//   for (auto it = factoryMap.rbegin(); it != factoryMap.rend(); ++it) {
+//     auto& factory = it->second;
+//     if (factory->getDeviceType() == DeviceType::kGPU && factory->accept(pd))
+//     {
+//       factories.push_back(factory.get());
+//       // early stop
+//       if (factory->noGuardCondition(pd)) {
+//         break;
+//       }
+//     }
+//   }
+//   return factories;
+// }
 
 ScheduleDispatcher::ScheduleDispatcher(const std::string& transformFileName)
     : transformFileName_(transformFileName) {}
@@ -1747,8 +1818,8 @@ ScheduleDispatcher::~ScheduleDispatcher() {
 LogicalResult ScheduleDispatcher::parseModuleFromFile(MLIRContext* ctx) {
   if (transformFileName_.empty() || !parsedModuleMap_.empty()) return success();
   std::string expectedFormatStr =
-      "<pattern-kind-0>:<tag-str-0>:<filename-0>;<pattern-kind-1>:<tag-str-1>:<"
-      "filename-1>";
+      "<pattern-kind-0>:<tag-str-0>:<device-0>:<filename-0>;"
+      "<pattern-kind-1>:<tag-str-1>:<device-1>:<filename-1>";
   SmallVector<StringRef> patternSettings;
   StringRef(transformFileName_)
       .split(patternSettings, ';', /*MaxSplit=*/-1, /*KeepEmpty=*/false);
@@ -1756,7 +1827,7 @@ LogicalResult ScheduleDispatcher::parseModuleFromFile(MLIRContext* ctx) {
   for (auto& patternSetting : patternSettings) {
     SmallVector<StringRef> items;
     patternSetting.split(items, ":", /*MaxSplit=*/-1, /*KeepEmpty=*/true);
-    if (items.size() != 3) {
+    if (items.size() != 4) {
       llvm::dbgs() << "illegal transform file setting, expected format:  "
                    << expectedFormatStr << "\n";
       return failure();
@@ -1769,12 +1840,21 @@ LogicalResult ScheduleDispatcher::parseModuleFromFile(MLIRContext* ctx) {
     }
 
     auto& transformModule = parsedModuleMap_[kind][items[1].str()];
-    if (failed(parseTransformModuleFromFile(ctx, items[2], transformModule))) {
-      llvm::dbgs()
-          << "illegal transform file setting, unable to load module from: "
-          << items[2] << "\n";
+
+    DeviceType deviceType = deviceTypeFromString(items[2].str());
+    if (deviceType == DeviceType::kNone) {
+      llvm::dbgs() << "illegal transform file setting, unknown device type: "
+                   << items[2] << "\n";
       return failure();
     }
+
+    if (failed(parseTransformModuleFromFile(ctx, items[3], transformModule))) {
+      llvm::dbgs()
+          << "illegal transform file setting, unable to load module from: "
+          << items[3] << "\n";
+      return failure();
+    }
+
     SmallVector<StringRef> tags;
     items[1].split(tags, kFusionTagSeparator, /*MaxSplit*/ -1,
                    /*KeepEmpty*/ false);
@@ -1782,7 +1862,7 @@ LogicalResult ScheduleDispatcher::parseModuleFromFile(MLIRContext* ctx) {
         kind, priority++,
         std::make_unique<ParsedFromFileScheduleFactory>(
             ScheduleFactoryRegistry::get().getNextUniqueId(), kind, tags,
-            transformModule.get()));
+            deviceType, transformModule.get()));
   }
   return success();
 }

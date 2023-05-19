@@ -3367,17 +3367,6 @@ DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
   return DiagnosedSilenceableFailure::success();
 }
 
-void DISCSplitReductionSerialOp::build(OpBuilder& builder,
-                                       OperationState& result, Value target,
-                                       ArrayRef<int64_t> tile_sizes) {
-  MLIRContext* ctx = builder.getContext();
-  result.addOperands(target);
-  result.addAttribute(
-      DISCSplitReductionSerialOp::getTileSizesAttrName(result.name),
-      builder.getDenseI64ArrayAttr(tile_sizes));
-  result.addTypes({pdl::OperationType::get(ctx)});
-}
-
 //===---------------------------------------------------------------------===//
 // DISCVectorToMMAConversionOp
 //===---------------------------------------------------------------------===//
@@ -3438,11 +3427,11 @@ transform_dialect::DISCVectorToMMAConversionOp::applyToOne(
 }
 
 //===----------------------------------------------------------------------===//
-// DISCPromoteOperandsOp
+// DISCPromoteDotOperandsOp
 //===----------------------------------------------------------------------===//
 
 DiagnosedSilenceableFailure
-transform_dialect::DISCPromoteOperandsOp::applyToOne(
+transform_dialect::DISCPromoteDotOperandsOp::applyToOne(
     Operation* target, transform::ApplyToEachResultList& results,
     transform::TransformState& state) {
   Location loc = target->getLoc();
@@ -3469,15 +3458,6 @@ transform_dialect::DISCPromoteOperandsOp::applyToOne(
     }
   }
   return DiagnosedSilenceableFailure::success();
-}
-
-void DISCPromoteOperandsOp::build(OpBuilder& builder, OperationState& result,
-                                  Value target, ArrayRef<int64_t> indices) {
-  MLIRContext* ctx = builder.getContext();
-  result.addOperands(target);
-  result.addAttribute(DISCPromoteOperandsOp::getIndicesAttrName(result.name),
-                      builder.getDenseI64ArrayAttr(indices));
-  result.addTypes({pdl::OperationType::get(ctx)});
 }
 
 }  // namespace transform_dialect

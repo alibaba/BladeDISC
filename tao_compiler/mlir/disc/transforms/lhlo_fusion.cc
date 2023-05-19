@@ -736,6 +736,10 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
             makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
         pipeline.emplace_back(
             makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch"));
+        if (useTransformSchedule()) {
+          pipeline.emplace_back(makeNewPlacementAwareFusionStrategy(
+              gpu_enabled_, "transform_based"));
+        }
       } else {
         pipeline.emplace_back(
             makeNewPlacementAwareFusionStrategy(gpu_enabled_, "sparse_base"));

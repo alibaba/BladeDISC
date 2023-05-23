@@ -24,7 +24,8 @@
 
 ## What's New
 
-+ [🔥 2022.12.08] BladeDISC v0.3.0:
++ [🔥 2023.03.17] BladeDISC v0.4.0: [Messive performance and feature updates](https://github.com/alibaba/BladeDISC/releases/tag/v0.4.0)
++ [2022.12.08] BladeDISC v0.3.0:
  [Announce PyTorch 2.0 Compilation Support](https://github.com/alibaba/BladeDISC/releases/tag/v0.3.0)
 
 ## Overview

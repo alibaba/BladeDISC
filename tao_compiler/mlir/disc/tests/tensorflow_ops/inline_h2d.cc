@@ -33,4 +33,16 @@ TEST(TFH2DOpTest, StaticShape1DI64) {
       /*output_descriptors*/ {"i64_d"}));
 }
 
+// kstitch style h2d fusion
+TEST(TFH2DOpTest, kStitchStyleFusion) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "inline_h2d_d_f32.mlir",
+      /*backend_types*/
+      {BackendType::kCuda},
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"31x30xf32_d"},
+      /*output_descriptors*/ {"f32_d"}));
+}
+
 }  // namespace mlir_test

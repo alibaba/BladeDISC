@@ -45,7 +45,8 @@ disc_cc_library(
         "@org_tensorflow//tensorflow/core:tensorflow",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "//mlir/xla/ral:ral_base_context_lib",
+        "//mlir/ral:ral_base_context_lib",
+        "//mlir/custom_ops:disc_custom_ops_lib",
     ] + if_cuda_is_configured([
         "@local_config_cuda//cuda:cuda_headers",
         "@local_config_cuda//cuda:cuda_driver",

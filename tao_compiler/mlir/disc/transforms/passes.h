@@ -86,7 +86,8 @@ createDiscSpecializeFusionWithSpeculationPass(int sm_count = -1,
 // Eliminates certain element types as the input or output of ops by inserting
 // Convert ops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscElementTypeConverterPass(
-    bool enable_fp16_gemm = false, bool enable_fp16_conv = false);
+    bool enable_fp16_gemm = false, bool enable_fp16_conv = false,
+    bool promote_fp16_sensitive_ops_to_f32 = false);
 
 // Greedily maps loops to GPU hardware dimensions.
 // TODO: this pass is only a wrapper to mlir func, copied from
@@ -264,6 +265,9 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscDenseToSparsePass(
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscSparseGemmTransposeSimplifierPass();
 
+// Epand ext/trunc of bfloat16
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscBF16ExpansionPass();
+
 // Converts fake_quant annotated graph to the real quantized version.
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertFakeQuantOpPass();
 
@@ -319,6 +323,8 @@ namespace mhlo_disc {
 
 // Legalizes mhlo_disc ops to lmhlo_disc ops.
 std::unique_ptr<OperationPass<ModuleOp>> createDiscLegalizeToLhloPass();
+
+std::unique_ptr<OperationPass<ModuleOp>> createDiscLhloRewriterPass();
 
 }  // namespace mhlo_disc
 }  // namespace mlir

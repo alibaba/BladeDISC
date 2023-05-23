@@ -20,7 +20,7 @@ jobs:
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda tiny
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_gpu.sh cuda tiny
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
@@ -35,7 +35,7 @@ jobs:
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda partial
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_gpu.sh cuda partial
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
@@ -51,93 +51,7 @@ jobs:
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
       extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda full
-      push_command: ""
-      remote_dev_docker: ""
-    secrets: inherit
-
-  TorchBenchCpuTiny:
-    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
-    uses: ./.github/workflows/reusable.yml
-    with:
-      name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
-      device: bare_metal_x86
-      dockerfile: docker/cronjobs/Dockerfile.torch.bench
-      extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu tiny 
-      push_command: ""
-      remote_dev_docker: ""
-    secrets: inherit
-
-  TorchBenchCpuPartial:
-    if: github.event.schedule == '30 15 * * *'
-    uses: ./.github/workflows/reusable.yml
-    with:
-      name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
-      device: bare_metal_x86
-      dockerfile: docker/cronjobs/Dockerfile.torch.bench
-      extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu partial 
-      push_command: ""
-      remote_dev_docker: ""
-    secrets: inherit
-
-  TorchBenchCpuFull:
-    if: github.event.schedule == '30 15 * * 5'
-    uses: ./.github/workflows/reusable.yml
-    with:
-      name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cpu
-      device: bare_metal_x86
-      timeout_minutes: 4320 # 72h
-      dockerfile: docker/cronjobs/Dockerfile.torch.bench
-      extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu full
-      push_command: ""
-      remote_dev_docker: ""
-    secrets: inherit
-
-  TorchBenchAArch64Tiny:
-    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
-    uses: ./.github/workflows/reusable.yml
-    with:
-      name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.13.1-cpu-aarch64
-      device: aarch64-bench
-      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
-      extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh aarch64 tiny
-      push_command: ""
-      remote_dev_docker: ""
-    secrets: inherit
-
-  TorchBenchAArch64Partial:
-    if: github.event.schedule == '30 15 * * *'
-    uses: ./.github/workflows/reusable.yml
-    with:
-      name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.13.1-cpu-aarch64
-      device: aarch64-bench
-      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
-      extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh aarch64 partial
-      push_command: ""
-      remote_dev_docker: ""
-    secrets: inherit
-
-  TorchBenchAArch64Full:
-    if: github.event.schedule == '30 15 * * 5'
-    uses: ./.github/workflows/reusable.yml
-    with:
-      name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.13.1-cpu-aarch64
-      device: aarch64-bench
-      timeout_minutes: 4320 # 72h
-      dockerfile: docker/cronjobs/Dockerfile.torch.bench.aarch64
-      extra_envs: -e RELATED_DIFF_PERCENT=5
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh aarch64 full
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/torch_bench_gpu.sh cuda full
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit

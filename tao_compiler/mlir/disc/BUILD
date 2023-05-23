@@ -449,7 +449,6 @@ cc_library(
     alwayslink = 1,
 )
 
-
 cc_library(
     name = "quantized_dot_rewriter",
     srcs = ["transforms/quantized_dot_rewriter.cc"],
@@ -844,7 +843,7 @@ cc_library(
         ":disc_util",
         ":pass_details",
         ":placement_utils",
-        "//mlir/xla/ral:ral_metadata",
+        "//mlir/ral:ral_metadata",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@org_tensorflow//tensorflow/core/platform:env",
         "@llvm-project//llvm:Core",
@@ -896,6 +895,37 @@ cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_lhlo_rewriter",
+    srcs = ["transforms/disc_lhlo_rewriter.cc"],
+    hdrs = [
+        "transforms/passes.h",
+        "transforms/rewriters.h",
+    ],
+    deps = [
+        ":mhlo_disc",
+        ":lmhlo_disc",
+        ":disc_ral",
+        ":disc_map_hlo_to_lhlo_op",
+        ":pass_details",
+        ":placement_utils",
+        ":shape_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:ShapeTransforms",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:SCFDialect",
     ],
     alwayslink = 1,
 )
@@ -1786,7 +1816,6 @@ cc_library(
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
-        "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:ShapeDialect",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
@@ -2010,6 +2039,25 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_bf16_expansion",
+    srcs = ["transforms/disc_bf16_expansion.cc"],
+    deps = [
+        ":lmhlo_disc",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:BufferizationTransforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_custom_call_rewriter",
     srcs = ["transforms/disc_custom_call_rewriter.cc"],
     deps = [
@@ -2185,6 +2233,7 @@ cc_library(
         ":disc_algebraic_simplifier",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
+        ":disc_bf16_expansion",
         ":disc_buffer_deallocation",
         ":disc_canonicalizer",
         ":disc_comp_intens_fusion_to_cuda_source",
@@ -2205,6 +2254,7 @@ cc_library(
         ":disc_gpu_kernel_to_blob",
         ":disc_gpu_source_to_lib",
         ":disc_hlo_legalize_to_lhlo",
+        ":disc_lhlo_rewriter",
         ":disc_hlo_to_std",
         ":disc_lhlo_legalize_roots_to_loops",
         ":disc_lower_tf",
@@ -2237,7 +2287,7 @@ cc_library(
         ":mhlo_mark_shape_calc",
         ":mhlo_placer",
         ":ral_inject_execution_context",
-	":reduction_rewriters",
+	    ":reduction_rewriters",
         ":revise_args_for_static_rank",
         ":revise_gpu_kernel_outlining",
         ":split_large_ops",
@@ -2671,12 +2721,12 @@ transitive_hdrs(
         ":disc_map_chlo_to_hlo_op",
         ":mhlo_disc",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "//mlir/xla/ral:ral_base_cpu_context_impl",
+        "//mlir/ral:ral_base_cpu_context_impl",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:IR",
     ] + if_cuda_or_rocm([
-        "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:ral_base_cuda_context_impl",
+        "@org_tensorflow//tensorflow/compiler/mlir/ral:ral_base_cuda_context_impl",
     ]),
     visibility = ["//visibility:public"],
 )

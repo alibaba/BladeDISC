@@ -15,7 +15,7 @@ as an example to introduce how to add a custom call operator step by step.
 
 BladeDISC provides a macro `TAO_RAL_API` to register a custom call operator. To
 make the code structure clearly, please create a new `transpose_impl.cc` file
-under the directory: `tao_compiler/mlir/xla/ral/context/`:
+under the directory: `tao_compiler/mlir/ral/context/`:
 
 ``` c++
 void ral_gpu_transpose_2d(ExecutionContext* ctx, void* stream_handle,
@@ -36,7 +36,7 @@ user-defined.
 Please note that `ral_gpu_transpose_2d` function will be called at runtime, so we
 can launch the GPU kernel in the function `LaunchTranspose2DKernel`, Usually you
 should add the kernel implementation to the directory
-`tao_compiler/mlir/xla/ral/context/custom_library/` .
+`tao_compiler/mlir/ral/context/custom_library/` .
 
 ### Step2: Translate LMHLO Operator to Custom Call Operator
 

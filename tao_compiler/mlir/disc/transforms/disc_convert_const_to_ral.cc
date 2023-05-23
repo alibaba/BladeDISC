@@ -29,7 +29,7 @@ limitations under the License.
 #include "mlir/disc/disc_util.h"
 #include "mlir/disc/transforms/PassDetail.h"
 #include "mlir/disc/transforms/placement_utils.h"
-#include "mlir/xla/ral/ral_metadata.h"
+#include "mlir/ral/ral_metadata.h"
 #include "tensorflow/core/platform/env.h"
 
 namespace mlir {

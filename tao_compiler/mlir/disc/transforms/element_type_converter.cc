@@ -91,6 +91,8 @@ mhlo::ReduceOp CloneAndReplaceElementType(mhlo::ReduceOp op,
     assert(false && "not supported reduce type");
   }
 
+  new_op->setAttrs(op->getAttrs());
+
   return new_op;
 }
 
@@ -230,14 +232,113 @@ struct ConvertDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
   }
 };
 
+template <typename OpTy>
+struct ElementwiseOpTypeConverter : public OpRewritePattern<OpTy> {
+  ElementwiseOpTypeConverter(MLIRContext* context, Type from, Type to)
+      : OpRewritePattern<OpTy>::OpRewritePattern(context) {
+    this->from_ = from;
+    this->to_ = to;
+  }
+
+  LogicalResult matchAndRewrite(OpTy op,
+                                PatternRewriter& rewriter) const override {
+    Location loc = op.getLoc();
+
+    auto compareElemTy = [&](Type ty) {
+      auto tensorTy = ty.dyn_cast<RankedTensorType>();
+      if (!tensorTy) return false;
+      return tensorTy.getElementType() == this->from_;
+    };
+
+    if (!llvm::all_of(op->getOperandTypes(), compareElemTy) ||
+        !llvm::all_of(op->getResultTypes(), compareElemTy))
+      return failure();
+
+    SmallVector<Value> newOperands;
+    for (Value operand : op->getOperands()) {
+      auto rankedTy = operand.getType().cast<RankedTensorType>();
+      auto newTy = RankedTensorType::get(rankedTy.getShape(), this->to_,
+                                         rankedTy.getEncoding());
+      newOperands.push_back(
+          rewriter.create<mhlo::ConvertOp>(loc, newTy, operand));
+    }
+    SmallVector<Type> newTypes;
+    for (Type ty : op->getResultTypes()) {
+      auto rankedTy = ty.cast<RankedTensorType>();
+      newTypes.push_back(RankedTensorType::get(rankedTy.getShape(), this->to_,
+                                               rankedTy.getEncoding()));
+    }
+    auto newOp =
+        rewriter.create<OpTy>(loc, newTypes, newOperands, op->getAttrs());
+    SmallVector<Value> newResults;
+    for (Value result : newOp->getResults()) {
+      auto rankedTy = result.getType().cast<RankedTensorType>();
+      auto newTy = RankedTensorType::get(rankedTy.getShape(), this->from_,
+                                         rankedTy.getEncoding());
+      newResults.push_back(
+          rewriter.create<mhlo::ConvertOp>(loc, newTy, result));
+    }
+    rewriter.replaceOp(op, newResults);
+    return success();
+  }
+
+  Type from_;
+  Type to_;
+};
+
+struct ReduceOpTypeConverter : public OpRewritePattern<mhlo::ReduceOp> {
+  ReduceOpTypeConverter(MLIRContext* context, Type from, Type to)
+      : OpRewritePattern<mhlo::ReduceOp>::OpRewritePattern(context) {
+    this->from_ = from;
+    this->to_ = to;
+  }
+
+  LogicalResult matchAndRewrite(mhlo::ReduceOp op,
+                                PatternRewriter& rewriter) const override {
+    Location loc = op.getLoc();
+
+    auto compareElemTy = [&](Type ty) {
+      auto tensorTy = ty.dyn_cast<RankedTensorType>();
+      if (!tensorTy) return false;
+      return tensorTy.getElementType() == this->from_;
+    };
+
+    if (!llvm::all_of(op->getOperandTypes(), compareElemTy) ||
+        !llvm::all_of(op->getResultTypes(), compareElemTy))
+      return failure();
+
+    SmallVector<Value> newOperands;
+    for (Value operand : op->getOperands())
+      newOperands.push_back(
+          rewriter.create<mhlo::ConvertOp>(loc, operand, this->to_));
+
+    mhlo::ReduceOp newOp =
+        CloneAndReplaceElementType(op, rewriter, this->to_, newOperands);
+    assert(newOp && "convert element type of reduce op failed");
+
+    SmallVector<Value> newResults;
+    for (Value result : newOp->getResults())
+      newResults.push_back(
+          rewriter.create<mhlo::ConvertOp>(loc, result, this->from_));
+    rewriter.replaceOp(op, newResults);
+    return success();
+  }
+
+  Type from_;
+  Type to_;
+};
+
 struct ElementTypeConverterPass
     : public ElementTypeConverterPassBase<ElementTypeConverterPass> {
   explicit ElementTypeConverterPass(bool enable_fp16_gemm,
-                                    bool enable_fp16_conv)
+                                    bool enable_fp16_conv,
+                                    bool promote_fp16_sensitive_ops_to_f32)
       : ElementTypeConverterPassBase<
             ElementTypeConverterPass>::ElementTypeConverterPassBase() {
     this->enable_fp16_gemm_ = enable_fp16_gemm;
     this->enable_fp16_conv_ = enable_fp16_conv;
+    this->promote_fp16_sensitive_ops_to_f32_ =
+        promote_fp16_sensitive_ops_to_f32;
   }
 
   void runOnOperation() override {
@@ -253,6 +354,16 @@ struct ElementTypeConverterPass
                       ConvertConvOp<mhlo::ConvolutionOp>>(&ctx);
     }
 
+    if (promote_fp16_sensitive_ops_to_f32_) {
+      FloatType f16_ty = FloatType::getF16(&ctx);
+      FloatType f32_ty = FloatType::getF32(&ctx);
+      patterns.insert<ElementwiseOpTypeConverter<mhlo::RsqrtOp>>(&ctx, f16_ty,
+                                                                 f32_ty);
+      patterns.insert<ElementwiseOpTypeConverter<mhlo::TanhOp>>(&ctx, f16_ty,
+                                                                f32_ty);
+      patterns.insert<ReduceOpTypeConverter>(&ctx, f16_ty, f32_ty);
+    }
+
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");
       signalPassFailure();
@@ -263,9 +374,10 @@ struct ElementTypeConverterPass
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscElementTypeConverterPass(
-    bool enable_fp16_gemm, bool enable_fp16_conv) {
-  return std::make_unique<ElementTypeConverterPass>(enable_fp16_gemm,
-                                                    enable_fp16_conv);
+    bool enable_fp16_gemm, bool enable_fp16_conv,
+    bool promote_fp16_sensitive_ops_to_f32) {
+  return std::make_unique<ElementTypeConverterPass>(
+      enable_fp16_gemm, enable_fp16_conv, promote_fp16_sensitive_ops_to_f32);
 }
 
 }  // namespace disc_ral

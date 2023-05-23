@@ -988,6 +988,21 @@ LogicalResult ShapeComputationIRAnalysis::applyShapeTensorOpConstraint(
         if (failed(mgr_.mapSymbolicDimEqual(lhsSymbol, outSymbol)))
           return op->emitError() << "fail to merge dim\n";
     }
+  } else if (auto computeReshapeOp =
+                 dyn_cast<mhlo::ComputeReshapeShapeOp>(op)) {
+    auto& inDims = shapeTensor2SymDims_[op->getOperand(1)];
+    auto& outDims = shapeTensor2SymDims_[op->getResult(0)];
+
+    if (inDims.size() != outDims.size()) {
+      return op->emitError() << "ComputeReshapeShapeOp mismatch rank\n";
+    }
+
+    for (auto [inSymbol, outSymbol] : llvm::zip(inDims, outDims)) {
+      if (mgr_.getRootSymbolicDim(inSymbol).getKnownNonNegative()) {
+        if (failed(mgr_.mapSymbolicDimEqual(inSymbol, outSymbol)))
+          return op->emitError() << "fail to merge dim\n";
+      }
+    }
   }
 
   // TODO: add support for arith::addi/subi/...

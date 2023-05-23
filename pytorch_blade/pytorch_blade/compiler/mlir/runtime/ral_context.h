@@ -30,11 +30,11 @@ using CUDAStream = ::c10::hip::HIPStream;
 #else // TORCH_BLADE_USE_ROCM
 #include <c10/cuda/CUDAStream.h>
 #endif // TORCH_BLADE_USE_ROCM
-#include "mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
+#include "mlir/ral/context/base/cuda/cuda_context_impl.h"
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 // TODO(disc): figure out why the bazel does not trigger re-compile this file
 // after we update ral.
-#include "mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
+#include "mlir/ral/context/base/cpu/cpu_context_impl.h"
 
 #include "pytorch_blade/common_utils/macros.h"
 #include "pytorch_blade/common_utils/tempfs.h"
@@ -56,12 +56,11 @@ class RalContext {
  private:
   void BindingInputs(
       const at::List<at::Tensor>& inputs,
-      tao::ral::ExecutionContext& exec_ctx) const;
-  bool CheckCurrentDevice(const at::List<at::Tensor>& inputs) const;
+      tao::ral::ExecutionContext& exec_ctx);
+  void CheckCurrentDevice(const at::List<at::Tensor>& inputs);
   at::List<at::Tensor> CreateAndBindingOutputs(
-      tao::ral::ExecutionContext& exec_ctx) const;
-  at::List<at::Tensor> PreProcessInputs(
-      const at::List<at::Tensor>& inputs) const;
+      tao::ral::ExecutionContext& exec_ctx);
+  at::List<at::Tensor> PreProcessInputs(const at::List<at::Tensor>& inputs);
   std::tuple<void*, void*> LoadEngine(const std::string& ral_engine_bytes);
 
   std::shared_ptr<backends::EngineState> engine_state_;
@@ -69,7 +68,10 @@ class RalContext {
   TempFile meta_tmpf_{"ral_meta.pb"};
 
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
-  int64_t gpu_device_;
+  int64_t LazyInitCurrentDevice();
+
+  constexpr static int64_t NULL_GPU_DEVICE = -1;
+  std::atomic<int64_t> gpu_device_{NULL_GPU_DEVICE};
   std::mutex mtx_;
   std::unordered_map<
       c10::cuda::CUDAStream,

@@ -268,4 +268,18 @@ def LHLODISC_SourceCodeOp: LHLODISC_Op<"source_code", [AttrSizedOperandSegments]
   );
 }
 
+def LHLODISC_ConcatenateOp : LHLODISC_Op<"concatenate", []> {
+  let summary = "DISC's concatenate op";
+  let description = [{
+     Concatenates a set of tensors along the specified dimension,
+     please note, this operator only supports fixed shape in the current codebase.
+   }];
+   let arguments = (ins
+     Arg<Variadic<LHLO_Buffer>, "", [MemRead]>:$val,
+     Arg<LHLO_Buffer, "", [MemRead]>:$input_ptrs,
+     Arg<LHLO_Buffer, "", [MemWrite]>:$output,
+     I64Attr:$dimension
+   );
+}
+
 #endif // LMHLO_DISC_OPS

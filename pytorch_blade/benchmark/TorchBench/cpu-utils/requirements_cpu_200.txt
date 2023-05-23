@@ -1,0 +1,9 @@
+--pre --extra-index-url https://download.pytorch.org/whl/nightly/cpu
+pandas
+librosa
+torchaudio==2.0.0.dev20230219+cpu
+torchtext==0.15.1
+onnx
+onnxruntime
+pyyaml
+intel_extension_for_pytorch==2.0.0

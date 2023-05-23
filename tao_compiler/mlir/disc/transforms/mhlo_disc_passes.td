@@ -20,3 +20,7 @@ def DiscHloLegalizeToLhloPass : Pass<"disc-hlo-legalize-to-lhlo", "ModuleOp"> {
   let constructor = "createDiscLegalizeToLhloPass()";
 }
 
+def DiscLhloRewriterPass: Pass<"disc-lhlo-rewriter", "ModuleOp"> {
+  let summary = "rewrite lmhlo ops to lmhlo_disc ops.";
+  let constructor = "createDiscLhloRewriterPass()";
+}

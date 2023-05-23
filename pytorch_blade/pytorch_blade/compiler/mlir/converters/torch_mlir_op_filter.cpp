@@ -25,14 +25,15 @@ const std::unordered_set<std::string>& GetTorchMlirWhiteList();
 
 bool IsTorchMlirSupported(const torch::jit::Node& node) {
   auto schema = node.maybeSchema();
+  bool ret = false;
   if (schema) {
-    return GetTorchMlirWhiteList().find(schema->operator_name().name) !=
+    ret = GetTorchMlirWhiteList().find(schema->operator_name().name) !=
         GetTorchMlirWhiteList().end();
   } else if (node.kind().is_prim()) {
     auto name = c10::OperatorName(node.kind().toQualString(), "").name;
-    return GetTorchMlirWhiteList().find(name) != GetTorchMlirWhiteList().end();
+    ret = GetTorchMlirWhiteList().find(name) != GetTorchMlirWhiteList().end();
   }
-  return false;
+  return ret;
 }
 
 // clang-format off
@@ -167,21 +168,28 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "torch_blade::fake_quant"
     };
 
+  static std::once_flag white, black;
 
-  static std::once_flag white;
-  std::call_once(white, []() {
-      auto custom_ops = env::ReadStringFromEnvVar("TORCH_MHLO_OP_WHITE_LIST", "");
-      std::ostringstream ostr;
-      ostr << "User defined white list: [";
-      std::istringstream f(custom_ops);
-      std::string s;
-      for (auto s : StrSplit(custom_ops, ';')) {
-        white_list.insert(std::string(s));
-        ostr << s << ", ";
-      }
-      ostr << "]";
-      LOG(INFO) << ostr.str();
+  std::call_once(white, [&]() {
+    auto list = StrSplit(env::ReadStringFromEnvVar("TORCH_MHLO_OP_WHITE_LIST", ""), ';');
+    for (auto s : list) {
+      white_list.insert(s);
+    }
   });
+  std::call_once(black, [&]() {
+    auto list = StrSplit(env::ReadStringFromEnvVar("TORCH_MHLO_OP_BLACK_LIST", ""), ';');
+    for (auto s : list) {
+      white_list.erase(s);
+    }
+  });
+
+  std::ostringstream ostr;
+  ostr << "User defined black list: [";
+  for (auto op : white_list) {
+    ostr << op << ", ";
+  }
+  LOG(INFO) << ostr.str() << "]";
+
   return white_list;
 }
 // clang-format off

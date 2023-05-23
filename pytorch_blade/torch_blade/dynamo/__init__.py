@@ -10,6 +10,7 @@
 # limitations under the License.
 
 import torch_blade.dynamo.patch_user_defined
+import torch_blade.dynamo.monkey_patch
 
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.backends.registry import register_backend

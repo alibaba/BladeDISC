@@ -297,7 +297,7 @@ def config_mkldnn(root, args):
               MAKE_NP="-j$(grep -c processor /proc/cpuinfo)"
 
               ACL_DIR={}
-              git clone --branch v22.02 --depth 1 $ACL_REPO $ACL_DIR
+              git clone --branch v23.02.1 --depth 1 $ACL_REPO $ACL_DIR
               cd $ACL_DIR
               EXTRA_ACL_PATCH_DIR={}
               for file in $EXTRA_ACL_PATCH_DIR/acl_*.patch
@@ -328,7 +328,7 @@ def config_mkldnn(root, args):
             envs += " ACL_ROOT_DIR={} ".format(acl_dir)
             flags += " -DDNNL_AARCH64_USE_ACL=ON "
 
-        if args.ral_cxx11_abi:
+        if hasattr(args, 'ral_cxx11_abi') and args.ral_cxx11_abi:
             flags += " -DUSE_CXX11_ABI=ON"
 
         cmake_cmd = "{}  cmake .. {}".format(envs, flags)

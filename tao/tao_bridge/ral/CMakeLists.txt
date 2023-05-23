@@ -76,44 +76,44 @@ endif()
 
 list(APPEND RAL_HDRS
     "tensorflow/compiler/mlir/xla/compile_metadata.pb.h"
-    "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
-    "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
-    "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
-    "tensorflow/compiler/mlir/xla/ral/context/tensorflow/tf_context_impl.h"
-    "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
-    "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
-    "tensorflow/compiler/mlir/xla/ral/ral_api.h"
-    "tensorflow/compiler/mlir/xla/ral/ral_base.h"
-    "tensorflow/compiler/mlir/xla/ral/ral_context.h"
-    "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
-    "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
-    "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
+    "tensorflow/compiler/mlir/ral/context/context_util.h"
+    "tensorflow/compiler/mlir/ral/context/common_context_impl.h"
+    "tensorflow/compiler/mlir/ral/context/stream_executor_based_impl.h"
+    "tensorflow/compiler/mlir/ral/context/tensorflow/tf_context_impl.h"
+    "tensorflow/compiler/mlir/ral/device/cpu/cpu_driver.h"
+    "tensorflow/compiler/mlir/ral/device/gpu/gpu_driver.h"
+    "tensorflow/compiler/mlir/ral/ral_api.h"
+    "tensorflow/compiler/mlir/ral/ral_base.h"
+    "tensorflow/compiler/mlir/ral/ral_context.h"
+    "tensorflow/compiler/mlir/ral/ral_driver.h"
+    "tensorflow/compiler/mlir/ral/ral_helper.h"
+    "tensorflow/compiler/mlir/ral/ral_logging.h"
 )
 
 list(APPEND RAL_SRCS
     "tensorflow/compiler/mlir/xla/compile_metadata.pb.cc"
-    "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.cc"
-    "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.cc"
-    "tensorflow/compiler/mlir/xla/ral/context/tensorflow/tf_context_impl.cc"
-    "tensorflow/compiler/mlir/xla/ral/context/tensorflow/tf_kernel_impl.cc"
-    "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.cc"
-    "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.cc"
-    "tensorflow/compiler/mlir/xla/ral/ral_api.cc"
-    "tensorflow/compiler/mlir/xla/ral/ral_context.cc"
-    "tensorflow/compiler/mlir/xla/ral/ral_helper.cc"
-    "tensorflow/compiler/mlir/xla/ral/ral_logging.cc"
+    "tensorflow/compiler/mlir/ral/context/common_context_impl.cc"
+    "tensorflow/compiler/mlir/ral/context/stream_executor_based_impl.cc"
+    "tensorflow/compiler/mlir/ral/context/tensorflow/tf_context_impl.cc"
+    "tensorflow/compiler/mlir/ral/context/tensorflow/tf_kernel_impl.cc"
+    "tensorflow/compiler/mlir/ral/device/cpu/cpu_driver.cc"
+    "tensorflow/compiler/mlir/ral/device/gpu/gpu_driver.cc"
+    "tensorflow/compiler/mlir/ral/ral_api.cc"
+    "tensorflow/compiler/mlir/ral/ral_context.cc"
+    "tensorflow/compiler/mlir/ral/ral_helper.cc"
+    "tensorflow/compiler/mlir/ral/ral_logging.cc"
 )
 
 #TODO: revisit this when support DCU in tf bridge
 if(${TAO_CUDA})
   list(APPEND RAL_SRCS
-      "tensorflow/compiler/mlir/xla/ral/context/dynamic_sort_impl.cc"
-      "tensorflow/compiler/mlir/xla/ral/context/random_impl.cc"
-      "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.cc"
+      "tensorflow/compiler/mlir/ral/context/dynamic_sort_impl.cc"
+      "tensorflow/compiler/mlir/ral/context/random_impl.cc"
+      "tensorflow/compiler/mlir/ral/context/common_context_impl_cuda.cc"
   )
   list(APPEND RAL_CU_SRCS
-      "tensorflow/compiler/mlir/xla/ral/context/custom_library/dynamic_sort.cu.cc"
-      "tensorflow/compiler/mlir/xla/ral/context/custom_library/random_gpu.cu.cc"
+      "tensorflow/compiler/mlir/ral/context/custom_library/dynamic_sort.cu.cc"
+      "tensorflow/compiler/mlir/ral/context/custom_library/random_gpu.cu.cc"
   )
 
   foreach(file ${RAL_CU_SRCS})
@@ -127,23 +127,23 @@ endif()
 
 if(${TAO_ROCM} OR ${TAO_DCU})
   list(APPEND RAL_SRCS
-    "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.cc"
+    "tensorflow/compiler/mlir/ral/context/common_context_impl_cuda.cc"
   )
   include_directories("${CMAKE_SOURCE_DIR}")
   list(APPEND RAL_HDRS
-    "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.h"
+    "tensorflow/compiler/mlir/ral/context/common_context_impl_cuda.h"
   )
 endif()
 
 #CustomLib Support for DCU to be revisited later
 if(${TAO_ROCM})
   list(APPEND RAL_SRCS
-  "tensorflow/compiler/mlir/xla/ral/context/dynamic_sort_impl.cc"
-  "tensorflow/compiler/mlir/xla/ral/context/random_impl.cc"
+  "tensorflow/compiler/mlir/ral/context/dynamic_sort_impl.cc"
+  "tensorflow/compiler/mlir/ral/context/random_impl.cc"
   )
   list(APPEND RAL_CU_SRCS
-    "tensorflow/compiler/mlir/xla/ral/context/custom_library/dynamic_sort.cu.cc"
-    "tensorflow/compiler/mlir/xla/ral/context/custom_library/random_gpu.cu.cc"
+    "tensorflow/compiler/mlir/ral/context/custom_library/dynamic_sort.cu.cc"
+    "tensorflow/compiler/mlir/ral/context/custom_library/random_gpu.cu.cc"
   )
   foreach(file ${RAL_CU_SRCS})
   set_source_files_properties(${file} PROPERTIES LANGUAGE HIP)
@@ -152,7 +152,7 @@ endif()
 
 if(${TAO_ENABLE_MKLDNN})
   list(APPEND RAL_SRCS
-    "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.cc"
+    "tensorflow/compiler/mlir/ral/context/common_context_impl_mkldnn.cc"
   )
 endif()
 

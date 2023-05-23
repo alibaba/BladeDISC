@@ -791,7 +791,8 @@ class BaseGpuFusionStrategy : public BaseFusionStrategy {
                       FusionPattern& target) {
     return lhs.isKInputFusion() && rhs.isKInputFusion();
   }
-
+  virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
+                       FusionPattern& rhs, FusionPattern& target) override;
   Value getEffectiveShape(FusionPattern& target, Value v) override;
   virtual StringRef getName() override { return "BaseGpuFusionStrategy"; }
 };
@@ -801,7 +802,8 @@ class StitchGpuFusionStrategy : public FusionStrategy {
   StitchGpuFusionStrategy(const FusionOptions& options)
       : FusionStrategy(options) {}
   virtual bool isFusible(Operation* op) override;
-
+  virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
+                       FusionPattern& rhs, FusionPattern& target) override;
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fusion_pattern) override;
   virtual StringRef getName() override { return "StitchGpuFusionStrategy"; }

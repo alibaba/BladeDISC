@@ -28,7 +28,7 @@
 #endif // TORCH_BLADE_USE_ROCM
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 
-#include "mlir/xla/ral/ral_api.h"
+#include "mlir/ral/ral_api.h"
 
 #include "pytorch_blade/common_utils/utils.h"
 
@@ -68,31 +68,37 @@ class RalAllocator : public tao::ral::Allocator {
 
 // Check if every tensor in a list of tensors matches the current
 // device.
-bool RalContext::CheckCurrentDevice(const at::List<at::Tensor>& inputs) const {
+void RalContext::CheckCurrentDevice(const at::List<at::Tensor>& inputs) {
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
-  TORCH_CHECK(gpu_device_ == c10::cuda::current_device());
+  int64_t gpu_device = LazyInitCurrentDevice();
   // TODO(gty): Refactor this function together with the one defined in TensorRT
   // Engine Context
   if (inputs.empty()) {
-    return true;
+    return;
   }
 
   // TODO: to support cpu only torch
-  torch::Device cur_cuda_device =
-      torch::Device(torch::kCUDA, c10::cuda::current_device());
+  torch::Device cur_cuda_device = torch::Device(torch::kCUDA, gpu_device);
 
   auto& inputs_info = engine_state_->inputs;
   TORCH_CHECK(inputs_info.size() == inputs.size());
   for (size_t k = 0; k < inputs.size(); ++k) {
     at::Tensor inp = inputs[k];
     auto device = inputs_info[k].device;
-    if (device == "cuda" && inp.device() != cur_cuda_device) {
-      return false;
+    if (device == "cuda") {
+      TORCH_CHECK(
+          inp.device() == cur_cuda_device,
+          "Input tensor ",
+          k,
+          " device mismatch. Expect: ",
+          cur_cuda_device,
+          ", got: ",
+          inp.device());
     }
   }
-  return true;
+  return;
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
-  return true;
+  return;
 }
 
 std::tuple<void*, void*> RalContext::LoadEngine(
@@ -134,7 +140,6 @@ RalContext::RalContext(std::shared_ptr<backends::EngineState> state)
 
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
   at::globalContext().lazyInitCUDA();
-  gpu_device_ = c10::cuda::current_device();
 #else
   ral_ctx_ = tao::ral::cpu::MakeBaseCpuContext(default_opt_, cpu_opt_);
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
@@ -149,9 +154,9 @@ RalContext::RalContext(std::shared_ptr<backends::EngineState> state)
 }
 
 at::List<at::Tensor> RalContext::PreProcessInputs(
-    const at::List<at::Tensor>& inputs) const {
+    const at::List<at::Tensor>& inputs) {
   // TODO: we currently only support inputs on the same device as tensorrt
-  TORCH_CHECK(CheckCurrentDevice(inputs));
+  CheckCurrentDevice(inputs);
 
   at::List<at::Tensor> contiguous_inputs;
   for (at::Tensor inp_tensor : inputs) {
@@ -164,7 +169,7 @@ at::List<at::Tensor> RalContext::PreProcessInputs(
 
 void RalContext::BindingInputs(
     const at::List<at::Tensor>& inputs,
-    tao::ral::ExecutionContext& exec_ctx) const {
+    tao::ral::ExecutionContext& exec_ctx) {
   for (size_t idx = 0; idx < inputs.size(); ++idx) {
     at::Tensor inp = inputs[idx];
     const auto& shape = inp.sizes();
@@ -179,7 +184,7 @@ inline bool IsEmptyTensor(const tao::ral::buffer_shape_t& shape) {
 }
 
 at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
-    tao::ral::ExecutionContext& exec_ctx) const {
+    tao::ral::ExecutionContext& exec_ctx) {
   at::List<at::Tensor> outputs;
 
   auto num_outputs = engine_state_->outputs.size();
@@ -237,13 +242,15 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
 
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
 tao::ral::BaseContext* RalContext::LoadCache() {
-  TORCH_CHECK(gpu_device_ == c10::cuda::current_device())
-  c10::cuda::CUDAStream stream = c10::cuda::getCurrentCUDAStream(gpu_device_);
+  int64_t gpu_device = LazyInitCurrentDevice();
+  TORCH_CHECK(
+      gpu_device >= 0, "expect gpu device id >= 0, but got ", gpu_device);
+  c10::cuda::CUDAStream stream = c10::cuda::getCurrentCUDAStream(gpu_device);
 
   // TODO: take care of the duplicated const
   // which currently is managed per context
   tao::ral::gpu::BaseCudaContextOption gpu_opt;
-  gpu_opt.device_ordinal = gpu_device_;
+  gpu_opt.device_ordinal = gpu_device;
   gpu_opt.use_stream_executor = true;
   gpu_opt.gpu_allocator.reset(new RalAllocator(
       c10::cuda::CUDACachingAllocator::raw_alloc,
@@ -262,6 +269,25 @@ tao::ral::BaseContext* RalContext::LoadCache() {
     ral_ctx_ptr = it->second.get();
   }
   return ral_ctx_ptr;
+}
+
+// Because weight is loaded by RAL lazily on the first inference. And there's no
+// way to to move loaded weight to another devices in RAL currently. So we need
+// to make sure no change on current device during inference. So the reasonable
+// restriction is to deny device change during inferences but allow it before
+// the first inference.
+int64_t RalContext::LazyInitCurrentDevice() {
+  int64_t cur_device = c10::cuda::current_device();
+  int64_t prev_device = NULL_GPU_DEVICE;
+  bool success = gpu_device_.compare_exchange_strong(prev_device, cur_device);
+  if (!success) {
+    TORCH_CHECK(
+        prev_device == cur_device,
+        "Device changed during inference. Please do NOT change CUDA "
+        "current device during inference.");
+  }
+  TORCH_CHECK(gpu_device_ != NULL_GPU_DEVICE);
+  return cur_device;
 }
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 
@@ -294,5 +320,6 @@ at::List<at::Tensor> RalContext::Execute(const at::List<at::Tensor>& inputs) {
   auto outputs = CreateAndBindingOutputs(*exec_ctx.get());
   return outputs;
 }
+
 } // namespace blade
 } // namespace torch

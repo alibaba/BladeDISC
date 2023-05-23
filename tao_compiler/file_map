@@ -2,5 +2,5 @@
 decoupling,tensorflow/compiler/decoupling
 mlir/disc,tensorflow/compiler/mlir/disc
 mlir/util,mlir/util
-mlir/xla/ral,tensorflow/compiler/mlir/xla/ral
+mlir/ral,tensorflow/compiler/mlir/ral
 .bazelrc.user,tensorflow/../.bazelrc.user

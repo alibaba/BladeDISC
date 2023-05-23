@@ -113,7 +113,8 @@ def ElementTypeConverterPass : Pass<"disc-element-type-converter", "mlir::func::
            /*default=*/"false", "Enable fp16 for GEMM or not.">,
     Option<"enable_fp16_conv_", "enable-fp16-conv", "bool",
            /*default=*/"false", "Enable fp16 for CONV or not.">,
-
+    Option<"promote_fp16_sensitive_ops_to_f32_", "promote-fp16-sensitive-ops-to-f32", "bool",
+           /*default=*/"false", "Promote some fp16 opts to fp32 if enabled.">
   ];
 }
 
@@ -508,6 +509,15 @@ def DiscDenseToSparsePass : Pass<"disc-dense-to-sparse", "mlir::func::FuncOp"> {
 def DiscSparseGemmTransposeSimplifierPass : Pass<"disc-sparse-gemm-transpose-simplifier", "mlir::func::FuncOp"> {
   let summary = "Remove some redundant transpose ops before sparse gemm/conv";
   let constructor = "createDiscSparseGemmTransposeSimplifierPass()";
+}
+
+
+def DiscBF16ExpansionPass : Pass<"disc-bf16-expansion", "mlir::func::FuncOp"> {
+  let summary = "expand ext/trunc of bf16";
+  let constructor = "createDiscBF16ExpansionPass()";
+  let dependentDialects = [
+    "arith::ArithDialect"
+  ];
 }
 
 def DiscConvertFakeQuantOpPass : Pass<"disc-convert-fake-quant-op", "mlir::func::FuncOp"> {

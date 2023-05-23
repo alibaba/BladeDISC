@@ -255,7 +255,7 @@ def insert_act_observer(ctx: GraphModContext) -> None:
         ob = ctx.modules.get(ob_path)
         # If it's not the first insertion, we sould have run the calibration data.
         # Then we ensure the quantization parameters are calculated.
-        if not getattr(ob, 'qparams_calculated', True):
+        if ob:
             ob.calculate_qparams()
         _ = ctx.get_or_create_module(ob_path, ctx.act_ob_ctr)
         with ctx.gm.graph.inserting_after(act):
@@ -449,11 +449,9 @@ def quantizable_module_to_amp(ctx: GraphModContext) -> None:
         act = node.args[0]
         act_name = act.name if act.op == 'call_function' else act.target
         act_ob = ctx.modules[f'{act_name}_ob']
-        if not getattr(act_ob, 'qparams_calculated', True):
-            act_ob.calculate_qparams()
+        act_ob.calculate_qparams()
         out_ob = ctx.modules[f'{node.target}_ob']
-        if not getattr(out_ob, 'qparams_calculated', True):
-            out_ob.calculate_qparams()
+        out_ob.calculate_qparams()
         w_ob = ctx.modules[f'{node.target}.w_ob']
         bias_ob = ctx.modules.get(f'{node.target}.bias_ob') if ctx.bias_ob_ctr else None
         dst = dst_type.from_float(src, w_ob, bias_ob)

@@ -113,6 +113,7 @@ class Observer(torch.nn.Module, ABC):
         self.observe = True
         self.fake_quant = True
         self.ch_axis = ch_axis
+        self._qparams_calculated = False
         self._register_load_state_dict_pre_hook(partial(pre_load_state_dict_hook, self))
 
     @property
@@ -160,6 +161,14 @@ class Observer(torch.nn.Module, ABC):
             f'signed={self.signed}, scale={scale}, zero_point={zero_point}'
         )
         return scale, zero_point
+
+    def _calculate(self):
+        pass
+
+    def calculate_qparams(self):
+        if not self._qparams_calculated:
+            self._calculate()
+            self._qparams_calculated = True
 
     @classmethod
     def from_qparams(cls, qparams: QParams):
@@ -433,7 +442,6 @@ class HistogramObserver(Observer):
         self.register_buffer("zero_point", torch.tensor(0, dtype=torch.int32))
         self.dst_nbins = 2 ** self.bit
         self.upsample_rate = upsample_rate
-        self.qparams_calculated = False
 
     def _get_norm(
             self, delta_begin: torch.Tensor, delta_end: torch.Tensor, density: torch.Tensor
@@ -688,10 +696,9 @@ class HistogramObserver(Observer):
             x_orig = torch.fake_quantize_per_tensor_affine(x_orig, self.scale, self.zero_point, self.q_min, self.q_max)
         return x_orig
 
-    def calculate_qparams(self):
-        is_uninitialized = self.min_val == float("inf") and self.max_val == float(
-            "-inf"
-        )
+    def _calculate(self):
+        init_min, init_max = float("inf"), float("-inf")
+        is_uninitialized = self.min_val == init_min and self.max_val == init_max
         if is_uninitialized:
             LOGGER.warning(
                 "must run observer before calling calculate_qparams.\
@@ -707,7 +714,6 @@ class HistogramObserver(Observer):
             new_min, new_max = self._non_linear_param_search()
             scale, zero_point = self._calculate_qparams(new_min, new_max)
 
-        self.qparams_calculated = True
         self.scale.resize_(scale.shape)
         self.zero_point.resize_(zero_point.shape)
         self.scale.copy_(scale)

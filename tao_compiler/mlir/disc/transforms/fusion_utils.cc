@@ -371,10 +371,21 @@ bool inSameFusionFamily(Operation* op, Operation* other) {
   return ((opFusionName == otherFusionName) && !opFusionName.empty());
 }
 
+bool isSingleElementH2DOp(Operation* op) {
+  auto h2d_op = dyn_cast<lmhlo_disc::H2DOp>(op);
+  if (!h2d_op) return false;
+  return op->getOperand(0).getType().cast<MemRefType>().getNumElements() == 1;
+}
+
 // Returns true if the op is an elementwise unary lmhlo op.
 // TODO(disc): use fusibility interface
 // TODO(disc): Unify with disc_supported_list.h and Elementwise Trait
 bool isElementWiseUnary(Operation* op) {
+  // scalar h2d op can be fused and promoted to as operands of the kernel.
+  if (isa<lmhlo_disc::H2DOp>(op)) {
+    return isSingleElementH2DOp(op);
+  }
+
   // clang-format off
   return isa<
     lmhlo::AbsOp,
@@ -1442,12 +1453,6 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 ////////////////////// Base GPU FusionStrategy Implementation /////////
 //////////////////////////////////////////////////////////////////
 
-bool isSingleElementH2DOp(Operation* op) {
-  auto h2d_op = dyn_cast<lmhlo_disc::H2DOp>(op);
-  if (!h2d_op) return false;
-  return op->getOperand(0).getType().cast<MemRefType>().getNumElements() == 1;
-}
-
 bool BaseGpuFusionStrategy::isFusible(Operation* op) {
   // Only rank-2 tensor -> rank-1 tensor reduction are supported now.
   if (isa<lmhlo::ReduceOp>(op) &&
@@ -1455,8 +1460,6 @@ bool BaseGpuFusionStrategy::isFusible(Operation* op) {
     return false;
 
   if (isa<lmhlo::TransposeOp>(op) && isRank2or3Transpose(op)) return false;
-  if (isSingleElementH2DOp(op)) return true;
-
   return BaseFusionStrategy::isFusible(op);
 }
 
@@ -1465,6 +1468,23 @@ Value BaseGpuFusionStrategy::getEffectiveShape(FusionPattern& target, Value v) {
   assert(result_op);
   // effective shape of reduce op is its operand's shape.
   return isa<lmhlo::ReduceOp>(result_op) ? result_op->getOperand(0) : v;
+}
+
+bool BaseGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
+                                    FusionPattern& lhs, FusionPattern& rhs,
+                                    FusionPattern& target) {
+  // TODO(Yancey): support fusion with different reduction type
+  bool has_row_reduction = llvm::any_of(target.getOpList(), [](Operation* op) {
+    return isRank2RowReduction(op);
+  });
+  bool has_col_reduciton = llvm::any_of(target.getOpList(), [](Operation* op) {
+    return isRank2ColReduction(op);
+  });
+
+  if (has_row_reduction && has_col_reduciton) {
+    return false;
+  }
+  return BaseFusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target);
 }
 
 ////////////////////// Stitch-Base CPU FusionStrategy Implemenation /////

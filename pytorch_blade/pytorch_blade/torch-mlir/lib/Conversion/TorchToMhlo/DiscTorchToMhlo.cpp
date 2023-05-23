@@ -672,6 +672,55 @@ LogicalResult ConvertAtenOp<AtenNegIntOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<AtenFillScalarOp>::matchAndRewrite(
+    AtenFillScalarOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto outType = OpConversionPattern<AtenFillScalarOp>::getTypeConverter()
+                     ->convertType(op.getType())
+                     .template dyn_cast<TensorType>();
+  if (!outType)
+    return op.emitError("only Tensor types supported in MHLO");
+  auto loc = op.getLoc();
+  Type outElemTy = outType.getElementType();
+  if (!outElemTy.isIntOrFloat())
+    return op.emitError(
+        "only floating-point or integer datatype legalization supported");
+  auto atenEMFOp =
+      dyn_cast<AtenEmptyMemoryFormatOp>(op.getSelf().getDefiningOp());
+  if (!atenEMFOp) {
+    return op.emitError("the producer of fill.Scalar should be aten.empty.");
+  }
+  auto shape = atenEMFOp.getSize();
+  SmallVector<Value, 4> dimSizes;
+  getListConstructElements(shape, dimSizes);
+  // BladeDISC use i32 as shape
+  std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
+    dSize = rewriter.create<ToI64Op>(op.getLoc(), dSize).getResult();
+    // dimSize: cast i64 -> i32
+    dSize = rewriter.create<arith::TruncIOp>(
+        op.getLoc(), rewriter.getI32Type(), dSize);
+    return dSize;
+  });
+
+  int64_t value;
+  if (!matchPattern(op.getValue(), m_TorchConstantInt(&value))) {
+    return op.emitError("value must be constant int");
+  }
+
+  auto mhloShape = rewriter.create<mlir::tensor::FromElementsOp>(loc, dimSizes);
+  auto constOp =
+      mhlo::getConstTensor<int32_t>(rewriter, op, {value}, {}).value();
+  auto castedConstOp =
+      rewriter.create<mhlo::ConvertOp>(loc, constOp, outType.getElementType());
+  auto result = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+      loc, outType, castedConstOp, mhloShape, rewriter.getI64TensorAttr({}));
+
+  rewriter.replaceOp(op, {result});
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<TensorStaticInfoCastOp>::matchAndRewrite(
     TensorStaticInfoCastOp op,
     OpAdaptor adaptor,
@@ -1581,6 +1630,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenWhereSelfOp);
     INSERT_ATENOP_PATTERN(AtenSqueezeDimOp);
     INSERT_ATENOP_PATTERN(AtenNegIntOp);
+    INSERT_ATENOP_PATTERN(AtenFillScalarOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \

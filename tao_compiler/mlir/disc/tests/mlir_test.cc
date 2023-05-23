@@ -27,15 +27,15 @@
 #endif
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
-#include "mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
+#include "mlir/ral/context/base/cuda/cuda_context_impl.h"
 #else
 // TODO(disc): figure out why the bazel does not trigger re-compile this file
 // after we update ral.
 //
-#include "mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
+#include "mlir/ral/context/base/cpu/cpu_context_impl.h"
 #endif
 
-#include "mlir/xla/ral/ral_api.h"
+#include "mlir/ral/ral_api.h"
 #include "tensorflow/core/framework/graph.pb.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"

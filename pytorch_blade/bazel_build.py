@@ -64,7 +64,8 @@ class BazelBuild(TorchBladeBuild):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.targets = [
-            "@org_disc_compiler//mlir/xla/ral:libral_base_context.so",
+            "@org_disc_compiler//mlir/ral:libral_base_context.so",
+            "@org_disc_compiler//mlir/custom_ops:libdisc_custom_ops.so",
             "//pytorch_blade:libtorch_blade.so",
             "//pytorch_blade:_torch_blade.so",
             "//tests/mhlo/torch-mlir-opt:torch-mlir-opt",

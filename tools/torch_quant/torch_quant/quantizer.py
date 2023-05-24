@@ -36,7 +36,6 @@ from torch_quant.mnn.MNN_compression_pb2 import Pipeline
 from torch_quant.module import ModuleFilter, copy_and_replace, fx_trace, submodule_filter
 from torch_quant.observer import (
     BiasObserver,
-    FakeQuantizer,
     HistogramObserver,
     LSQObserver,
     MinMaxObserver,
@@ -381,20 +380,6 @@ class Quantizer:
     def export_mnn_params(
         self, model: nn.Module, dummy_input: Union[Tuple[Any, ...], torch.Tensor]
     ) -> Pipeline:
-        settings = ['qscheme', 'dtype']
-        kwds = lambda keywords: {k: v for k, v in keywords.items() if k in settings}
-        act_ob_ctr = partial(FakeQuantizer, **kwds(self.act_ob_ctr.keywords))
-        w_ob_ctr = partial(FakeQuantizer, **kwds(self.w_ob_ctr.keywords))
-        ob_types = ObserverTypes(act_ob_ctr, w_ob_ctr, None)
-
-        onnx_model = dict()
-        all_quant_info = dict()
-        trace_mapping = fx_trace(model, self.module_filter, tracer=self.tracer)
-        for name, traced in trace_mapping.items():
-            self.export_mnn_params_gm(name, traced.gm, traced.m, ob_types)
-            onnx_model[name], quant_info = extract_quant_info(traced.gm, dummy_input)
-            all_quant_info.update(quant_info)
-        compress_proto = convert_mnn_params(all_quant_info)
-        if list(onnx_model.keys()) == ['']:
-            onnx_model = onnx_model.pop('')
+        onnx_model, quant_info = extract_quant_info(model, dummy_input)
+        compress_proto = convert_mnn_params(quant_info)
         return onnx_model, compress_proto

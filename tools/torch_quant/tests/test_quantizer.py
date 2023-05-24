@@ -63,7 +63,7 @@ class QuantizerTest(unittest.TestCase):
         torch.testing.assert_close(quant_output, original_output, rtol=0.1, atol=0.5)
 
         if backend == Backend.MNN:
-            _, compress_proto = quantizer.export_mnn_params(model, dummy_input)
+            _, compress_proto = quantizer.export_mnn_params(quant_model, dummy_input)
             self.assertEqual(len(compress_proto.algo[0].quant_params.layer), 3)
 
     # TODO(litan.ls): QAT is more suitable for this case

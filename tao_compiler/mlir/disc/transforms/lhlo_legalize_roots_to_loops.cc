@@ -1091,7 +1091,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_WARP_WISE_ROW_REDUCE>(
       root_ops.begin(), root_ops.end(), std::back_inserter(row_reduction_roots),
       [](Operation* operation) { return isRank2RowReduction(operation); });
 
-  const int thread_per_block = getThreadPerBlock(dominant_op);
+  const int thread_per_block = getCTASize(dominant_op);
   Location loc = dominant_op->getLoc();
   OpBuilder b(root_ops.back());
 
@@ -1522,7 +1522,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
   Value shape_h = b.create<memref::DimOp>(loc, lhs, zero);
   Value shape_w = b.create<memref::DimOp>(loc, lhs, one);
   Value num_threads =
-      b.create<arith::ConstantIndexOp>(loc, getThreadPerBlock(dominant_op));
+      b.create<arith::ConstantIndexOp>(loc, getCTASize(dominant_op));
   std::map<Operation*, Value> init_values_cache;
   SmallVector<Operation*, 4> row_reduction_ops;
   SmallVector<std::map<Operation*, Value>> shared_mem_map_vec(vector_size);
@@ -1620,10 +1620,10 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
     }
   }
 
-  Value lane_id_inbound = b.create<arith::CmpIOp>(
-      loc, arith::CmpIPredicate::slt, lane_id,
-      b.create<arith::ConstantIndexOp>(
-          loc, getThreadPerBlock(dominant_op) / kWarpSize));
+  Value lane_id_inbound =
+      b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, lane_id,
+                              b.create<arith::ConstantIndexOp>(
+                                  loc, getCTASize(dominant_op) / kWarpSize));
   scf::IfOp if_lane_id_inbound =
       b.create<scf::IfOp>(loc, /*resultTypes*/ root_elem_types, lane_id_inbound,
                           /*hasElseRegion*/ true);
@@ -1678,7 +1678,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
   auto acc_iter = if_lane_id_inbound.getResults().begin();
   if (failed(emitSecondRoundShuffle(b, loc, row_reduction_ops, acc_iter,
                                     thread_id_is_zero, row_ids, vector_size,
-                                    getThreadPerBlock(dominant_op)))) {
+                                    getCTASize(dominant_op)))) {
     return failure();
   }
 
@@ -2915,7 +2915,7 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
     }
   }
 
-  const int thread_per_block = getThreadPerBlock(dominant_op);
+  const int thread_per_block = getCTASize(dominant_op);
   int reduce_threads = (row_reduction_schedule == DISC_BLOCK_WISE_ROW_REDUCE)
                            ? thread_per_block
                            : kWarpSize;
@@ -3597,7 +3597,7 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
     }
   }
 
-  const int thread_per_block = getThreadPerBlock(dominant_op);
+  const int thread_per_block = getCTASize(dominant_op);
   int reduce_threads = (row_reduction_schedule == DISC_BLOCK_WISE_ROW_REDUCE)
                            ? thread_per_block
                            : kWarpSize;

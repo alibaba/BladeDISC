@@ -50,6 +50,7 @@
 #include "mlir/Support/MathExtras.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/utils.h"
+#include "mlir/disc/transforms/codegen_utils.h"
 
 /// Many code in this file are reused from IREE project, but with customization.
 
@@ -3279,6 +3280,104 @@ DiagnosedSilenceableFailure DISCLowerVectorsOp::applyToOne(
   }
 
   results.push_back(target);
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// DISCForeachThreadToGPUParallelOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure DISCForeachThreadToGPUParallelOp::applyToOne(
+    mlir::Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  /// from
+  /// ```
+  /// scf.foreach_thread (%arg3, %arg4) in (%c2, %c2) {
+  ///   xxx = some_op(%arg3, %arg4)
+  /// }
+  /// ```
+  /// to
+  /// ```
+  /// scf.parallel (%arg3, %arg4) = (%c0, %c0) to (%c4, %c256) step (%c1, %c1) {
+  ///   %0:2 = "disc_shape.delinearize"(%arg3, %c2, %c2) : (index, index, index)
+  //                                                    -> (index, index)
+  ///    xxx = some_op(%0#0, %0#1)
+  /// }
+  /// ```
+
+  OpBuilder b(target);
+  Location loc = target->getLoc();
+  MLIRContext* ctx = target->getContext();
+
+  auto foreachThreadOp = dyn_cast<scf::ForeachThreadOp>(target);
+  if (!foreachThreadOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to scf::ForeachThreadOp");
+  }
+
+  // Only support foreach_thread op with at most rank 3. Otherwise it could not
+  // convert to the GPU workgroup.
+  int64_t rank = foreachThreadOp.getRank();
+  if (rank > 3) {
+    return mlir::emitDefiniteFailure(
+        target,
+        "scf.foreach_thread with rank > 3 does not lower to GPU parallel op");
+  }
+
+  // It should contain the mapping information of GPU Block.
+  if (!foreachThreadOp.getMapping().has_value()) {
+    return mlir::emitDefiniteFailure(target,
+                                     "gpu block mapping must be present");
+  }
+  SmallVector<Attribute> blockMapping =
+      llvm::to_vector(foreachThreadOp.getMapping()->getValue());
+  if (llvm::any_of(blockMapping, [](DeviceMappingAttrInterface map) {
+        return !map.isa<gpu::GPUBlockMappingAttr>();
+      })) {
+    return mlir::emitDefiniteFailure(target,
+                                     "mapping must be #gpu.block<x/y/z/>");
+  }
+
+  Value blockNum = b.create<arith::ConstantIndexOp>(loc, 1);
+  SmallVector<Value> ctaDims = foreachThreadOp.getNumThreads();
+  for (auto dim : ctaDims) {
+    blockNum = b.create<arith::MulIOp>(loc, blockNum, dim);
+  }
+  // TODO: use other CTA sizes.
+  Value threadNum = b.create<arith::ConstantIndexOp>(loc, kCTASizeDefault);
+
+  SmallVector<Value, 2> vars;
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
+  SmallVector<Value> lowerBounds{zero, zero};
+  SmallVector<Value> upperBounds{blockNum, threadNum};
+  SmallVector<Value> steps{one, one};
+  auto parallelOp =
+      b.create<scf::ParallelOp>(loc, lowerBounds, upperBounds, steps);
+  // The `linearIdx` will be mapped to CTA index.
+  auto linearIdx = parallelOp.getInductionVars()[0];
+  b.setInsertionPointToStart(parallelOp.getBody());
+  auto mapped_index = calcMultiDimIndex(&b, loc, linearIdx, ctaDims);
+  IRMapping mapping;
+  for (const auto& z :
+       llvm::zip(foreachThreadOp.getThreadIndices(), mapped_index)) {
+    mapping.map(std::get<0>(z), std::get<1>(z));
+  }
+  for (auto& nestedOp : foreachThreadOp.getBody()->without_terminator()) {
+    b.clone(nestedOp, mapping);
+  }
+  if (foreachThreadOp.getResults().size() != parallelOp.getResults().size()) {
+    return mlir::emitDefiniteFailure(target,
+                                     "the result numbers should be matched");
+  }
+  for (const auto& z :
+       llvm::zip(foreachThreadOp.getResults(), parallelOp.getResults())) {
+    std::get<0>(z).replaceAllUsesWith(std::get<1>(z));
+  }
+  foreachThreadOp.erase();
+
+  results.push_back(parallelOp);
+
   return DiagnosedSilenceableFailure::success();
 }
 

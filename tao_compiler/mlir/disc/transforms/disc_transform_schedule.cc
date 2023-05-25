@@ -103,13 +103,14 @@ using transform::TileToForeachThreadOp;
 using transform::VectorizeOp;
 
 MatchOp buildMatchOp(OpBuilder& b, Location& loc, Value target,
-                     ArrayRef<StringRef> ops, StringRef name = {}) {
+                     ArrayRef<StringRef> ops, StringRef name = {},
+                     DictionaryAttr givenAttrs = nullptr) {
   ArrayAttr opNames;
   if (!ops.empty()) {
     opNames = b.getStrArrayAttr(ops);
   }
-  DictionaryAttr attrs;
-  if (!name.empty()) {
+  DictionaryAttr attrs = givenAttrs;
+  if (!name.empty() && givenAttrs == nullptr) {
     attrs = b.getDictionaryAttr(
         b.getNamedAttr(kDISCLinalgTransformName, b.getStringAttr(name)));
   }
@@ -119,14 +120,14 @@ MatchOp buildMatchOp(OpBuilder& b, Location& loc, Value target,
                            TypeAttr{});
 }
 
-TileToForeachThreadOp buildTileToForEachThreadOp(
+TileToForeachThreadOp buildTileToForeachThreadOp(
     OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> threads,
     transform::NumThreadsSpec numThreadsSpec, ArrayAttr mapping) {
   return b.create<TileToForeachThreadOp>(loc, target, threads, numThreadsSpec,
                                          mapping);
 }
 
-TileToForeachThreadOp buildTileToForEachThreadOp(
+TileToForeachThreadOp buildTileToForeachThreadOp(
     OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> tiles,
     transform::TileSizesSpec tileSizesSpec, ArrayAttr mapping) {
   return b.create<TileToForeachThreadOp>(loc, target, tiles, tileSizesSpec,
@@ -361,7 +362,6 @@ transform_dialect::LowerConditionalGenericOp buildLowerConditionalGenericOp(
 
 transform_dialect::DISCPromoteDotOperandsOp buildPromoteDotOperandsOp(
     OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> indices) {
-  // auto pdlType = pdl::OperationType::get(b.getContext());
   SmallVector<Type> pdlTypes(3, pdl::OperationType::get(b.getContext()));
   return b.create<transform_dialect::DISCPromoteDotOperandsOp>(loc, pdlTypes,
                                                                target, indices);
@@ -377,6 +377,13 @@ transform_dialect::DISCSplitReductionSerialOp buildSplitReductionSerialOp(
 transform_dialect::DISCVectorToMMAConversionOp buildVectorToMMAConversionOp(
     OpBuilder& b, Location& loc, Value target) {
   return b.create<transform_dialect::DISCVectorToMMAConversionOp>(loc, target);
+}
+
+transform_dialect::DISCForeachThreadToGPUParallelOp
+buildForeachThreadToGPUParallelOp(OpBuilder& b, Location& loc, Value target) {
+  auto pdlType = pdl::OperationType::get(b.getContext());
+  return b.create<transform_dialect::DISCForeachThreadToGPUParallelOp>(
+      loc, pdlType, target);
 }
 
 class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
@@ -484,14 +491,14 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
   Value matmul = matmulSplitOp->getResult(1);
 
   // transform.structured.tile_to_foreach_thread_op %matmul num_threads [1, 1]
-  auto forEachThreadOp = buildTileToForEachThreadOp(
+  auto foreachThreadOp = buildTileToForeachThreadOp(
       b, loc, matmul, {1, 1}, transform::NumThreadsSpec(), ArrayAttr{});
-  Value forEachThreadLoop = forEachThreadOp->getResult(0);
-  Value tiledMatmul = forEachThreadOp->getResult(1);
+  Value foreachThreadLoop = foreachThreadOp->getResult(0);
+  Value tiledMatmul = foreachThreadOp->getResult(1);
 
   // transform.structured.fuse_into_containing_op %fill into %0#0
   auto fuseIntoContainingOp =
-      buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+      buildFuseIntoContainingOp(b, loc, fill, foreachThreadLoop);
 
   // first/second level tile size for dimension m
   int64_t M0 = 288, M1 = 6;
@@ -588,7 +595,7 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
                      (N == ShapedType::kDynamic || N > N1));
   if (packWeight) {
     bool weightIsPadded = nIsPadded || kIsPadded;
-    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    foreachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
     SmallVector<int64_t> tileSizes;
     SmallVector<int64_t> permutation;
     if (rhsTranspose) {
@@ -598,7 +605,7 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
       tileSizes = {K0, N1};
       permutation = {2, 0, 1, 3};
     }
-    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+    buildCacheRead(b, loc, padForWeight, foreachThreadLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
 
@@ -708,17 +715,17 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
     rootHandle = buildMatchOp(b, loc, variant, {}, nameMap[rootOp]);
   }
 
-  auto forEachThreadOp = buildTileToForEachThreadOp(
+  auto foreachThreadOp = buildTileToForeachThreadOp(
       b, loc, rootHandle, {1, 1}, transform::NumThreadsSpec(), ArrayAttr{});
-  Value forEachThreadLoop = forEachThreadOp->getResult(0);
-  rootHandle = forEachThreadOp->getResult(1);
+  Value foreachThreadLoop = foreachThreadOp->getResult(0);
+  rootHandle = foreachThreadOp->getResult(1);
 
   Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
   auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
   Value fill = matmulSplitOp->getResult(0);
   Value matmul = matmulSplitOp->getResult(1);
-  matmul = buildFuseIntoContainingOp(b, loc, matmul, forEachThreadLoop);
-  fill = buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+  matmul = buildFuseIntoContainingOp(b, loc, matmul, foreachThreadLoop);
+  fill = buildFuseIntoContainingOp(b, loc, fill, foreachThreadLoop);
 
   // first/second level tile size for dimension m
   int64_t M0 = 288, M1 = 6;
@@ -841,7 +848,7 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
                      (N == ShapedType::kDynamic || N > N1));
   if (packWeight) {
     bool weightIsPadded = nIsPadded || kIsPadded;
-    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    foreachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
     SmallVector<int64_t> tileSizes;
     SmallVector<int64_t> permutation;
     if (rhsTranspose) {
@@ -851,7 +858,7 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
       tileSizes = {K0, N1};
       permutation = {2, 0, 1, 3};
     }
-    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+    buildCacheRead(b, loc, padForWeight, foreachThreadLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
 
@@ -982,14 +989,14 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
   Value matmul = matmulSplitOp->getResult(1);
 
   // transform.structured.tile_to_foreach_thread_op %matmul num_threads [1, 1]
-  auto forEachThreadOp = buildTileToForEachThreadOp(
+  auto foreachThreadOp = buildTileToForeachThreadOp(
       b, loc, matmul, {1, 1}, transform::NumThreadsSpec(), ArrayAttr{});
-  Value forEachThreadLoop = forEachThreadOp->getResult(0);
-  Value tiledMatmul = forEachThreadOp->getResult(1);
+  Value foreachThreadLoop = foreachThreadOp->getResult(0);
+  Value tiledMatmul = foreachThreadOp->getResult(1);
 
   // transform.structured.fuse_into_containing_op %fill into %0#0
   auto fuseIntoContainingOp =
-      buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+      buildFuseIntoContainingOp(b, loc, fill, foreachThreadLoop);
 
   // first level tile size for dimension m
   int64_t M0 = 288, M1 = 8;
@@ -1084,7 +1091,7 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
                      (N == ShapedType::kDynamic || N > N1));
   if (packWeight) {
     bool weightIsPadded = nIsPadded || kIsPadded;
-    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    foreachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
     SmallVector<int64_t> tileSizes;
     SmallVector<int64_t> permutation;
     if (rhsTranspose) {
@@ -1094,7 +1101,7 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
       tileSizes = {K1, N1};
       permutation = {2, 0, 1, 3};
     }
-    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+    buildCacheRead(b, loc, padForWeight, foreachThreadLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
 
@@ -1218,18 +1225,18 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   }
   rootHandle = buildLinalgEagerlyBackwardInitTensorOp(b, loc, rootHandle);
 
-  auto forEachThreadOp = buildTileToForEachThreadOp(
+  auto foreachThreadOp = buildTileToForeachThreadOp(
       b, loc, rootHandle, {1, 1}, transform::NumThreadsSpec(), ArrayAttr{});
-  Value forEachThreadLoop = forEachThreadOp->getResult(0);
-  rootHandle = forEachThreadOp->getResult(1);
+  Value foreachThreadLoop = foreachThreadOp->getResult(0);
+  rootHandle = foreachThreadOp->getResult(1);
 
   // build handle to target dot op.
   Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
   auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
   Value fill = matmulSplitOp->getResult(0);
   Value matmul = matmulSplitOp->getResult(1);
-  matmul = buildFuseIntoContainingOp(b, loc, matmul, forEachThreadLoop);
-  fill = buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+  matmul = buildFuseIntoContainingOp(b, loc, matmul, foreachThreadLoop);
+  fill = buildFuseIntoContainingOp(b, loc, fill, foreachThreadLoop);
 
   // first level tile size for dimension m
   int64_t M0 = 288, M1 = 8;
@@ -1373,7 +1380,7 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
                      (N == ShapedType::kDynamic || N > N1));
   if (packWeight) {
     bool weightIsPadded = nIsPadded || kIsPadded;
-    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    foreachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
     SmallVector<int64_t> tileSizes;
     SmallVector<int64_t> permutation;
     if (rhsTranspose) {
@@ -1383,7 +1390,7 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
       tileSizes = {K1, N1};
       permutation = {2, 0, 1, 3};
     }
-    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+    buildCacheRead(b, loc, padForWeight, foreachThreadLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
 
@@ -1524,12 +1531,14 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   SmallVector<Attribute> blockTileMapping{
       gpu::GPUBlockMappingAttr::get(ctx, gpu::Blocks::DimX),
       gpu::GPUBlockMappingAttr::get(ctx, gpu::Blocks::DimY)};
+
   auto blockTileMappingAttr = b.getArrayAttr(blockTileMapping);
-  auto forEachThreadOpBlock = buildTileToForEachThreadOp(
+
+  auto foreachThreadOpBlock = buildTileToForeachThreadOp(
       b, loc, matmul, {ctaTileSizes[0], ctaTileSizes[1]},
       transform::TileSizesSpec(), blockTileMappingAttr);
-  Value forEachThreadLoopBlock = forEachThreadOpBlock->getResult(0);
-  Value tiledMatmulBlock = forEachThreadOpBlock->getResult(1);
+  Value foreachThreadLoopBlock = foreachThreadOpBlock->getResult(0);
+  Value tiledMatmulBlock = foreachThreadOpBlock->getResult(1);
 
   // TODO: padding on block tile.
 
@@ -1548,11 +1557,11 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
   // Warp tile.
   const SmallVector<int64_t> warpTileSizes{64, 64, 32};
-  auto forEachThreadOpWarp = buildTileToForEachThreadOp(
+  auto foreachThreadOpWarp = buildTileToForeachThreadOp(
       b, loc, promotedMatmul, {warpTileSizes[0], warpTileSizes[1]},
       transform::TileSizesSpec(), ArrayAttr{});
-  Value forEachThreadLoopWarp = forEachThreadOpWarp->getResult(0);
-  Value tiledMatmulWarp = forEachThreadOpWarp->getResult(1);
+  Value foreachThreadLoopWarp = foreachThreadOpWarp->getResult(0);
+  Value tiledMatmulWarp = foreachThreadOpWarp->getResult(1);
 
   // K iteration on warp tile.
   auto splitReductionSerialOpWarp =
@@ -1575,6 +1584,14 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   // ============================= Bufferization =============================
 
   variant = buildDISCBufferize(b, loc, variant, true);
+
+  // ===================== ForeachThreadOp to ParallelOp =====================
+
+  auto blockTileMappingDictAttr =
+      b.getDictionaryAttr({b.getNamedAttr("mapping", blockTileMappingAttr)});
+  Value foreach = buildMatchOp(b, loc, variant, {"scf.foreach_thread"}, {},
+                               blockTileMappingDictAttr);
+  auto parallelOp = buildForeachThreadToGPUParallelOp(b, loc, foreach);
 
   // TODO: shared memory swizzle to avoid bank conflict.
 
@@ -1751,10 +1768,6 @@ ScheduleFactoryRegistry::getAllCandidateScheduleFactories(
   SmallVector<ScheduleFactory*> factories;
   auto& factoryMap = patternMap_[pd.getPatternKind()];
   for (auto it = factoryMap.rbegin(); it != factoryMap.rend(); ++it) {
-#if 1
-    llvm::errs() << "[ZZ] to check fac: " << typeid(*(it->second)).name()
-                 << "\n";
-#endif
     if (it->second->accept(pd)) {
       factories.push_back(it->second.get());
       // early stop
@@ -1765,44 +1778,6 @@ ScheduleFactoryRegistry::getAllCandidateScheduleFactories(
   }
   return factories;
 }
-
-// SmallVector<ScheduleFactory*>
-// ScheduleFactoryRegistry::getAllCandidateCPUScheduleFactories(
-//     PatternDescription& pd) {
-//   SmallVector<ScheduleFactory*> factories;
-//   auto& factoryMap = patternMap_[pd.getPatternKind()];
-//   for (auto it = factoryMap.rbegin(); it != factoryMap.rend(); ++it) {
-//     auto& factory = it->second;
-//     if (factory->getDeviceType() == DeviceType::kCPU && factory->accept(pd))
-//     {
-//       factories.push_back(factory.get());
-//       // early stop
-//       if (factory->noGuardCondition(pd)) {
-//         break;
-//       }
-//     }
-//   }
-//   return factories;
-// }
-
-// SmallVector<ScheduleFactory*>
-// ScheduleFactoryRegistry::getAllCandidateGPUScheduleFactories(
-//     PatternDescription& pd) {
-//   SmallVector<ScheduleFactory*> factories;
-//   auto& factoryMap = patternMap_[pd.getPatternKind()];
-//   for (auto it = factoryMap.rbegin(); it != factoryMap.rend(); ++it) {
-//     auto& factory = it->second;
-//     if (factory->getDeviceType() == DeviceType::kGPU && factory->accept(pd))
-//     {
-//       factories.push_back(factory.get());
-//       // early stop
-//       if (factory->noGuardCondition(pd)) {
-//         break;
-//       }
-//     }
-//   }
-//   return factories;
-// }
 
 ScheduleDispatcher::ScheduleDispatcher(const std::string& transformFileName)
     : transformFileName_(transformFileName) {}

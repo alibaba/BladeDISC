@@ -225,6 +225,7 @@ cc_library(
         ":DISCLinalgExtDialect",
         ":disc_transform_utils",
         ":transform_ops_inc_gen",
+        "//mlir/disc:codegen_utils",
         "@iree-dialects//:IREELinalgExtDialect",
         "@iree-dialects//:IREELinalgExtTransformOps",
         "@iree-dialects//:IREELinalgTransformDialect",

@@ -936,10 +936,61 @@ def DISCLowerVectorsOp : Op<Transform_Dialect, "disc.vector.lower_vectors",
   }];
 }
 
+def DISCForeachThreadToGPUParallelOp : Op<Transform_Dialect, "disc.foreach_thread_to_gpu_parallel",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    This converts the foreach_threads op with at most three ranks into a
+    parallel op for GPU threads mapping of both blocks and threads. the target
+    op should have GPU Block mapping.
 
-def DISCSplitReductionSerialOp : Op<Transform_Dialect, "disc.split_reduction_serial",
-       [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
-        TransformEachOpTrait, TransformOpInterface]> {
+    Return the generated parallel op of rank 2.
+
+    /// Example:
+    ///
+    /// from
+    /// ```
+    /// scf.foreach_thread (%arg3, %arg4) in (%c2, %c2) {
+    ///   xxx = some_op(%arg3, %arg4)
+    /// }
+    /// ```
+    /// to
+    /// ```
+    /// scf.parallel (%arg3, %arg4) = (%c0, %c0) to (%c4, %c256)
+    ///                               step (%c1, %c1) {
+    ///   %0:2 = "disc_shape.delinearize"(%arg3, %c2, %c2) :
+    ///                    (index, index, index) -> (index, index)
+    ///    xxx = some_op(%0#0, %0#1)
+    /// }
+    /// ```
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$parallel_op);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type($target, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCSplitReductionSerialOp :
+  Op<Transform_Dialect, "disc.split_reduction_serial",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
   let description = [{
     Indicates that the given `target` op should be transformed with the
     `tileReduction` transformation with the tile size provided as attribute.
@@ -1000,7 +1051,8 @@ def DISCSplitReductionSerialOp : Op<Transform_Dialect, "disc.split_reduction_ser
 }
 
 def DISCVectorToMMAConversionOp : Op<Transform_Dialect, "disc.vector.vector_to_mma_conversion",
-    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    [FunctionalStyleTransformOpTrait,
+     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
      TransformEachOpTrait,
      TransformOpInterface]> {
   let description = [{

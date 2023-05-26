@@ -12,7 +12,7 @@
 #include "mlir/custom_ops/custom_library/gpu_helper.h"
 #include "mlir/custom_ops/custom_library/tf_transpose.cu.h"
 #include "mlir/custom_ops/custom_library/transpose.h"
-#include "mlir/ral/context/stream_executor_based_impl.h"
+#include "tensorflow/core/platform/stream_executor_no_cuda.h"
 
 namespace tao {
 namespace ral {

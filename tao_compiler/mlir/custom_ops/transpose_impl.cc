@@ -15,13 +15,14 @@
 
 #include "mlir/custom_ops/custom_library/transpose.h"
 #include "mlir/ral/context/context_util.h"
-#include "mlir/ral/context/stream_executor_based_impl.h"
 #include "mlir/ral/device/gpu/gpu_driver.h"
 #include "mlir/ral/ral_context.h"
 #include "mlir/ral/ral_driver.h"
 #include "mlir/ral/ral_helper.h"
 #include "mlir/ral/ral_logging.h"
 
+// this file is required for Eigen::half
+#include "tensorflow/core/platform/stream_executor_no_cuda.h"
 using tao::ral::buffer_t;
 using tao::ral::Context;
 using tao::ral::ExecutionContext;
@@ -31,6 +32,8 @@ using tao::ral::gpu::stream_t;
 
 namespace tao {
 namespace ral {
+
+DEFINE_TAO_TYPE_NAME_HELPER(Eigen::half, "f16");
 
 #if defined(GOOGLE_CUDA) || \
     defined(TENSORFLOW_USE_ROCM) && !defined(TENSORFLOW_USE_DCU)

@@ -15,12 +15,12 @@
 
 #include "mlir/custom_ops/custom_library/transpose.h"
 #include "mlir/ral/context/context_util.h"
-#include "tensorflow/core/platform/stream_executor_no_cuda.h"
 #include "mlir/ral/device/gpu/gpu_driver.h"
 #include "mlir/ral/ral_context.h"
 #include "mlir/ral/ral_driver.h"
 #include "mlir/ral/ral_helper.h"
 #include "mlir/ral/ral_logging.h"
+#include "tensorflow/core/platform/stream_executor_no_cuda.h"
 
 // this file is required for Eigen::half
 #include "tensorflow/core/platform/stream_executor_no_cuda.h"

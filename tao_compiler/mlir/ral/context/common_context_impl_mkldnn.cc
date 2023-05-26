@@ -440,41 +440,9 @@ void runAclAMPGemmKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     info->op.prepare(&info->src, &info->weights, nullptr, &info->dst);
     return info;
   };
+  // TODO: support weight prepacking
   std::shared_ptr<AclGemmInfo> info;
-  std::shared_ptr<AclGemmThreadSafeInfo> thread_safe_info;
-  if (isWeightPrePackingForMatMulEnabled() && weight_is_const) {
-    std::string unique_name = "";
-    if (is_bf16_gemm)
-      unique_name = "disc.ral_amp_gemm_acl_bf16_bf16_fp32";
-    else
-      unique_name = "disc.ral_amp_gemm_acl_f16_f16_f16";
-    auto state = ctx->getOrCreateResource<AclGemmState>(
-        unique_name, []() { return new AclGemmState; });
-    GEMMParamsKey key;
-    key.tid = kDiscCpuDefaultThreadId;
-    key.const_weight_ptr =
-        weight_is_const ? reinterpret_cast<uint16_t*>(weight.data) : nullptr;
-    key.batch = 1;
-    key.m = m;
-    key.n = n;
-    key.k = k;
-    key.transpose_a = tp_a;
-    key.transpose_b = tp_b;
-
-    GEMMParamsKey dynamicKey;
-    dynamicKey.tid = kDiscCpuDefaultThreadId;
-    dynamicKey.const_weight_ptr =
-        weight_is_const ? reinterpret_cast<uint16_t*>(weight.data) : nullptr;
-    dynamicKey.batch = 1;
-    dynamicKey.n = n;
-    dynamicKey.k = k;
-    dynamicKey.transpose_a = tp_a;
-    dynamicKey.transpose_b = tp_b;
-    thread_safe_info = state->getOrCreate(dynamicKey);
-    info = thread_safe_info->getOrCreate(key, AclGemmCreator);
-  } else {
-    info = AclGemmCreator(nullptr);
-  }
+  info = AclGemmCreator(nullptr);
   info->op.run(&info->src, &info->weights, nullptr, &info->dst);
   timer.Stop();
   if (isProfilingEnabled()) {

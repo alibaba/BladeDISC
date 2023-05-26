@@ -20,7 +20,6 @@
 #include "mlir/ral/ral_driver.h"
 #include "mlir/ral/ral_helper.h"
 #include "mlir/ral/ral_logging.h"
-#include "tensorflow/core/platform/stream_executor_no_cuda.h"
 
 // this file is required for Eigen::half
 #include "tensorflow/core/platform/stream_executor_no_cuda.h"

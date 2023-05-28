@@ -580,8 +580,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // Coalesce generated parallels to have 1d parallels.
     // TODO: 2D parallel -> collapsing -> tiling process introduces div/rem/if
     // ops which hurts performance. To optimize.
-    pm.addNestedPass<FuncOp>(
-        disc_ral::createDiscConvertForeachThreadOpToParallelOpPass());
     pm.addNestedPass<FuncOp>(disc_ral::createDiscParallelLoopCollapsingPass());
     // TODO: adopt tileSize from attributes of speculation pass with a
     // wrapper of the original ParallelLoopTilingPass
@@ -627,6 +625,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       kernelPm.addPass(createLoopInvariantCodeMotionPass());
       kernelPm.addPass(createCSEPass());
     }
+    kernelPm.addNestedPass<gpu::GPUFuncOp>(
+        memref::createExpandStridedMetadataPass());
     kernelPm.addPass(createConvertSCFToCFPass());
     kernelPm.addPass(createLowerAffinePass());
     kernelPm.addNestedPass<FuncOp>(createCanonicalizerPass());

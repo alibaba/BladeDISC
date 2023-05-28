@@ -12,6 +12,8 @@
 #ifndef DISC_TRANSFORM_OPS_EXT
 #define DISC_TRANSFORM_OPS_EXT
 
+// include "mlir/Dialect/GPU/IR/GPUBase.td"
+include "mlir/Dialect/GPU/TransformOps/GPUDeviceMappingAttr.td"
 include "mlir/Dialect/PDL/IR/PDLTypes.td"
 include "mlir/Dialect/Transform/IR/TransformAttrs.td"
 include "mlir/Dialect/Transform/IR/TransformDialect.td"
@@ -936,7 +938,7 @@ def DISCLowerVectorsOp : Op<Transform_Dialect, "disc.vector.lower_vectors",
   }];
 }
 
-def DISCForeachThreadToGPUParallelOp : Op<Transform_Dialect, "disc.foreach_thread_to_gpu_parallel",
+def DISCForeachThreadToGPUCTAsOp : Op<Transform_Dialect, "disc.foreach_thread_to_gpu_ctas",
     [FunctionalStyleTransformOpTrait,
      MemoryEffectsOpInterface,
      TransformEachOpTrait,
@@ -969,6 +971,49 @@ def DISCForeachThreadToGPUParallelOp : Op<Transform_Dialect, "disc.foreach_threa
 
   let arguments = (ins PDL_Operation:$target);
   let results = (outs PDL_Operation:$parallel_op);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type($target, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+
+def DISCForeachThreadToGPUWarpsOp : Op<Transform_Dialect, "disc.foreach_thread_to_gpu_warps",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    This converts the foreach_threads op with at most three ranks into the
+    computations of the current warp according to the calculation with gpu
+    thread id and numthreads of current op.
+
+    /// Example:
+    ///
+    /// from
+    /// ```
+    /// scf.foreach_thread (%arg3, %arg4) in (%c2, %c2) {
+    ///   xxx = some_op(%arg3, %arg4)
+    /// }
+    /// ```
+    /// to
+    /// ```
+    /// TBD.
+    /// ```
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs);
 
   let assemblyFormat = [{
     $target
@@ -1112,6 +1157,41 @@ def DISCPromoteDotOperandsOp :
   let assemblyFormat = [{
     $target
     $indices
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+
+// Copied from community as an workaournd for some wired bugs, e.g, it'll not
+// converge if the tile of the k is one.
+def DISCLowerGmemToSmemOp : Op<Transform_Dialect, "disc.gmem_to_smem",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Converts the linalg.generic that executes the global memory to shared memory
+    movement function to memref operations on the GPU. It requires that the gmem
+    to smem is expressed as an linalg.generic op.
+
+    Example:
+    TBD.
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
     attr-dict
     `:` functional-type(operands, results)
   }];

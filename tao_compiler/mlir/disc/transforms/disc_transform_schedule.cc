@@ -379,11 +379,23 @@ transform_dialect::DISCVectorToMMAConversionOp buildVectorToMMAConversionOp(
   return b.create<transform_dialect::DISCVectorToMMAConversionOp>(loc, target);
 }
 
-transform_dialect::DISCForeachThreadToGPUParallelOp
-buildForeachThreadToGPUParallelOp(OpBuilder& b, Location& loc, Value target) {
+transform_dialect::DISCForeachThreadToGPUCTAsOp buildForeachThreadToGPUCTAsOp(
+    OpBuilder& b, Location& loc, Value target) {
   auto pdlType = pdl::OperationType::get(b.getContext());
-  return b.create<transform_dialect::DISCForeachThreadToGPUParallelOp>(
-      loc, pdlType, target);
+  return b.create<transform_dialect::DISCForeachThreadToGPUCTAsOp>(loc, pdlType,
+                                                                   target);
+}
+
+transform_dialect::DISCForeachThreadToGPUWarpsOp buildForeachThreadToGPUWarpsOp(
+    OpBuilder& b, Location& loc, Value target) {
+  return b.create<transform_dialect::DISCForeachThreadToGPUWarpsOp>(loc,
+                                                                    target);
+}
+
+transform_dialect::DISCLowerGmemToSmemOp buildLowerGmemToSmemOp(OpBuilder& b,
+                                                                Location& loc,
+                                                                Value target) {
+  return b.create<transform_dialect::DISCLowerGmemToSmemOp>(loc, target);
 }
 
 class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
@@ -1531,7 +1543,6 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   SmallVector<Attribute> blockTileMapping{
       gpu::GPUBlockMappingAttr::get(ctx, gpu::Blocks::DimX),
       gpu::GPUBlockMappingAttr::get(ctx, gpu::Blocks::DimY)};
-
   auto blockTileMappingAttr = b.getArrayAttr(blockTileMapping);
 
   auto foreachThreadOpBlock = buildTileToForeachThreadOp(
@@ -1557,9 +1568,15 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
   // Warp tile.
   const SmallVector<int64_t> warpTileSizes{64, 64, 32};
+  // Use 'threads' to indicate 'warp'.
+  SmallVector<Attribute> warpTileMapping{
+      gpu::GPUThreadMappingAttr::get(ctx, gpu::Threads::DimX),
+      gpu::GPUThreadMappingAttr::get(ctx, gpu::Threads::DimY)};
+  auto warpTileMappingAttr = b.getArrayAttr(warpTileMapping);
+
   auto foreachThreadOpWarp = buildTileToForeachThreadOp(
       b, loc, promotedMatmul, {warpTileSizes[0], warpTileSizes[1]},
-      transform::TileSizesSpec(), ArrayAttr{});
+      transform::TileSizesSpec(), warpTileMappingAttr);
   Value foreachThreadLoopWarp = foreachThreadOpWarp->getResult(0);
   Value tiledMatmulWarp = foreachThreadOpWarp->getResult(1);
 
@@ -1585,13 +1602,24 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
   variant = buildDISCBufferize(b, loc, variant, true);
 
-  // ===================== ForeachThreadOp to ParallelOp =====================
+  // ==================== ForeachThreadOp to GPU mappings ====================
 
   auto blockTileMappingDictAttr =
       b.getDictionaryAttr({b.getNamedAttr("mapping", blockTileMappingAttr)});
-  Value foreach = buildMatchOp(b, loc, variant, {"scf.foreach_thread"}, {},
-                               blockTileMappingDictAttr);
-  auto parallelOp = buildForeachThreadToGPUParallelOp(b, loc, foreach);
+  Value foreachBlock = buildMatchOp(b, loc, variant, {"scf.foreach_thread"}, {},
+                                    blockTileMappingDictAttr);
+  auto parallelOp = buildForeachThreadToGPUCTAsOp(b, loc, foreachBlock);
+
+  auto warpTileMappingDictAttr =
+      b.getDictionaryAttr({b.getNamedAttr("mapping", warpTileMappingAttr)});
+  Value foreachWarp = buildMatchOp(b, loc, variant, {"scf.foreach_thread"}, {},
+                                   warpTileMappingDictAttr);
+  buildForeachThreadToGPUWarpsOp(b, loc, foreachWarp);
+
+  // ======================== Gmem to Smem conversion ========================
+
+  Value genericOp = buildMatchOp(b, loc, variant, {"linalg.generic"});
+  buildLowerGmemToSmemOp(b, loc, genericOp);
 
   // TODO: shared memory swizzle to avoid bank conflict.
 

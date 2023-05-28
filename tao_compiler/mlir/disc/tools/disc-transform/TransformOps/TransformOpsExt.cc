@@ -128,7 +128,10 @@ static FailureOr<Value> gpuComprehensiveBufferizeAllocationFn(
 static LogicalResult gpuComprehensiveBufferizeDeallocationFn(OpBuilder& builder,
                                                              Location loc,
                                                              Value allocation) {
-  builder.create<memref::DeallocOp>(loc, allocation);
+  if (!hasSharedMemoryAddressSpace(allocation.getType().cast<MemRefType>())) {
+    // No dealloc for shared memory on GPU because.
+    builder.create<memref::DeallocOp>(loc, allocation);
+  }
   return success();
 }
 
@@ -3284,17 +3287,17 @@ DiagnosedSilenceableFailure DISCLowerVectorsOp::applyToOne(
 }
 
 //===---------------------------------------------------------------------===//
-// DISCForeachThreadToGPUParallelOp
+// DISCForeachThreadToGPUCTAsOp
 //===---------------------------------------------------------------------===//
 
-DiagnosedSilenceableFailure DISCForeachThreadToGPUParallelOp::applyToOne(
+DiagnosedSilenceableFailure DISCForeachThreadToGPUCTAsOp::applyToOne(
     mlir::Operation* target, transform::ApplyToEachResultList& results,
     transform::TransformState& state) {
   /// from
   /// ```
   /// scf.foreach_thread (%arg3, %arg4) in (%c2, %c2) {
   ///   xxx = some_op(%arg3, %arg4)
-  /// }
+  /// } {mapping = [#gpu.block<x>, #gpu.block<y>]}
   /// ```
   /// to
   /// ```
@@ -3324,18 +3327,18 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUParallelOp::applyToOne(
         "scf.foreach_thread with rank > 3 does not lower to GPU parallel op");
   }
 
-  // It should contain the mapping information of GPU Block.
+  // It should contain the mapping information of GPU Block or Warps.
   if (!foreachThreadOp.getMapping().has_value()) {
+    return mlir::emitDefiniteFailure(target, "gpu mapping must be present");
+  }
+  SmallVector<Attribute> gpuMapping =
+      llvm::to_vector(foreachThreadOp.getMapping()->getValue());
+  if (!llvm::all_of(gpuMapping, [](DeviceMappingAttrInterface map) {
+        return map.isa<gpu::GPUBlockMappingAttr>();
+      })) {
+    // return DiagnosedSilenceableFailure::success();
     return mlir::emitDefiniteFailure(target,
                                      "gpu block mapping must be present");
-  }
-  SmallVector<Attribute> blockMapping =
-      llvm::to_vector(foreachThreadOp.getMapping()->getValue());
-  if (llvm::any_of(blockMapping, [](DeviceMappingAttrInterface map) {
-        return !map.isa<gpu::GPUBlockMappingAttr>();
-      })) {
-    return mlir::emitDefiniteFailure(target,
-                                     "mapping must be #gpu.block<x/y/z/>");
   }
 
   Value blockNum = b.create<arith::ConstantIndexOp>(loc, 1);
@@ -3377,6 +3380,84 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUParallelOp::applyToOne(
   foreachThreadOp.erase();
 
   results.push_back(parallelOp);
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// DISCForeachThreadToGPUWarpsOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure DISCForeachThreadToGPUWarpsOp::applyToOne(
+    mlir::Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  /// from
+  /// ```
+  /// scf.foreach_thread (%arg3, %arg4) in (%c2, %c2) {
+  ///   xxx = some_op(%arg3, %arg4)
+  /// } {mapping = [#gpu.thread<x>, #gpu.thread<y>]}
+  /// ```
+  /// to
+  /// ```
+  /// warp_linear = gpu.threadX / 32
+  /// warp_ids =
+  /// TBD.
+  /// ```
+
+  OpBuilder b(target);
+  Location loc = target->getLoc();
+  MLIRContext* ctx = target->getContext();
+
+  auto foreachThreadOp = dyn_cast<scf::ForeachThreadOp>(target);
+  if (!foreachThreadOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to scf::ForeachThreadOp");
+  }
+
+  // Only support foreach_thread op with at most rank 3. Otherwise it could not
+  // convert to the GPU workgroup.
+  int64_t rank = foreachThreadOp.getRank();
+  if (rank > 3) {
+    return mlir::emitDefiniteFailure(
+        target,
+        "scf.foreach_thread with rank > 3 does not lower to GPU parallel op");
+  }
+
+  // It should contain the mapping information of GPU Block or Warps.
+  if (!foreachThreadOp.getMapping().has_value()) {
+    return mlir::emitDefiniteFailure(target, "gpu mapping must be present");
+  }
+  SmallVector<Attribute> gpuMapping =
+      llvm::to_vector(foreachThreadOp.getMapping()->getValue());
+  if (!llvm::all_of(gpuMapping, [](DeviceMappingAttrInterface map) {
+        return map.isa<gpu::GPUThreadMappingAttr>();
+      })) {
+    // TODO: Use thread mapping to indicate warp mapping currently. To use warp
+    // attr after rebase.
+    // return DiagnosedSilenceableFailure::success();
+    return mlir::emitDefiniteFailure(target,
+                                     "gpu warp mapping must be present");
+  }
+
+  Value threadId =
+      b.create<gpu::ThreadIdOp>(loc, b.getIndexType(), gpu::Dimension::x);
+  Value warpSize = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
+  Value warpId = b.create<arith::DivUIOp>(loc, threadId, warpSize);
+  SmallVector<Value> warpDims = foreachThreadOp.getNumThreads();
+  auto mappedIndex = calcMultiDimIndex(&b, loc, warpId, warpDims);
+  IRMapping mapping;
+  for (const auto& z :
+       llvm::zip(foreachThreadOp.getThreadIndices(), mappedIndex)) {
+    mapping.map(std::get<0>(z), std::get<1>(z));
+  }
+  for (auto& nestedOp : foreachThreadOp.getBody()->without_terminator()) {
+    b.clone(nestedOp, mapping);
+  }
+  // for (const auto& z :
+  //      llvm::zip(foreachThreadOp.getResults(), parallelOp.getResults())) {
+  //   std::get<0>(z).replaceAllUsesWith(std::get<1>(z));
+  // }
+  foreachThreadOp.erase();
 
   return DiagnosedSilenceableFailure::success();
 }
@@ -3556,6 +3637,37 @@ transform_dialect::DISCPromoteDotOperandsOp::applyToOne(
       return emitDefaultDefiniteFailure(target) << "invalid index specified";
     }
   }
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCLowerGmemToSmemOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCLowerGmemToSmemOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  SimplePatternRewriter rewriter(target->getContext());
+  rewriter.setInsertionPoint(target);
+  Location loc = target->getLoc();
+  MLIRContext* ctx = target->getContext();
+
+  auto genericOp = dyn_cast<linalg::GenericOp>(target);
+  if (!genericOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to linalg::GenericOp");
+  }
+
+  // TODO: check it is gmem to smem movement.
+
+  auto forOp = linalgOpToLoops(rewriter, genericOp);
+  if (failed(forOp)) {
+    return mlir::emitDefiniteFailure(target, "convert to forOp failed");
+  }
+  // TODO: convert forOp to instructions mapped to threads.
+  target->erase();
+
   return DiagnosedSilenceableFailure::success();
 }
 

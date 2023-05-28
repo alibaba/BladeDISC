@@ -32,6 +32,8 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/NVGPUToNVVM/NVGPUToNVVM.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
@@ -39,6 +41,7 @@
 #include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -181,6 +184,9 @@ struct DiscLowerGpuOpsToNVVMOpsPass
         "mlir::LLVM::SinOp>",
         "mlir::VectorConvertToLLVMPattern<mlir::math::SqrtOp, "
         "mlir::LLVM::SqrtOp>"};
+#if 1
+    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
     // Add the fix before official patterns.
     llvmPatterns.add<GenericAtomicRMWOpLoweringWithBitcast>(
@@ -188,10 +194,13 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     llvmPatterns.add<RemoveUselessUnrealizedConversionCastOp>(converter);
     mlir::arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);
     populateMathToLLVMConversionPatterns(converter, patterns);
+    mlir::memref::populateExpandStridedMetadataPatterns(patterns);
     populateFinalizeMemRefToLLVMConversionPatterns(converter, llvmPatterns);
     populateFuncToLLVMConversionPatterns(converter, patterns);
     cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
+    populateVectorToLLVMConversionPatterns(converter, llvmPatterns);
     populateGpuToNVVMConversionPatterns(converter, llvmPatterns);
+    populateNVGPUToNVVMConversionPatterns(converter, llvmPatterns);
     populateGpuWMMAToNVVMConversionPatterns(converter, llvmPatterns);
     auto llvmFrozenPatterns =
         FrozenRewritePatternSet(std::move(llvmPatterns), disablePatterns, {});

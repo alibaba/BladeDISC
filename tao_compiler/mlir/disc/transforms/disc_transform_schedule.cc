@@ -398,6 +398,12 @@ transform_dialect::DISCLowerGmemToSmemOp buildLowerGmemToSmemOp(OpBuilder& b,
   return b.create<transform_dialect::DISCLowerGmemToSmemOp>(loc, target);
 }
 
+transform_dialect::DISCEraseDeallocOp buildEraseDeallocOp(OpBuilder& b,
+                                                          Location& loc,
+                                                          Value target) {
+  return b.create<transform_dialect::DISCEraseDeallocOp>(loc, target);
+}
+
 class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
   explicit ParsedFromFileScheduleFactory(int64_t id, PatternKind kind,
@@ -1601,6 +1607,8 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   // ============================= Bufferization =============================
 
   variant = buildDISCBufferize(b, loc, variant, true);
+  Value funcAfterBufferize = buildMatchOp(b, loc, variant, {"func.func"});
+  buildEraseDeallocOp(b, loc, funcAfterBufferize);
 
   // ==================== ForeachThreadOp to GPU mappings ====================
 

@@ -311,6 +311,10 @@ createDiscTransformLegalizeToLoopPass(bool gpuEnabled = false,
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscDuplicateComputationAfterFusionPass();
 
+// Erase dealloc ops for GPU func ops.
+std::unique_ptr<OperationPass<gpu::GPUFuncOp>>
+createDiscEraseBufferDeallocationPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

@@ -158,6 +158,9 @@ class GpuKernelToBlobPass
       bool virtual_compute_arch = false) {
     llvm::LLVMContext llvmContext;
     auto llvmModule = mlir::translateModuleToLLVMIR(gpu_module, llvmContext);
+#if 1
+    llvm::errs() << "[ZZ] the llvm module is: " << *llvmModule << "\n";
+#endif
 
 #if TENSORFLOW_USE_ROCM
 #if TENSORFLOW_USE_ROCM_COMPILE_TOOLKIT

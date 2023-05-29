@@ -1170,9 +1170,6 @@ def DISCPromoteDotOperandsOp :
   }];
 }
 
-
-// Copied from community as an workaournd for some wired bugs, e.g, it'll not
-// converge if the tile of the k is one.
 def DISCLowerGmemToSmemOp : Op<Transform_Dialect, "disc.gmem_to_smem",
     [FunctionalStyleTransformOpTrait,
      MemoryEffectsOpInterface,
@@ -1185,6 +1182,33 @@ def DISCLowerGmemToSmemOp : Op<Transform_Dialect, "disc.gmem_to_smem",
 
     Example:
     TBD.
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCEraseDeallocOp : Op<Transform_Dialect, "disc.erase_dealloc",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Erases dealloc ops, for GPU functions.
   }];
 
   let arguments = (ins PDL_Operation:$target);

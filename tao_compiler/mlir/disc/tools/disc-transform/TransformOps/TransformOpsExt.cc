@@ -128,10 +128,7 @@ static FailureOr<Value> gpuComprehensiveBufferizeAllocationFn(
 static LogicalResult gpuComprehensiveBufferizeDeallocationFn(OpBuilder& builder,
                                                              Location loc,
                                                              Value allocation) {
-  if (!hasSharedMemoryAddressSpace(allocation.getType().cast<MemRefType>())) {
-    // No dealloc for shared memory on GPU because.
-    builder.create<memref::DeallocOp>(loc, allocation);
-  }
+  builder.create<memref::DeallocOp>(loc, allocation);
   return success();
 }
 
@@ -258,10 +255,12 @@ DiagnosedSilenceableFailure DISCBufferizeOp::apply(
                                      "bufferization failed.");
 
   PassManager pm(getContext());
-  pm.addNestedPass<func::FuncOp>(
-      bufferization::createPromoteBuffersToStackPass([](Value alloc) {
-        return betterToUseAlloca(alloc.getType().cast<ShapedType>());
-      }));
+  if (!getTargetGpu()) {
+    pm.addNestedPass<func::FuncOp>(
+        bufferization::createPromoteBuffersToStackPass([](Value alloc) {
+          return betterToUseAlloca(alloc.getType().cast<ShapedType>());
+        }));
+  }
   pm.addNestedPass<func::FuncOp>(bufferization::createBufferDeallocationPass());
 
   if (failed(pm.run(moduleOp)))
@@ -3667,6 +3666,27 @@ transform_dialect::DISCLowerGmemToSmemOp::applyToOne(
   }
   // TODO: convert forOp to instructions mapped to threads.
   target->erase();
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCEraseDeallocOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure transform_dialect::DISCEraseDeallocOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  // This op can be used to erase dealloc ops after bufferization on GPU.
+
+  auto funcOp = cast<func::FuncOp>(target);
+
+  SmallVector<memref::DeallocOp> deallocOps;
+  funcOp.walk([&](memref::DeallocOp op) { deallocOps.push_back(op); });
+
+  for (auto op : deallocOps) {
+    op->erase();
+  }
 
   return DiagnosedSilenceableFailure::success();
 }

@@ -601,3 +601,8 @@ def DiscDuplicateComputationAfterFusionPass : Pass<"disc-duplicate-computation-a
   let summary = "Duplicate and fuse some computations into the consumer fusion op in order to remove memory footprint.";
   let constructor = "createDiscDuplicateComputationAfterFusionPass()";
 }
+
+def DiscEraseBufferDeallocationPass : Pass<"disc-erase-buffer-deallocation", "mlir::gpu::GPUFuncOp"> {
+  let summary = "Erase dealloc op for GPU func ops.";
+  let constructor = "createDiscEraseBufferDeallocationPass()";
+}

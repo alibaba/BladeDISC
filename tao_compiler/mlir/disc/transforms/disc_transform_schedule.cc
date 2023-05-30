@@ -398,10 +398,20 @@ transform_dialect::DISCLowerGmemToSmemOp buildLowerGmemToSmemOp(OpBuilder& b,
   return b.create<transform_dialect::DISCLowerGmemToSmemOp>(loc, target);
 }
 
+transform_dialect::DISCTransferWriteZeroToSCFOp buildTransferWriteZeroToSCFOp(
+    OpBuilder& b, Location& loc, Value target) {
+  return b.create<transform_dialect::DISCTransferWriteZeroToSCFOp>(loc, target);
+}
+
 transform_dialect::DISCEraseDeallocOp buildEraseDeallocOp(OpBuilder& b,
                                                           Location& loc,
                                                           Value target) {
   return b.create<transform_dialect::DISCEraseDeallocOp>(loc, target);
+}
+
+transform_dialect::DISCInlineAndConvertGPUIdsOp buildInlineAndConvertGPUIdsOp(
+    OpBuilder& b, Location& loc, Value target) {
+  return b.create<transform_dialect::DISCInlineAndConvertGPUIdsOp>(loc, target);
 }
 
 class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
@@ -1557,6 +1567,10 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   Value foreachThreadLoopBlock = foreachThreadOpBlock->getResult(0);
   Value tiledMatmulBlock = foreachThreadOpBlock->getResult(1);
 
+  // Fuse fill op in to the foreach loop.
+  auto fuseIntoContainingOp =
+      buildFuseIntoContainingOp(b, loc, fill, foreachThreadLoopBlock);
+
   // TODO: padding on block tile.
 
   // K iteration on block tile.
@@ -1609,6 +1623,15 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   variant = buildDISCBufferize(b, loc, variant, true);
   Value funcAfterBufferize = buildMatchOp(b, loc, variant, {"func.func"});
   buildEraseDeallocOp(b, loc, funcAfterBufferize);
+  Value func2ConvertTransfer = buildMatchOp(b, loc, variant, {"func.func"});
+  // TODO: init with 0 in parallel.
+  buildTransferWriteZeroToSCFOp(b, loc, func2ConvertTransfer);
+
+  // %func_to_convert_transfer = transform.structured.match ops{["func.func"]}
+  // in %bufferized : (!pdl.operation) -> !pdl.operation transform.print
+  // %func_to_convert_transfer {name = "after bufferization"} : !pdl.operation
+  // transform.disc.transfer_write_zero_to_scf %func_to_convert_transfer :
+  // (!pdl.operation) -> ()
 
   // ==================== ForeachThreadOp to GPU mappings ====================
 
@@ -1635,6 +1658,11 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
   Value func4MMA = buildMatchOp(b, loc, variant, {"func.func"});
   auto vectorToMMAConversionOp = buildVectorToMMAConversionOp(b, loc, func4MMA);
+
+  // ============================ Post processing ============================
+
+  Value func4PostProcess = buildMatchOp(b, loc, variant, {"func.func"});
+  buildInlineAndConvertGPUIdsOp(b, loc, func4PostProcess);
 
   b.create<transform::YieldOp>(loc);
 

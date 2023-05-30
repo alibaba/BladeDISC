@@ -3378,6 +3378,8 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUCTAsOp::applyToOne(
   }
   foreachThreadOp.erase();
 
+  parallelOp->setAttr("mapping", StringAttr::get(ctx, "cta-thread-mapping"));
+
   results.push_back(parallelOp);
 
   return DiagnosedSilenceableFailure::success();
@@ -3438,8 +3440,17 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUWarpsOp::applyToOne(
                                      "gpu warp mapping must be present");
   }
 
-  Value threadId =
-      b.create<gpu::ThreadIdOp>(loc, b.getIndexType(), gpu::Dimension::x);
+  // It should have a parent parallel op, with attribute `mapping =
+  // "cta-thread-mapping"`.
+  auto parallelOp = target->getParentOfType<scf::ParallelOp>();
+  auto parallelAttr = parallelOp->getAttrOfType<StringAttr>("mapping");
+  if (!parallelAttr || !parallelAttr.getValue().equals("cta-thread-mapping")) {
+    return mlir::emitDefiniteFailure(
+        target, "gpu warp loop must be in CTA parallel op");
+  }
+
+  Value threadId = parallelOp.getInductionVars()[1];
+  // b.create<gpu::ThreadIdOp>(loc, b.getIndexType(), gpu::Dimension::x);
   Value warpSize = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
   Value warpId = b.create<arith::DivUIOp>(loc, threadId, warpSize);
   SmallVector<Value> warpDims = foreachThreadOp.getNumThreads();
@@ -3570,12 +3581,6 @@ transform_dialect::DISCVectorToMMAConversionOp::applyToOne(
     return emitDefaultDefiniteFailure(target);
   }
 
-  auto funcOp = dyn_cast<func::FuncOp>(target);
-  if (!funcOp) {
-    target->emitOpError("Must apply to a func op");
-    return emitDefaultDefiniteFailure(target);
-  }
-
   MLIRContext* ctx = target->getContext();
 
   // Unrolling to native vector size must have previously occurred.
@@ -3589,12 +3594,12 @@ transform_dialect::DISCVectorToMMAConversionOp::applyToOne(
     return emitDefaultDefiniteFailure(target);
   }
 
-  if (failed(convertVectorToNVVMCompatibleMMASync(funcOp))) {
+  if (failed(convertVectorToNVVMCompatibleMMASync(target))) {
     target->emitOpError("vector to mma patterns failed to apply");
     return emitDefaultDefiniteFailure(target);
   }
   // Using TF32 for Float.
-  RewritePatternSet f32ToTF32patterns(funcOp.getContext());
+  RewritePatternSet f32ToTF32patterns(target->getContext());
   nvgpu::populateMmaSyncF32ToTF32Patterns(f32ToTF32patterns,
                                           nvgpu::MmaSyncF32Lowering::TF32);
   if (failed(applyPatternsAndFoldGreedily(getOperation(),
@@ -3686,6 +3691,154 @@ DiagnosedSilenceableFailure transform_dialect::DISCEraseDeallocOp::applyToOne(
 
   for (auto op : deallocOps) {
     op->erase();
+  }
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCTransferWriteZeroToSCFOp
+//===----------------------------------------------------------------------===//
+
+/// Pattern to xxx.
+/// convert:
+///   TBD.
+/// to:
+///   TBD.
+struct TransferWriteZeroToSCFPattern
+    : public OpRewritePattern<vector::TransferWriteOp> {
+  using OpRewritePattern<vector::TransferWriteOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::TransferWriteOp op,
+                                PatternRewriter& rewriter) const override {
+    // To check whether it reads constant vector.
+    auto constant = op.getVector().getDefiningOp<arith::ConstantOp>();
+    if (!constant) {
+      return failure();
+    }
+
+    // To check whether it reads zeros.
+    auto value = constant.getValue();
+    auto denseAttr = value.cast<DenseElementsAttr>();
+    bool isSplat = denseAttr.isSplat();
+    auto type = constant->getResultTypes()[0];
+    auto shapedType = type.dyn_cast<ShapedType>();
+    if (!isSplat && (shapedType && shapedType.getRank() != 0)) {
+      return failure();
+    }
+    auto elemTy = shapedType ? shapedType.getElementType() : type;
+    bool isZero = false;
+    if (elemTy.isIntOrIndex()) {
+      isZero = isSplat ? denseAttr.getSplatValue<APInt>().isZero()
+                       : denseAttr.getValues<APInt>()[{}].isZero();
+    } else if (isa<mlir::FloatType>(elemTy)) {
+      isZero = isSplat ? denseAttr.getSplatValue<APFloat>().isZero()
+                       : denseAttr.getValues<APFloat>()[{}].isZero();
+    }
+    if (!isZero) {
+      return failure();
+    }
+
+    // Currently, it only supports memref type.
+    auto source = op.getSource();
+    auto sourceType = source.getType().dyn_cast<MemRefType>();
+    if (!sourceType) {
+      return failure();
+    }
+    // To guarantee that it is an identity write on memref.
+    // Do not support permutation currently. Do not support mask.
+    if (!op.getPermutationMap().isIdentity() || op.getMask()) {
+      return failure();
+    }
+    // TODO: check in_bounds.
+
+    // The op should be not used by other ops, as we will erase it directly
+    // after creating the loop.
+    if (!op->getUses().empty()) {
+      return failure();
+    }
+
+    // Create scf.loop and memref.store op.
+    int rank = sourceType.getRank();
+    if (rank < 1) {
+      return failure();
+    }
+    auto loc = op.getLoc();
+    Value zeroValue = elemTy.isIntOrIndex()
+                          ? rewriter.create<arith::ConstantOp>(
+                                loc, rewriter.getIntegerAttr(elemTy, 0))
+                          : rewriter.create<arith::ConstantOp>(
+                                loc, rewriter.getFloatAttr(elemTy, 0));
+    Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+    SmallVector<Value> indices(rank);
+    // SmallVector<scf::ForOp> fors(rank);
+    for (int i = 0; i < rank; i++) {
+      auto dim = rewriter.create<memref::DimOp>(loc, source, i);
+      auto forOp =
+          rewriter.create<scf::ForOp>(loc, zero, dim, one, ValueRange{});
+      indices[i] = forOp.getInductionVar();
+      // fors[i] = forOp;
+      Block& newBlock = forOp.getRegion().front();
+      rewriter.setInsertionPointToStart(&newBlock);
+    }
+    rewriter.create<memref::StoreOp>(loc, zeroValue, source, indices);
+
+    // Erase the op.
+    op->erase();
+
+    return success();
+  }
+};  // namespace transform_dialect
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCTransferWriteZeroToSCFOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  MLIRContext* ctx = getContext();
+  RewritePatternSet patterns(ctx);
+  patterns.insert<TransferWriteZeroToSCFPattern>(ctx);
+  if (failed(applyPatternsAndFoldGreedily(target, std::move(patterns)))) {
+    return DiagnosedSilenceableFailure::definiteFailure();
+  }
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCInlineAndConvertGPUIdsOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  scf::ParallelOp ctaParallelOp;
+  target->walk([&](scf::ParallelOp op) {
+    auto parallelAttr = op->getAttrOfType<StringAttr>("mapping");
+    if (parallelAttr && parallelAttr.getValue().equals("cta-thread-mapping")) {
+      ctaParallelOp = op;
+      WalkResult::interrupt();
+    }
+  });
+  if (!ctaParallelOp) {
+    return DiagnosedSilenceableFailure::definiteFailure();
+  }
+
+  SmallVector<Operation*> candidateOps;
+  target->walk([&](Operation* op) {
+    if (op->getBlock() == ctaParallelOp->getBlock() &&
+        op->isBeforeInBlock(ctaParallelOp)) {
+      candidateOps.push_back(op);
+    }
+  });
+  OpBuilder b(target);
+  auto loc = target->getLoc();
+  for (auto op : candidateOps) {
+    // TODO: inline and convert more ops.
+    if (isa<gpu::LaneIdOp>(op)) {
+      b.setInsertionPoint(&ctaParallelOp.getBody()->front());
+      Value threadId = ctaParallelOp.getInductionVars()[1];
+      Value warpSize = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
+      Value laneId = b.create<arith::RemUIOp>(loc, threadId, warpSize);
+      op->getResult(0).replaceAllUsesWith(laneId);
+    }
   }
 
   return DiagnosedSilenceableFailure::success();

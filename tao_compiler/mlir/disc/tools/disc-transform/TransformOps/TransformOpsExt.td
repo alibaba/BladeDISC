@@ -1229,5 +1229,62 @@ def DISCEraseDeallocOp : Op<Transform_Dialect, "disc.erase_dealloc",
   }];
 }
 
+def DISCTransferWriteZeroToSCFOp : Op<Transform_Dialect, "disc.transfer_write_zero_to_scf",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Convert vector.transfer_write that reads zeros to scf loop containing
+    memref.store.
+
+    The input should be the function op.
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCInlineAndConvertGPUIdsOp : Op<Transform_Dialect, "disc.inline_and_convert_gpu_ids",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Inline the gpu id ops before the parallel op of cta, and convert to the
+    calculations according to the induction of parallel op.
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
 
 #endif // DISC_TRANSFORM_OPS_EXT

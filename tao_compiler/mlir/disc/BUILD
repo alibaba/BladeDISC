@@ -1317,6 +1317,7 @@ cc_library(
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:LLVMCommonConversion",
         "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:MemRefTransforms",
         "@llvm-project//mlir:Pass",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Transforms",
@@ -2170,6 +2171,26 @@ cc_library(
     alwayslink = 1,
 )
 
+
+cc_library(
+    name = "disc_erase_buffer_deallocation",
+    srcs = ["transforms/disc_erase_buffer_deallocation.cc"],
+    deps = [
+        ":lmhlo_disc",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:BufferizationTransforms",
+    ],
+    alwayslink = 1,
+)
+
 cc_library(
     name = "all_passes",
     hdrs = [
@@ -2192,12 +2213,12 @@ cc_library(
         ":disc_dense_to_sparse",
         ":disc_convert_const_to_ral",
         ":disc_convert_fake_quant_op",
-        ":disc_custom_call_rewriter",
         ":disc_cpu_map_parallel_loop",
+        ":disc_custom_call_rewriter",
         ":disc_duplicate_computation_after_fusion",
         ":disc_duplicate_computation_for_fusion",
         ":disc_dynamic_slice_converter",
-        ":disc_sparse_op_rewriter",
+        ":disc_erase_buffer_deallocation",
         ":disc_flatten_memref_access",
         ":disc_for_loop_unroll_interleave",
         ":disc_fuse_splat_const",
@@ -2220,6 +2241,7 @@ cc_library(
         ":disc_shape_optimization",
         ":disc_shape_simplifier",
         ":disc_shape_to_std",
+        ":disc_sparse_op_rewriter",
         ":disc_specialize_fusion_with_speculation",
         ":disc_std_bufferize",
         ":disc_stitch_fusion",

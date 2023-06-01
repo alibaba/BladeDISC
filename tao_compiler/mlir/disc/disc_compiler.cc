@@ -631,12 +631,15 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     kernelPm.addNestedPass<FuncOp>(createCSEPass());
     kernelPm.addNestedPass<FuncOp>(createCanonicalizerPass());
     kernelPm.addPass(createStripDebugInfoPass());
+    int64_t codegen_bitwidth = 32;
+    tensorflow::ReadInt64FromEnvVar("DISC_CODEGEN_INDEX_BITWIDTH",
+                                    codegen_bitwidth, &codegen_bitwidth);
 #if TENSORFLOW_USE_ROCM
     kernelPm.addPass(disc_ral::createDiscLowerGpuOpsToROCDLOpsPass(
-        /*kDeriveIndexBitwidthFromDataLayout*/ 32));
+        /*kDeriveIndexBitwidthFromDataLayout*/ codegen_bitwidth));
 #elif GOOGLE_CUDA
     kernelPm.addPass(disc_ral::createDiscLowerGpuOpsToNVVMOpsPass(
-        /*kDeriveIndexBitwidthFromDataLayout*/ 32));
+        /*kDeriveIndexBitwidthFromDataLayout*/ codegen_bitwidth));
 #endif
     if (isMemIntensiveOptExperimentalEnabled()) {
       // To eliminate dead argument of GPU LLVM functions. First, it has to

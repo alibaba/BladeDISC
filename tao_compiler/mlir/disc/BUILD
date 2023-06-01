@@ -264,6 +264,7 @@ cc_library(
         ":disc_to_llvm_common",
         ":pass_details",
         ":placement_utils",
+        "//mlir/disc/tools/disc-transform:DISCArmNeonExtDialect",
         "@org_tensorflow//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//llvm:TransformUtils",

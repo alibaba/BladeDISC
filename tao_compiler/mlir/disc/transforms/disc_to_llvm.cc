@@ -12,6 +12,7 @@
 // This file implements the logic to convert disc ral ops to llvm dialect
 
 #include "llvm/ADT/SmallString.h"
+#include "llvm/IR/IntrinsicsAArch64.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
@@ -43,6 +44,8 @@
 #include "mlir/disc/IR/disc_ral_ops.h"
 #include "mlir/disc/IR/lhlo_disc_ops.h"
 #include "mlir/disc/disc_util.h"
+#include "mlir/disc/tools/disc-transform/ArmNeonExt/ArmNeonExtDialect.h"
+#include "mlir/disc/tools/disc-transform/ArmNeonExt/ArmNeonExtOps.h"
 #include "mlir/disc/transforms/PassDetail.h"
 #include "mlir/disc/transforms/codegen_utils.h"
 #include "mlir/disc/transforms/disc_to_llvm_common.h"
@@ -84,7 +87,10 @@ LogicalResult getTypeEncoding(MLIRContext* ctx, Type t, StrT& out) {
       out.append(Twine("i").concat(Twine(int_type.getWidth())).str());
     }
   } else if (auto fp_type = t.dyn_cast<FloatType>()) {
-    out.append(Twine("f").concat(Twine(fp_type.getWidth())).str());
+    if (t.dyn_cast<BFloat16Type>())
+      out.append(Twine("bf").concat(Twine(16)).str());
+    else
+      out.append(Twine("f").concat(Twine(fp_type.getWidth())).str());
   } else if (auto ctx_type = t.dyn_cast<RalExecutionContextType>() ||
                              t == llvm_pointer_type) {
     out.append("pvoid");
@@ -146,6 +152,20 @@ LogicalResult getDispatchOpSignatureEncoding(DispatchOp dispatch_op,
   // encode output types
   for (auto& en : llvm::enumerate(op->getResultTypes())) {
     if (en.index() != 0) out.append("_");
+    if (dispatch_op.getCallTargetName().str() == "ral_const" &&
+        dispatch_op.getDevice().str() == "cpu") {
+      if (auto memref_type = en.value().dyn_cast<MemRefType>()) {
+        auto element_type = memref_type.getElementType();
+        if (element_type.dyn_cast<BFloat16Type>() ||
+            element_type.dyn_cast<Float16Type>()) {
+          out.append(Twine("m")
+                         .concat(Twine(memref_type.getRank()).concat("d"))
+                         .str());
+          out.append(Twine("ui").concat(Twine(16)).str());
+          continue;
+        }
+      }
+    }
     if (failed(getTypeEncoding(op->getContext(), en.value(), out)))
       return failure();
   }
@@ -1167,6 +1187,42 @@ LogicalResult ConvertSourceCodeOpToDispatchOpPattern::matchAndRewrite(
   return success();
 }
 
+class ConvertDISCArmNeonExtBFMMLAIntrinsicPattern
+    : public ConvertOpToLLVMPattern<disc_ral::disc_arm_neon_ext::BFMMLAOp> {
+ public:
+  ConvertDISCArmNeonExtBFMMLAIntrinsicPattern(LLVMTypeConverter& type_converter,
+                                              SymbolTable& symbol_table)
+      : ConvertOpToLLVMPattern<disc_ral::disc_arm_neon_ext::BFMMLAOp>(
+            type_converter),
+        symbol_table_(symbol_table) {}
+
+ private:
+  LogicalResult matchAndRewrite(
+      disc_ral::disc_arm_neon_ext::BFMMLAOp, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override;
+  SymbolTable& symbol_table_;
+};
+
+LogicalResult ConvertDISCArmNeonExtBFMMLAIntrinsicPattern::matchAndRewrite(
+    disc_ral::disc_arm_neon_ext::BFMMLAOp op, OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto acc = op.getOperand(0);
+  auto lhs = op.getOperand(1);
+  auto rhs = op.getOperand(2);
+
+  MLIRContext* ctx = rewriter.getContext();
+  SmallVector<Value, 4> args;
+  for (Value operand : adaptor.getOperands()) {
+    args.push_back(operand);
+  }
+  auto intrinName = StringAttr::get(ctx, "llvm.aarch64.neon.bfmmla");
+  auto bfmmla_intrinsic = rewriter.create<LLVM::CallIntrinsicOp>(
+      op.getLoc(), typeConverter->convertType(acc.getType()), intrinName, args);
+  rewriter.replaceOpWithNewOp<LLVM::CallIntrinsicOp>(
+      op, typeConverter->convertType(acc.getType()), intrinName, args);
+  return success();
+}
+
 class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<LLVM::LLVMDialect>();
@@ -1221,9 +1277,10 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
     // Set target.
     ConversionTarget target(*ctx);
     target.addLegalDialect<LLVM::LLVMDialect>();
-    target.addIllegalDialect<arith::ArithDialect, gpu::GPUDialect,
-                             disc_ral::RalDialect, math::MathDialect,
-                             memref::MemRefDialect, vector::VectorDialect>();
+    target.addIllegalDialect<
+        arith::ArithDialect, gpu::GPUDialect, disc_ral::RalDialect,
+        math::MathDialect, memref::MemRefDialect, vector::VectorDialect,
+        disc_ral::disc_arm_neon_ext::DISCArmNeonExtDialect>();
     // Mark modules as legal.
     target.addLegalOp<ModuleOp, gpu::GPUModuleOp>();
     // Do not look into gpu modules, only consider host-side.
@@ -1371,6 +1428,7 @@ void populateDiscToLLVMConversionPatterns(LLVMTypeConverter* converter,
   patterns->insert<
       ConvertCpuLaunchOpToDispatchOpPattern,
       ConvertLaunchFuncOpToRalCallPattern,
+      ConvertDISCArmNeonExtBFMMLAIntrinsicPattern,
       ConvertMemRefAllocOpToDispatchOpPattern,
       ConvertMemRefDeallocOpToDispatchOpPattern,
       ConvertSourceCodeOpToDispatchOpPattern,

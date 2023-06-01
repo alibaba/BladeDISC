@@ -36,6 +36,22 @@ td_library(
     ],
 )
 
+td_library(
+  name = "ArmNeonExtTdFiles",
+  srcs = glob([
+      "ArmNeonExt/*.td",
+  ]),
+  includes=["external/org_tensorflow"],
+  deps = [
+      "@llvm-project//mlir:BuiltinDialectTdFiles",
+      "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
+      "@llvm-project//mlir:OpBaseTdFiles",
+      "@llvm-project//mlir:PDLDialectTdFiles",
+      "@llvm-project//mlir:SideEffectInterfacesTdFiles",
+      "@llvm-project//mlir:TransformDialectTdFiles",
+  ],
+)
+
 gentbl_cc_library(
     name = "DISCLinalgExtIncGen",
     tbl_outs = [
@@ -81,6 +97,52 @@ gentbl_cc_library(
         "@llvm-project//mlir:TilingInterfaceTdFiles",
         "@llvm-project//mlir:ViewLikeInterfaceTdFiles",
     ],
+)
+
+gentbl_cc_library(
+  name = "DISCArmNeonExtIncGen",
+  tbl_outs = [
+      (
+          [
+              "--dialect=disc_arm_neon_ext",
+              "--gen-dialect-decls",
+          ],
+          "ArmNeonExt/ArmNeonExtDialect.h.inc",
+      ),
+      (
+          [
+              "--dialect=disc_arm_neon_ext",
+              "--gen-dialect-defs",
+          ],
+          "ArmNeonExt/ArmNeonExtDialect.cc.inc",
+      ),
+      (
+          ["--gen-op-decls"],
+          "ArmNeonExt/ArmNeonExtOps.h.inc",
+      ),
+      (
+          ["--gen-op-defs"],
+          "ArmNeonExt/ArmNeonExtOps.cc.inc",
+      ),
+      (
+          ["--gen-typedef-decls"],
+          "ArmNeonExt/ArmNeonExtTypes.h.inc",
+      ),
+      (
+          ["--gen-typedef-defs"],
+          "ArmNeonExt/ArmNeonExtTypes.cc.inc",
+      ),
+  ],
+  tblgen = "@llvm-project//mlir:mlir-tblgen",
+  td_file = "ArmNeonExt/ArmNeonExtOps.td",
+  deps = [
+      ":ArmNeonExtTdFiles",
+      "@llvm-project//mlir:CallInterfacesTdFiles",
+      "@llvm-project//mlir:ControlFlowInterfacesTdFiles",
+      "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
+      "@llvm-project//mlir:TilingInterfaceTdFiles",
+      "@llvm-project//mlir:ViewLikeInterfaceTdFiles",
+  ],
 )
 
 gentbl_cc_library(
@@ -163,6 +225,41 @@ cc_library(
     alwayslink = 1,
 )
 
+cc_library(
+  name = "DISCArmNeonExtDialect",
+  srcs = glob([
+      "ArmNeonExt/*.cc",
+  ]),
+  hdrs = glob([
+      "ArmNeonExt/*.h",
+  ]),
+  deps = [
+      ":DISCArmNeonExtIncGen",
+      "@llvm-project//llvm:Support",
+      "@llvm-project//mlir:AffineDialect",
+      "@llvm-project//mlir:AffineUtils",
+      "@llvm-project//mlir:ArithDialect",
+      "@llvm-project//mlir:ArmNeonDialect",
+      "@llvm-project//mlir:ArithUtils",
+      "@llvm-project//mlir:ControlFlowInterfaces",
+      "@llvm-project//mlir:DialectUtils",
+      "@llvm-project//mlir:FuncDialect",
+      "@llvm-project//mlir:IR",
+      "@llvm-project//mlir:InferTypeOpInterface",
+      "@llvm-project//mlir:LinalgDialect",
+      "@llvm-project//mlir:MathDialect",
+      "@llvm-project//mlir:MemRefDialect",
+      "@llvm-project//mlir:Pass",
+      "@llvm-project//mlir:SCFDialect",
+      "@llvm-project//mlir:SideEffectInterfaces",
+      "@llvm-project//mlir:Support",
+      "@llvm-project//mlir:TensorDialect",
+      "@llvm-project//mlir:TensorUtils",
+      "@llvm-project//mlir:ViewLikeInterface",
+  ],
+  alwayslink = 1,
+)
+
 gentbl_cc_library(
     name = "transform_ops_inc_gen",
     compatible_with = get_compatible_with_cloud(),
@@ -223,6 +320,7 @@ cc_library(
     ],
     deps = [
         ":DISCLinalgExtDialect",
+        ":DISCArmNeonExtDialect",
         ":disc_transform_utils",
         ":transform_ops_inc_gen",
         "//mlir/disc:codegen_utils",
@@ -308,6 +406,7 @@ cc_library(
     srcs = ["transforms/legalize_lmhlo_fusion_to_linalg.cc"],
     deps = [
         ":DISCLinalgExtDialect",
+        ":DISCArmNeonExtDialect",
         ":disc_transform_utils",
         ":pass_details",
         "//mlir/disc:disc_lhlo_elemental_utils",
@@ -331,6 +430,7 @@ cc_library(
     srcs = ["transforms/transform_dialect_interpreter.cc"],
     deps = [
         ":DISCLinalgExtDialect",
+        ":DISCArmNeonExtDialect",
         ":disc_transform_ops",
         ":pass_details",
         "@iree-dialects//:IREELinalgExtDialect",

@@ -46,6 +46,8 @@
 #include "mlir/Interfaces/VectorInterfaces.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/MathExtras.h"
+#include "mlir/disc/tools/disc-transform/ArmNeonExt/ArmNeonExtDialect.h"
+#include "mlir/disc/tools/disc-transform/ArmNeonExt/ArmNeonExtOps.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/utils.h"
 #include "mlir/disc/transforms/codegen_utils.h"
@@ -3812,6 +3814,54 @@ transform_dialect::DISCInlineAndConvertGPUIdsOp::applyToOne(
   return DiagnosedSilenceableFailure::success();
 }
 
+//===---------------------------------------------------------------------===//
+// DISCVectorToBFMMLAConversionOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure DISCVectorToBFMMLAConversionOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  vector::ContractionOp vec_contract = dyn_cast<vector::ContractionOp>(target);
+  if (!vec_contract) {
+    return mlir::emitDefiniteFailure(target,
+                                     "apples only to vector.contract op.");
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  rewriter.setInsertionPoint(target);
+  auto extf1 =
+      dyn_cast<arith::ExtFOp>(vec_contract.getOperand(0).getDefiningOp());
+  auto extf2 =
+      dyn_cast<arith::ExtFOp>(vec_contract.getOperand(1).getDefiningOp());
+  if (!extf1 || !extf2) {
+    return mlir::emitDefiniteFailure(target, "require extf bf16 to f32.");
+  }
+
+  Location loc = vec_contract.getLoc();
+  // flatten 2x4xbf16 to 8xbf16
+  VectorType flattenedVectorType = VectorType::get(
+      {8}, extf1->getOperand(0).getType().cast<VectorType>().getElementType());
+  Value a1d = rewriter.create<vector::ShapeCastOp>(loc, flattenedVectorType,
+                                                   extf1->getOperand(0));
+  Value b1d = rewriter.create<vector::ShapeCastOp>(loc, flattenedVectorType,
+                                                   extf2->getOperand(0));
+  // flatten 2x2xf32 to 4xf32
+  VectorType accType = VectorType::get(
+      {4},
+      vec_contract.getOperand(2).getType().cast<VectorType>().getElementType());
+  Value c1d = rewriter.create<vector::ShapeCastOp>(loc, accType,
+                                                   vec_contract.getOperand(2));
+
+  auto bfmmla_op = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(
+      vec_contract.getLoc(), accType, c1d, a1d, b1d);
+  auto res = rewriter.create<vector::ShapeCastOp>(
+      loc, vec_contract.getResult().getType().cast<VectorType>(), bfmmla_op);
+
+  target->replaceAllUsesWith(res);
+  results.push_back({res.getOperation()});
+  return DiagnosedSilenceableFailure::success();
+}
 }  // namespace transform_dialect
 
 void registerTransformDialectCommonExtension(DialectRegistry& registry) {

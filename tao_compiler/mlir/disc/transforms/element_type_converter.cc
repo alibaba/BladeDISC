@@ -199,14 +199,16 @@ struct ConvertConvOp : public OpRewritePattern<OpTy> {
 };
 
 struct ConvertDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
-  using OpRewritePattern::OpRewritePattern;
+  ConvertDotGeneralOp(MLIRContext* context, Type amp_type)
+      : OpRewritePattern<mhlo::DotGeneralOp>::OpRewritePattern(context) {
+    this->amp_type_ = amp_type;
+  }
 
   LogicalResult matchAndRewrite(mhlo::DotGeneralOp op,
                                 PatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
     Value lhs = op.getLhs();
     Value rhs = op.getRhs();
-    FloatType f16_ty = rewriter.getF16Type();
     FloatType f32_ty = rewriter.getF32Type();
     RankedTensorType lhs_ty = lhs.getType().dyn_cast<RankedTensorType>();
     RankedTensorType rhs_ty = rhs.getType().dyn_cast<RankedTensorType>();
@@ -217,19 +219,30 @@ struct ConvertDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
       return failure();
     }
 
-    Value lhs_f16 = rewriter.create<mhlo::ConvertOp>(loc, lhs, f16_ty);
-    Value rhs_f16 = rewriter.create<mhlo::ConvertOp>(loc, rhs, f16_ty);
-    RankedTensorType f16_tensor_ty =
-        RankedTensorType::getChecked(loc, result_ty.getShape(), f16_ty);
+    Value lhs_amp = rewriter.create<mhlo::ConvertOp>(loc, lhs, this->amp_type_);
+    Value rhs_amp = rewriter.create<mhlo::ConvertOp>(loc, rhs, this->amp_type_);
+    RankedTensorType amp_tensor_ty = RankedTensorType::getChecked(
+        loc, result_ty.getShape(), this->amp_type_);
     // tensor dot general
-    Value dot = rewriter.create<mhlo::DotGeneralOp>(
-        loc, f16_tensor_ty, lhs_f16, rhs_f16, op.getDotDimensionNumbers(),
-        nullptr);
-    Value fp32_dot = rewriter.create<mhlo::ConvertOp>(loc, dot, f32_ty);
-    fp32_dot.setType(op.getResult().getType());
-    rewriter.replaceOp(op, fp32_dot);
+    // dot(bf16, bf16) -> bf32
+    // dot(f16, f16) -> f16
+    if (this->amp_type_.dyn_cast<BFloat16Type>()) {
+      Value dot = rewriter.create<mhlo::DotGeneralOp>(
+          loc, op.getType(), lhs_amp, rhs_amp, op.getDotDimensionNumbers(),
+          nullptr);
+      rewriter.replaceOp(op, dot);
+    } else {
+      Value dot = rewriter.create<mhlo::DotGeneralOp>(
+          loc, amp_tensor_ty, lhs_amp, rhs_amp, op.getDotDimensionNumbers(),
+          nullptr);
+      Value fp32_dot = rewriter.create<mhlo::ConvertOp>(loc, dot, f32_ty);
+      fp32_dot.setType(op.getResult().getType());
+      rewriter.replaceOp(op, fp32_dot);
+    }
     return success();
   }
+
+  Type amp_type_;
 };
 
 template <typename OpTy>
@@ -331,11 +344,13 @@ struct ReduceOpTypeConverter : public OpRewritePattern<mhlo::ReduceOp> {
 struct ElementTypeConverterPass
     : public ElementTypeConverterPassBase<ElementTypeConverterPass> {
   explicit ElementTypeConverterPass(bool enable_fp16_gemm,
+                                    bool enable_bf16_gemm,
                                     bool enable_fp16_conv,
                                     bool promote_fp16_sensitive_ops_to_f32)
       : ElementTypeConverterPassBase<
             ElementTypeConverterPass>::ElementTypeConverterPassBase() {
     this->enable_fp16_gemm_ = enable_fp16_gemm;
+    this->enable_bf16_gemm_ = enable_bf16_gemm;
     this->enable_fp16_conv_ = enable_fp16_conv;
     this->promote_fp16_sensitive_ops_to_f32_ =
         promote_fp16_sensitive_ops_to_f32;
@@ -347,7 +362,11 @@ struct ElementTypeConverterPass
     RewritePatternSet patterns(&ctx);
     patterns.insert<ConvertReduceOpWithSmallWidthIntType>(&ctx);
     if (enable_fp16_gemm_) {
-      patterns.insert<ConvertDotGeneralOp>(&ctx);
+      FloatType f16_ty = FloatType::getF16(&ctx);
+      patterns.insert<ConvertDotGeneralOp>(&ctx, f16_ty);
+    } else if (enable_bf16_gemm_) {
+      FloatType bf16_ty = FloatType::getBF16(&ctx);
+      patterns.insert<ConvertDotGeneralOp>(&ctx, bf16_ty);
     }
     if (enable_fp16_conv_) {
       patterns.insert<ConvertConvOp<mhlo::DynamicConvOp>,
@@ -374,10 +393,11 @@ struct ElementTypeConverterPass
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscElementTypeConverterPass(
-    bool enable_fp16_gemm, bool enable_fp16_conv,
+    bool enable_fp16_gemm, bool enable_bf16_gemm, bool enable_fp16_conv,
     bool promote_fp16_sensitive_ops_to_f32) {
   return std::make_unique<ElementTypeConverterPass>(
-      enable_fp16_gemm, enable_fp16_conv, promote_fp16_sensitive_ops_to_f32);
+      enable_fp16_gemm, enable_bf16_gemm, enable_fp16_conv,
+      promote_fp16_sensitive_ops_to_f32);
 }
 
 }  // namespace disc_ral

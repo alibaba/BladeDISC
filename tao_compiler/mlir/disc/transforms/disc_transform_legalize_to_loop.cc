@@ -375,6 +375,11 @@ LogicalResult DiscTransformLegalizeToLoopPass::handleGpuFusionOp(
     // skip non-transform-based fusion pattern.
     return success();
   }
+
+  // GPU GEMM uses block size 128.
+  auto ctaSizeAttr = b.getIntegerAttr(b.getIntegerType(32), 128);
+  fusionOp->setAttr(kCTASizeHint, ctaSizeAttr);
+
   auto& bypassMap = bypassCodegenPatternNameMap();
   auto it = bypassMap.find(getFusionName(fusionOp).str());
   if (it != bypassMap.end()) {

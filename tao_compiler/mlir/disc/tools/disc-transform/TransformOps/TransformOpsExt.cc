@@ -3345,8 +3345,8 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUCTAsOp::applyToOne(
   for (auto dim : ctaDims) {
     blockNum = b.create<arith::MulIOp>(loc, blockNum, dim);
   }
-  // TODO: use other CTA sizes.
-  Value threadNum = b.create<arith::ConstantIndexOp>(loc, kCTASizeDefault);
+  // Use block size 128 currently.
+  Value threadNum = b.create<arith::ConstantIndexOp>(loc, 128);
 
   SmallVector<Value, 2> vars;
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);

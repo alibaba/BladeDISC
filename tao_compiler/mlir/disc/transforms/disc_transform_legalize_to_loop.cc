@@ -98,11 +98,14 @@ struct DiscTransformLegalizeToLoopPass
           DiscTransformLegalizeToLoopPass> {
   explicit DiscTransformLegalizeToLoopPass(bool gpuEnabled,
                                            const std::string& transformFileName,
+                                           int cc_major, int cc_minor,
                                            bool enableExpensiveChecks)
       : DiscTransformLegalizeToLoopPassBase<DiscTransformLegalizeToLoopPass>::
             DiscTransformLegalizeToLoopPassBase() {
     this->gpuEnabled_ = gpuEnabled;
     this->transformFileName_ = transformFileName;
+    this->cc_major_ = cc_major;
+    this->cc_minor_ = cc_minor;
     this->enableExpensiveChecks_ = enableExpensiveChecks;
   }
 
@@ -134,6 +137,11 @@ struct DiscTransformLegalizeToLoopPass
   LogicalResult inlineTransformedModule(OpBuilder& b, Operation* fusion,
                                         FusionPattern& fusionPattern,
                                         ModuleOp m);
+
+ private:
+  // GPU compute capatility numbers.
+  int cc_major_;
+  int cc_minor_;
 };
 
 LogicalResult DiscTransformLegalizeToLoopPass::outlineFusionOp(
@@ -464,6 +472,11 @@ void DiscTransformLegalizeToLoopPass::runOnOperation() {
 
   // Assign a transform schedule for the given fusion pattern.
   ScheduleDispatcher scheduleDispatcher{transformFileName_};
+  DeviceInfo deviceInfo;
+  deviceInfo.cc_major = cc_major_;
+  deviceInfo.cc_minor = cc_minor_;
+  scheduleDispatcher.setDeviceInfo(deviceInfo);
+
   if (failed(scheduleDispatcher.parseModuleFromFile(b.getContext()))) {
     func->emitError() << "failed to parse transform module form "
                       << transformFileName_ << " .\n";
@@ -505,10 +518,10 @@ void DiscTransformLegalizeToLoopPass::runOnOperation() {
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscTransformLegalizeToLoopPass(bool gpuEnabled,
-                                      const std::string& filename,
-                                      bool expensiveCheck) {
-  return std::make_unique<DiscTransformLegalizeToLoopPass>(gpuEnabled, filename,
-                                                           expensiveCheck);
+                                      const std::string& filename, int cc_major,
+                                      int cc_minor, bool expensiveCheck) {
+  return std::make_unique<DiscTransformLegalizeToLoopPass>(
+      gpuEnabled, filename, cc_major, cc_minor, expensiveCheck);
 }
 
 }  // namespace disc_ral

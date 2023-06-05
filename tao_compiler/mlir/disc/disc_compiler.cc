@@ -506,7 +506,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     tensorflow::ReadStringFromEnvVar("DISC_TRANSFORM_SCHEDULE_FILE", "",
                                      &transform_schedule);
     pm.addNestedPass<FuncOp>(disc_ral::createDiscTransformLegalizeToLoopPass(
-        gpu_enabled, transform_schedule));
+        gpu_enabled, transform_schedule, options.gpu_info.cc_major,
+        options.gpu_info.cc_minor));
   }
 
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());

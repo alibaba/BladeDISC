@@ -35,6 +35,13 @@ enum class PatternKind : int32_t { kNone, kGEMM };
 
 enum class DeviceType { kCPU, kGPU, kNone };
 
+struct DeviceInfo {
+  int cc_major = -1;
+  int cc_minor = -1;
+  int sm_count = -1;
+  int max_threads_per_sm = -1;
+};
+
 // Converts a pattern kind to its string representation.
 std::string patternKindToString(PatternKind kind);
 
@@ -112,7 +119,8 @@ class ScheduleFactory {
   // Assign the transform schedule and attach it into the module op.
   // The pattern should be accepted by this factory and the guard condition
   // should be emitted before successfully.
-  virtual LogicalResult assignSchedule(PatternDescription&, ModuleOp);
+  virtual LogicalResult assignSchedule(PatternDescription&, ModuleOp,
+                                       DeviceInfo);
 
   // Returns the id this factory has.
   int64_t getId() { return id_; }
@@ -218,12 +226,16 @@ class ScheduleDispatcher {
   // Parses schedule modules from the given files.
   LogicalResult parseModuleFromFile(MLIRContext* ctx);
 
+  void setDeviceInfo(const DeviceInfo& deviceInfo) { deviceInfo_ = deviceInfo; }
+  const DeviceInfo& getDeviceInfo() { return deviceInfo_; }
+
  private:
   std::string transformFileName_;
   // <pattern-kind, <tag-str, module-op>>
   std::unordered_map<PatternKind,
                      std::unordered_map<std::string, OwningOpRef<ModuleOp>>>
       parsedModuleMap_;
+  DeviceInfo deviceInfo_;
 };
 
 }  // namespace disc_ral

@@ -420,7 +420,8 @@ class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
                                          ArrayRef<StringRef> tags,
                                          DeviceType deviceType,
                                          ModuleOp transformModule);
-  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp,
+                               DeviceInfo) override;
 
  private:
   ModuleOp transformModule_;
@@ -433,7 +434,7 @@ ParsedFromFileScheduleFactory::ParsedFromFileScheduleFactory(
       transformModule_(transformModule) {}
 
 LogicalResult ParsedFromFileScheduleFactory::assignSchedule(
-    PatternDescription& pd, ModuleOp m) {
+    PatternDescription& pd, ModuleOp m, DeviceInfo deviceInfo) {
   OpBuilder b(m);
   for (auto& op : transformModule_.getBody()->getOperations()) {
     if (!isa<transform::TransformOpInterface>(&op)) continue;
@@ -446,7 +447,8 @@ class Aarch64GEMMDefaultScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
   using ScheduleFactoryWithNoGuard::ScheduleFactoryWithNoGuard;
   bool checkFusionPatternProperties(PatternDescription&) override;
-  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp,
+                               DeviceInfo) override;
 };
 
 // TODO(wyzero): merge default schedule and default with epilogue schedule.
@@ -468,7 +470,7 @@ bool Aarch64GEMMDefaultScheduleFactory::checkFusionPatternProperties(
 }
 
 LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
-    PatternDescription& pd, ModuleOp m) {
+    PatternDescription& pd, ModuleOp m, DeviceInfo deviceInfo) {
   OpBuilder b(m);
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
@@ -661,7 +663,8 @@ class Aarch64GEMMDefaultScheduleWithEpilogueFactory
  public:
   using ScheduleFactoryWithNoGuard::ScheduleFactoryWithNoGuard;
   bool checkFusionPatternProperties(PatternDescription&) override;
-  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp,
+                               DeviceInfo) override;
 };
 
 bool Aarch64GEMMDefaultScheduleWithEpilogueFactory::
@@ -680,7 +683,7 @@ bool Aarch64GEMMDefaultScheduleWithEpilogueFactory::
 }
 
 LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
-    PatternDescription& pd, ModuleOp m) {
+    PatternDescription& pd, ModuleOp m, DeviceInfo deviceInfo) {
   OpBuilder b(m);
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
@@ -918,7 +921,8 @@ class Aarch64GEMMLargeKScheduleFactory : public ScheduleFactory {
  public:
   using ScheduleFactory::ScheduleFactory;
   bool checkFusionPatternProperties(PatternDescription&) override;
-  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp,
+                               DeviceInfo) override;
   LogicalResult buildGuardCondition(OpBuilder& b, Location loc,
                                     PatternDescription&, Value&) override;
 };
@@ -966,7 +970,7 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::buildGuardCondition(
 }
 
 LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
-    PatternDescription& pd, ModuleOp m) {
+    PatternDescription& pd, ModuleOp m, DeviceInfo deviceInfo) {
   OpBuilder b(m);
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
@@ -1171,7 +1175,8 @@ class Aarch64GEMMLargeKScheduleWithEpilogueFactory
  public:
   using Aarch64GEMMLargeKScheduleFactory::Aarch64GEMMLargeKScheduleFactory;
   bool checkFusionPatternProperties(PatternDescription&) override;
-  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp,
+                               DeviceInfo) override;
 };
 
 bool Aarch64GEMMLargeKScheduleWithEpilogueFactory::checkFusionPatternProperties(
@@ -1189,7 +1194,7 @@ bool Aarch64GEMMLargeKScheduleWithEpilogueFactory::checkFusionPatternProperties(
 }
 
 LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
-    PatternDescription& pd, ModuleOp m) {
+    PatternDescription& pd, ModuleOp m, DeviceInfo deviceInfo) {
   OpBuilder b(m);
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
@@ -1455,7 +1460,8 @@ class CUDAMMAGEMMDefaultScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
   using ScheduleFactoryWithNoGuard::ScheduleFactoryWithNoGuard;
   bool checkFusionPatternProperties(PatternDescription&) override;
-  LogicalResult assignSchedule(PatternDescription&, ModuleOp) override;
+  LogicalResult assignSchedule(PatternDescription&, ModuleOp,
+                               DeviceInfo) override;
 };
 
 bool CUDAMMAGEMMDefaultScheduleFactory::checkFusionPatternProperties(
@@ -1498,7 +1504,7 @@ bool CUDAMMAGEMMDefaultScheduleFactory::checkFusionPatternProperties(
 //   }   // parallel cta_m
 // }   // parallel cta_n
 LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
-    PatternDescription& pd, ModuleOp m) {
+    PatternDescription& pd, ModuleOp m, DeviceInfo deviceInfo) {
   OpBuilder b(m);
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
@@ -1606,7 +1612,17 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   auto splitMatmulWarp = splitReductionSerialOpWarp->getResult(0);
 
   // Vector op tile.
-  const SmallVector<int64_t> vectorTileSizes{16, 8, 16};
+  SmallVector<int64_t> vectorTileSizes;
+  // The MMA instruction configuration for fp16.
+  if (deviceInfo.cc_major >= 8) {
+    vectorTileSizes = {16, 8, 16};
+  } else if (deviceInfo.cc_major == 7 && deviceInfo.cc_minor == 5) {
+    vectorTileSizes = {16, 8, 8};
+  } else if (deviceInfo.cc_major == 7 && deviceInfo.cc_minor == 0) {
+    vectorTileSizes = {8, 8, 4};
+  } else {
+    return m->emitError() << "unsupported GPU compute capacity\n";
+  }
   auto tileOpVector =
       buildTileOp(b, loc, splitMatmulWarp, vectorTileSizes, {0, 1, 2});
 
@@ -1785,7 +1801,8 @@ LogicalResult ScheduleFactory::buildGuardCondition(OpBuilder& b, Location loc,
   return failure();
 }
 
-LogicalResult ScheduleFactory::assignSchedule(PatternDescription&, ModuleOp) {
+LogicalResult ScheduleFactory::assignSchedule(PatternDescription&, ModuleOp,
+                                              DeviceInfo) {
   return failure();
 }
 
@@ -1909,7 +1926,7 @@ LogicalResult ScheduleDispatcher::dispatch(PatternDescription& pd, ModuleOp m) {
     return failure();
   }
 
-  return factory->assignSchedule(pd, m);
+  return factory->assignSchedule(pd, m, getDeviceInfo());
 }
 
 }  // namespace disc_ral

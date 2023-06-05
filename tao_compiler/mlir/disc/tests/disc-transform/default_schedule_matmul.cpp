@@ -21,28 +21,19 @@ namespace mlir_test {
 
 const std::string c_ft_path = "mlir/disc/tests/disc-transform/data/";
 
-static bool init_threads = []() {
-  setenv("OMP_NUM_THREADS", "1", 1);
-  setenv("DISC_CPU_ENABLE_WEIGHT_PRE_PACKING", "1", 1);
-  return true;
-}();
-
-TEST(PackedMatmul, F32_304x1024x512) {
-  EnvSetting setting = {{"DISC_TRANSFORM_SCHEDULE_FILE",
-                         {"kGEMM::CPU:" + c_ft_path +
-                              "packed_matmul_nn_p_f32_large_schedule.mlir",
-                          false}},
-                        {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+TEST(Matmul, F16_256x256x128_Using_Default_Schedule) {
+  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
                         {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
                         {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "packed_matmul_nn_p_512x1024_f32.mlir",
-      /*backend_types*/ {BackendType::kAArch64},
-      /*num_inputs*/ 1,
+      /*mlir_file_path*/ c_ft_path +
+          "default_schedule_matmul_nn_s_256x256x128_f16.mlir",
+      /*backend_types*/ {BackendType::kCuda},
+      /*num_inputs*/ 2,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"304x512xf32_X"},
-      /*output_descriptors*/ {"f32_X"},
+      /*input_descriptors*/ {"256x128xf16_X", "128x256xf16_X"},
+      /*output_descriptors*/ {"f16_X"},
       /*input_vals*/ {},
       /*expected_output_vals*/ {},
       /*profiling*/ true));

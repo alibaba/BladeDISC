@@ -40,10 +40,8 @@
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
-// #include "mlir/Dialect/Transform/IR/TransformOps.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
-// #include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
 #include "mlir/Interfaces/VectorInterfaces.h"
 #include "mlir/Pass/PassManager.h"
@@ -148,7 +146,6 @@ static LogicalResult gpuComprehensiveBufferizeCopyFn(OpBuilder& builder,
   // as an OpDSL named op. However, IREE-specific patterns to cleanup spurious
   // post-bufferization copies do not trigger properly.
   // So we keep using `createLinalgCopyOp` which builds a GenericOp.
-  // builder.create<linalg::CopyOp>(loc, from, to);
   mlir::disc_ral::createLinalgCopyOp(builder, loc, from, to);
   if (needsBarrier) {
     builder.create<gpu::BarrierOp>(loc);
@@ -3335,7 +3332,6 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUCTAsOp::applyToOne(
   if (!llvm::all_of(gpuMapping, [](DeviceMappingAttrInterface map) {
         return map.isa<gpu::GPUBlockMappingAttr>();
       })) {
-    // return DiagnosedSilenceableFailure::success();
     return mlir::emitDefiniteFailure(target,
                                      "gpu block mapping must be present");
   }
@@ -3400,9 +3396,9 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUWarpsOp::applyToOne(
   /// ```
   /// to
   /// ```
-  /// warp_linear = gpu.threadX / 32
-  /// warp_ids =
-  /// TBD.
+  /// %warp_linear = gpu.threadX / 32
+  /// %warp_idx = disc_shape.delinearize(%warp_linear, %c2, %c2)
+  /// xxx = som_op(%warp_idx#0, %warp_idx#1)
   /// ```
 
   OpBuilder b(target);
@@ -3435,7 +3431,6 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUWarpsOp::applyToOne(
       })) {
     // TODO: Use thread mapping to indicate warp mapping currently. To use warp
     // attr after rebase.
-    // return DiagnosedSilenceableFailure::success();
     return mlir::emitDefiniteFailure(target,
                                      "gpu warp mapping must be present");
   }
@@ -3450,7 +3445,6 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUWarpsOp::applyToOne(
   }
 
   Value threadId = parallelOp.getInductionVars()[1];
-  // b.create<gpu::ThreadIdOp>(loc, b.getIndexType(), gpu::Dimension::x);
   Value warpSize = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
   Value warpId = b.create<arith::DivUIOp>(loc, threadId, warpSize);
   SmallVector<Value> warpDims = foreachThreadOp.getNumThreads();
@@ -3463,10 +3457,6 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUWarpsOp::applyToOne(
   for (auto& nestedOp : foreachThreadOp.getBody()->without_terminator()) {
     b.clone(nestedOp, mapping);
   }
-  // for (const auto& z :
-  //      llvm::zip(foreachThreadOp.getResults(), parallelOp.getResults())) {
-  //   std::get<0>(z).replaceAllUsesWith(std::get<1>(z));
-  // }
   foreachThreadOp.erase();
 
   return DiagnosedSilenceableFailure::success();
@@ -3479,28 +3469,7 @@ DiagnosedSilenceableFailure DISCForeachThreadToGPUWarpsOp::applyToOne(
 DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
     mlir::Operation* target, transform::ApplyToEachResultList& results,
     transform::TransformState& state) {
-  /// Currently, we only support linalg.matmul op. An example is to transform
-  /// from
-  /// ```
-  /// %matmul = linalg.matmul ins(%lhs, %rhs : tensor<128x1024xf32>,
-  ///                                          tensor<1024x128xf32>)
-  ///                         outs(%out : tensor<128x128xf32>) ->
-  ///                         tensor<128x128xf32>
-  /// ```
-  /// to
-  /// ```
-  /// %1 = scf.for %arg0 = %c0 to %c1024 step %c32
-  ///         iter_args(%arg1 = %out) -> tensor<128x128xf32> {
-  ///   %extraced_slice_lhs = tensor.extract_slice %lhs[0, %arg0]
-  ///         [128, 32] [1, 1] : tensor<128x1024xf32> -> tensor<128x32xf32>
-  ///   %extraced_slice_rhs = tensor.extract_slice %rhs[%arg0, 0]
-  ///         [32, 128] [1, 1] : tensor<1024x128xf32> -> tensor<32x128xf32>
-  ///   %matmul = linalg.matmul ins(%extraced_slice_lhs, %extraced_slice_rhs :
-  ///                               tensor<128x1024xf32>, tensor<1024x128xf32>)
-  ///                           outs(%arg1 : tensor<128x128xf32>) ->
-  ///                           tensor<128x128xf32>
-  /// }
-  /// ```
+  /// Currently, we only support linalg.matmul op.
 
   auto matmulOp = dyn_cast<linalg::MatmulOp>(target);
   if (!matmulOp) {
@@ -3700,11 +3669,6 @@ DiagnosedSilenceableFailure transform_dialect::DISCEraseDeallocOp::applyToOne(
 // DISCTransferWriteZeroToSCFOp
 //===----------------------------------------------------------------------===//
 
-/// Pattern to xxx.
-/// convert:
-///   TBD.
-/// to:
-///   TBD.
 struct TransferWriteZeroToSCFPattern
     : public OpRewritePattern<vector::TransferWriteOp> {
   using OpRewritePattern<vector::TransferWriteOp>::OpRewritePattern;
@@ -3772,13 +3736,11 @@ struct TransferWriteZeroToSCFPattern
     Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
     Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
     SmallVector<Value> indices(rank);
-    // SmallVector<scf::ForOp> fors(rank);
     for (int i = 0; i < rank; i++) {
       auto dim = rewriter.create<memref::DimOp>(loc, source, i);
       auto forOp =
           rewriter.create<scf::ForOp>(loc, zero, dim, one, ValueRange{});
       indices[i] = forOp.getInductionVar();
-      // fors[i] = forOp;
       Block& newBlock = forOp.getRegion().front();
       rewriter.setInsertionPointToStart(&newBlock);
     }

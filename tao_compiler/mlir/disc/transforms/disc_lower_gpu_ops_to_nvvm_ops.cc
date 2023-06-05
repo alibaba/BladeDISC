@@ -184,9 +184,6 @@ struct DiscLowerGpuOpsToNVVMOpsPass
         "mlir::LLVM::SinOp>",
         "mlir::VectorConvertToLLVMPattern<mlir::math::SqrtOp, "
         "mlir::LLVM::SqrtOp>"};
-#if 1
-    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
     // Add the fix before official patterns.
     llvmPatterns.add<GenericAtomicRMWOpLoweringWithBitcast>(

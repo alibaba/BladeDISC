@@ -507,14 +507,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
                                      &transform_schedule);
     pm.addNestedPass<FuncOp>(disc_ral::createDiscTransformLegalizeToLoopPass(
         gpu_enabled, transform_schedule));
-    if (gpu_enabled) {
-      // pm.addPass(arith::createConstantBufferizePass());
-      // pm.addPass(vector::createVectorBufferizePass());
-      // mlir::VectorTransferToSCFOptions vec_to_scf_options;
-      // vec_to_scf_options.targetRank = 0;
-      // pm.addNestedPass<func::FuncOp>(
-      //     createConvertVectorToSCFPass(vec_to_scf_options));
-    }
   }
 
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());

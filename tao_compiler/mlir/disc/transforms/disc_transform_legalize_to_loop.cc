@@ -242,12 +242,6 @@ LogicalResult DiscTransformLegalizeToLoopPass::injectScheduleSelectionIR(
   auto fusionOp = pd.getFusionOp();
   auto factories =
       ScheduleFactoryRegistry::get().getAllCandidateScheduleFactories(pd);
-#if 1
-  llvm::errs() << "[ZZ] fac num: " << factories.size() << "\n";
-  for (auto& fac : factories) {
-    llvm::errs() << "[ZZ] factory: " << typeid(*fac).name() << "\n";
-  }
-#endif
   if (factories.empty()) {
     return fusionOp->emitError() << "failed to find candidate schedule.\n";
   }
@@ -421,9 +415,6 @@ LogicalResult DiscTransformLegalizeToLoopPass::handleGpuFusionOp(
       return fusionOp->emitError() << "failed to outlineFusionOp\n";
     }
     LLVM_DEBUG(llvm::dbgs() << "After outline fusion op:\n" << m.get() << "\n");
-#if 0
-    llvm::dbgs() << "After outline fusion op:\n" << m.get() << "\n";
-#endif
 
     // 2, assign a default schedule for each pattern here.
     PatternDescription patternDescription(fusionOp, fusionPattern,
@@ -433,9 +424,6 @@ LogicalResult DiscTransformLegalizeToLoopPass::handleGpuFusionOp(
     }
     LLVM_DEBUG(llvm::dbgs() << "After assign schedule for fusion op:\n"
                             << m.get() << "\n");
-#if 0
-    llvm::dbgs() << "After assign schedule for fusion op:\n" << m.get() << "\n";
-#endif
 
     // 3, Build a nested pass pipeline to legalize the outlined fusion op.
     if (failed(runTransformPipeline(m.get()))) {
@@ -443,9 +431,6 @@ LogicalResult DiscTransformLegalizeToLoopPass::handleGpuFusionOp(
     }
     LLVM_DEBUG(llvm::dbgs() << "After run transform pipeline:\n"
                             << m.get() << "\n");
-#if 1
-    llvm::dbgs() << "After run transform pipeline:\n" << m.get() << "\n";
-#endif
 
     // 4, Inline the lowered IR into the orignal module.
     if (failed(inlineTransformedModule(b, fusion, fusionPattern, m.get()))) {
@@ -469,12 +454,6 @@ void DiscTransformLegalizeToLoopPass::runOnOperation() {
     else
       cpu_fusion_worklist.push_back(op);
   });
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-  llvm::errs() << "[ZZ] cpu fusion num: " << cpu_fusion_worklist.size() << "\n";
-  llvm::errs() << "[ZZ] gpu fusion num: " << gpu_fusion_worklist.size() << "\n";
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   std::unique_ptr<ShapeAnalysis> shapeAnalysisPtr;
   if (!gpu_fusion_worklist.empty() || !cpu_fusion_worklist.empty()) {
@@ -528,9 +507,6 @@ std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscTransformLegalizeToLoopPass(bool gpuEnabled,
                                       const std::string& filename,
                                       bool expensiveCheck) {
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
   return std::make_unique<DiscTransformLegalizeToLoopPass>(gpuEnabled, filename,
                                                            expensiveCheck);
 }

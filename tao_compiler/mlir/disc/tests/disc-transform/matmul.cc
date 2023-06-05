@@ -30,7 +30,7 @@ static bool init_threads = []() {
 TEST(SimpleTest, MatMulF32_11x13x12) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_schedule.mlir", false}},
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_schedule.mlir", false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
@@ -45,7 +45,7 @@ TEST(SimpleTest, MatMulF32_11x13x12) {
 TEST(SimpleTest, MatMulF32_111x131x121) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_schedule.mlir", false}},
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_schedule.mlir", false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
@@ -60,7 +60,8 @@ TEST(SimpleTest, MatMulF32_111x131x121) {
 TEST(SimpleTest, MatMulF32_304x1024x256) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule.mlir", false}},
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule.mlir",
+        false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
       {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
@@ -80,7 +81,8 @@ TEST(SimpleTest, MatMulF32_304x1024x256) {
 TEST(SimpleTest, MatMulF32_1024x1024x1024) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule.mlir", false}},
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule.mlir",
+        false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
       {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
@@ -100,7 +102,7 @@ TEST(SimpleTest, MatMulF32_1024x1024x1024) {
 TEST(SimpleTest, MatMulF32_304x1024x256_2) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_2.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_2.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
@@ -121,7 +123,7 @@ TEST(SimpleTest, MatMulF32_304x1024x256_2) {
 TEST(SimpleTest, MatMulF32_1024x1024x1024_2) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_2.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_2.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
@@ -142,7 +144,7 @@ TEST(SimpleTest, MatMulF32_1024x1024x1024_2) {
 TEST(SimpleTest, MatMulF32_304x256x256_3) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_3.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_3.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
@@ -163,7 +165,7 @@ TEST(SimpleTest, MatMulF32_304x256x256_3) {
 TEST(SimpleTest, MatMulF32_304x512x256_3) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_3.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_3.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
@@ -184,7 +186,7 @@ TEST(SimpleTest, MatMulF32_304x512x256_3) {
 TEST(SimpleTest, MatMulF32_304x1024x256_3) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_3.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_3.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
@@ -205,7 +207,7 @@ TEST(SimpleTest, MatMulF32_304x1024x256_3) {
 TEST(SimpleTest, MatMulF32_304x1024x512_3) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_3.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_3.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
@@ -226,7 +228,7 @@ TEST(SimpleTest, MatMulF32_304x1024x512_3) {
 TEST(SimpleTest, MatMulF32_1024x1024x1024_3) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_3.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_3.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
@@ -247,7 +249,7 @@ TEST(SimpleTest, MatMulF32_1024x1024x1024_3) {
 TEST(SimpleTest, MatMulF32_304x1024x512_4) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_4.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_4.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
@@ -268,7 +270,7 @@ TEST(SimpleTest, MatMulF32_304x1024x512_4) {
 TEST(SimpleTest, MatMulF32_1024x1024x1024_4) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_4.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_4.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
@@ -289,7 +291,7 @@ TEST(SimpleTest, MatMulF32_1024x1024x1024_4) {
 TEST(SimpleTest, MatMulF32_1026x1024x1024_4) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_4.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_4.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
@@ -310,7 +312,7 @@ TEST(SimpleTest, MatMulF32_1026x1024x1024_4) {
 TEST(SimpleTest, MatMulF32_304x1024x512_5) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_nn_d_f32_large_schedule_5.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_nn_d_f32_large_schedule_5.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},

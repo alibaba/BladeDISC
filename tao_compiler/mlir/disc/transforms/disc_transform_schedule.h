@@ -174,18 +174,6 @@ class ScheduleFactoryRegistry {
   SmallVector<ScheduleFactory*> getAllCandidateScheduleFactories(
       PatternDescription& pd);
 
-  // // Returns all suitable CPU schedule factories for `pd`. The returned
-  // factory
-  // // list is sorted by `priority`. The first one has the highest priority.
-  // SmallVector<ScheduleFactory*> getAllCandidateCPUScheduleFactories(
-  //     PatternDescription& pd);
-
-  // // Returns all suitable GPU schedule factories for `pd`. The returned
-  // factory
-  // // list is sorted by `priority`. The first one has the highest priority.
-  // SmallVector<ScheduleFactory*> getAllCandidateGPUScheduleFactories(
-  //     PatternDescription& pd);
-
  private:
   ScheduleFactoryRegistry() = default;
   std::unordered_map<PatternKind, std::map<int, ScheduleFactoryPtr>>

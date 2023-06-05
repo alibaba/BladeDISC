@@ -1627,12 +1627,6 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   // TODO: init with 0 in parallel.
   buildTransferWriteZeroToSCFOp(b, loc, func2ConvertTransfer);
 
-  // %func_to_convert_transfer = transform.structured.match ops{["func.func"]}
-  // in %bufferized : (!pdl.operation) -> !pdl.operation transform.print
-  // %func_to_convert_transfer {name = "after bufferization"} : !pdl.operation
-  // transform.disc.transfer_write_zero_to_scf %func_to_convert_transfer :
-  // (!pdl.operation) -> ()
-
   // ==================== ForeachThreadOp to GPU mappings ====================
 
   auto blockTileMappingDictAttr =

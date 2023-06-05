@@ -80,7 +80,7 @@ func.func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf
   // CHECK:       "lmhlo.terminator"
   // CHECK:     }) {disc.device = "gpu", disc.fusion.name = "test2"
   // CHECK-SAME: disc_row_reduction_schedule_hint = 1 : i32
-  // CHECK-SMAE: disc_thread_per_block_hint = 256 : i32
+  // CHECK-SMAE: disc_cta_size_hint = 256 : i32
   // CHECK-SMAE: disc_vectorize_or_tile_hint = 2 : i32
   // CHECK:   } else {
   // No vectorization.
@@ -90,7 +90,7 @@ func.func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf
   // CHECK:       "lmhlo.terminator"
   // CHECK:     }) {disc.device = "gpu", disc.fusion.name = "test2"
   // CHECK-SAME: disc_row_reduction_schedule_hint = 1 : i32
-  // CHECK-SMAE: disc_thread_per_block_hint = 256 : i32
+  // CHECK-SMAE: disc_cta_size_hint = 256 : i32
   // CHECK-SMAE: disc_vectorize_or_tile_hint = 1 : i32
   // CHECK:   }
   // Schedule 2
@@ -103,7 +103,7 @@ func.func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf
   // CHECK:       "lmhlo.terminator"
   // CHECK:     }) {disc.device = "gpu", disc.fusion.name = "test2"
   // CHECK-SAME: disc_row_reduction_schedule_hint = 2 : i32
-  // CHECK-SMAE: disc_thread_per_block_hint = 256 : i32
+  // CHECK-SMAE: disc_cta_size_hint = 256 : i32
   // CHECK-SMAE: disc_vectorize_or_tile_hint = 2 : i32
   // CHECK:   } else {
   // No vectorization.
@@ -113,7 +113,7 @@ func.func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf
   // CHECK:       "lmhlo.terminator"
   // CHECK:     }) {disc.device = "gpu", disc.fusion.name = "test2"
   // CHECK-SAME: disc_row_reduction_schedule_hint = 2 : i32
-  // CHECK-SMAE: disc_thread_per_block_hint = 256 : i32
+  // CHECK-SMAE: disc_cta_size_hint = 256 : i32
   // CHECK-SMAE: disc_vectorize_or_tile_hint = 1 : i32
   // CHECK:   }
   // CHECK: }

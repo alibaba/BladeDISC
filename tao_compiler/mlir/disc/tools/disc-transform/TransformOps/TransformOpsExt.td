@@ -997,6 +997,7 @@ def DISCForeachThreadToGPUWarpsOp : Op<Transform_Dialect, "disc.foreach_thread_t
     This converts the foreach_threads op with at most three ranks into the
     computations of the current warp according to the calculation with gpu
     thread id and numthreads of current op.
+    TODO: use gpu.warp instead of gpu.thread for the mapping attribute.
 
     /// Example:
     ///
@@ -1004,11 +1005,13 @@ def DISCForeachThreadToGPUWarpsOp : Op<Transform_Dialect, "disc.foreach_thread_t
     /// ```
     /// scf.foreach_thread (%arg3, %arg4) in (%c2, %c2) {
     ///   xxx = some_op(%arg3, %arg4)
-    /// }
+    /// } {mapping = [#gpu.thread<x>, #gpu.thread<y>]}
     /// ```
     /// to
     /// ```
-    /// TBD.
+    /// %warp_linear = gpu.threadX / 32
+    /// %warp_idx = disc_shape.delinearize(%warp_linear, %c2, %c2)
+    /// xxx = som_op(%warp_idx#0, %warp_idx#1)
     /// ```
   }];
 
@@ -1058,19 +1061,26 @@ def DISCSplitReductionSerialOp :
     #### Example:
 
     ```
-      %matmul = linalg.matmul ins(%lhs, %rhs : tensor<128x1024xf32>, tensor<1024x128xf32>)
-                              outs(%out : tensor<128x128xf32>) -> tensor<128x128xf32>
+    %matmul = linalg.matmul ins(%lhs, %rhs : tensor<128x1024xf32>,
+                                             tensor<1024x128xf32>)
+                            outs(%out : tensor<128x128xf32>) ->
+                            tensor<128x128xf32>
     ```
 
     is transformed into:
 
     ```
-      %1 = scf.for %arg0 = %c0 to %c1024 step %c32 iter_args(%arg1 = %out) -> tensor<128x128xf32> {
-        %extraced_slice_lhs = tensor.extract_slice %lhs[0, %arg0] [128, 32] [1, 1] : tensor<128x1024xf32> -> tensor<128x32xf32>
-        %extraced_slice_rhs = tensor.extract_slice %rhs[%arg0, 0] [32, 128] [1, 1] : tensor<1024x128xf32> -> tensor<32x128xf32>
-        %matmul = linalg.matmul ins(%extraced_slice_lhs, %extraced_slice_rhs : tensor<128x1024xf32>, tensor<1024x128xf32>)
-                                outs(%arg1 : tensor<128x128xf32>) -> tensor<128x128xf32>
-      }
+    %1 = scf.for %arg0 = %c0 to %c1024 step %c32
+            iter_args(%arg1 = %out) -> tensor<128x128xf32> {
+      %extraced_slice_lhs = tensor.extract_slice %lhs[0, %arg0]
+            [128, 32] [1, 1] : tensor<128x1024xf32> -> tensor<128x32xf32>
+      %extraced_slice_rhs = tensor.extract_slice %rhs[%arg0, 0]
+            [32, 128] [1, 1] : tensor<1024x128xf32> -> tensor<32x128xf32>
+      %matmul = linalg.matmul ins(%extraced_slice_lhs, %extraced_slice_rhs :
+                                  tensor<128x1024xf32>, tensor<1024x128xf32>)
+                              outs(%arg1 : tensor<128x128xf32>) ->
+                              tensor<128x128xf32>
+    }
     ```
   }];
 
@@ -1179,9 +1189,6 @@ def DISCLowerGmemToSmemOp : Op<Transform_Dialect, "disc.gmem_to_smem",
     Converts the linalg.generic that executes the global memory to shared memory
     movement function to memref operations on the GPU. It requires that the gmem
     to smem is expressed as an linalg.generic op.
-
-    Example:
-    TBD.
   }];
 
   let arguments = (ins PDL_Operation:$target);
@@ -1239,6 +1246,25 @@ def DISCTransferWriteZeroToSCFOp : Op<Transform_Dialect, "disc.transfer_write_ze
     memref.store.
 
     The input should be the function op.
+
+    Example:
+
+    ```
+    %cst = arith.constant dense<0.0> : vector<128x128xf16>
+    %vector.transfer_write %cst, %memref[%c0, %c0] {in_bounds = [true, true]} :
+        vector<128x128xf16>, memref<128x128xf16>
+    ```
+
+    is transformed to:
+
+    ```
+    %cst = arith.constant 0.0 : f16
+    scf.for %arg0 = %c0 to %c128 step %c1 {
+      scf.for %arg0 = %c1 to %c128 step %c1 {
+        memref.store %cst, memref[%arg0, %arg1] : memref<128x128xf16>
+      }
+    }
+    ```
   }];
 
   let arguments = (ins PDL_Operation:$target);

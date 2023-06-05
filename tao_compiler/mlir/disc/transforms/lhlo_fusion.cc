@@ -713,10 +713,12 @@ class FusionPlanner {
 
 struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
   using DiscFusionPassBase<DiscFusionPass>::DiscFusionPassBase;
-  explicit DiscFusionPass(bool gpu_enabled, const std::string& fusion_strategy)
+  explicit DiscFusionPass(bool gpu_enabled, const std::string& fusion_strategy,
+                          bool mlir_compute_intensive_codegen)
       : DiscFusionPassBase<DiscFusionPass>::DiscFusionPassBase() {
     this->gpu_enabled_ = gpu_enabled;
     this->fusion_strategy_ = fusion_strategy;
+    this->mlir_compute_intensive_codegen_ = mlir_compute_intensive_codegen;
   }
 
   FusionPipeline makeFusionPipeline() {
@@ -736,7 +738,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
             makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
         pipeline.emplace_back(
             makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch"));
-        if (useTransformSchedule()) {
+        if (mlir_compute_intensive_codegen_) {
           pipeline.emplace_back(makeNewPlacementAwareFusionStrategy(
               gpu_enabled_, "transform_based"));
         }
@@ -750,7 +752,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
             makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch"));
         pipeline.emplace_back(
             makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
-        if (useTransformSchedule()) {
+        if (mlir_compute_intensive_codegen_) {
           pipeline.emplace_back(makeNewPlacementAwareFusionStrategy(
               gpu_enabled_, "transform_based"));
         }
@@ -918,8 +920,10 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscFusionPass(
-    bool gpu_enabled, const std::string& fusion_strategy) {
-  return std::make_unique<DiscFusionPass>(gpu_enabled, fusion_strategy);
+    bool gpu_enabled, const std::string& fusion_strategy,
+    bool mlir_compute_intensive_codegen) {
+  return std::make_unique<DiscFusionPass>(gpu_enabled, fusion_strategy,
+                                          mlir_compute_intensive_codegen);
 }
 
 }  // namespace disc_ral

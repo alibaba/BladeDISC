@@ -104,7 +104,8 @@ std::unique_ptr<OperationPass<FuncOp>> createParallelLoopTilingPass(
 
 // Fuse lmhlo ops to kLoop/kInput fusion patterns
 std::unique_ptr<OperationPass<FuncOp>> createDiscFusionPass(
-    bool gpu_enabled = true, const std::string& fusion_strategy = "base");
+    bool gpu_enabled = true, const std::string& fusion_strategy = "base",
+    bool mlir_compute_intensive_codegen = false);
 
 // Fuse splat constant to avoid memory access
 std::unique_ptr<OperationPass<FuncOp>> createDiscFuseSplatConstPass();

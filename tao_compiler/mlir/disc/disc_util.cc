@@ -545,17 +545,11 @@ std::function<Error(Module*)> makeOptimizingTransformer(
     CGSCCAnalysisManager cgam;
     ModuleAnalysisManager mam;
 
-    bool enable_loop_unroll = enableLoopUnroll();
-    ;
-    bool enable_loop_interleave = enableLoopInterleave();
-    bool enable_loop_vectorize = enableLoopVectorize();
-    bool enable_slp_vectorize = enableSLPVectorize();
-
     PipelineTuningOptions tuningOptions;
-    tuningOptions.LoopUnrolling = enable_loop_unroll;
-    tuningOptions.LoopInterleaving = enable_loop_interleave;
-    tuningOptions.LoopVectorization = enable_loop_vectorize;
-    tuningOptions.SLPVectorization = enable_slp_vectorize;
+    tuningOptions.LoopUnrolling = enableLoopUnroll();
+    tuningOptions.LoopInterleaving = enableLoopInterleave();
+    tuningOptions.LoopVectorization = enableLoopVectorize();
+    tuningOptions.SLPVectorization = enableSLPVectorize();
     PassBuilder pb(targetMachine, tuningOptions);
 
     pb.registerModuleAnalyses(mam);

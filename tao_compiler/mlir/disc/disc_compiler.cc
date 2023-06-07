@@ -855,7 +855,7 @@ LogicalResult LowerLLVMToBinary(ModuleOp module,
     return failure();
   }
 
-  auto transformer = mlir::makeOptimizingTransformer(
+  auto transformer = mlir::disc_ral::makeOptimizingTransformer(
       /*optLevel=*/3, /*sizeLevel=*/0, /*targetMachine=*/tm.get());
   if (!transformer) {
     llvm::errs() << "transformer create failed\n";

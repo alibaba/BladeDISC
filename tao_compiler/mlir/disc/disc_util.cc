@@ -15,8 +15,16 @@ limitations under the License.
 #include "mlir/disc/disc_util.h"
 
 #include <numeric>
+#include <optional>
 
 #include "lhlo/IR/lhlo_ops.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Passes/OptimizationLevel.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/FormatVariadic.h"
+#include "llvm/Target/TargetMachine.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
@@ -280,6 +288,46 @@ bool isCompIntensFusionEnabled() {
   return enabled;
 }
 
+bool enableLoopUnroll() {
+  static bool enabled = []() {
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar(
+        "DISC_LLVM_PIPELINE_TUNING_ENABLE_LOOP_UNROLL", enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool enableLoopInterleave() {
+  static bool enabled = []() {
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar(
+        "DISC_LLVM_PIPELINE_TUNING_ENABLE_LOOP_INTERLEAVE", enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool enableLoopVectorize() {
+  static bool enabled = []() {
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar(
+        "DISC_LLVM_PIPELINE_TUNING_ENABLE_LOOP_VECTORIZE", enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool enableSLPVectorize() {
+  static bool enabled = []() {
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar(
+        "DISC_LLVM_PIPELINE_TUNING_ENABLE_SLP_VECTORIZE", enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
 // Returns data users of the value and its aliases (e.g. memref.cast).
 // Here non-data users means DimOp, DeallocOp and ShapeOfOp.
 SmallVector<Operation*, 4> getValueUsers(Value v) {
@@ -450,5 +498,71 @@ SmallVector<Value> getShapeValues(OpBuilder* b, Value memref) {
 }
 
 // Returns 1D 64-bit dense elements attribute with the given values.
+
+using namespace llvm;
+
+static std::optional<OptimizationLevel> mapToLevel(unsigned optLevel,
+                                                   unsigned sizeLevel) {
+  switch (optLevel) {
+    case 0:
+      return OptimizationLevel::O0;
+
+    case 1:
+      return OptimizationLevel::O1;
+
+    case 2:
+      switch (sizeLevel) {
+        case 0:
+          return OptimizationLevel::O2;
+
+        case 1:
+          return OptimizationLevel::Os;
+
+        case 2:
+          return OptimizationLevel::Oz;
+      }
+      break;
+    case 3:
+      return OptimizationLevel::O3;
+  }
+  return std::nullopt;
+}
+// Create and return a lambda that uses LLVM pass manager builder to set up
+// optimizations based on the given level.
+std::function<Error(Module*)> makeOptimizingTransformer(
+    unsigned optLevel, unsigned sizeLevel, TargetMachine* targetMachine) {
+  return [optLevel, sizeLevel, targetMachine](Module* m) -> Error {
+    std::optional<OptimizationLevel> ol = mapToLevel(optLevel, sizeLevel);
+    if (!ol) {
+      return make_error<StringError>(
+          formatv("invalid optimization/size level {0}/{1}", optLevel,
+                  sizeLevel)
+              .str(),
+          inconvertibleErrorCode());
+    }
+    LoopAnalysisManager lam;
+    FunctionAnalysisManager fam;
+    CGSCCAnalysisManager cgam;
+    ModuleAnalysisManager mam;
+
+    PipelineTuningOptions tuningOptions;
+    tuningOptions.LoopUnrolling = enableLoopUnroll();
+    tuningOptions.LoopInterleaving = enableLoopInterleave();
+    tuningOptions.LoopVectorization = enableLoopVectorize();
+    tuningOptions.SLPVectorization = enableSLPVectorize();
+    PassBuilder pb(targetMachine, tuningOptions);
+
+    pb.registerModuleAnalyses(mam);
+    pb.registerCGSCCAnalyses(cgam);
+    pb.registerFunctionAnalyses(fam);
+    pb.registerLoopAnalyses(lam);
+    pb.crossRegisterProxies(lam, fam, cgam, mam);
+
+    ModulePassManager mpm;
+    mpm.addPass(pb.buildPerModuleDefaultPipeline(*ol));
+    mpm.run(*m, mam);
+    return Error::success();
+  };
+}
 }  // namespace disc_ral
 }  // namespace mlir

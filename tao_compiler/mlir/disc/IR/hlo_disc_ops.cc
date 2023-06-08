@@ -153,7 +153,7 @@ OpFoldResult QuantizeOp::fold(ArrayRef<Attribute> operands) {
   }
   auto valType = val.getType();
   auto valElementType = getElementTypeOrSelf(valType);
-  if (!valElementType.isF32()) {
+  if (!valElementType.isF32() && !valElementType.isF16()) {
     return {};
   }
 

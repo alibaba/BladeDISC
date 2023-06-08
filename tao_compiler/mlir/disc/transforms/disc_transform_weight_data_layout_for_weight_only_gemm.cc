@@ -394,10 +394,10 @@ struct WeightLayoutConverter
     new_operands[1] = reordered_weight_op->getResult(0);
     auto new_custom_call_v2_op = rewriter.create<mhlo_disc::CustomCallV2Op>(
         loc, op.getResultTypes(), new_operands, op.getCallTargetName(),
-        new_custom_attr, 
-        op.getHasSideEffect(), op.getDevice(), op.getInputPlacements(),
-        op.getOutputPlacements(), op.getInputLayouts(), op.getOutputLayouts(),
-        op.getExpectedInputLayouts(), op.getExpectedOutputLayouts());
+        new_custom_attr, op.getHasSideEffect(), op.getDevice(),
+        op.getInputPlacements(), op.getOutputPlacements(), op.getInputLayouts(),
+        op.getOutputLayouts(), op.getExpectedInputLayouts(),
+        op.getExpectedOutputLayouts());
     rewriter.replaceOp(op, new_custom_call_v2_op.getResult(0));
 
     return success();

@@ -364,6 +364,113 @@ bool isAclSupportedConv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
   return false;
 }
 
+/**
+ * Valid data type configurations:
+ * |src0         |src1        |src2      |dst            |
+ * |:------------|:-----------|:---------|:--------------|
+ * |F16          |F16         |F16       |F16            |
+ * |BFLOAT16     |BFLOAT16    |BFLOAT16  |FP32           |
+ */
+template <typename Tinput, int NDims = 2, typename Tweight = Tinput,
+          typename Toutput = Tinput>
+void runAclAMPGemmKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
+                         MemRefType<Tinput, NDims> input,
+                         MemRefType<Tweight, NDims> weight,
+                         MemRefType<Toutput, NDims> result, bool tp_a,
+                         bool tp_b, bool weight_is_const) {
+  CpuTimer timer("ral_acl_amp_gemm");
+  if (isEmptyMemref(input) || isEmptyMemref(weight) || isEmptyMemref(result)) {
+    TAO_VLOG(1) << "ral_cpu_amp_gemm: early return for empty tensor";
+    return;
+  }
+
+  // ACL GEMM kernel does not support transpose.
+  // TODO(disc): use standalone ACL transpose kernel to imitate.
+  if (tp_a || tp_b) {
+    ctx->signalError(Context::FAILURE,
+                     "not supported ral_amp_gemm with transpose");
+  }
+
+  int64_t m = input.sizes[0];
+  int64_t k = input.sizes[1];
+  if (k != weight.sizes[0]) {
+    ctx->signalError(Context::FAILURE, "mismatch contraction dim for gemm");
+    return;
+  }
+  int64_t n = weight.sizes[1];
+  bool is_bf16_gemm = toDataType<Tinput>() == data_type::bf16 ? true : false;
+  auto AclGemmCreator = [&](const arm_compute::ITensorPack* pack) {
+    std::shared_ptr<AclGemmInfo> info(new AclGemmInfo);
+    auto src_shape = arm_compute::TensorShape(k, m);
+    auto weight_shape = arm_compute::TensorShape(n, k);
+    auto dst_shape = arm_compute::TensorShape(n, m);
+    arm_compute::DataType input_data_type, res_data_type;
+    if (is_bf16_gemm) {
+      input_data_type = arm_compute::DataType::BFLOAT16;
+      res_data_type = arm_compute::DataType::F32;
+    } else {
+      input_data_type = arm_compute::DataType::F16;
+      res_data_type = arm_compute::DataType::F16;
+    }
+    arm_compute::TensorInfo src_info =
+        arm_compute::TensorInfo(src_shape, 1, input_data_type);
+    arm_compute::TensorInfo weight_info =
+        arm_compute::TensorInfo(weight_shape, 1, input_data_type);
+    arm_compute::TensorInfo dst_info =
+        arm_compute::TensorInfo(dst_shape, 1, res_data_type);
+
+    info->src.allocator()->init(src_info);
+    info->weights.allocator()->init(weight_info);
+    info->dst.allocator()->init(dst_info);
+    info->src.allocator()->import_memory(
+        reinterpret_cast<uint16_t*>(input.data));
+    info->weights.allocator()->import_memory(
+        reinterpret_cast<uint16_t*>(weight.data));
+    info->dst.allocator()->import_memory(
+        reinterpret_cast<uint16_t*>(result.data));
+    auto status = info->op.validate(&src_info, &weight_info, nullptr, &dst_info,
+                                    1.0, 0.0);
+    if (!status) {
+      ctx->signalError(Context::FAILURE, "fail to validate acl negemm");
+    } else {
+      info->op.configure(&info->src, &info->weights, nullptr, &info->dst, 1.0,
+                         0.0);
+    }
+    if (pack) info->op.reuse_packed_weight(*pack);
+    info->op.prepare(&info->src, &info->weights, nullptr, &info->dst);
+    return info;
+  };
+  // TODO: support weight prepacking
+  std::shared_ptr<AclGemmInfo> info;
+  info = AclGemmCreator(nullptr);
+  info->op.run(&info->src, &info->weights, nullptr, &info->dst);
+  timer.Stop();
+  if (isProfilingEnabled()) {
+    int64_t bytes = sizeof(uint16_t) * m * k + sizeof(uint16_t) * k * n +
+                    sizeof(uint16_t) * m * n;
+    std::string amp_gemm_type = is_bf16_gemm ? "ral_cpu_amp_gemm_bf16_bf16_fp32"
+                                             : "ral_cpu_amp_gemm_f16_f16_f16";
+
+    TAO_VLOG(0) << amp_gemm_type << ":\n"
+                << "\tpa = " << input.data << "\n"
+                << "\tpb = " << weight.data << "\n"
+                << "\tpc = " << result.data << "\n"
+                << "\tm = " << m << "\n"
+                << "\tn = " << n << "\n"
+                << "\tk = " << k << "\n"
+                << "\ttp_a = " << tp_a << "\n"
+                << "\ttp_b = " << tp_b << "\n"
+                << "\tweight_is_const = " << weight_is_const << "\n"
+                << "\tMath Ops = " << 2 * m * n * k << "\n"
+                << "\tBytes = " << bytes << "\n"
+                << "\tBandwidth = "
+                << double(bytes) / double(timer.GetNanoSeconds()) << " GB\n"
+                << "\tGFLOPS = "
+                << double(2 * m * n * k) / double(timer.GetNanoSeconds())
+                << "\n";
+  }
+}
+
 template <typename Tinput, int NDims, typename Tfilter = Tinput,
           typename Toutput = Tinput>
 void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
@@ -794,6 +901,22 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle,
     return;
   }
   int64_t n = (tp_b ? B.sizes[0] : B.sizes[1]);
+
+#if defined(TAO_AARCH64)
+  data_type input_dtype = toDataType<Tinput>();
+  data_type weight_dtype = toDataType<Tweight>();
+  data_type result_dtype = toDataType<Toutput>();
+  if (((input_dtype == data_type::bf16 && weight_dtype == data_type::bf16 &&
+        result_dtype == data_type::f32) ||
+       (input_dtype == data_type::f16 && weight_dtype == data_type::f16 &&
+        result_dtype == data_type::f16)) &&
+      N == 2) {
+    runAclAMPGemmKernel(ctx, stream_handle, A, B, C, tp_a, tp_b,
+                        weight_is_const);
+    return;
+  }
+#endif
+
   DiscCpuMathKernelMode mode = GetDiscCpuMathKernelMode();
   if (mode == kDiscPreferOneDNN) {
     onednn_ral_gemm(ctx, stream_handle, A, B, C, tp_a, tp_b, weight_is_const);
@@ -832,6 +955,10 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle,
 }
 
 TAO_RAL_API("ral_gemm", "cpu", ral_gemm<float>);
+#if defined(TAO_AARCH64)
+TAO_RAL_API("ral_gemm", "cpu", ral_gemm<bfloat16, 2, bfloat16, float>);
+TAO_RAL_API("ral_gemm", "cpu", ral_gemm<float16, 2, float16, float16>);
+#endif
 
 template <typename T, int N>
 int64_t GetBatchSize(MemRefType<T, N> memref) {

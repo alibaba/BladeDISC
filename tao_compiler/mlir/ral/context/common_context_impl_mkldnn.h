@@ -80,6 +80,16 @@ inline data_type toDataType<int8_t>() {
   return data_type::s8;
 }
 
+template <>
+inline data_type toDataType<bfloat16>() {
+  return data_type::bf16;
+}
+
+template <>
+inline data_type toDataType<float16>() {
+  return data_type::f16;
+}
+
 template <class T>
 inline void hash_combine(std::size_t& seed, const T& v) {
   std::hash<T> hasher;
@@ -858,6 +868,12 @@ using AclQGemmThreadSafeInfo =
 using AclQGemmState =
     AclOpThreadSafeState<GEMMParamsKey,
                          arm_compute::DISCNEGEMMLowpMatrixMultiplyCore>;
+
+using AclGemmInfo = AclOpInfo<arm_compute::DISCNEGEMM>;
+using AclGemmThreadSafeInfo =
+    AclOpThreadSafeInfo<GEMMParamsKey, arm_compute::DISCNEGEMM>;
+using AclGemmState =
+    AclOpThreadSafeState<GEMMParamsKey, arm_compute::DISCNEGEMM>;
 
 #endif  // TAO_AARCH64
 

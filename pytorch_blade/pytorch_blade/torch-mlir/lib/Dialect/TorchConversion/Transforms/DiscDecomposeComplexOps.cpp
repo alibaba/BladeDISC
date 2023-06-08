@@ -404,6 +404,44 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     rewriter.replaceOpWithNewOp<AtenMulTensorOp>(
         op, op->getResultTypes(), a, sigmoidB);
     return success();
+  } else if ("torch_blade.conv2d_weight_nhwc" == name) {
+    auto input = op.getOperand(0);
+    auto weight_nhwc = op.getOperand(1);
+    auto nhwcTy = weight_nhwc.getType().cast<BaseTensorType>();
+
+    // construct nchw weight Type
+    ArrayRef<int64_t> nhwcShape = nhwcTy.getSizes();
+    SmallVector<int64_t> nchwShape{nhwcShape.begin(), nhwcShape.end()};
+    std::swap(nchwShape[1], nchwShape[3]);
+    std::swap(nchwShape[3], nchwShape[2]);
+    Type nchwTy = nhwcTy.getWithSizesAndDtype(
+        llvm::makeArrayRef(nchwShape), nhwcTy.getDtype());
+
+    // construct permute dim list
+    SmallVector<Value, 4> dimListElements;
+    SmallVector<int64_t, 4> dims{0, 3, 1, 2};
+    for (int64_t i = 0; i < dims.size(); i++) {
+      dimListElements.push_back(rewriter.create<Torch::ConstantIntOp>(
+          op.getLoc(), rewriter.getI64IntegerAttr(dims[i])));
+    }
+    Value dimList = rewriter.create<PrimListConstructOp>(
+        op.getLoc(),
+        Torch::ListType::get(Torch::IntType::get(op->getContext())),
+        dimListElements);
+
+    Value weight = rewriter.create<AtenPermuteOp>(
+        op.getLoc(), nchwTy, weight_nhwc, dimList);
+    rewriter.replaceOpWithNewOp<AtenConv2dOp>(
+        op,
+        op->getResultTypes(),
+        input,
+        weight,
+        op.getOperand(2),
+        op.getOperand(3),
+        op.getOperand(4),
+        op.getOperand(5),
+        op.getOperand(6));
+    return success();
   }
   return failure();
 }
@@ -676,7 +714,8 @@ class DiscDecomposeComplexOpsPass
           "aten.selu_",
           "aten.conv1d",
           "aten.view_as",
-          "aten.glu"};
+          "aten.glu",
+          "torch_blade.conv2d_weight_nhwc"};
 
       if (illegalSet.find(op.getName().str()) != illegalSet.end()) {
         return false;

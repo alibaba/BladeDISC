@@ -275,6 +275,10 @@ std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertFakeQuantOpPass();
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscLowerQuantizeAndDequantizePass();
 
+// transform weight data layout for ft's weight-only qgemm.
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscTranformWeightDataLayoutForWeightOnlyQuantPass();
+
 // Lowers quantize and dequantize ops to a bunch of basic elementwise ops on
 // gpu.
 std::unique_ptr<OperationPass<func::FuncOp>>

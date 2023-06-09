@@ -9,6 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "llvm/IR/IntrinsicsAArch64.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
@@ -18,6 +19,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/core/util/env_var.h"
 
 #define DEBUG_TYPE "disc-bf16-expansion"
 
@@ -30,6 +32,14 @@ namespace mlir {
 namespace disc_ral {
 namespace {
 
+bool isBFCVTEnabled() {
+  static bool enabled = []() {
+    bool enabled = false;
+    tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_BFCVT", enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
 /// Create an integer or index constant.
 static Value createConst(Location loc, Type type, int value,
                          PatternRewriter& rewriter) {
@@ -91,6 +101,18 @@ struct BFloat16TruncFOpConverter : public OpRewritePattern<arith::TruncFOp> {
       return failure();
     }
 
+#if defined(TAO_AARCH64)
+    if (isBFCVTEnabled()) {
+      auto intrinsicName =
+          StringAttr::get(rewriter.getContext(), "llvm.aarch64.neon.bfcvt");
+      SmallVector<Value, 2> args;
+      args.push_back(operand);
+      rewriter.replaceOpWithNewOp<LLVM::CallIntrinsicOp>(op, resultETy,
+                                                         intrinsicName, args);
+      return success();
+    }
+#endif
+
     Type i1Ty = b.getI1Type();
     Type i16Ty = b.getI16Type();
     Type i32Ty = b.getI32Type();
@@ -103,53 +125,8 @@ struct BFloat16TruncFOpConverter : public OpRewritePattern<arith::TruncFOp> {
     }
 
     Value bitcast = b.create<arith::BitcastOp>(i32Ty, operand);
-
-    Value c23 = createConst(op.getLoc(), i32Ty, 23, rewriter);
-    Value c31 = createConst(op.getLoc(), i32Ty, 31, rewriter);
-    Value c23Mask = createConst(op.getLoc(), i32Ty, (1 << 23) - 1, rewriter);
-    Value expMask =
-        createConst(op.getLoc(), i32Ty, ((1 << 8) - 1) << 23, rewriter);
-    Value expMax =
-        createConst(op.getLoc(), i32Ty, ((1 << 8) - 2) << 23, rewriter);
-
-    // Grab the sign bit.
-    Value sign = b.create<arith::ShRUIOp>(bitcast, c31);
-
-    // Our mantissa rounding value depends on the sign bit and the last
-    // truncated bit.
-    Value cManRound = createConst(op.getLoc(), i32Ty, (1 << 15), rewriter);
-    cManRound = b.create<arith::SubIOp>(cManRound, sign);
-
-    // Grab out the mantissa and directly apply rounding.
-    Value man = b.create<arith::AndIOp>(bitcast, c23Mask);
-    Value manRound = b.create<arith::AddIOp>(man, cManRound);
-
-    // Grab the overflow bit and shift right if we overflow.
-    Value roundBit = b.create<arith::ShRUIOp>(manRound, c23);
-    Value manNew = b.create<arith::ShRUIOp>(manRound, roundBit);
-
-    // Grab the exponent and round using the mantissa's carry bit.
-    Value exp = b.create<arith::AndIOp>(bitcast, expMask);
-    Value expCarry = b.create<arith::AddIOp>(exp, manRound);
-    expCarry = b.create<arith::AndIOp>(expCarry, expMask);
-
-    // If the exponent is saturated, we keep the max value.
-    Value expCmp =
-        b.create<arith::CmpIOp>(arith::CmpIPredicate::uge, exp, expMax);
-    exp = b.create<arith::SelectOp>(expCmp, exp, expCarry);
-
-    // If the exponent is max and we rolled over, keep the old mantissa.
-    Value roundBitBool = b.create<arith::TruncIOp>(i1Ty, roundBit);
-    Value keepOldMan = b.create<arith::AndIOp>(expCmp, roundBitBool);
-    man = b.create<arith::SelectOp>(keepOldMan, man, manNew);
-
-    // Assemble the now rounded f32 value (as an i32).
-    Value rounded = b.create<arith::ShLIOp>(sign, c31);
-    rounded = b.create<arith::OrIOp>(rounded, exp);
-    rounded = b.create<arith::OrIOp>(rounded, man);
-
     Value c16 = createConst(op.getLoc(), i32Ty, 16, rewriter);
-    Value shr = b.create<arith::ShRUIOp>(rounded, c16);
+    Value shr = b.create<arith::ShRUIOp>(bitcast, c16);
     Value trunc = b.create<arith::TruncIOp>(i16Ty, shr);
     Value result = b.create<arith::BitcastOp>(resultTy, trunc);
 

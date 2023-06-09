@@ -1156,8 +1156,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::mul_(Tensor self, Scalar other) -> Tensor",
             "aten::div_(Tensor self, Tensor other) -> Tensor",
             "aten::div_(Tensor self, Scalar other) -> Tensor",
-            "aten::copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)",
-            "aten::copy_inplace_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)",
 #if PYTORCH_VERSION_GE(1, 9)
             "aten::div_.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor",
 #endif // PYTORCH_VERSION_GE(1, 9)

@@ -538,6 +538,16 @@ def DiscLowerQuantizeAndDequantizePass : Pass<"disc-lower-quantize-and-dequantiz
   ];
 }
 
+def DiscTranformWeightDataLayoutForWeightOnlyQuantPass : Pass<"disc-transform-weight-data-layout-for-weight-only-quant", "mlir::func::FuncOp"> {
+  let summary = "Transform weight data layout for faster-transformer's weight only gemm kernel";
+  let constructor = "createDiscTranformWeightDataLayoutForWeightOnlyQuantPass()";
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+      "shape::ShapeDialect",
+      "mhlo::MhloDialect",
+  ];
+}
+
 def DiscLowerGpuQuantizeAndDequantizePass : Pass<"disc-lower-gpu-quantize-and-dequantize", "mlir::func::FuncOp"> {
   let summary = "Lower quantize and dequantize op to a bound of basic elementwise ops on GPU.";
   let constructor = "createDiscLowerGpuQuantizeAndDequantizePass()";

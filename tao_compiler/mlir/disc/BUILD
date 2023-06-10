@@ -1996,6 +1996,25 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_transform_weight_data_layout_for_weight_only_quant",
+    srcs = ["transforms/disc_transform_weight_data_layout_for_weight_only_gemm.cc"],
+    deps = [
+        ":disc_shape_optimization_utils",
+        ":mhlo_disc",
+        ":pass_details",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_pdl_utils",
     srcs = ["transforms/disc_pdl_utils.cc"],
     hdrs = ["transforms/disc_pdl_utils.h"],
@@ -2259,6 +2278,7 @@ cc_library(
         ":disc_lhlo_legalize_roots_to_loops",
         ":disc_lower_tf",
         ":disc_lower_quantize_and_dequantize",
+        ":disc_transform_weight_data_layout_for_weight_only_quant",
         ":disc_lower_to_library_call",
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",

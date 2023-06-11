@@ -121,7 +121,11 @@ LogicalResult decomposeSplits(
 
   SmallVector<int64_t> sizes;
   sizes.append(inputShape.begin(), inputShape.end());
-  sizes[dimInt] = kUnknownSize;
+  int64_t dimValue = kUnknownSize;
+  if (inputShape[dimInt] != kUnknownSize) {
+    dimValue = inputShape[dimInt] / chunks;
+  }
+  sizes[dimInt] = dimValue;
 
   int64_t splitSizeInt = -1;
   if (matchPattern(splitSize, m_TorchConstantInt(&splitSizeInt)) &&

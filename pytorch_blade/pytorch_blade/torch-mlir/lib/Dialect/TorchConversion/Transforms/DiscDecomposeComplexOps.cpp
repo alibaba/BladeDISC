@@ -121,22 +121,13 @@ LogicalResult decomposeSplits(
 
   SmallVector<int64_t> sizes;
   sizes.append(inputShape.begin(), inputShape.end());
-  int64_t dimValue = kUnknownSize;
-  if (inputShape[dimInt] != kUnknownSize) {
-    dimValue = inputShape[dimInt] / chunks;
-  }
-  sizes[dimInt] = dimValue;
+  sizes[dimInt] = kUnknownSize;
 
   int64_t splitSizeInt = -1;
   if (matchPattern(splitSize, m_TorchConstantInt(&splitSizeInt)) &&
       splitSizeInt == 1) {
     sizes[dimInt] = 1;
   }
-  Type sliceTy =
-      selfTy.getWithSizesAndDtype(llvm::makeArrayRef(sizes), selfTy.getDtype());
-  sizes.erase(sizes.begin() + dimInt);
-  Type sequeezeTy =
-      selfTy.getWithSizesAndDtype(llvm::makeArrayRef(sizes), selfTy.getDtype());
 
   auto intType = Torch::IntType::get(op.getContext());
   Location loc = op.getLoc();
@@ -148,9 +139,23 @@ LogicalResult decomposeSplits(
   for (int64_t k = 0; k < chunks; ++k) {
     Value start = end;
     end = rewriter.create<AtenAddIntOp>(loc, intType, start, splitSize);
+    auto newSizes = sizes;
+    if (inputShape[dimInt] == kUnknownSize) {
+      newSizes[dimInt] = kUnknownSize;
+    } else {
+      newSizes[dimInt] = splitSizeInt;
+      if (splitSizeInt * (k + 1) > inputShape[dimInt]) {
+        newSizes[dimInt] = splitSizeInt * (k + 1) - inputShape[dimInt];
+      }
+    }
+    Type sliceTy = selfTy.getWithSizesAndDtype(
+        llvm::makeArrayRef(newSizes), selfTy.getDtype());
     Value slice = rewriter.create<AtenSliceTensorOp>(
         loc, sliceTy, self, dim, start, end, one);
     if (splitSizeInt == 1 && not keepDim) {
+      newSizes.erase(newSizes.begin() + dimInt);
+      Type sequeezeTy = selfTy.getWithSizesAndDtype(
+          llvm::makeArrayRef(newSizes), selfTy.getDtype());
       slice = rewriter.create<AtenSqueezeDimOp>(loc, sequeezeTy, slice, dim);
     }
     slices.emplace_back(slice);

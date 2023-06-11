@@ -732,13 +732,25 @@ class ShapePropagator : public PropertyPropBase {
                     "aten::unbind.int(Tensor(a) self, int dim=0) -> Tensor(a)[]")) {
               new_sizes.erase(new_sizes.begin() + dim);
             } else {
-              // set default to dynamic
               new_sizes[dim] = ShapeSymbol::newSymbol();
             }
 
             for (size_t i = 0; i < node->outputs().size(); ++i) {
-              if (auto type = node->output(i)->type()->cast<TensorType>())
+              if (auto type = node->output(i)->type()->cast<TensorType>()) {
+                c10::ShapeSymbol dim_value = ShapeSymbol::newSymbol();
+                if (input_node->matches(
+                        "aten::split.Tensor(Tensor(a) self, int split_size, int dim=0) -> Tensor(a)[]") &&
+                    sizes_opt.value()[dim].is_static()) {
+                  int64_t split_size =
+                      input_node->get<int64_t>(attr::split_size).value();
+                  if (split_size * (i + 1) > self_type->sizes()[dim]) {
+                    split_size =
+                        split_size * (i + 1) - self_type->sizes()[dim].value();
+                  }
+                  new_sizes[dim] = ShapeSymbol::fromStaticSize(split_size);
+                }
                 node->output(i)->setType(type->withSymbolicShapes(new_sizes));
+              }
             }
           }
         }

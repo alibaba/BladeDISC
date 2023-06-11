@@ -615,11 +615,9 @@ module {
     # CHECK-SAME: (tensor<?x?x?xf32>, tensor<3x5xui8>, tensor<5xf32>, tensor<5xf32>, tensor<5xi32>) -> tensor<?x?x5xf32>
     %5 = "mhlo_disc.custom_call_v2"(%arg1, %4, %3, %1, %2) {call_target_name = "ral_pdll_weight_only_qgemm", custom_attrs = {weight_should_be_reordered = true}, device = "d", expected_input_layouts = "*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*", input_placements = "d,d,d,d,d", output_layouts = "*", output_placements = "d"} : (tensor<?x?x?xf32>, tensor<3x5xui8>, tensor<5xf32>, tensor<5xf32>, tensor<5xi32>) -> tensor<?x?x5xf32>
     # CHECK-NOT: torch.aten.add.Tensor
-    return %5 : tensor<?x?x5xf32> loc(#loc)
-  } loc(#loc)
-} loc(#loc)
-#loc1 = loc("/workspace/codes/BladeDISC/pytorch_blade/tests/disc/pdl/test_torchscipt_to_mhlo/test_quantization.py":586:0)
-
+    return %5 : tensor<?x?x5xf32>
+  }
+}
 """
         self._test_torchscipte_to_mhlo(traced_model._c, expect_str, pdll_files, enable_int8=True)
 

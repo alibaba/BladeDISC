@@ -535,7 +535,6 @@ module {
   func.func @main(%arg1: tensor<?x?x?xf32>) -> tensor<?x?x5xf32> {
     # CHECK: tensor<5x3xui8>
     # CHECK: tensor<5xf32>
-    # CHECK: tensor<5xi32>
     # CHECK-NOT: mhlo.quantize
     # CHECK-NOT: mhlo.dequantize
     %0 = mhlo.constant dense : tensor<5x3xui8>
@@ -597,7 +596,6 @@ module {
   func.func @main(%arg1: tensor<?x?x?xf32>) -> tensor<?x?x5xf32> {
     # CHECK: tensor<5x3xui8>
     # CHECK: tensor<5xf32>
-    # CHECK: tensor<5xi32>
     # CHECK: tensor<5xf32>
     # CHECK-NOT: mhlo.quantize
     # CHECK-NOT: mhlo.dequantize

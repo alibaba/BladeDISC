@@ -50,7 +50,6 @@ import torch._dynamo
 torch._dynamo.config.log_file_name = "debug.log"
 torch._dynamo.config.verbose = True
 
-
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.13.0")
 
@@ -347,6 +346,9 @@ def parse_args(input_args=None):
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
     parser.add_argument(
         "--enable_xformers_memory_efficient_attention", action="store_true", help="Whether or not to use xformers."
+    )
+    parser.add_argument(
+        "--enable_disc", action="store_true", help="Whether or not to use BladeDISC accelerator."
     )
     parser.add_argument(
         "--set_grads_to_none",
@@ -744,6 +746,8 @@ def main(args):
         weight_decay=args.adam_weight_decay,
         eps=args.adam_epsilon,
         capturable=True,
+        fused=False,
+        foreach=False
     )
 
     # Dataset and DataLoaders creation:
@@ -782,7 +786,6 @@ def main(args):
     )
 
     # Prepare everything with our `accelerator`.
-    
     if args.train_text_encoder:
         unet, text_encoder, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
             unet, text_encoder, optimizer, train_dataloader, lr_scheduler
@@ -805,14 +808,17 @@ def main(args):
     if not args.train_text_encoder:
         text_encoder.to(accelerator.device, dtype=weight_dtype)
 
-    backend='aot_disc'
-    unet = torch.compile(backend=backend)(unet)
-    text_encoder = torch.compile(backend=backend)(text_encoder)
-    vae_encode = torch.compile(backend=backend)(vae.encode)
+    vae_encode = vae.encode
     def run_optimizer():
         optimizer.step()
         optimizer.zero_grad(set_to_none=args.set_grads_to_none)
-    opt_optimizer_step = torch.compile(backend='inductor')(run_optimizer)
+
+    if args.enable_disc:
+        backend='inductor'
+        unet = torch.compile(backend=backend)(unet)
+        text_encoder = torch.compile(backend=backend)(text_encoder)
+        #vae_encode = torch.compile(backend=backend)(vae.encode)
+        run_optimizer = torch.compile(backend='inductor')(run_optimizer)
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
@@ -904,7 +910,7 @@ def main(args):
                 encoder_hidden_states = text_encoder(batch["input_ids"])[0]
 
                 # Predict the noise residual
-                model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
+                model_pred = unet(noisy_latents, timesteps, encoder_hidden_states)[0]#.sample
 
                 # Get the target for loss depending on the prediction type
                 if noise_scheduler.config.prediction_type == "epsilon":
@@ -937,7 +943,7 @@ def main(args):
                         else unet.parameters()
                     )
                     accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-                opt_optimizer_step()
+                run_optimizer()
                 lr_scheduler.step()
 
 

@@ -13,9 +13,8 @@ please go to the official [diffusers repo](https://github.com/huggingface/diffus
     clone diffusers repo and install requirements in the BladeDISC runtime Docker image.
 
     ``` bash
-    docker run --rm -it -v $PWD:/workspace -w /workspace nvcr.io/nvidia/pytorch:21.08-py3 bash
-    git clone  --depth 1  --branch v0.13.0  git@github.com:huggingface/diffusers.git
-    cd diffusers/examples/dreambooth && python -m pip install -r requirements.txt
+    docker run --rm -it -v $PWD:/workspace -w /workspace bladedisc/bladedisc:latest-runtime-torch-pre-cu117 bash
+    pip install diffusers==0.17.0
     ```
 
 - step2: 
@@ -23,6 +22,7 @@ please go to the official [diffusers repo](https://github.com/huggingface/diffus
     launch the fine-tune job with TorchBlade accelerator.
 
     ``` bash
+    cd examples/PyTorch/Train/Dynamo/StableDiffusion
     bash launch_dreambooth_train.sh
     ```
 
@@ -32,5 +32,5 @@ please go to the official [diffusers repo](https://github.com/huggingface/diffus
 
 | Backend | Batch Size | Throughput (samples/sec) | Speedup |
 | :-----: | :--------: | :----------------------: | :-----: |
-| Eager | 1 | 3.11 | 1.00 |
-| TorchBlade | 1 | 3.40 | 1.09 |
+| Eager | 1 | 2.65 | 1.00 |
+| TorchBlade | 1 | 3.34 | 1.26 |

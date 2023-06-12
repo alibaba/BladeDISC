@@ -18,6 +18,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/Conversion/VectorToGPU/VectorToGPU.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
@@ -34,6 +35,8 @@
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
+#include "mlir/Dialect/NVGPU/Transforms/Transforms.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
@@ -45,6 +48,9 @@
 #include "mlir/Support/MathExtras.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/utils.h"
+#include "mlir/disc/transforms/codegen_utils.h"
+
+/// Many code in this file are reused from IREE project, but with customization.
 
 namespace mlir {
 namespace disc_ral {
@@ -103,11 +109,59 @@ LogicalResult comprehensiveBufferizeCopyFn(OpBuilder& builder, Location loc,
   return success(createLinalgCopyOp(builder, loc, from, to) != nullptr);
 }
 
-OneShotBufferizationOptions getBufferizationOptions() {
+static FailureOr<Value> gpuComprehensiveBufferizeAllocationFn(
+    OpBuilder& builder, Location loc, MemRefType memRefType,
+    ValueRange dynamicSizes, unsigned alignment) {
+  auto addressSpaceAttr = gpu::AddressSpaceAttr::get(
+      builder.getContext(), gpu::GPUDialect::getWorkgroupAddressSpace());
+  MemRefType allocType =
+      MemRefType::get(memRefType.getShape(), memRefType.getElementType(),
+                      AffineMap(), addressSpaceAttr);
+  return builder
+      .create<memref::AllocOp>(loc, allocType, dynamicSizes,
+                               builder.getI64IntegerAttr(alignment))
+      .getResult();
+}
+
+static LogicalResult gpuComprehensiveBufferizeDeallocationFn(OpBuilder& builder,
+                                                             Location loc,
+                                                             Value allocation) {
+  builder.create<memref::DeallocOp>(loc, allocation);
+  return success();
+}
+
+static LogicalResult gpuComprehensiveBufferizeCopyFn(OpBuilder& builder,
+                                                     Location loc, Value from,
+                                                     Value to) {
+  // Insert barriers for copies from and to shared memory.
+  bool needsBarrier = false;
+  if (hasSharedMemoryAddressSpace(from.getType().cast<MemRefType>()) !=
+      hasSharedMemoryAddressSpace(to.getType().cast<MemRefType>())) {
+    needsBarrier = true;
+  }
+  if (needsBarrier) {
+    builder.create<gpu::BarrierOp>(loc);
+  }
+  // TODO: ideally we should use linalg.copy which was recently reintroduced
+  // as an OpDSL named op. However, IREE-specific patterns to cleanup spurious
+  // post-bufferization copies do not trigger properly.
+  // So we keep using `createLinalgCopyOp` which builds a GenericOp.
+  mlir::disc_ral::createLinalgCopyOp(builder, loc, from, to);
+  if (needsBarrier) {
+    builder.create<gpu::BarrierOp>(loc);
+  }
+
+  return success();
+}
+
+OneShotBufferizationOptions getBufferizationOptions(bool target_gpu) {
   OneShotBufferizationOptions options;
-  options.allocationFn = comprehenciveBufferizeAllocationFn;
-  options.deallocationFn = comprehensiveBufferizeDeallocationFn;
-  options.memCpyFn = comprehensiveBufferizeCopyFn;
+  options.allocationFn = target_gpu ? gpuComprehensiveBufferizeAllocationFn
+                                    : comprehenciveBufferizeAllocationFn;
+  options.deallocationFn = target_gpu ? gpuComprehensiveBufferizeDeallocationFn
+                                      : comprehensiveBufferizeDeallocationFn;
+  options.memCpyFn = target_gpu ? gpuComprehensiveBufferizeCopyFn
+                                : comprehensiveBufferizeCopyFn;
   options.bufferAlignment = 64;
   options.createDeallocs = false;
   options.bufferizeFunctionBoundaries = true;
@@ -185,7 +239,7 @@ DiagnosedSilenceableFailure DISCBufferizeOp::apply(
   }
 
   auto moduleOp = cast<ModuleOp>(payload.front());
-  auto options = getBufferizationOptions();
+  auto options = getBufferizationOptions(getTargetGpu());
 
   // Bufferize tensor.empty
   if (failed(bufferizeTensorEmptyOps(state, moduleOp, options))) {
@@ -198,10 +252,12 @@ DiagnosedSilenceableFailure DISCBufferizeOp::apply(
                                      "bufferization failed.");
 
   PassManager pm(getContext());
-  pm.addNestedPass<func::FuncOp>(
-      bufferization::createPromoteBuffersToStackPass([](Value alloc) {
-        return betterToUseAlloca(alloc.getType().cast<ShapedType>());
-      }));
+  if (!getTargetGpu()) {
+    pm.addNestedPass<func::FuncOp>(
+        bufferization::createPromoteBuffersToStackPass([](Value alloc) {
+          return betterToUseAlloca(alloc.getType().cast<ShapedType>());
+        }));
+  }
   pm.addNestedPass<func::FuncOp>(bufferization::createBufferDeallocationPass());
 
   if (failed(pm.run(moduleOp)))
@@ -3223,6 +3279,536 @@ DiagnosedSilenceableFailure DISCLowerVectorsOp::applyToOne(
   }
 
   results.push_back(target);
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// DISCForeachThreadToGPUCTAsOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure DISCForeachThreadToGPUCTAsOp::applyToOne(
+    mlir::Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  /// from
+  /// ```
+  /// scf.foreach_thread (%arg3, %arg4) in (%c2, %c2) {
+  ///   xxx = some_op(%arg3, %arg4)
+  /// } {mapping = [#gpu.block<x>, #gpu.block<y>]}
+  /// ```
+  /// to
+  /// ```
+  /// scf.parallel (%arg3, %arg4) = (%c0, %c0) to (%c4, %c256) step (%c1, %c1) {
+  ///   %0:2 = "disc_shape.delinearize"(%arg3, %c2, %c2) : (index, index, index)
+  //                                                    -> (index, index)
+  ///    xxx = some_op(%0#0, %0#1)
+  /// }
+  /// ```
+
+  OpBuilder b(target);
+  Location loc = target->getLoc();
+  MLIRContext* ctx = target->getContext();
+
+  auto foreachThreadOp = dyn_cast<scf::ForeachThreadOp>(target);
+  if (!foreachThreadOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to scf::ForeachThreadOp");
+  }
+
+  // Only support foreach_thread op with at most rank 3. Otherwise it could not
+  // convert to the GPU workgroup.
+  int64_t rank = foreachThreadOp.getRank();
+  if (rank > 3) {
+    return mlir::emitDefiniteFailure(
+        target,
+        "scf.foreach_thread with rank > 3 does not lower to GPU parallel op");
+  }
+
+  // It should contain the mapping information of GPU Block or Warps.
+  if (!foreachThreadOp.getMapping().has_value()) {
+    return mlir::emitDefiniteFailure(target, "gpu mapping must be present");
+  }
+  SmallVector<Attribute> gpuMapping =
+      llvm::to_vector(foreachThreadOp.getMapping()->getValue());
+  if (!llvm::all_of(gpuMapping, [](DeviceMappingAttrInterface map) {
+        return map.isa<gpu::GPUBlockMappingAttr>();
+      })) {
+    return mlir::emitDefiniteFailure(target,
+                                     "gpu block mapping must be present");
+  }
+
+  Value blockNum = b.create<arith::ConstantIndexOp>(loc, 1);
+  SmallVector<Value> ctaDims = foreachThreadOp.getNumThreads();
+  for (auto dim : ctaDims) {
+    blockNum = b.create<arith::MulIOp>(loc, blockNum, dim);
+  }
+  // Use block size 128 currently.
+  Value threadNum = b.create<arith::ConstantIndexOp>(loc, 128);
+
+  SmallVector<Value, 2> vars;
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
+  SmallVector<Value> lowerBounds{zero, zero};
+  SmallVector<Value> upperBounds{blockNum, threadNum};
+  SmallVector<Value> steps{one, one};
+  auto parallelOp =
+      b.create<scf::ParallelOp>(loc, lowerBounds, upperBounds, steps);
+  // The `linearIdx` will be mapped to CTA index.
+  auto linearIdx = parallelOp.getInductionVars()[0];
+  b.setInsertionPointToStart(parallelOp.getBody());
+  auto mapped_index = calcMultiDimIndex(&b, loc, linearIdx, ctaDims);
+  IRMapping mapping;
+  for (const auto& z :
+       llvm::zip(foreachThreadOp.getThreadIndices(), mapped_index)) {
+    mapping.map(std::get<0>(z), std::get<1>(z));
+  }
+  for (auto& nestedOp : foreachThreadOp.getBody()->without_terminator()) {
+    b.clone(nestedOp, mapping);
+  }
+  if (foreachThreadOp.getResults().size() != parallelOp.getResults().size()) {
+    return mlir::emitDefiniteFailure(target,
+                                     "the result numbers should be matched");
+  }
+  for (const auto& z :
+       llvm::zip(foreachThreadOp.getResults(), parallelOp.getResults())) {
+    std::get<0>(z).replaceAllUsesWith(std::get<1>(z));
+  }
+  foreachThreadOp.erase();
+
+  parallelOp->setAttr("mapping", StringAttr::get(ctx, "cta-thread-mapping"));
+
+  results.push_back(parallelOp);
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// DISCForeachThreadToGPUWarpsOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure DISCForeachThreadToGPUWarpsOp::applyToOne(
+    mlir::Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  /// from
+  /// ```
+  /// scf.foreach_thread (%arg3, %arg4) in (%c2, %c2) {
+  ///   xxx = some_op(%arg3, %arg4)
+  /// } {mapping = [#gpu.thread<x>, #gpu.thread<y>]}
+  /// ```
+  /// to
+  /// ```
+  /// %warp_linear = gpu.threadX / 32
+  /// %warp_idx = disc_shape.delinearize(%warp_linear, %c2, %c2)
+  /// xxx = som_op(%warp_idx#0, %warp_idx#1)
+  /// ```
+
+  OpBuilder b(target);
+  Location loc = target->getLoc();
+  MLIRContext* ctx = target->getContext();
+
+  auto foreachThreadOp = dyn_cast<scf::ForeachThreadOp>(target);
+  if (!foreachThreadOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to scf::ForeachThreadOp");
+  }
+
+  // Only support foreach_thread op with at most rank 3. Otherwise it could not
+  // convert to the GPU workgroup.
+  int64_t rank = foreachThreadOp.getRank();
+  if (rank > 3) {
+    return mlir::emitDefiniteFailure(
+        target,
+        "scf.foreach_thread with rank > 3 does not lower to GPU parallel op");
+  }
+
+  // It should contain the mapping information of GPU Block or Warps.
+  if (!foreachThreadOp.getMapping().has_value()) {
+    return mlir::emitDefiniteFailure(target, "gpu mapping must be present");
+  }
+  SmallVector<Attribute> gpuMapping =
+      llvm::to_vector(foreachThreadOp.getMapping()->getValue());
+  if (!llvm::all_of(gpuMapping, [](DeviceMappingAttrInterface map) {
+        return map.isa<gpu::GPUThreadMappingAttr>();
+      })) {
+    // TODO: Use thread mapping to indicate warp mapping currently. To use warp
+    // attr after rebase.
+    return mlir::emitDefiniteFailure(target,
+                                     "gpu warp mapping must be present");
+  }
+
+  // It should have a parent parallel op, with attribute `mapping =
+  // "cta-thread-mapping"`.
+  auto parallelOp = target->getParentOfType<scf::ParallelOp>();
+  if (!parallelOp) {
+    return mlir::emitDefiniteFailure(
+        target,
+        "It should have a parent parallel op, with attribute `mapping = "
+        "cta-thread-mapping`");
+  }
+  auto parallelAttr = parallelOp->getAttrOfType<StringAttr>("mapping");
+  if (!parallelAttr || !parallelAttr.getValue().equals("cta-thread-mapping")) {
+    return mlir::emitDefiniteFailure(
+        target, "gpu warp loop must be in CTA parallel op");
+  }
+
+  Value threadId = parallelOp.getInductionVars()[1];
+  Value warpSize = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
+  Value warpId = b.create<arith::DivUIOp>(loc, threadId, warpSize);
+  SmallVector<Value> warpDims = foreachThreadOp.getNumThreads();
+  auto mappedIndex = calcMultiDimIndex(&b, loc, warpId, warpDims);
+  IRMapping mapping;
+  for (const auto& z :
+       llvm::zip(foreachThreadOp.getThreadIndices(), mappedIndex)) {
+    mapping.map(std::get<0>(z), std::get<1>(z));
+  }
+  for (auto& nestedOp : foreachThreadOp.getBody()->without_terminator()) {
+    b.clone(nestedOp, mapping);
+  }
+  foreachThreadOp.erase();
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// DISCSplitReductionSerialOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
+    mlir::Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  /// Currently, we only support linalg.matmul op.
+
+  auto matmulOp = dyn_cast<linalg::MatmulOp>(target);
+  if (!matmulOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to linalg::MatmulOp");
+  }
+
+  // TODO: support other types of reduction ops.
+
+  OpBuilder b(target);
+  Location loc = target->getLoc();
+  MLIRContext* ctx = target->getContext();
+  const ArrayRef<int64_t> tileSizes = getTileSizes();
+  if (tileSizes.size() != 1) {
+    return mlir::emitDefiniteFailure(target,
+                                     "only one reduction dim for matmul");
+  }
+  int64_t staticTileSize = tileSizes[0];
+
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
+  Value step = b.create<arith::ConstantIndexOp>(loc, staticTileSize);
+  Value lhs = matmulOp.getDpsInputOperand(0)->get();
+  Value rhs = matmulOp.getDpsInputOperand(1)->get();
+  Value output = matmulOp.getOutputs()[0];
+  Value dimM = b.create<tensor::DimOp>(loc, lhs, zero);
+  Value dimN = b.create<tensor::DimOp>(loc, rhs, one);
+  Value dimK = b.create<tensor::DimOp>(loc, lhs, one);
+
+  scf::ForOp forOp =
+      b.create<scf::ForOp>(loc, zero, dimK, step, ValueRange{output});
+  b.setInsertionPoint(forOp.getBody(), forOp.getBody()->begin());
+  Value iv = forOp.getInductionVar();
+  SmallVector<Value> lhsOffsets{zero, iv};
+  SmallVector<Value> lhsDimUppers{dimM, step};
+  SmallVector<Value> lhsStrides{one, one};
+  Value lhsSlice = b.create<tensor::ExtractSliceOp>(loc, lhs, lhsOffsets,
+                                                    lhsDimUppers, lhsStrides);
+  SmallVector<Value> rhsOffsets{iv, zero};
+  SmallVector<Value> rhsDimUppers{step, dimN};
+  SmallVector<Value> rhsStrides{one, one};
+  Value rhsSlice = b.create<tensor::ExtractSliceOp>(loc, rhs, rhsOffsets,
+                                                    rhsDimUppers, rhsStrides);
+  ShapedType resultType = output.getType().cast<ShapedType>();
+  Value iterArg = forOp.getRegionIterArg(0);
+  linalg::MatmulOp res = b.create<linalg::MatmulOp>(
+      loc, resultType, ValueRange{lhsSlice, rhsSlice}, ValueRange{iterArg});
+  b.create<scf::YieldOp>(loc, ValueRange{res.getResult(0)});
+
+  target->getResult(0).replaceAllUsesWith(forOp->getResult(0));
+  results.push_back(res);
+  results.push_back(forOp);
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// DISCVectorToMMAConversionOp
+//===---------------------------------------------------------------------===//
+
+void transform_dialect::DISCVectorToMMAConversionOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::onlyReadsHandle(getTarget(), effects);
+  transform::modifiesPayload(effects);
+}
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCVectorToMMAConversionOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  // TODO: use createConvertVectorToGPUPass pass.
+
+  if (!target->hasTrait<OpTrait::IsIsolatedFromAbove>()) {
+    target->emitOpError(
+        "applies only to isolated-from-above targets because it "
+        "needs to apply "
+        "patterns greedily");
+    return emitDefaultDefiniteFailure(target);
+  }
+
+  MLIRContext* ctx = target->getContext();
+
+  // Unrolling to native vector size must have previously occurred.
+  // TODO: Add pattern to propagate the extract through the scf.for
+  // ops. Convert slice of contract operations to mma_sync ops.
+  RewritePatternSet patterns(ctx);
+  mlir::vector::populateCastAwayVectorLeadingOneDimPatterns(patterns);
+  mlir::populatePrepareVectorToMMAPatterns(patterns, true);
+  if (failed(applyPatternsAndFoldGreedily(target, std::move(patterns)))) {
+    target->emitOpError("vector to mma preparation patterns failed to apply");
+    return emitDefaultDefiniteFailure(target);
+  }
+
+  if (failed(convertVectorToNVVMCompatibleMMASync(target))) {
+    target->emitOpError("vector to mma patterns failed to apply");
+    return emitDefaultDefiniteFailure(target);
+  }
+  // Using TF32 for Float.
+  RewritePatternSet f32ToTF32patterns(target->getContext());
+  nvgpu::populateMmaSyncF32ToTF32Patterns(f32ToTF32patterns,
+                                          nvgpu::MmaSyncF32Lowering::TF32);
+  if (failed(applyPatternsAndFoldGreedily(getOperation(),
+                                          std::move(f32ToTF32patterns)))) {
+    target->emitOpError("vector to mma F32ToTF32 patterns failed to apply");
+    return emitDefaultDefiniteFailure(target);
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCPromoteDotOperandsOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCPromoteDotOperandsOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  Location loc = target->getLoc();
+  IRRewriter rewriter(getContext());
+  OpBuilder::InsertionGuard g(rewriter);
+  rewriter.setInsertionPoint(target);
+  SmallVector<int64_t> indices = llvm::to_vector(getIndices());
+  int64_t numOperands = target->getNumOperands();
+
+  results.push_back(target);
+  bufferization::BufferizationOptions options;
+  for (int64_t index : indices) {
+    if ((index >= 0) && (index < numOperands)) {
+      FailureOr<Value> ret = bufferization::allocateTensorForShapedValue(
+          rewriter, loc, target->getOperand(index), false, options, true);
+      if (failed(ret)) {
+        return emitDefaultDefiniteFailure(target)
+               << "failed to promote operand";
+      }
+      target->setOperand(index, ret.value());
+      results.push_back(ret.value().getDefiningOp());
+    } else {
+      return emitDefaultDefiniteFailure(target) << "invalid index specified";
+    }
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCLowerGmemToSmemOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCLowerGmemToSmemOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  SimplePatternRewriter rewriter(target->getContext());
+  rewriter.setInsertionPoint(target);
+  Location loc = target->getLoc();
+  MLIRContext* ctx = target->getContext();
+
+  auto genericOp = dyn_cast<linalg::GenericOp>(target);
+  if (!genericOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to linalg::GenericOp");
+  }
+
+  // TODO: check it is gmem to smem movement.
+
+  auto forOp = linalgOpToLoops(rewriter, genericOp);
+  if (failed(forOp)) {
+    return mlir::emitDefiniteFailure(target, "convert to forOp failed");
+  }
+  // TODO: convert forOp to instructions mapped to threads.
+  target->erase();
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCEraseDeallocOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure transform_dialect::DISCEraseDeallocOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  // This op can be used to erase dealloc ops after bufferization on GPU.
+
+  auto funcOp = cast<func::FuncOp>(target);
+
+  SmallVector<memref::DeallocOp> deallocOps;
+  funcOp.walk([&](memref::DeallocOp op) { deallocOps.push_back(op); });
+
+  for (auto op : deallocOps) {
+    op->erase();
+  }
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCTransferWriteZeroToSCFOp
+//===----------------------------------------------------------------------===//
+
+struct TransferWriteZeroToSCFPattern
+    : public OpRewritePattern<vector::TransferWriteOp> {
+  using OpRewritePattern<vector::TransferWriteOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::TransferWriteOp op,
+                                PatternRewriter& rewriter) const override {
+    // To check whether it reads constant vector.
+    auto constant = op.getVector().getDefiningOp<arith::ConstantOp>();
+    if (!constant) {
+      return failure();
+    }
+
+    // To check whether it reads zeros.
+    auto value = constant.getValue();
+    auto denseAttr = value.cast<DenseElementsAttr>();
+    bool isSplat = denseAttr.isSplat();
+    auto type = constant->getResultTypes()[0];
+    auto shapedType = type.dyn_cast<ShapedType>();
+    if (!isSplat && (shapedType && shapedType.getRank() != 0)) {
+      return failure();
+    }
+    auto elemTy = shapedType ? shapedType.getElementType() : type;
+    bool isZero = false;
+    if (elemTy.isIntOrIndex()) {
+      isZero = isSplat ? denseAttr.getSplatValue<APInt>().isZero()
+                       : denseAttr.getValues<APInt>()[{}].isZero();
+    } else if (isa<mlir::FloatType>(elemTy)) {
+      isZero = isSplat ? denseAttr.getSplatValue<APFloat>().isZero()
+                       : denseAttr.getValues<APFloat>()[{}].isZero();
+    }
+    if (!isZero) {
+      return failure();
+    }
+
+    // Currently, it only supports memref type.
+    auto source = op.getSource();
+    auto sourceType = source.getType().dyn_cast<MemRefType>();
+    if (!sourceType) {
+      return failure();
+    }
+    // To guarantee that it is an identity write on memref.
+    // Do not support permutation currently. Do not support mask.
+    if (!op.getPermutationMap().isIdentity() || op.getMask()) {
+      return failure();
+    }
+    // TODO: check in_bounds.
+
+    // The op should be not used by other ops, as we will erase it directly
+    // after creating the loop.
+    if (!op->getUses().empty()) {
+      return failure();
+    }
+
+    // Create scf.loop and memref.store op.
+    int rank = sourceType.getRank();
+    if (rank < 1) {
+      return failure();
+    }
+    auto loc = op.getLoc();
+    Value zeroValue = elemTy.isIntOrIndex()
+                          ? rewriter.create<arith::ConstantOp>(
+                                loc, rewriter.getIntegerAttr(elemTy, 0))
+                          : rewriter.create<arith::ConstantOp>(
+                                loc, rewriter.getFloatAttr(elemTy, 0));
+    Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+    SmallVector<Value> indices(rank);
+    for (int i = 0; i < rank; i++) {
+      auto dim = rewriter.create<memref::DimOp>(loc, source, i);
+      auto forOp =
+          rewriter.create<scf::ForOp>(loc, zero, dim, one, ValueRange{});
+      indices[i] = forOp.getInductionVar();
+      Block& newBlock = forOp.getRegion().front();
+      rewriter.setInsertionPointToStart(&newBlock);
+    }
+    rewriter.create<memref::StoreOp>(loc, zeroValue, source, indices);
+
+    // Erase the op.
+    op->erase();
+
+    return success();
+  }
+};  // namespace transform_dialect
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCTransferWriteZeroToSCFOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  MLIRContext* ctx = getContext();
+  RewritePatternSet patterns(ctx);
+  patterns.insert<TransferWriteZeroToSCFPattern>(ctx);
+  if (failed(applyPatternsAndFoldGreedily(target, std::move(patterns)))) {
+    return DiagnosedSilenceableFailure::definiteFailure();
+  }
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCInlineAndConvertGPUIdsOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  scf::ParallelOp ctaParallelOp;
+  target->walk([&](scf::ParallelOp op) {
+    auto parallelAttr = op->getAttrOfType<StringAttr>("mapping");
+    if (parallelAttr && parallelAttr.getValue().equals("cta-thread-mapping")) {
+      ctaParallelOp = op;
+      WalkResult::interrupt();
+    }
+  });
+  if (!ctaParallelOp) {
+    return DiagnosedSilenceableFailure::definiteFailure();
+  }
+
+  SmallVector<Operation*> candidateOps;
+  target->walk([&](Operation* op) {
+    if (op->getBlock() == ctaParallelOp->getBlock() &&
+        op->isBeforeInBlock(ctaParallelOp)) {
+      candidateOps.push_back(op);
+    }
+  });
+  OpBuilder b(target);
+  auto loc = target->getLoc();
+  for (auto op : candidateOps) {
+    // TODO: inline and convert more ops.
+    if (isa<gpu::LaneIdOp>(op)) {
+      b.setInsertionPoint(&ctaParallelOp.getBody()->front());
+      Value threadId = ctaParallelOp.getInductionVars()[1];
+      Value warpSize = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
+      Value laneId = b.create<arith::RemUIOp>(loc, threadId, warpSize);
+      op->getResult(0).replaceAllUsesWith(laneId);
+    }
+  }
+
   return DiagnosedSilenceableFailure::success();
 }
 

@@ -743,7 +743,7 @@ class ShapePropagator : public PropertyPropBase {
                     sizes_opt.value()[dim].is_static()) {
                   int64_t split_size =
                       input_node->get<int64_t>(attr::split_size).value();
-                  if (split_size * (i + 1) > self_type->sizes()[dim]) {
+                  if (split_size * (i + 1) > self_type->sizes()[dim].value()) {
                     split_size =
                         split_size * (i + 1) - self_type->sizes()[dim].value();
                   }

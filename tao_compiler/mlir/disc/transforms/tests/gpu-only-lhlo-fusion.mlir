@@ -2,6 +2,7 @@
 // RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=0 DISC_ENABLE_HORIZONTAL_FUSION=0 disc-opt -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch}))' -split-input-file %s -o - | FileCheck %s --check-prefix=STITCH
 // RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch}))' -split-input-file %s -o - | FileCheck %s --check-prefix=HORIZONTAL
 // RUN: DISC_ENABLE_COMPUTE_INTENSIVE_FUSE=1 DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch}))' -split-input-file %s -o - | FileCheck %s --check-prefix=DOTFUSE
+// RUN: DISC_ENABLE_TRANSFORM_SCHEDULE=1 disc-opt -split-input-file -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch mlir-compute-intensive-codegen=true}))' %s -o - | FileCheck %s --check-prefix=TRANSFORM
 
 // BASE-LABEL: @simple_kloop_fusion
 // BASE-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?x?xf32, "gpu">, %[[ARG3:.*]]: memref<?x?xf32, "gpu">) -> memref<?x?xf32, "gpu">
@@ -497,4 +498,19 @@ func.func @dot_fuse_simple(%arg0: memref<?x?x?x?xf32, "gpu">, %arg1: memref<?x?x
   %15 = memref.alloc(%1, %2, %3, %8) : memref<?x?x?x?xf32, "gpu">
   "lmhlo.multiply"(%12, %14, %15) {disc.device = "gpu"} : (memref<?x?x?x?xf32, "gpu">, memref<?x?x?x?xf32, "gpu">, memref<?x?x?x?xf32, "gpu">) -> ()
   return %15 : memref<?x?x?x?xf32, "gpu">
+}
+
+// -----
+
+// TRANSFORM-LABEL: @matmul_nn
+func.func @matmul_nn(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">,
+                     %arg2: memref<?x?xf32, "gpu">, %arg3: memref<?x?xf32, "gpu">) -> memref<?x?xf32, "gpu"> {
+  // TRANSFORM: "lmhlo.fusion"() ({
+  // TRANSFORM-NEXT: lmhlo.dot_general
+  // TRANSFORM-NEXT: lmhlo.terminator
+  // TRANSFORM-NEXT: })
+  // TRANSFORM-SAME: disc.fusion_type = "kTransform"
+  "lmhlo.abs"(%arg0, %arg1) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
+  "lmhlo.dot_general"(%arg1, %arg2, %arg3) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
+  return %arg3 : memref<?x?xf32, "gpu">
 }

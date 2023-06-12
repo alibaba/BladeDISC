@@ -180,5 +180,129 @@ bool TransformBasedCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   return target.isFusible();
 }
 
+/////////// Transform based GPU FusionStrategy Implemenation ///////////
+////////////////////////////////////////////////////////////////////////
+
+bool TransformBasedGpuFusionStrategy::isFusible(Operation* op) {
+  if (!useTransformGEMMEpilogueFusionSchedule()) {
+    return isSupportedDot(op) || isa<lmhlo::ConstantOp>(op);
+  }
+  return isSupportedDot(op) || isElementWise(op) || isBcastOp(op) ||
+         isa<lmhlo::ConstantOp>(op);
+}
+
+bool TransformBasedGpuFusionStrategy::initFusionPattern(
+    ShapeAnalysis& shapeAnalysis, FusionPattern& fusionPattern) {
+  // firstly init the fusion kind to kNone
+  fusionPattern.setDominantOp(nullptr);
+  fusionPattern.setFusionType(FusionType::kNone);
+
+  // special case for single operation.
+  if (fusionPattern.getOpList().size() == 1) {
+    Operation* op = *fusionPattern.getOpList().begin();
+    if (!isBcastOp(op) && this->isFusible(op) ||
+        isBcastOp(op) && isSupportedBcast(op, shapeAnalysis)) {
+      fusionPattern.setDominantOp(op);
+      fusionPattern.setFusionType(isSupportedDot(op) ? FusionType::kTransform
+                                                     : FusionType::kLoop);
+    }
+    return true;
+  }
+
+  // We only support single output right now
+  if (fusionPattern.getResults().size() != 1) {
+    return true;
+  }
+
+  DenseSet<Value> dotWeights;
+  DenseSet<Operation*> supportedDotOps;
+  for (Operation* op : fusionPattern.getOpList()) {
+    // early return for the case where there are non supported ops.
+    if (!this->isFusible(op) ||
+        isBcastOp(op) && !isSupportedBcast(op, shapeAnalysis)) {
+      return true;
+    }
+    if (isSupportedDot(op)) {
+      supportedDotOps.insert(op);
+      dotWeights.insert(op->getOperand(1));
+    }
+  }
+
+  // Only support at most one gemm a.t.m.
+  if (supportedDotOps.size() > 1) {
+    return true;
+  }
+  if (supportedDotOps.empty()) {
+    // special case: for elem+bcast epilogue subgraph fusion
+    // 1, check no large const
+    if (llvm::all_of(fusionPattern.getOpList(), [&](Operation* op) {
+          return !isa<lmhlo::ConstantOp>(op) || isScalarConstOp(op);
+        })) {
+      fusionPattern.setFusionType(FusionType::kLoop);
+      fusionPattern.setDominantOp(*fusionPattern.getRootOps().begin());
+    }
+    return true;
+  }
+
+  // normal case: gemm + epilogue fusion
+  Operation* dominantDotOp = *supportedDotOps.begin();
+
+  // Only support fuse const ops that are not consumed by ops outside the fusion
+  // pattern and have one of the following properties:
+  // - const ops that are used as weights for some dot ops
+  // - const op has single element.
+  DenseSet<Value> constDotWeights;
+  for (Operation* op : fusionPattern.getOpList()) {
+    if (!isa<lmhlo::ConstantOp>(op)) continue;
+    if (llvm::find(fusionPattern.getRootOps(), op) !=
+        fusionPattern.getRootOps().end()) {
+      return true;
+    }
+    if (llvm::find(dotWeights, op->getOperand(0)) != dotWeights.end()) {
+      constDotWeights.insert(op->getOperand(0));
+      continue;
+    }
+    if (!isScalarConstOp(op)) {
+      return true;
+    }
+  }
+
+  // We only support epilogue fusion right now.
+  // Check if the dot op does not consume any result produced by other
+  // lmhlo ops (except const ops).
+  for (Value operand : dominantDotOp->getOperands().drop_back()) {
+    if (llvm::find(constDotWeights, operand) != constDotWeights.end()) {
+      continue;
+    }
+    auto& operands = fusionPattern.getOperands();
+    if (llvm::find(operands, operand) == operands.end()) {
+      return true;
+    }
+  }
+
+  // the shape of the output should be the same as the shape of result of
+  // dominant op.
+  for (Value result : fusionPattern.getResults()) {
+    if (!shapeAnalysis.isShapeEqual(result, dominantDotOp->getOperand(2))) {
+      return true;
+    }
+  }
+
+  fusionPattern.setDominantOp(dominantDotOp);
+  fusionPattern.setFusionType(FusionType::kTransform);
+
+  return true;
+}
+
+bool TransformBasedGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
+                                              FusionPattern& lhs,
+                                              FusionPattern& rhs,
+                                              FusionPattern& target) {
+  if (!initFusionPattern(shapeAnalysis, target)) {
+    return false;
+  }
+  return target.isFusible();
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

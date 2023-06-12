@@ -146,6 +146,8 @@ def DiscFusionPass : Pass<"disc-fusion", "mlir::func::FuncOp"> {
            /*default=*/"true", "whether gpu is available.">,
     Option<"fusion_strategy_", "fusion-strategy", "std::string",
            /*default=*/"\"base\"", "Name of the fusion strategy.">,
+    Option<"mlir_compute_intensive_codegen_", "mlir-compute-intensive-codegen", "bool",
+           /*default=*/"false", "whether using MLIR based compute intensive codegen.">,
   ];
 }
 

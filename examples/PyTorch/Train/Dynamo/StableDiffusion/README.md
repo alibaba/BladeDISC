@@ -1,6 +1,6 @@
 # StableDiffusion Examples
 
-BladeDISC acceleartes StableDiffusion dreambooth fine-tune with 1.09X,
+BladeDISC acceleartes StableDiffusion dreambooth fine-tune with 1.10X,
 users can reproduce the results as the following steps, for more StableDiffusion examples,
 please go to the official [diffusers repo](https://github.com/huggingface/diffusers/blob/main/examples).
 
@@ -26,11 +26,11 @@ please go to the official [diffusers repo](https://github.com/huggingface/diffus
     bash launch_dreambooth_train.sh
     ```
 
-    if you want to execute with PyTorch eager mode, please remove the `--enable_disc` argument.
+    if you want to execute with PyTorch eager mode, please remove the `--enable_torch_compile` argument.
 
 ### Results
 
 | Backend | Batch Size | Throughput (samples/sec) | Speedup |
 | :-----: | :--------: | :----------------------: | :-----: |
-| Eager | 1 | 2.65 | 1.00 |
-| TorchBlade | 1 | 3.34 | 1.26 |
+| Eager | 1 | 3.02 | 1.00 |
+| TorchBlade | 1 | 3.34 | 1.10 |

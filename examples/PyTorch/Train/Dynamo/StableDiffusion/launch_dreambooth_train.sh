@@ -34,7 +34,8 @@ export TORCH_BLADE_EXPERIMENTAL_MERGE_HORIZONTAL_GROUPS=true
 export BLADE_AUTH_USE_COUNTING=1
 export DISC_ENABLE_HORIZONTAL_FUSION=true
 export DISC_ENABLE_DOT_MERGE=false
-
+ENTRY="nsys profile -f true -c cudaProfilerApi -o nsys-sd"
+ENTRY=""
 $ENTRY accelerate launch  --num_processes=1 train_dreambooth.py \
   --pretrained_model_name_or_path=$MODEL_NAME \
   --mixed_precision="fp16" \
@@ -53,5 +54,4 @@ $ENTRY accelerate launch  --num_processes=1 train_dreambooth.py \
   --lr_warmup_steps=0 \
   --num_class_images=200 \
   --max_train_steps=800 \
-  --enable_disc \
   --set_grads_to_none  2>&1 | tee train.log

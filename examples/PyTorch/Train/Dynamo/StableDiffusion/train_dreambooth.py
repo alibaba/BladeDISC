@@ -348,7 +348,7 @@ def parse_args(input_args=None):
         "--enable_xformers_memory_efficient_attention", action="store_true", help="Whether or not to use xformers."
     )
     parser.add_argument(
-        "--enable_disc", action="store_true", help="Whether or not to use BladeDISC accelerator."
+        "--enable_torch_compile", action="store_true", help="Whether or not to use PyTorch Dynamo."
     )
     parser.add_argument(
         "--set_grads_to_none",
@@ -739,16 +739,27 @@ def main(args):
     params_to_optimize = (
         itertools.chain(unet.parameters(), text_encoder.parameters()) if args.train_text_encoder else unet.parameters()
     )
-    optimizer = optimizer_class(
+    import disc_wrapper
+
+    optimizer = disc_wrapper.prepare_optimizer(
+        args.enable_torch_compile,
+        optimizer_class,
         params_to_optimize,
         lr=args.learning_rate,
         betas=(args.adam_beta1, args.adam_beta2),
         weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-        capturable=True,
-        fused=False,
-        foreach=False
-    )
+        eps=args.adam_epsilon)
+
+    #optimizer = optimizer_class(
+    #    params_to_optimize,
+    #    lr=args.learning_rate,
+    #    betas=(args.adam_beta1, args.adam_beta2),
+    #    weight_decay=args.adam_weight_decay,
+    #    eps=args.adam_epsilon,
+    #    capturable=True,
+    #    fused=False,
+    #    foreach=False
+    #)
 
     # Dataset and DataLoaders creation:
     train_dataset = DreamBoothDataset(
@@ -813,11 +824,9 @@ def main(args):
         optimizer.step()
         optimizer.zero_grad(set_to_none=args.set_grads_to_none)
 
-    if args.enable_disc:
-        backend='inductor'
-        unet = torch.compile(backend=backend)(unet)
-        text_encoder = torch.compile(backend=backend)(text_encoder)
-        #vae_encode = torch.compile(backend=backend)(vae.encode)
+    if args.enable_torch_compile:
+        unet = torch.compile(backend='aot_disc')(unet)
+        text_encoder = torch.compile(backend='aot_disc')(text_encoder)
         run_optimizer = torch.compile(backend='inductor')(run_optimizer)
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
@@ -883,6 +892,10 @@ def main(args):
             if global_step == 50:
                 progress_bar = tqdm(range(global_step, args.max_train_steps), disable=not accelerator.is_local_main_process, smoothing=0)
                 progress_bar.set_description("Steps")
+            if global_step == 20:
+                cu_prof_start()
+            if global_step == 21:
+                cu_prof_stop()
             # Skip steps until we reach the resumed step
             if args.resume_from_checkpoint and epoch == first_epoch and step < resume_step:
                 if step % args.gradient_accumulation_steps == 0:

@@ -1,0 +1,105 @@
+// weight only quant linear without bias
+Pattern TorchWeightOnlyQuantOp {
+    let weight_dequantize_op = op<torch.operator>(
+        quantize_out: Value,
+        weight_scale: Value,
+        weight_zero_point: Value,
+        weight_quant_min: Value,
+        weight_quant_max: Value,
+        weight_num_bits: Value,
+        weight_axis: Value,
+        weight_signed: Value,
+        weight_symmetric: Value,
+        weight_dynamic: Value,
+        weight_per_channel: Value
+    ){ name = attr<"\"torch_blade.dequantize\"">};
+    let weight_transpose_op = op<torch.aten.transpose.int> (
+        weight_dequantize_op.0,
+        idx0: Value,
+        idx1: Value
+    );
+    let gemm = op<torch.aten.matmul> (
+        input: Value,
+        weight_transpose_op.0
+    );
+
+    rewrite gemm with {
+        /// 1. create custom call op
+        let transpose = CreateTorchTransposeOp(quantize_out, weight_transpose_op.0, idx0, idx1);
+
+        let inputs = PackValue_4(attr<"\"in\"">, input, transpose, weight_scale, weight_zero_point);
+        let outputs = PackValue_1(attr<"\"out\"">, gemm.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_weight_only_qgemm\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+        SetCustomAttr(infos.op, attr<"\"weight_should_be_reordered\"">, attr<"true">);
+
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace gemm with rs;
+    };
+}
+
+
+// weight only quant linear with bias
+Pattern TorchWeightOnlyQuantWithBiasOp {
+    let weight_dequantize_op = op<torch.operator>(
+        quantize_out: Value,
+        weight_scale: Value,
+        weight_zero_point: Value,
+        weight_quant_min: Value,
+        weight_quant_max: Value,
+        weight_num_bits: Value,
+        weight_axis: Value,
+        weight_signed: Value,
+        weight_symmetric: Value,
+        weight_dynamic: Value,
+        weight_per_channel: Value
+    ){ name = attr<"\"torch_blade.dequantize\"">};
+    let weight_transpose_op = op<torch.aten.transpose.int> (
+        weight_dequantize_op.0,
+        idx0: Value,
+        idx1: Value
+    );
+    let gemm = op<torch.aten.matmul> (
+        input: Value,
+        weight_transpose_op.0
+    );
+    let biass_add = op<torch.aten.add.Tensor> (
+        gemm.0,
+        bias: Value,
+        alpha: Value
+    );
+
+    rewrite gemm with {
+        /// 1. create custom call op
+        let transpose = CreateTorchTransposeOp(quantize_out, weight_transpose_op.0, idx0, idx1);
+
+        let inputs = PackValue_5(attr<"\"in\"">, input, transpose, bias, weight_scale, weight_zero_point);
+        let outputs = PackValue_1(attr<"\"out\"">, biass_add.0);
+        let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+        /// 2. set attrs that are used by bladedisc.
+        SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_weight_only_qgemm\"">);
+        SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d,d,d\"">);
+        SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+        SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*,*,*\"">);
+        SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+        SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*,*,*\"">);
+        SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+        SetCustomAttr(infos.op, attr<"\"weight_should_be_reordered\"">, attr<"true">);
+
+        let rs = UnpackValue_1(infos.new_outputs);
+        replace biass_add with rs;
+    };
+}

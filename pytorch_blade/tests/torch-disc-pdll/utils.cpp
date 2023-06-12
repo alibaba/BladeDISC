@@ -51,6 +51,8 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite GetTorchTensorTypeFromList(v1: Value, v2 : Value) -> Type;
   Rewrite GetTorchCombineWeightTypeForQKV(old_type: Type) -> Type;
   Rewrite GetTorchIntFromIntList(v1: Value, v2: Value) -> Value;
+  Rewrite CreateTorchTransposeOp(inp1: Value, inp2: Value, idx1: Value, idx2: Value) -> Value;
+
 )pdll";
 
 static LogicalResult checkTorchNone(
@@ -502,6 +504,31 @@ static LogicalResult getTorchQuantizedTensorType(
   return success();
 }
 
+static LogicalResult createTorchTransposeOp(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values) {
+  assert(values.size() == 4);
+  // the Input Value of the new constructed transpose op
+  // the result dtype comes from this Value
+  Value val_for_dtype = values[0].cast<Value>();
+  // the result shape comes from this Value
+  Value val_for_shape = values[1].cast<Value>();
+  Value idx0 = values[2].cast<Value>();
+  Value idx1 = values[3].cast<Value>();
+  auto loc = val_for_dtype.getLoc();
+  auto dtype_val_type = val_for_dtype.getType().cast<Torch::ValueTensorType>();
+  auto shape_val_type = val_for_shape.getType().cast<Torch::ValueTensorType>();
+  auto new_transposed_type = Torch::ValueTensorType::get(
+      rewriter.getContext(),
+      shape_val_type.getSizes(),
+      dtype_val_type.getDtype());
+  auto output = rewriter.create<Torch::AtenTransposeIntOp>(
+      loc, new_transposed_type, val_for_dtype, idx0, idx1);
+  results.push_back(Value(output));
+  return success();
+}
+
 // Register some pre-defined helper functions for torch pdl patterns.
 void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
   pdlPatterns.registerRewriteFunction(
@@ -529,6 +556,8 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
   pdlPatterns.registerRewriteFunction("GetTorchTensorType", getTorchTensorType);
   pdlPatterns.registerRewriteFunction(
       "GetTorchQuantizedTensorType", getTorchQuantizedTensorType);
+  pdlPatterns.registerRewriteFunction(
+      "CreateTorchTransposeOp", createTorchTransposeOp);
   pdlPatterns.registerConstraintFunction("CheckTorchNone", checkTorchNone);
   pdlPatterns.registerConstraintFunction(
       "CheckNotTorchNone", checkNotTorchNone);

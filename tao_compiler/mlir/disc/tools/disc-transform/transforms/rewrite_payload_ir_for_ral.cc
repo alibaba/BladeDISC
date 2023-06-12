@@ -112,10 +112,6 @@ LogicalResult DiscRewritePayloadIRForRALPass::assignPlacementForFuncOp(
 }
 
 LogicalResult DiscRewritePayloadIRForRALPass::assignPlacement() {
-  if (gpuEnabled_)
-    return getOperation()->emitError()
-           << "not support assign placement info for gpu a.t.m.\n";
-
   for (FuncOp funcOp :
        llvm::to_vector<4>(getOperation().getOps<func::FuncOp>())) {
     if (failed(assignPlacementForFuncOp(funcOp))) return failure();

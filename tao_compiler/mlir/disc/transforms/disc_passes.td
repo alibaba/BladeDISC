@@ -632,6 +632,10 @@ def DiscTransformLegalizeToLoopPass : Pass<"disc-transform-legalize-to-loop", "m
             /*default=*/"false", "whether gpu is available.">,
     Option<"transformFileName_", "transform-file-name", "std::string",
            /*default=*/"\"\"", "Filename of the transform schedule.">,
+    Option<"cc_major_", "gpu-sm-cc-major", "int",
+            /*default=*/"8", "gpu sm cc_major.">,
+    Option<"cc_minor_", "gpu-sm-cc-minor", "int",
+            /*default=*/"0", "gpu sm cc_minor.">,
     Option<"enableExpensiveChecks_", "enable-expensive-checks", "bool",
            /*default=*/"false", "perform expensive checks to better report errors in the transform IR.">,
   ];
@@ -648,4 +652,9 @@ def DiscDuplicateComputationAfterFusionPass : Pass<"disc-duplicate-computation-a
   let dependentDialects = [
       "memref::MemRefDialect",
   ];
+}
+
+def DiscEraseBufferDeallocationPass : Pass<"disc-erase-buffer-deallocation", "mlir::gpu::GPUFuncOp"> {
+  let summary = "Erase dealloc op for GPU func ops.";
+  let constructor = "createDiscEraseBufferDeallocationPass()";
 }

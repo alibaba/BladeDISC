@@ -98,11 +98,14 @@ struct DiscTransformLegalizeToLoopPass
           DiscTransformLegalizeToLoopPass> {
   explicit DiscTransformLegalizeToLoopPass(bool gpuEnabled,
                                            const std::string& transformFileName,
+                                           int cc_major, int cc_minor,
                                            bool enableExpensiveChecks)
       : DiscTransformLegalizeToLoopPassBase<DiscTransformLegalizeToLoopPass>::
             DiscTransformLegalizeToLoopPassBase() {
     this->gpuEnabled_ = gpuEnabled;
     this->transformFileName_ = transformFileName;
+    this->cc_major_ = cc_major;
+    this->cc_minor_ = cc_minor;
     this->enableExpensiveChecks_ = enableExpensiveChecks;
   }
 
@@ -116,10 +119,14 @@ struct DiscTransformLegalizeToLoopPass
                                   ShapeAnalysis& shapeAnalysis,
                                   ScheduleDispatcher& scheduleDispatcher);
 
+  LogicalResult handleGpuFusionOp(OpBuilder& b, Operation* fusion,
+                                  ShapeAnalysis& shapeAnalysis,
+                                  ScheduleDispatcher& scheduleDispatcher);
+
   // Inject schedule selection logic
   LogicalResult injectScheduleSelectionIR(
       OpBuilder& b, PatternDescription& pd,
-      SmallVectorImpl<Operation*>& clonedOps);
+      SmallVectorImpl<Operation*>& clonedOps, DeviceType deviceType);
 
   // Outlines the fusion op to a standalone module op.
   LogicalResult outlineFusionOp(lmhlo::FusionOp fusionOp,
@@ -131,6 +138,11 @@ struct DiscTransformLegalizeToLoopPass
   LogicalResult inlineTransformedModule(OpBuilder& b, Operation* fusion,
                                         FusionPattern& fusionPattern,
                                         ModuleOp m);
+
+ private:
+  // GPU compute capatility numbers.
+  int cc_major_;
+  int cc_minor_;
 };
 
 LogicalResult DiscTransformLegalizeToLoopPass::outlineFusionOp(
@@ -235,7 +247,7 @@ LogicalResult DiscTransformLegalizeToLoopPass::inlineTransformedModule(
 
 LogicalResult DiscTransformLegalizeToLoopPass::injectScheduleSelectionIR(
     OpBuilder& b, PatternDescription& pd,
-    SmallVectorImpl<Operation*>& clonedOps) {
+    SmallVectorImpl<Operation*>& clonedOps, DeviceType deviceType) {
   auto fusionOp = pd.getFusionOp();
   auto factories =
       ScheduleFactoryRegistry::get().getAllCandidateScheduleFactories(pd);
@@ -262,8 +274,9 @@ LogicalResult DiscTransformLegalizeToLoopPass::injectScheduleSelectionIR(
     PatternDescription clonedPd(cloned, fusionPattern, pd.getShapeAnalysis());
     Value pred;
     if (failed(factories[i]->buildGuardCondition(b, cloned->getLoc(), clonedPd,
-                                                 pred)))
+                                                 pred))) {
       return cloned->emitError() << "faield to build guard IR\n";
+    }
 
     auto ifOp = b.create<scf::IfOp>(cloned->getLoc(), TypeRange{}, pred, true);
     cloned->moveBefore(ifOp.thenBlock(), ifOp.thenBlock()->begin());
@@ -309,7 +322,93 @@ LogicalResult DiscTransformLegalizeToLoopPass::handleCpuFusionOp(
   // clone the fusion op, each for one candidate schedule.
   SmallVector<Operation*> clonedFusionOps;
   PatternDescription pd(fusionOp, fusionPattern, shapeAnalysis);
-  if (failed(injectScheduleSelectionIR(b, pd, clonedFusionOps))) {
+  if (failed(injectScheduleSelectionIR(b, pd, clonedFusionOps,
+                                       DeviceType::kCPU))) {
+    return fusionOp->emitError() << "failed to injectScheduleSelectionIR\n";
+  }
+  LLVM_DEBUG(llvm::dbgs() << "After injectScheduleSelectionIR:\n"
+                          << fusion->getParentOfType<func::FuncOp>() << "\n");
+
+  for (auto fusion : clonedFusionOps) {
+    b.setInsertionPoint(fusion);
+    auto fusionOp = cast<lmhlo::FusionOp>(fusion);
+    FusionPattern fusionPattern(fusionOp, &shapeAnalysis);
+    // 1, Outline the fusion to a standalone module op.
+    OwningOpRef<ModuleOp> m;
+    if (failed(outlineFusionOp(fusionOp, fusionPattern, m))) {
+      return fusionOp->emitError() << "failed to outlineFusionOp\n";
+    }
+    LLVM_DEBUG(llvm::dbgs() << "After outline fusion op:\n" << m.get() << "\n");
+
+    // 2, assign a default schedule for each pattern here.
+    PatternDescription patternDescription(fusionOp, fusionPattern,
+                                          shapeAnalysis);
+    if (failed(scheduleDispatcher.dispatch(patternDescription, m.get()))) {
+      return fusionOp->emitError() << "failed to assignSchedule\n";
+    }
+    LLVM_DEBUG(llvm::dbgs() << "After assign schedule for fusion op:\n"
+                            << m.get() << "\n");
+
+    // 3, Build a nested pass pipeline to legalize the outlined fusion op.
+    if (failed(runTransformPipeline(m.get()))) {
+      return fusionOp->emitError() << "failed to run runTransformPipeline\n";
+    }
+    LLVM_DEBUG(llvm::dbgs() << "After run transform pipeline:\n"
+                            << m.get() << "\n");
+
+    // 4, Inline the lowered IR into the orignal module.
+    if (failed(inlineTransformedModule(b, fusion, fusionPattern, m.get()))) {
+      return fusion->emitError() << "failed to inlineTransformedModule\n";
+    }
+    LLVM_DEBUG(llvm::dbgs() << "After inline transformed module:\n"
+                            << *fusion << "\n");
+  }
+
+  return success();
+}
+
+LogicalResult DiscTransformLegalizeToLoopPass::handleGpuFusionOp(
+    OpBuilder& b, Operation* fusion, ShapeAnalysis& shapeAnalysis,
+    ScheduleDispatcher& scheduleDispatcher) {
+  b.setInsertionPoint(fusion);
+  auto fusionOp = cast<lmhlo::FusionOp>(fusion);
+  assert(fusionOp);
+  FusionPattern fusionPattern(fusionOp, &shapeAnalysis);
+  if (!fusionPattern.isTransformBasedFusion()) {
+    // skip non-transform-based fusion pattern.
+    return success();
+  }
+
+  // GPU GEMM uses block size 128.
+  auto ctaSizeAttr = b.getIntegerAttr(b.getIntegerType(32), 128);
+  fusionOp->setAttr(kCTASizeHint, ctaSizeAttr);
+
+  auto& bypassMap = bypassCodegenPatternNameMap();
+  auto it = bypassMap.find(getFusionName(fusionOp).str());
+  if (it != bypassMap.end()) {
+    OwningOpRef<ModuleOp> m;
+    if (failed(parseTransformModuleFromFile(b.getContext(), it->second, m))) {
+      llvm::dbgs() << "illegal bypass transform fusion pattern codegen "
+                      "setting, unable to load module from: "
+                   << it->second << "\n";
+      return failure();
+    }
+    // Inline the lowered IR into the orignal module.
+    if (failed(inlineTransformedModule(b, fusion, fusionPattern, m.get()))) {
+      return fusion->emitError()
+             << "failed to inline module load from bypass setting\n";
+    }
+    return success();
+  }
+
+  // 0, inject schedule selection logic
+  // clone the fusion op, each for one candidate schedule.
+  SmallVector<Operation*> clonedFusionOps;
+  PatternDescription pd(fusionOp, fusionPattern, shapeAnalysis);
+  // TODO: The schedule selection IR will not rely on the guard function, but
+  // with a holistic switch structure.
+  if (failed(injectScheduleSelectionIR(b, pd, clonedFusionOps,
+                                       DeviceType::kGPU))) {
     return fusionOp->emitError() << "failed to injectScheduleSelectionIR\n";
   }
   LLVM_DEBUG(llvm::dbgs() << "After injectScheduleSelectionIR:\n"
@@ -374,6 +473,10 @@ void DiscTransformLegalizeToLoopPass::runOnOperation() {
 
   // Assign a transform schedule for the given fusion pattern.
   ScheduleDispatcher scheduleDispatcher{transformFileName_};
+  DeviceInfo deviceInfo;
+  deviceInfo.cc_major = cc_major_;
+  deviceInfo.cc_minor = cc_minor_;
+  scheduleDispatcher.setDeviceInfo(deviceInfo);
   if (failed(scheduleDispatcher.parseModuleFromFile(b.getContext()))) {
     func->emitError() << "failed to parse transform module form "
                       << transformFileName_ << " .\n";
@@ -381,8 +484,18 @@ void DiscTransformLegalizeToLoopPass::runOnOperation() {
   }
 
   for (Operation* fusion : gpu_fusion_worklist) {
-    // TODO(disc): handling stitch fusion on GPU.
-    return signalPassFailure();
+    if (!useShapeConstraintIR()) {
+      // TODO: use FuncOp that contains `fusionOp` to construct
+      // shape-analysis, which will use global information for shape equality
+      // and decomposition analysis.
+      shapeAnalysisPtr.reset(new ShapeAnalysisDeprecated{fusion});
+    }
+
+    // Error message should be emitted inside the function.
+    if (failed(handleGpuFusionOp(b, fusion, *shapeAnalysisPtr,
+                                 scheduleDispatcher))) {
+      return signalPassFailure();
+    }
   }
 
   for (Operation* fusion : cpu_fusion_worklist) {
@@ -405,10 +518,10 @@ void DiscTransformLegalizeToLoopPass::runOnOperation() {
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscTransformLegalizeToLoopPass(bool gpuEnabled,
-                                      const std::string& filename,
-                                      bool expensiveCheck) {
-  return std::make_unique<DiscTransformLegalizeToLoopPass>(gpuEnabled, filename,
-                                                           expensiveCheck);
+                                      const std::string& filename, int cc_major,
+                                      int cc_minor, bool expensiveCheck) {
+  return std::make_unique<DiscTransformLegalizeToLoopPass>(
+      gpuEnabled, filename, cc_major, cc_minor, expensiveCheck);
 }
 
 }  // namespace disc_ral

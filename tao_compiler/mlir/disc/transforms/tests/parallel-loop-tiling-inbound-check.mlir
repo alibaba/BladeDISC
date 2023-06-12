@@ -162,7 +162,7 @@ func.func @parallel_loop_with_hint(%pred : i1,
         memref.store %sum_elem, %result[%i0, %i1] : memref<?x?xf32>
       }
       "lmhlo.terminator"() : () -> ()
-    } ) { disc_thread_per_block_hint = 256 : i32 } : () -> ()
+    } ) { disc_cta_size_hint = 256 : i32 } : () -> ()
   } else {
     "lmhlo.fusion"() ({
       scf.parallel (%i0, %i1) = (%arg0, %arg1) to (%arg2, %arg3) step (%arg4, %arg5) {
@@ -172,7 +172,7 @@ func.func @parallel_loop_with_hint(%pred : i1,
         memref.store %sum_elem, %result[%i0, %i1] : memref<?x?xf32>
       }
       "lmhlo.terminator"() : () -> ()
-    } ) { disc_thread_per_block_hint = 64 : i32 } : () -> ()
+    } ) { disc_cta_size_hint = 64 : i32 } : () -> ()
   }
   return
 }

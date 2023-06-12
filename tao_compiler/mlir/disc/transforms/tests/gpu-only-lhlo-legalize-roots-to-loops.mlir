@@ -161,7 +161,7 @@ func.func @multi_row_reduce(%arg_f32: memref<2048x768xf32>, %init_f32: memref<f3
       "lmhlo.terminator"() : () -> ()
     }) {dimensions = dense<1> : tensor<1xi64>} : (memref<2048x768xf64>, memref<f64>, memref<2048xf64>) -> ()
     "lmhlo.terminator"() : () -> ()
-  }) {disc.fusion.name = "main_kRowReduction_reduce_reduce", disc.device = "gpu", disc.fusion.tag = "1b1r", disc.fusion_type = "kRowReduction", disc_row_reduction_schedule_hint = 1 : i32, disc_thread_per_block_hint = 256 : i32} : () -> ()
+  }) {disc.fusion.name = "main_kRowReduction_reduce_reduce", disc.device = "gpu", disc.fusion.tag = "1b1r", disc.fusion_type = "kRowReduction", disc_row_reduction_schedule_hint = 1 : i32, disc_cta_size_hint = 256 : i32} : () -> ()
   return %out_f32, %out_f64: memref<2048xf32>, memref<2048xf64>
 }
 

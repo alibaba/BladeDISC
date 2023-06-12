@@ -62,15 +62,15 @@ int getVectorizeOrTileHint(Operation* op) {
   return attr.getInt();
 }
 
-int getThreadPerBlock(Operation* op) {
-  int thread_per_block = kThreadsRowReduction;
+int getCTASize(Operation* op) {
+  int thread_per_block = kCTASizeDefault;
   if (!op) return thread_per_block;
   lmhlo::FusionOp fusion = dyn_cast<lmhlo::FusionOp>(op);
   if (!fusion) {
     fusion = op->getParentOfType<lmhlo::FusionOp>();
   }
   if (!fusion) return thread_per_block;
-  IntegerAttr attr = fusion->getAttrOfType<IntegerAttr>(kThreadPerBlockHint);
+  IntegerAttr attr = fusion->getAttrOfType<IntegerAttr>(kCTASizeHint);
   if (!attr) return thread_per_block;
   return attr.getInt();
 }

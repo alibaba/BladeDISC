@@ -33,7 +33,7 @@ static bool init_threads = []() {
 TEST(SimpleMTTest, MatMulF32_111x131x121_Thread_8) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "matmul_multithread_nn_d_f32_schedule.mlir",
+       {"kGEMM::CPU:" + c_ft_path + "matmul_multithread_nn_d_f32_schedule.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}}};
   EnvSettingContext ctx(setting);
@@ -49,7 +49,7 @@ TEST(SimpleMTTest, MatMulF32_111x131x121_Thread_8) {
 TEST(SimpleTest, MatMulF32_304x1024x256) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path +
+       {"kGEMM::CPU:" + c_ft_path +
             "matmul_multithread_nn_d_f32_large_schedule.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}}};

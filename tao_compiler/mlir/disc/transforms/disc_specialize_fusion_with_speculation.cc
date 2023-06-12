@@ -389,7 +389,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value operand = reduce_op->getOperand(0);
     // TODO(disc): Use 256 as default block size; turn this number for
     // different shapes
-    int block_size = kThreadsRowReduction;
+    int block_size = kCTASizeDefault;
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
     Value pred;
 
@@ -443,11 +443,11 @@ struct DiscSpecializeFusionWithSpeculationPass
     auto first_schedule = b.getIntegerAttr(b.getIntegerType(32), 1);
     auto second_schedule = b.getIntegerAttr(b.getIntegerType(32), 2);
     auto num_thread_attr = b.getIntegerAttr(b.getIntegerType(32), block_size);
-    fusion_op->setAttr(kThreadPerBlockHint, num_thread_attr);
+    fusion_op->setAttr(kCTASizeHint, num_thread_attr);
     fusion_op->setAttr(kRowReductionScheduleHint, first_schedule);
     // one block one row
     addFusionTag(b, fusion_op, "1b1r");
-    cloned->setAttr(kThreadPerBlockHint, num_thread_attr);
+    cloned->setAttr(kCTASizeHint, num_thread_attr);
     cloned->setAttr(kRowReductionScheduleHint, second_schedule);
     // one warp one row
     addFusionTag(b, cloned, "1w1r");
@@ -495,7 +495,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
 
     Value matrix_size = b.create<arith::MulIOp>(loc, row_size, col_size);
-    int thread_per_block = kThreadsRowReduction;
+    int thread_per_block = kCTASizeDefault;
     Value cur_threads = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
     // b.create<arith::ConstantIndexOp>(loc, max_threads_per_block_);
     Value cur_blocks =
@@ -517,15 +517,15 @@ struct DiscSpecializeFusionWithSpeculationPass
         b.getIntegerAttr(b.getIntegerType(32), DISC_BLOCK_TILE_H64);
     //  block-size is 256 in the second schedule
     auto num_thread_full_attr256 =
-        b.getIntegerAttr(b.getIntegerType(32), kThreadsRowReduction);
+        b.getIntegerAttr(b.getIntegerType(32), kCTASizeDefault);
     // block-size is 512 in the first schedule
     auto num_thread_full_attr512 =
-        b.getIntegerAttr(b.getIntegerType(32), kThreadsRowReduction512);
-    fusion_op->setAttr(kThreadPerBlockHint, num_thread_full_attr512);
+        b.getIntegerAttr(b.getIntegerType(32), kCTASize512);
+    fusion_op->setAttr(kCTASizeHint, num_thread_full_attr512);
     fusion_op->setAttr(kColReductionScheduleHint, first_schedule);
     // use fisrt schedule if row_size < col_size
     addFusionTag(b, fusion_op, "thread_tile_h32");
-    cloned->setAttr(kThreadPerBlockHint, num_thread_full_attr256);
+    cloned->setAttr(kCTASizeHint, num_thread_full_attr256);
     cloned->setAttr(kColReductionScheduleHint, second_schedule);
     // use second schedule if row_size >= col_size
     addFusionTag(b, cloned, "block_tile_h64");
@@ -600,7 +600,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     if (fusion_type == FusionType::kRowReduction ||
         fusion_type == FusionType::kStitch) {
       Operation* dominant_equivalent_op = GetCandidateRowReduceOp(fusion_op);
-      auto block_size = getThreadPerBlock(fusion_op.getOperation());
+      auto block_size = getCTASize(fusion_op.getOperation());
 
       int rowred_schedule =
           getRowReductionScheduleHint(fusion_op.getOperation());

@@ -33,6 +33,15 @@ namespace disc_ral {
 // schedules within the same category.
 enum class PatternKind : int32_t { kNone, kGEMM };
 
+enum class DeviceType { kCPU, kGPU, kNone };
+
+struct DeviceInfo {
+  int cc_major = -1;
+  int cc_minor = -1;
+  int sm_count = -1;
+  int max_threads_per_sm = -1;
+};
+
 // Converts a pattern kind to its string representation.
 std::string patternKindToString(PatternKind kind);
 
@@ -57,6 +66,8 @@ class PatternDescription {
 
   const std::set<std::string>& getPatternTagSet() const;
 
+  DeviceType getPatternDeviceType() const;
+
   // Returns the fusion op this descriptor holds.
   lmhlo::FusionOp getFusionOp() { return op_; }
 
@@ -72,6 +83,7 @@ class PatternDescription {
   ShapeAnalysis& shapeAnalysis_;
   PatternKind patternKind_;
   std::set<std::string> tagSet_;
+  DeviceType deviceType_;
 };
 
 // The name of the default schedule factory for a pattern kind.
@@ -85,7 +97,7 @@ constexpr const int kParsedFromFileScheduleFactoryStartPriority = 10000;
 class ScheduleFactory {
  public:
   explicit ScheduleFactory(int64_t id, PatternKind kind,
-                           ArrayRef<StringRef> tags);
+                           ArrayRef<StringRef> tags, DeviceType deviceType);
   virtual ~ScheduleFactory() = default;
 
   // Returns true if the factory accepts the pattern at compile time.
@@ -107,7 +119,8 @@ class ScheduleFactory {
   // Assign the transform schedule and attach it into the module op.
   // The pattern should be accepted by this factory and the guard condition
   // should be emitted before successfully.
-  virtual LogicalResult assignSchedule(PatternDescription&, ModuleOp);
+  virtual LogicalResult assignSchedule(PatternDescription&, ModuleOp,
+                                       DeviceInfo);
 
   // Returns the id this factory has.
   int64_t getId() { return id_; }
@@ -118,8 +131,12 @@ class ScheduleFactory {
   // Returns the tag set this factory has.
   const std::set<std::string>& getTagSet() { return tagSet_; }
 
+  // Returns the device type this factory corresponds to.
+  DeviceType getDeviceType() { return deviceType_; }
+
  protected:
-  // these are called by `accept`.
+  // These are called by `accept`. No need to check device type as the kind and
+  // tags already determine a unique target.
   virtual bool checkKindAndTags(PatternDescription&);
   virtual bool checkFusionPatternProperties(PatternDescription&);
 
@@ -127,6 +144,7 @@ class ScheduleFactory {
   int64_t id_;
   PatternKind kind_;
   std::set<std::string> tagSet_;
+  DeviceType deviceType_;
 };
 
 class ScheduleFactoryWithNoGuard : public ScheduleFactory {
@@ -208,12 +226,16 @@ class ScheduleDispatcher {
   // Parses schedule modules from the given files.
   LogicalResult parseModuleFromFile(MLIRContext* ctx);
 
+  void setDeviceInfo(const DeviceInfo& deviceInfo) { deviceInfo_ = deviceInfo; }
+  const DeviceInfo& getDeviceInfo() { return deviceInfo_; }
+
  private:
   std::string transformFileName_;
   // <pattern-kind, <tag-str, module-op>>
   std::unordered_map<PatternKind,
                      std::unordered_map<std::string, OwningOpRef<ModuleOp>>>
       parsedModuleMap_;
+  DeviceInfo deviceInfo_;
 };
 
 }  // namespace disc_ral

@@ -88,18 +88,17 @@ using DiscColReductionScheduleType = enum : int {
 };
 
 // number of therads per block when doing codegen on GPU.
-constexpr const char* kThreadPerBlockHint = "disc_thread_per_block_hint";
-// constexpr const char* kThreadPerBlockHint512 = 512;
+constexpr const char* kCTASizeHint = "disc_cta_size_hint";
 
 // empirical column size used to choose different row reduce schedule.
 constexpr const int kRowReductionScheduleTurningSize = 512;
 
 // default num of threads per block used when doing codegen
 #if TENSORFLOW_USE_ROCM
-constexpr const int kThreadsRowReduction = 512;
+constexpr const int kCTASizeDefault = 512;
 #else
-constexpr const int kThreadsRowReduction = 256;
-constexpr const int kThreadsRowReduction512 = 512;
+constexpr const int kCTASizeDefault = 256;
+constexpr const int kCTASize512 = 512;
 #endif
 
 constexpr const int kVectorizeOrTileSize = 2;
@@ -119,7 +118,7 @@ int getRowReductionScheduleHint(Operation* op);
 
 int getVectorizeOrTileHint(Operation* op);
 
-int getThreadPerBlock(Operation* op);
+int getCTASize(Operation* op);
 
 int getColReductionScheduleHint(Operation* op);
 

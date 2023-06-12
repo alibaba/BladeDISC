@@ -69,8 +69,7 @@ struct ParallelLoopTiling
               continue;
             }
           }
-          if (auto attr =
-                  fusion->getAttrOfType<IntegerAttr>(kThreadPerBlockHint)) {
+          if (auto attr = fusion->getAttrOfType<IntegerAttr>(kCTASizeHint)) {
             localTileSizes = {attr.getInt()};
           }
         }

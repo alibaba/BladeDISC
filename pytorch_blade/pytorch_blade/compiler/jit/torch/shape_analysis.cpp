@@ -745,11 +745,12 @@ class ShapePropagator : public PropertyPropBase {
                       input_node->get<int64_t>(attr::split_size).value();
                   if (split_size * (i + 1) > self_type->sizes()[dim].value()) {
                     split_size =
-                        split_size * (i + 1) - self_type->sizes()[dim].value();
+                        self_type->sizes()[dim].value() - split_size * i;
                   }
                   new_sizes[dim] = ShapeSymbol::fromStaticSize(split_size);
                 }
-                node->output(i)->setType(type->withSymbolicShapes(new_sizes));
+                node->output(i)->setType(
+                    self_type->withSymbolicShapes(new_sizes));
               }
             }
           }

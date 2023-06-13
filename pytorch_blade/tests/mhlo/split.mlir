@@ -17,3 +17,15 @@ func.func @decompose_split(%arg0: !torch.vtensor<[?,?,?],f16>) -> (!torch.vtenso
   %12 = torch.aten.__getitem__.t %10, %int1 : !torch.list<vtensor>, !torch.int -> !torch.vtensor<[?,?,?],f16>
   return %11, %12 : !torch.vtensor<[?,?,?],f16>, !torch.vtensor<[?,?,?],f16>
 }
+
+func.func @decompose_split_partial_shape(%arg0: !torch.vtensor<[?,?,2000],f16>) -> (!torch.vtensor<[?,?,1280],f16>, !torch.vtensor<[?,?,720],f16>) {
+  %int1280 = torch.constant.int 1280
+  %int-1 = torch.constant.int -1
+  %int0 = torch.constant.int 0
+  %int1 = torch.constant.int 1
+// CHECK: torch.aten.slice.Tensor %arg0, %int-1, %int0_1, %0, %int1_0 : !torch.vtensor<[?,?,2000],f16>, !torch.int, !torch.int, !torch.int, !torch.int -> !torch.vtensor<[?,?,1280],f16>
+  %10 = torch.operator "aten.split.Tensor"(%arg0, %int1280, %int-1) : (!torch.vtensor<[?,?,2000],f16>, !torch.int, !torch.int) -> !torch.list<vtensor>
+  %11 = torch.aten.__getitem__.t %10, %int0 : !torch.list<vtensor>, !torch.int -> !torch.vtensor<[?,?,1280],f16>
+  %12 = torch.aten.__getitem__.t %10, %int1 : !torch.list<vtensor>, !torch.int -> !torch.vtensor<[?,?,720],f16>
+  return %11, %12 : !torch.vtensor<[?,?,1280],f16>, !torch.vtensor<[?,?,720],f16>
+}

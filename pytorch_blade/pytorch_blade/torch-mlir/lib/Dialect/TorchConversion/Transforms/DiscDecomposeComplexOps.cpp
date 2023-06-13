@@ -145,7 +145,7 @@ LogicalResult decomposeSplits(
     } else {
       newSizes[dimInt] = splitSizeInt;
       if (splitSizeInt * (k + 1) > inputShape[dimInt]) {
-        newSizes[dimInt] = splitSizeInt * (k + 1) - inputShape[dimInt];
+        newSizes[dimInt] = inputShape[dimInt] - splitSizeInt * k;
       }
     }
     Type sliceTy = selfTy.getWithSizesAndDtype(
@@ -241,7 +241,8 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
       auto rank = inputShape.size();
       dimInt = toPositiveDim(dimInt, rank);
       if (inputShape[dimInt] != kUnknownSize && chunkSizeInt > 0) {
-        chunksInt = inputShape[dimInt] / chunkSizeInt;
+        chunksInt = inputShape[dimInt] / chunkSizeInt +
+            (inputShape[dimInt] % chunkSizeInt > 0);
       }
     }
     if (chunksInt < 0) {
@@ -250,6 +251,7 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
       if (maxItemIndex)
         chunksInt = maxItemIndex.value() + 1;
     }
+    llvm::dbgs() << " chunksInt: " << chunksInt << "\n";
     return decomposeSplits(rewriter, op, chunkSize, dim, chunksInt);
   } else if ("aten.chunk" == name) {
     int64_t chunksInt = -1;

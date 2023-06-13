@@ -732,13 +732,26 @@ class ShapePropagator : public PropertyPropBase {
                     "aten::unbind.int(Tensor(a) self, int dim=0) -> Tensor(a)[]")) {
               new_sizes.erase(new_sizes.begin() + dim);
             } else {
-              // set default to dynamic
               new_sizes[dim] = ShapeSymbol::newSymbol();
             }
 
             for (size_t i = 0; i < node->outputs().size(); ++i) {
-              if (auto type = node->output(i)->type()->cast<TensorType>())
-                node->output(i)->setType(type->withSymbolicShapes(new_sizes));
+              if (auto type = node->output(i)->type()->cast<TensorType>()) {
+                c10::ShapeSymbol dim_value = ShapeSymbol::newSymbol();
+                if (input_node->matches(
+                        "aten::split.Tensor(Tensor(a) self, int split_size, int dim=0) -> Tensor(a)[]") &&
+                    sizes_opt.value()[dim].is_static()) {
+                  int64_t split_size =
+                      input_node->get<int64_t>(attr::split_size).value();
+                  if (split_size * (i + 1) > self_type->sizes()[dim].value()) {
+                    split_size =
+                        self_type->sizes()[dim].value() - split_size * i;
+                  }
+                  new_sizes[dim] = ShapeSymbol::fromStaticSize(split_size);
+                }
+                node->output(i)->setType(
+                    self_type->withSymbolicShapes(new_sizes));
+              }
             }
           }
         }
@@ -1278,6 +1291,20 @@ class ShapePropagator : public PropertyPropBase {
           return {};
         }};
 
+    static const register_formula_for broadcasting_scalar_tensor_ops_arithmetic{
+        {
+            "aten::pow(Scalar self, Tensor exponent) -> Tensor",
+        },
+        [this](Node* node) -> type_vec_t {
+          std::cout << "infer aten::pow" << std::endl;
+          if (auto maybe_tensor_types = gatherTensorTypes(node)) {
+            auto dtype = (*maybe_tensor_types)[0]->scalarType();
+            if (!dtype)
+              return {};
+            return {broadcast(*maybe_tensor_types, dtype)};
+          }
+          return {};
+        }};
     static const register_formula_for broadcasting_tensor_scalar_ops_arithmetic{
         {
             // Tensor-Scalar operators
@@ -2252,6 +2279,46 @@ class ShapePropagator : public PropertyPropBase {
         node->output(1)->setType(type->withScalarType(at::kLong));
         return true;
       }
+#if PYTORCH_VERSION_GE(2, 1)
+    } else if (
+        node->matches(
+            "aten::_scaled_dot_product_flash_attention(Tensor query, Tensor key, Tensor value, float dropout_p=0., bool is_causal=False, bool return_debug_mask=False, *, float? scale=None) -> (Tensor ouput, Tensor logsumexp, Tensor cum_seq_q, Tensor cum_seq_k, int max_q, int max_k, Tensor philox_seed, Tensor philox_offset, Tensor debug_attn_mask)")) {
+      if (auto q_type = input_type(0)) {
+        node->output(0)->setType(q_type->withDim(4));
+        node->output(1)->setType(
+            q_type->withDim(3)->withScalarType(at::kFloat));
+        node->output(2)->setType(q_type->withDim(1)->withScalarType(at::kInt));
+        node->output(3)->setType(q_type->withDim(1)->withScalarType(at::kInt));
+        node->output(6)->setType(
+            q_type->withDim(0)->withScalarType(at::ScalarType::Long));
+        node->output(7)->setType(
+            q_type->withDim(0)->withScalarType(at::ScalarType::Long));
+        node->output(8)->setType(q_type->withDim(0));
+        return true;
+      }
+    } else if (
+        node->matches(
+            "aten::_scaled_dot_product_efficient_attention(Tensor query, Tensor key, Tensor value, bool compute_log_sumexp, bool is_causal=False, *, float? scale=None) -> (Tensor output, Tensor log_sumexp)")) {
+      if (auto q_type = input_type(0)) {
+        node->output(0)->setType(q_type->withDim(4));
+        node->output(1)->setType(
+            q_type->withDim(3)->withScalarType(at::kFloat));
+        return true;
+      }
+    } else if (
+        node->matches(
+            "aten::_scaled_dot_product_flash_attention_backward(Tensor grad_out, Tensor query, Tensor key, Tensor value, Tensor out, Tensor logsumexp, Tensor cum_seq_q, Tensor cum_seq_k, int max_q, int max_k, float dropout_p, bool is_causal, Tensor philox_seed, Tensor philox_offset, *, float? scale=None) -> (Tensor grad_query, Tensor grad_key, Tensor grad_value)") ||
+        node->matches(
+            "aten::_scaled_dot_product_efficient_attention_backward(Tensor grad_out_, Tensor query, Tensor key, Tensor value, Tensor out, Tensor logsumexp, bool is_causal=False, bool chunk_grad_outputs=False, *, float? scale=None) -> (Tensor, Tensor, Tensor)")) {
+      if (auto q_type = input_type(1)) {
+        if (auto k_type = input_type(2)) {
+          node->output(0)->setType(q_type);
+          node->output(1)->setType(k_type);
+          node->output(2)->setType(k_type);
+        }
+        return true;
+      }
+#endif
     } else if (node->matches(
                    "aten::masked_select(Tensor self, Tensor mask) -> Tensor")) {
       if (auto type = input_type(0)) {
@@ -2300,8 +2367,29 @@ class ShapePropagator : public PropertyPropBase {
       auto list_node = node->input(0)->node();
       if (list_node->kind() == aten::size)
         return true;
-      if (list_node->kind() == aten::split ||
-          list_node->kind() == aten::chunk) {
+
+      if (list_node->kind() == aten::split) {
+        if (auto typ = list_node->input(0)->type()->cast<TensorType>()) {
+          if (typ->sizes().concrete_sizes().has_value()) {
+            auto sizes = typ->sizes().concrete_sizes().value();
+            auto idx = node->get<int>(attr::idx).value();
+            auto dim = at::maybe_wrap_dim(
+                list_node->get<int>(attr::dim).value(), sizes.size());
+            auto split_size = list_node->get<int>(attr::split_size).value();
+            int split_nums = sizes[dim] / split_size;
+            if (sizes[dim] % split_size != 0)
+              split_nums++;
+            sizes[dim] = sizes[dim] - (split_nums - 1) * split_size;
+            node->output()->setType(typ->withSizes(sizes));
+          } else {
+            auto original_type =
+                list_node->input(0)->type()->cast<TensorType>();
+            node->output()->setType(original_type->dimensionedOnly());
+          }
+          return true;
+        }
+      }
+      if (list_node->kind() == aten::chunk) {
         auto original_type = list_node->input(0)->type()->cast<TensorType>();
         node->output()->setType(original_type->dimensionedOnly());
         return true;

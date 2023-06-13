@@ -70,3 +70,13 @@ graph(%input : Half(2, 320, 64, 64, strides=[1310720, 4096, 64, 1], device=cuda:
 // CHECK: Half(64, 64, strides=[64, 1], device=cuda:0) = aten::sum
   %result : Tensor = aten::sum(%input, %dims, %false, %none)
   return (%result)
+
+
+// CHECK-LABEL: graph
+graph(%input : Half(2, 320, 64, 64, strides=[1310720, 4096, 64, 1], device=cuda:0)):
+  %cst1 : int = prim::Constant[value=1]()
+  %cst100 : int = prim::Constant[value=100]()
+  %tensors : Tensor[] = aten::split(%input, %cst100, %cst1)
+// CHECK: %4 : Half(2, 100, 64, 64, strides=[1310720, 4096, 64, 1], device=cuda:0), %5 : Half(2, 100, 64, 64, strides=[1310720, 4096, 64, 1], device=cuda:0), %6 : Half(2, 100, 64, 64, strides=[1310720, 4096, 64, 1], device=cuda:0), %7 : Half(2, 20, 64, 64, strides=[1310720, 4096, 64, 1], device=cuda:0) = prim::ListUnpack(%3)
+  %t1 : Tensor, %t2 : Tensor , %t3 : Tensor, %t4 : Tensor = prim::ListUnpack(%tensors)
+  return (%t1, %t2, %t3, %t4)

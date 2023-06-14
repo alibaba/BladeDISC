@@ -482,8 +482,12 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   }
   // Use stitch centric fusion pipeline when enabled.
   std::string fusion_strategy = enable_stitch ? "stitch" : "base";
-  pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscFusionPass(gpu_enabled, fusion_strategy));
+  // TODO: support cc_major < 8 (e.g., T4, V100).
+  bool mlir_compute_intensive_codegen =
+      useTransformSchedule() &&
+      (!gpu_enabled || (gpu_enabled && gpu_options.cc_major >= 8));
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscFusionPass(
+      gpu_enabled, fusion_strategy, mlir_compute_intensive_codegen));
   if (enable_comp_intens_fusion && gpu_enabled) {
     pm.addPass(disc_ral::createDiscCompIntensFusionToFuncPass());
   }

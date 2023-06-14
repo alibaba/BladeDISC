@@ -1600,6 +1600,8 @@ std::unique_ptr<FusionStrategy> makeNewDeviceStrategy(StringRef device,
     return std::make_unique<PreDotGpuFusionStrategy>(options);
   } else if (device == placement_utils::kGpu && strategy == "dot") {
     return std::make_unique<DotGpuFusionStrategy>(options);
+  } else if (device == placement_utils::kGpu && strategy == "transform_based") {
+    return std::make_unique<TransformBasedGpuFusionStrategy>(options);
   } else {
     assert(false && "not support fusion strategy");
     return nullptr;

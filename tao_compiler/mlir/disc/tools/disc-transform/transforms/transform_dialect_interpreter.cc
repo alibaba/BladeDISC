@@ -25,6 +25,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -38,6 +39,7 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
+#include "mlir/disc/IR/disc_shape_ops.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
@@ -57,23 +59,26 @@ void addTransformDialectDependentDialects(DialectRegistry& registry) {
   // nested pass manager and this will go away.
 
   // clang-format off
-  registry.insert<arith::ArithDialect,
-                  AffineDialect,
-                  bufferization::BufferizationDialect,
-                  disc_ral::disc_linalg_ext::DISCLinalgExtDialect,
-                  iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,
-                  func::FuncDialect,
-                  linalg::LinalgDialect,
-                  linalg::transform::LinalgTransformDialect,
-                  LLVM::LLVMDialect,
-                  pdl::PDLDialect,
-                  pdl_interp::PDLInterpDialect,
-                  scf::SCFDialect,
-                  tensor::TensorDialect,
-                  transform::TransformDialect,
-                  vector::VectorDialect
-      // clang-format on
-      >();
+  registry.insert<
+      arith::ArithDialect,
+      AffineDialect,
+      bufferization::BufferizationDialect,
+      disc_ral::disc_linalg_ext::DISCLinalgExtDialect,
+      iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,
+      func::FuncDialect,
+      linalg::LinalgDialect,
+      linalg::transform::LinalgTransformDialect,
+      LLVM::LLVMDialect,
+      pdl::PDLDialect,
+      pdl_interp::PDLInterpDialect,
+      scf::SCFDialect,
+      tensor::TensorDialect,
+      transform::TransformDialect,
+      vector::VectorDialect,
+      nvgpu::NVGPUDialect,
+      disc_shape::DISCShapeDialect
+  >();
+  // clang-format on
 
   // TODO: these should be registered by the extension instead, but there is
   // no support for it in core currently.

@@ -350,8 +350,7 @@ struct WeightLayoutConverter
     std::vector<uint8_t> src_buf(num_bytes);
     std::vector<uint8_t> dst_buf(num_bytes);
     for (int i = 0; i < num_bytes; i++) {
-      src_buf.push_back(
-          uint8_t(static_cast<APInt>(weight_value[i]).roundToDouble()));
+      src_buf[i] = uint8_t(static_cast<APInt>(weight_value[i]).roundToDouble());
     }
     std::vector<int64_t> weight_shape_int64_t = weight_shape.vec();
     std::vector<size_t> weight_shape_size_t(weight_shape.size());
@@ -372,7 +371,7 @@ struct WeightLayoutConverter
 
     SmallVector<APInt> layout_reordered_weight(n * k, APInt(8, 0, false));
     for (int i = 0; i < num_bytes; i++) {
-      layout_reordered_weight.push_back(APInt(8, src_buf[i], false));
+      layout_reordered_weight[i] = APInt(8, src_buf[i], false);
     }
 
     Location loc = op.getLoc();

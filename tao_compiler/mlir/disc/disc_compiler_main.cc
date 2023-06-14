@@ -13,11 +13,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include <chrono>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "absl/strings/string_view.h"
+#include "lhlo/IR/lhlo_ops.h"
+#include "lhlo/transforms/passes.h"
+#include "lhlo_gpu/IR/lhlo_gpu_ops.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/IR/LLVMContext.h"
@@ -29,11 +33,8 @@ limitations under the License.
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/passes.h"
-#include "mlir-hlo/Dialect/lhlo_gpu/IR/lhlo_gpu_ops.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir-hlo/Dialect/mhlo/transforms/passes.h"
+#include "mhlo/IR/hlo_ops.h"
+#include "mhlo/transforms/passes.h"
 #include "mlir/ExecutionEngine/OptUtils.h"  // from @llvm-project
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -55,7 +56,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/init_mlir.h"
 #include "tensorflow/compiler/mlir/tensorflow/dialect_registration.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
-#include "tensorflow/compiler/xla/stream_executor/lib/statusor.h"
 #include "tensorflow/compiler/xla/util.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/logging.h"
@@ -188,6 +188,7 @@ int RealMain() {
   registry.insert<mlir::TF::TensorFlowDialect>();
 
   MLIRContext context(registry);
+  std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
   auto m = parseMLIRInput(inputFilename, &context);
   if (!m) {
     llvm::errs() << "could not parse the input file\n";
@@ -201,11 +202,18 @@ int RealMain() {
     module.dump();
     llvm::dbgs() << "\n======= END Original Module ==========\n";
   }
+  std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+  llvm::errs() << "[DISC] Load Input IR takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0)
+                          .count() /
+                      1e6
+               << " s.\n";
 
   llvm::dbgs() << "[[ INFO ]] Running TF2XLA\n";
   auto s = tensorflow::ConvertTF2MlirHlo(module);
   if (!s.ok()) {
     llvm::dbgs() << "ConvertTF2MlirHlo failed: " << s.ToString() << "\n";
+    return 1;
   }
 
   if (VLOG_IS_ON(0)) {
@@ -213,6 +221,12 @@ int RealMain() {
     module.dump();
     llvm::dbgs() << "\n======= END After TF2HLO ==========\n";
   }
+  std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+  llvm::errs() << "[DISC] tf2hlo takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1)
+                          .count() /
+                      1e6
+               << " s.\n";
 
   DISCLoweringOptions disc_options(outputFilename);
 #ifndef TAO_CPU_ONLY
@@ -230,6 +244,12 @@ int RealMain() {
     llvm::errs() << "could not convert hlo to shared lib file\n";
     return 1;
   }
+  std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
+  llvm::errs() << "[DISC] LowerHLOToSharedLibrary takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2)
+                          .count() /
+                      1e6
+               << " s.\n";
 
   return 0;
 }

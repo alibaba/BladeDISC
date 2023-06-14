@@ -12,4 +12,7 @@
 #pragma once
 
 #include "c10/util/Exception.h"
+
+#ifndef TORCH_BLADE_NO_TF_LOGGING
 #include "tensorflow/tsl/platform/default/logging.h"
+#endif

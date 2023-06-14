@@ -16,10 +16,11 @@ include "mlir/Dialect/PDL/IR/PDLTypes.td"
 include "mlir/Dialect/Transform/IR/TransformAttrs.td"
 include "mlir/Dialect/Transform/IR/TransformDialect.td"
 include "mlir/Dialect/Transform/IR/TransformInterfaces.td"
-include "mlir/Interfaces/ControlFlowInterfaces.td"
-include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Dialect/Vector/Transforms/VectorTransformsBase.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/IR/OpBase.td"
+include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def DISCBufferizeOp : Op<Transform_Dialect, "disc.bufferize",
     [FunctionalStyleTransformOpTrait,
@@ -96,7 +97,7 @@ def ApplyPatternsOp : Op<Transform_Dialect, "disc.apply_patterns",
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -134,7 +135,7 @@ def FoldProducerExtractSliceOp : Op<Transform_Dialect, "disc.fold_producer_extra
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -258,7 +259,7 @@ def LowerMultiLevelPackToLoopOp : Op<Transform_Dialect, "disc.lower_multi_level_
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -362,7 +363,7 @@ def DecomposeVectorsOp : Op<Transform_Dialect, "disc.decompose_vectors",
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -417,7 +418,7 @@ def LinalgFuseOperandOp : Op<Transform_Dialect, "disc.linalg.fuse_operand",
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -506,7 +507,7 @@ def ReplaceConstPaddingValueOp : Op<Transform_Dialect, "disc.replace_const_paddi
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -530,7 +531,400 @@ def ConvertPaddingPlaceholderToConstOp : Op<Transform_Dialect, "disc.convert_pad
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::Operation *target,
-        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def LinalgEagerlyBackwardInitTensorOp : Op<Transform_Dialect, "disc.linalg.eagerly_backward_init_tensor",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Given a linalg op `A`, eagerly backward its init tensor to its producers. The function of such primitive
+    is to reuse underline buffer.
+
+    Eamples:
+    ```
+      %0 = linalg.generic { indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]}
+        ins(%arg0, %arg1) outs(%arg2)
+      %1 = linalg.generic { indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]}
+        ins(%0, %0) outs(%arg3)
+    ```
+    After conversion:
+    ```
+      %0 = linalg.generic { indexing_maps = [#map1, #map1], iterator_types = ["parallel", "parallel"]}
+        ins(%arg0, %arg1) outs(%arg3) // Note here use the final output buffer directly
+      %1 = linalg.generic { indexing_maps = [#map1], iterator_types = ["parallel", "parallel"]}
+        ins() outs(%0) // Note here: we promote %0 to be an output operand (thus can be read + write).
+    ```
+
+    Returns the result const op.
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+// mainly copied from mlir community, adding support to fuse through
+// iter_args for normal scf.for ops.
+
+def DISCFuseIntoContainingOp :
+    Op<Transform_Dialect, "disc.fuse_into_containing_op",
+      [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+       DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{Fuse a producer into a containing operation.}];
+
+  let summary = [{
+    Fuses the `producer_op` into the `containing_op`.
+    Returns a handle to the fused ops.
+
+    The producer is typically a slice of a tileable op (i.e., implements
+    TilingInterface). In that case, this transform computes the accessed
+    producer slice inside of the containing op ("tile and fuse"). Otherwise,
+    the entire producer is cloned inside the containing op ("clone and fuse").
+
+    The containing op handle must be associated with exactly one payload op. The
+    producer op handle may be associated with multiple payload ops. This
+    transform fuses producers one-by-one, always picking an unspecified producer
+    that has at least one use inside the containing op among the
+    producers.
+
+    Note: If a producer has multiple uses inside the containing op, it is
+    currently tiled and/or cloned multiple times into the containing op.
+    TODO: Reuse already fused OpResults instead of tiling/cloning a second time
+    when possible. Fuse producers according to a topological sorting to achieve
+    the largest amount of reuse.
+
+    #### Return modes
+
+    If at least one producer could not be fused, this operation fails silently.
+    This is the case when tiling fails or when no producer op could be found
+    among the remaining producers that has at least one use within the
+    containing op. I.e., "producers" that are not consumed within the containing
+    op are rejected by this operation.
+
+    This operation reads and frees the producer handle.
+    This operation reads the containing op handle.
+  }];
+
+  let arguments = (ins PDL_Operation:$producer_op,
+                       PDL_Operation:$containing_op);
+  let results = (outs PDL_Operation:$fused_op);
+  let assemblyFormat = "$producer_op `into` $containing_op attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+}
+
+def ReductionOutputFuseOp : Op<Transform_Dialect, "disc.reduction_output_fuse",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Given a linalg op, output fuse it into the reduction loop.
+
+    Returns the fused linalg op and the new loop op.
+
+    Example:
+     convert from:
+     ```
+      %1 = scf.for %arg1 = %c0 to %c768 step %c512 iter_args(%arg0 = %0) -> (tensor<?x3072xf32>) {
+        ...
+        %t0 = tensor.extract_slice %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+        %t1 = linalg.matmul {disc.transform.name = "dot_general"} ins(...) outs(%t0 : tensor<?x3072xf32>) -> tensor<?x3072xf32>
+        %t2 = tensor.insert_slice %t1 into %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> into tensor<?x3072xf32>
+        scf.yield %t2 : tensor<?x3072xf32>
+      }
+      %3 = tensor.extract_slice %2[...] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+      %4 = linalg.generic {indexing_maps = [#map5, #map6, #map7, #map6], iterator_types = ["parallel", "parallel"]} ins(..., %1, ...) outs(%3 : tensor<?x3072xf32>) attrs =  {disc.device = "cpu", disc.trasform.name = "maximum"} {
+      ^bb0(%in: f32, %in_5: f32, %in_6: f32, %out: f32):
+        %12 = arith.addf %in_5, %in_6 : f32
+        %13 = arith.maxf %in, %12 : f32
+        linalg.yield %13 : f32
+      } -> tensor<?x3072xf32>
+      use(%4)
+     ```
+     to:
+     ```
+      %3 = tensor.extract_slice %2[...] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+      %1, %4 = scf.for %arg1 = %c0 to %c768 step %c512 iter_args(%arg0 = %0, %arg1 = %3) -> (tensor<?x3072xf32>, tensor<?x3072xf32>) {
+        ...
+        %t0 = tensor.extract_slice %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+        %t1 = linalg.matmul {disc.transform.name = "dot_general"} ins(...) outs(%t0 : tensor<?x3072xf32>) -> tensor<?x3072xf32>
+        %t2 = tensor.insert_slice %t1 into %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> into tensor<?x3072xf32>
+        %t3 = tensor.extract_slice %arg1[0, 0] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+        %pred = ... // is last iteration?
+        %t4 = disc_linalg_ext.conditional_generic {indexing_maps = [#map5, #map6, #map7, #map6], iterator_types = ["parallel", "parallel"]} ins(%pred, ..., %t2, ...) outs(%t3 : tensor<?x3072xf32>) attrs {disc.device = "cpu", disc.transform.name = "maximum"} {
+        ^bb0(%in: f32, %in_5: f32, %in_6: f32, %out: f32):
+          %12 = arith.addf %in_5, %in_6 : f32
+          %13 = arith.maxf %in, %12 : f32
+          linalg.yield %13 : f32
+        } -> tensor<?x3072xf32>
+        scf.yield %t2, %t4 : tensor<?x3072xf32>, tensor<?x3072xf32>
+      }
+      use(%4)
+     ```
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       PDL_Operation:$loop);
+  let results = (outs PDL_Operation:$tiled_target, PDL_Operation:$fused_loop);
+
+  let assemblyFormat = [{
+    attr-dict $target `into` $loop
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+}
+
+def ReductionInputFuseOp : Op<Transform_Dialect, "disc.reduction_input_fuse",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Given a linalg op, input fuse it into the reduction loop.
+
+    Returns the fused linalg op and the new loop op.
+
+    Example:
+     convert from:
+     ```
+      %0 = linalg.fill(%init)
+      %1 = scf.for %arg1 = %c0 to %c768 step %c512 iter_args(%arg0 = %0) -> (tensor<?x3072xf32>) {
+        ...
+        %t0 = tensor.extract_slice %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+        %t1 = linalg.matmul {disc.transform.name = "dot_general"} ins(...) outs(%t0 : tensor<?x3072xf32>) -> tensor<?x3072xf32>
+        %t2 = tensor.insert_slice %t1 into %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> into tensor<?x3072xf32>
+        scf.yield %t2 : tensor<?x3072xf32>
+      }
+      use(%0)
+     ```
+     to:
+     ```
+      %1 = scf.for %arg1 = %c0 to %c768 step %c512 iter_args(%arg0 = %0) -> (tensor<?x3072xf32>) {
+        ...
+        %pred = ... // is first iteration?
+        %t0 = disc_linalg_ext.conditional_generic ins(%pred) outs(%arg0)
+        %t1 = tensor.extract_slice %t0[0, 0] [...] [1, 1] : tensor<?x3072xf32> to tensor<?x3072xf32>
+        %t2 = linalg.matmul {disc.transform.name = "dot_general"} ins(...) outs(%t1 : tensor<?x3072xf32>) -> tensor<?x3072xf32>
+        %t3 = tensor.insert_slice %t2 into %arg0[0, 0] [...] [1, 1] : tensor<?x3072xf32> into tensor<?x3072xf32>
+        scf.yield %t3 : tensor<?x3072xf32>
+      }
+      use(%0)
+     ```
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       PDL_Operation:$loop);
+  let results = (outs PDL_Operation:$tiled_target, PDL_Operation:$fused_loop);
+
+  let assemblyFormat = [{
+    attr-dict $target `into` $loop
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+}
+
+def VectorizeConditionalGenericOp : Op<Transform_Dialect, "disc.vectorize_conditional_generic",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Vectorize the given conditional generic op and return the generated if op.
+
+    Suppose the conditional generic op has static shape.
+
+    Example:
+     convert from:
+     ```
+       %pred = ... : i1
+       %in0 = ... : tensor<8x12xf32>
+       disc_linalg_ext.conditional_generic ins(%pred, %in0 : ...) outs(... : tensor<8x12xf32>) {
+       ^bb0(%arg0 : i1, %arg1 : f32, %arg2 : f32):
+         %t0 = arith.addf %arg1, %arg1 : f32
+         disc_linalg_ext.yield %t0 : f32
+       }
+     ```
+     to (replace v0 with v1 and remove v0):
+     ```
+      %pred = ... : i1
+      %in0 = ... : tensor<8x12xf32>
+      %v0 = vector.transfer_read %in0 ...
+      %out = scf.if %pred {
+        %v1 = arith.addf %v0, %v0 : vector<8x12xf32>
+        scf.yield %v1 : vector<8x12xf32>
+      } else {
+        scf.yield %v0 : vector<8x12xf32>
+      }
+     ```
+
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def SplitVectorTransferIntoFullAndPartialOp : Op<Transform_Dialect, "disc.split_vector_transfer_into_full_and_partial",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Split a vector.transfer operation into an in-bounds (i.e., no out-of-bounds masking) fastpath and a slowpath.
+
+    Returns the xfer op if no needs to split, otherwise returns the warpper if op for full version and partial version.
+
+    /// Example (a 2-D vector.transfer_read):
+    /// ```
+    ///    %1 = vector.transfer_read %0[...], %pad : memref<A...>, vector<...>
+    /// ```
+    /// is transformed into:
+    /// ```
+    ///    %1:3 = scf.if (%inBounds) {
+    ///      // fastpath, direct cast
+    ///      memref.cast %A: memref<A...> to compatibleMemRefType
+    ///      scf.yield %view : compatibleMemRefType, index, index
+    ///    } else {
+    ///      // slowpath, not in-bounds vector.transfer or linalg.copy.
+    ///      memref.cast %alloc: memref<B...> to compatibleMemRefType
+    ///      scf.yield %4 : compatibleMemRefType, index, index
+    //     }
+    ///    %0 = vector.transfer_read %1#0[%1#1, %1#2] {in_bounds = [true ... true]}
+    /// ```
+    /// where `alloc` is a top of the function alloca'ed buffer of one vector.
+
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def LowerConditionalGenericOp : Op<Transform_Dialect, "disc.lower_conditional_generic",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Lower the conditional_generic op to a scf.if + linalg.generic op.
+
+    Note the this transform primitive supposes the conditional_generic has been bufferized.
+
+    Returns the generated linalg.generic op.
+
+    /// Example:
+    /// ```
+    ///    %1 = disc_linalg_ext.conditional_generic ins(%pred, ...), outs(...)
+    /// ```
+    /// is transformed into:
+    /// ```
+    ///    scf.if (%pred) {
+    ///      linalg.generic ins(...) outs(...)
+    ///      scf.yield %view
+    ///    }
+    /// ```
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+// Copied from community as an workaournd for some wired bugs, e.g, it'll not
+// converge if the tile of the k is one.
+def DISCLowerVectorsOp : Op<Transform_Dialect, "disc.vector.lower_vectors",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Indicates that the vector operations nested under the isolated from above op
+    `target` should be lowered to finer-grained vector primitives.
+
+    At this time, the transform is all or nothing.
+
+    This is usally a late step that is run after bufferization as part of the
+    process of lowering to e.g. LLVM or NVVM.
+  }];
+
+  // TODO: evolve this to proper enums.
+  let arguments = (ins PDL_Operation:$target,
+     DefaultValuedAttr<VectorContractLoweringAttr,
+       "vector::VectorContractLowering::OuterProduct">:$contraction_lowering,
+     DefaultValuedAttr<VectorMultiReductionLoweringAttr,
+       "vector::VectorMultiReductionLowering::InnerParallel">:
+         $multireduction_lowering,
+     DefaultValuedAttr<VectorTransferSplitAttr,
+       "vector::VectorTransferSplit::LinalgCopy">:$split_transfers,
+     DefaultValuedAttr<VectorTransposeLoweringAttr,
+       "vector::VectorTransposeLowering::EltWise">:$transpose_lowering,
+     DefaultValuedAttr<BoolAttr, "false">:$transpose_avx2_lowering,
+     DefaultValuedAttr<BoolAttr, "true">:$unroll_vector_transfers
+  );
+  let results = (outs PDL_Operation:$results);
+
+  let builders = [
+    OpBuilder<(ins "Type":$resultType, "Value":$target,
+      "const vector::LowerVectorsOptions &":$options), [{
+        return build($_builder, $_state, resultType, target,
+          options.vectorContractLowering,
+          options.vectorMultiReductionLowering, options.vectorTransferSplit,
+          options.vectorTransposeLowering, options.transposeAVX2Lowering,
+          options.unrollVectorTransfers);
+      }]
+    >
+  ];
+
+  let assemblyFormat = [{
+    $target
+    oilist (
+      `contraction_lowering` `=` $contraction_lowering
+      | `multireduction_lowering` `=` $multireduction_lowering
+      | `split_transfers` `=` $split_transfers
+      | `transpose_lowering` `=` $transpose_lowering
+    )
+    attr-dict
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
 }

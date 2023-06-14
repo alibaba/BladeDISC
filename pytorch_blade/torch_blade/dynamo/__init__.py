@@ -10,10 +10,12 @@
 # limitations under the License.
 
 import torch_blade.dynamo.patch_user_defined
+import torch_blade.dynamo.monkey_patch
 
-from torch._dynamo.optimizations.training import aot_autograd
-from torch._dynamo.optimizations.backends import BACKENDS, create_backend
-from torch._dynamo.optimizations.subgraph import SubGraph
+from torch._dynamo.backends.common import aot_autograd
+from torch._dynamo.backends.registry import register_backend
+from torch._dynamo.utils import torchscript
+
 from torch._functorch import compilers
 from functorch.compile import min_cut_rematerialization_partition
 
@@ -90,16 +92,14 @@ def disc_compile(fx_g: fx.GraphModule, inps, use_ts=False) -> Callable:
     return _disc_compile(fx_g, inps, use_ts=False)
 
 def disc(fx_g: fx.GraphModule, inps) -> Callable:
-    import tempfile
-    with tempfile.TemporaryDirectory() as tmp:
-        scripted = SubGraph(fx_g, inps, tmp).scripted
-        torch._C._jit_pass_remove_mutation(scripted.graph)
-        f = torch.jit.freeze(scripted.eval())
-        cfg = torch_blade.Config()
-        cfg.disable_optimization_for_inference = False
-        with cfg:
-            f = torch_blade.optimize(f, True, tuple(inps))
-        return f
+    scripted = torchscript(fx_g, inps)
+    torch._C._jit_pass_remove_mutation(scripted.graph)
+    f = torch.jit.freeze(scripted.eval())
+    cfg = torch_blade.Config()
+    cfg.disable_optimization_for_inference = False
+    with cfg:
+        f = torch_blade.optimize(f, True, tuple(inps))
+    return f
 
 @compilers.make_boxed_compiler
 def disc_compile_ts(fx_g: fx.GraphModule, inps, use_ts=False) -> Callable:
@@ -212,6 +212,7 @@ aot_disc_debug = aot_autograd(
     decompositions=_get_disc_decomp(),
     partition_fn=min_cut_rematerialization_partition)
 
-BACKENDS["disc"] = disc
-BACKENDS["aot_disc"] = aot_disc
-BACKENDS["aot_disc_debug"] = aot_disc_debug
+
+register_backend(name="disc", compiler_fn=disc)
+register_backend(name="aot_disc", compiler_fn=aot_disc)
+register_backend(name="aot_disc_debug", compiler_fn=aot_disc_debug)

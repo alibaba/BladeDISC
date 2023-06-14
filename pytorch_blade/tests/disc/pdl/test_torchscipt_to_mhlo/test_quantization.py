@@ -498,6 +498,125 @@ module {
         """
         self._test_torchscipte_to_mhlo(traced_model._c, expect_str, pdll_files, enable_int8=True)
 
+    def test_weight_only_quant_linear_without_bias(self):
+        # just test the process of torchscript to torch-mlir
+        # there is no limit for k and n
+        weight_in_channel = 3
+        weight_out_channel = 5
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.register_buffer("weight", torch.randn(weight_out_channel, weight_in_channel))
+                self.weight_quant_min = 0
+                self.weight_quant_max = 255
+                self.register_buffer("weight_scale", torch.randn(weight_out_channel))
+                init_zp = 128 * torch.ones(weight_out_channel, dtype=zero_point_dtype)
+                self.register_buffer("weight_zero_point", init_zp)
+                self.ch_axis = 0
+
+            def forward(self, x):
+                weight = torch.fake_quantize_per_channel_affine(
+                    self.weight, self.weight_scale, self.weight_zero_point,
+                    self.ch_axis, self.weight_quant_min, self.weight_quant_max
+                )
+                x = F.linear(x, weight, bias=None)
+                return x
+
+        model = Model().eval().to(self.device)
+        inp = torch.randn(1, 2, 3).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "weight_only_qgemm.pdll")
+        ]
+        pdll_files = ",".join(pdll_files)
+        expect_str = """
+module {
+  func.func @main(%arg1: tensor<?x?x?xf32>) -> tensor<?x?x5xf32> {
+    # CHECK: tensor<5x3xui8>
+    # CHECK: tensor<5xf32>
+    # CHECK-NOT: mhlo.quantize
+    # CHECK-NOT: mhlo.dequantize
+    %0 = mhlo.constant dense : tensor<5x3xui8>
+    %1 = mhlo.constant dense : tensor<5xf32>
+    %2 = mhlo.constant dense<128> : tensor<5xi32>
+    # CHECK: mhlo.transpose
+    # CHECK-SAME: permutation = dense<[1, 0]>
+    # CHECK-SAME: (tensor<5x3xui8>) -> tensor<3x5xui8>
+    %3 = "mhlo.transpose"(%0) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<5x3xui8>) -> tensor<3x5xui8>
+    # CHECK: mhlo_disc.custom_call_v2
+    # CHECK-SAME: call_target_name = "ral_pdll_weight_only_qgemm"
+    # CHECK-SAME: custom_attrs = {weight_should_be_reordered = true}
+    %4 = "mhlo_disc.custom_call_v2"(%arg1, %3, %1, %2) {call_target_name = "ral_pdll_weight_only_qgemm", custom_attrs = {weight_should_be_reordered = true}, device = "d", expected_input_layouts = "*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*", input_placements = "d,d,d,d", output_layouts = "*", output_placements = "d"} : (tensor<?x?x?xf32>, tensor<3x5xui8>, tensor<5xf32>, tensor<5xi32>) -> tensor<?x?x5xf32>
+    return %4 : tensor<?x?x5xf32>
+  } loc(#loc)
+} loc(#loc)
+#loc1 = loc("/workspace/codes/BladeDISC/pytorch_blade/tests/disc/pdl/test_torchscipt_to_mhlo/test_quantization.py":524:0)
+
+
+"""
+        self._test_torchscipte_to_mhlo(traced_model._c, expect_str, pdll_files, enable_int8=True)
+
+    def test_weight_only_quant_linear_with_bias(self):
+        # just test the process of torchscript to torch-mlir
+        # there is no limit for k and n
+        weight_in_channel = 3
+        weight_out_channel = 5
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.register_buffer("weight", torch.randn(weight_out_channel, weight_in_channel))
+                self.register_buffer("bias", torch.randn(weight_out_channel))
+                self.weight_quant_min = 0
+                self.weight_quant_max = 255
+                self.register_buffer("weight_scale", torch.randn(weight_out_channel))
+                init_zp = 128 * torch.ones(weight_out_channel, dtype=zero_point_dtype)
+                self.register_buffer("weight_zero_point", init_zp)
+                self.ch_axis = 0
+
+            def forward(self, x):
+                weight = torch.fake_quantize_per_channel_affine(
+                    self.weight, self.weight_scale, self.weight_zero_point,
+                    self.ch_axis, self.weight_quant_min, self.weight_quant_max
+                )
+                x = F.linear(x, weight, bias=self.bias)
+                return x
+
+        model = Model().eval().to(self.device)
+        inp = torch.randn(1, 2, 3).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "weight_only_qgemm.pdll")
+        ]
+        pdll_files = ",".join(pdll_files)
+        expect_str = """
+module {
+  func.func @main(%arg1: tensor<?x?x?xf32>) -> tensor<?x?x5xf32> {
+    # CHECK: tensor<5x3xui8>
+    # CHECK: tensor<5xf32>
+    # CHECK: tensor<5xf32>
+    # CHECK-NOT: mhlo.quantize
+    # CHECK-NOT: mhlo.dequantize
+    %0 = mhlo.constant dense : tensor<5x3xui8>
+    %1 = mhlo.constant dense : tensor<5xf32>
+    %2 = mhlo.constant dense<128> : tensor<5xi32>
+    %3 = mhlo.constant dense : tensor<5xf32>
+    # CHECK: mhlo.transpose
+    # CHECK-SAME: permutation = dense<[1, 0]>
+    # CHECK-SAME: (tensor<5x3xui8>) -> tensor<3x5xui8>
+    %4 = "mhlo.transpose"(%0) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<5x3xui8>) -> tensor<3x5xui8>
+    # CHECK: mhlo_disc.custom_call_v2
+    # CHECK-SAME: call_target_name = "ral_pdll_weight_only_qgemm"
+    # CHECK-SAME: custom_attrs = {weight_should_be_reordered = true}
+    %5 = "mhlo_disc.custom_call_v2"(%arg1, %4, %3, %1, %2) {call_target_name = "ral_pdll_weight_only_qgemm", custom_attrs = {weight_should_be_reordered = true}, device = "d", expected_input_layouts = "*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*", input_placements = "d,d,d,d,d", output_layouts = "*", output_placements = "d"} : (tensor<?x?x?xf32>, tensor<3x5xui8>, tensor<5xf32>, tensor<5xf32>, tensor<5xi32>) -> tensor<?x?x5xf32>
+    # CHECK-NOT: torch.aten.add.Tensor
+    return %5 : tensor<?x?x5xf32>
+  }
+}
+"""
+        self._test_torchscipte_to_mhlo(traced_model._c, expect_str, pdll_files, enable_int8=True)
+
 
 class TestFakeQuant(CPUDiscPdlQuantizationTestCase):
     def setUp(self):

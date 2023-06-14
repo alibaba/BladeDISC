@@ -62,14 +62,6 @@ gentbl_cc_library(
             "LinalgExt/LinalgExtOps.cc.inc",
         ),
         (
-            ["-gen-enum-decls"],
-            "LinalgExt/LinalgExtEnums.h.inc",
-        ),
-        (
-            ["-gen-enum-defs"],
-            "LinalgExt/LinalgExtEnums.cc.inc",
-        ),
-        (
             ["--gen-typedef-decls"],
             "LinalgExt/LinalgExtTypes.h.inc",
         ),
@@ -82,6 +74,7 @@ gentbl_cc_library(
     td_file = "LinalgExt/LinalgExtOps.td",
     deps = [
         ":LinalgExtTdFiles",
+        ":DISCLinalgExtEnumsIncGen",
         "@llvm-project//mlir:CallInterfacesTdFiles",
         "@llvm-project//mlir:ControlFlowInterfacesTdFiles",
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
@@ -117,6 +110,23 @@ gentbl_cc_library(
     ],
 )
 
+gentbl_cc_library(
+    name = "DISCLinalgExtEnumsIncGen",
+    tbl_outs = [
+        (
+            ["-gen-enum-decls"],
+            "LinalgExt/LinalgExtEnums.h.inc",
+        ),
+        (
+            ["-gen-enum-defs"],
+            "LinalgExt/LinalgExtEnums.cc.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "LinalgExt/LinalgExtEnums.td",
+    deps = [":LinalgExtTdFiles"],
+)
+
 cc_library(
     name = "DISCLinalgExtDialect",
     srcs = glob([
@@ -126,6 +136,7 @@ cc_library(
         "LinalgExt/*.h",
     ]),
     deps = [
+        ":DISCLinalgExtEnumsIncGen",
         ":DISCLinalgExtIncGen",
         ":DISCLinalgExtInterfacesIncGen",
         "@llvm-project//llvm:Support",
@@ -249,6 +260,7 @@ cc_library(
         "@llvm-project//mlir:TransformDialect",
         "@llvm-project//mlir:TransformUtils",
         "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:VectorTransformOps",
     ],
     alwayslink = 1,
 )

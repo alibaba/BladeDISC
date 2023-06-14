@@ -21,18 +21,35 @@ from torch_quant.observer import Observer
 def create_ctx(model: nn.Module) -> GraphModContext:
     mapping = fx_trace(model)
     dummy_observer = partial(Observer, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric)
-    return GraphModContext(mapping[''].gm, mapping[''].m, dummy_observer, dummy_observer, dummy_observer)
+    ctx = GraphModContext(
+        gm=mapping[''].gm,
+        root=mapping[''].m,
+        act_ob_ctr=dummy_observer,
+        w_ob_ctr=dummy_observer,
+        bias_ob_ctr=dummy_observer,
+    )
+    return ctx
 
 
 class SubModule(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.conv = nn.Conv2d(4, 4, 1)
+        self.conv = nn.Conv2d(4, 4, 1, bias=False)
         self.relu = nn.ReLU()
 
     def forward(self, x):
         x = self.conv(x)
         x = self.relu(x)
+        return x
+
+
+class SimpleLinearWithBias(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(3, 4, bias=True)
+
+    def forward(self, x):
+        x = self.linear(x)
         return x
 
 
@@ -49,5 +66,43 @@ class SimpleModule(nn.Module):
         x = self.sub(x)
         x = self.pool(x)
         x = torch.flatten(x, start_dim=1)
+        x = self.linear(x)
+        return x
+
+
+class LinearReLU(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.linear = nn.Linear(8, 8)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.linear(x)
+        x = self.relu(x)
+        return x
+
+
+class UntraceableSubModule(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.linear_relu = LinearReLU()
+
+    def forward(self, x):
+        if torch.max(x) < 0:
+            x = x + 1
+        x = self.linear_relu(x)
+        return x
+
+
+class UntraceableSimpleModule(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.traceable_sub = SimpleModule()
+        self.untraceable_sub = UntraceableSubModule()
+        self.linear = nn.Linear(8, 8)
+
+    def forward(self, x):
+        x = self.traceable_sub(x)
+        x = self.untraceable_sub(x)
         x = self.linear(x)
         return x

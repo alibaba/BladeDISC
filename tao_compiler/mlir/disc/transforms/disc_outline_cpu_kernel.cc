@@ -16,14 +16,14 @@ limitations under the License.
 // This file implements the logic to outline each cpu kernel (represented as a
 // parallelOp) to a dedicated function.
 
+#include "lhlo/IR/lhlo_ops.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/SymbolTable.h"
@@ -102,7 +102,7 @@ LogicalResult sinkOperationsIntoLaunchOp(Region& launchOpBody) {
   }
 
   // Insert operations so that the defs get cloned before uses.
-  BlockAndValueMapping map;
+  IRMapping map;
   OpBuilder builder(launchOpBody);
   for (Operation* op : toBeSunk) {
     Operation* clonedOp = builder.clone(*op, map);
@@ -140,7 +140,7 @@ static func::FuncOp outlineKernelFuncImpl(Operation* launchOp,
   auto outlinedFunc = builder.create<func::FuncOp>(loc, kernelFnName, type);
   outlinedFunc->setAttr(kCpuKernelFunc, builder.getUnitAttr());
 
-  BlockAndValueMapping map;
+  IRMapping map;
 
   // Map arguments from launch region to the arguments of the func
   // operation.

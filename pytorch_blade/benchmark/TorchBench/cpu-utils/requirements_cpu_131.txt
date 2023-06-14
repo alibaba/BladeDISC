@@ -1,0 +1,11 @@
+-f https://download.pytorch.org/whl/torch_stable.html
+pyyaml
+pandas
+librosa
+torchvision==0.14.1+cpu
+torchaudio==0.13.1+cpu
+torchtext==0.14.1
+onnx
+onnxruntime
+torchdynamo==1.13.0
+intel_extension_for_pytorch==1.13.0

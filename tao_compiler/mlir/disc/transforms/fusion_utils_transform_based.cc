@@ -65,7 +65,7 @@ bool isSupportedBcast(Operation* op, ShapeAnalysis& shapeAnalysisBase) {
   if (inType.getRank() != dimensions.size()) return false;
   for (auto [inDimIdx, inDimSize] : llvm::enumerate(inType.getShape())) {
     int64_t outDimIdx = dimensions[inDimIdx];
-    if (inDimSize != ShapedType::kDynamicSize) continue;
+    if (inDimSize != ShapedType::kDynamic) continue;
     // linalg generic op does not support "runtime broadcast semantic", thus we
     // have to know if we need to broadcast in the compile time.
     if (!shapeIRAnalysis ||
@@ -76,6 +76,9 @@ bool isSupportedBcast(Operation* op, ShapeAnalysis& shapeAnalysisBase) {
 }
 
 bool TransformBasedCpuFusionStrategy::isFusible(Operation* op) {
+  if (!useTransformGEMMEpilogueFusionSchedule()) {
+    return isSupportedDot(op) || isa<lmhlo::ConstantOp>(op);
+  }
   return isSupportedDot(op) || isElementWise(op) || isBcastOp(op) ||
          isa<lmhlo::ConstantOp>(op);
 }

@@ -17,6 +17,6 @@ func.func @replace_const_padding_value(%arg0: tensor<?xf32>) -> tensor<?xf32> {
 
 transform.structured.canonicalized_sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %pad = transform.structured.match ops{["tensor.pad"]} in %arg0
+  %pad = transform.structured.match ops{["tensor.pad"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   transform.disc.replace_const_padding_value %pad mode("kAny")
 }

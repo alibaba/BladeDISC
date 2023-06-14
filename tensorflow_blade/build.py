@@ -23,11 +23,13 @@ import sys
 from six.moves import cPickle as pickle
 from datetime import datetime
 
+sys.path.pop();
 sys.path.append(
     os.path.join(
         os.path.dirname(os.path.abspath(__file__)), os.pardir, "scripts", "python"
     )
 )
+print(sys.path)
 
 
 from common_internal import (
@@ -50,6 +52,9 @@ from common_setup import (
     get_source_root_dir,
     internal_root_dir,
     num_make_jobs,
+    config_mkldnn,
+    build_mkldnn,
+    mkl_install_dir,
 )
 from tao_common import (
     git_branch,
@@ -141,6 +146,7 @@ def configure(args):
             _write(f"--remote_cache={cache_token}", cmd="build")
             _write(f"--remote_cache={cache_token}", cmd="test")
             logger.info("Bazel remote cache enabled.")
+
         _config("debug" if args.debug_build else "release")
         _action_env("PYTHON_BIN_PATH", which("python3"))
         _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
@@ -210,7 +216,8 @@ def configure(args):
                 _action_env("BLADE_WITH_TENSORRT", "0")
 
             if args.platform_alibaba and not args.skip_hie:
-                _config("hie")
+                logger.warning("HIE will be disabled temporarily.")
+                # _config("hie")
 
             if not args.skip_disc:
                 _config("disc_cuda")
@@ -220,12 +227,10 @@ def configure(args):
             # TODO(lanbo.llb): unify mkl configure with tao_bridge
             if args.platform_alibaba:
                 _action_env("BLADE_WITH_MKL", "1")
-                mkl_root = os.environ.get(
-                    "MKL_ROOT",
-                    "/opt/intel/compilers_and_libraries_2020.1.217/linux",
-                )
-                assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"
-                _action_env("MKL_ROOT", mkl_root)
+                root = get_source_root_dir()
+                _action_env("MKL_ROOT", mkl_install_dir(root))
+                config_mkldnn(root, args)
+                build_mkldnn(root)
             if not args.skip_disc:
                 if not args.disable_mkldnn:
                     _config("disc_mkldnn")
@@ -342,6 +347,13 @@ def parse_args():
         help="Enable MKL for disc compiler.",
     )
     parser.add_argument(
+        '--x86',
+        action="store_true",
+        required=False,
+        default=False,
+        help="Currently only needed for mkldnn build.",
+    )
+    parser.add_argument(
         '--aarch64',
         action="store_true",
         required=False,
@@ -367,6 +379,8 @@ def parse_args():
     args = parser.parse_args()
     if args.version == "auto":
         args.version = open(get_version_file()).read().split()[0]
+    if args.device == 'cpu' and not args.aarch64:
+        args.x86 = True
 
     return args
 

@@ -42,7 +42,19 @@ class TestDiscLayerNorm(DiscTestCase):
             norm_x = zero_x * rsqrt_var
             return norm_x
 
+        @torch.jit.script
+        def layernorm_std(x):
+            reduce_dim = [2, 3]
+            mean_x = x.mean(dim=reduce_dim, keepdim=True)
+            zero_x = x - mean_x
+            var_x = x.std(dim=reduce_dim, keepdim=True)
+            var_bias = var_x + 1e-5
+            rsqrt_var = var_bias.rsqrt()
+            norm_x = zero_x * rsqrt_var
+            return norm_x
+
         self._test_layer_norm(layernorm)
+        self._test_layer_norm(layernorm_std)
 
 if __name__ == "__main__":
     unittest.main()

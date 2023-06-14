@@ -44,6 +44,49 @@ func.func @quantize_per_tensor_asymmetric_uint8() ->  tensor<2x3xui8> {
   return %y : tensor<2x3xui8>
 }
 
+func.func @quantize_per_channel_symmetric_int8_fp16() ->  tensor<2x3xi8> {
+  // CHECK{LITERAL}: mhlo.constant dense<[[10, 20, 30], [20, 25, 30]]> : tensor<2x3xi8>
+  // CHECK-NOT: mhlo_disc.quantize
+  %x = mhlo.constant dense<[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]> : tensor<2x3xf16>
+  %scale = mhlo.constant dense<[0.1, 0.2]> : tensor<2xf16>
+  %zero_point =  mhlo.constant dense<0> : tensor<2xi32>
+  %y = "mhlo_disc.quantize"(%x, %scale, %zero_point) {axis = dense<0> : tensor<1xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<2x3xf16>, tensor<2xf16>, tensor<2xi32>) -> tensor<2x3xi8>
+  return %y : tensor<2x3xi8>
+}
+
+
+func.func @quantize_per_tensor_symmetric_int8_fp16() ->  tensor<2x3xi8> {
+  // CHECK{LITERAL}: mhlo.constant dense<[[10, 20, 30], [40, 50, 60]]> : tensor<2x3xi8>
+  // CHECK-NOT: mhlo_disc.quantize
+  %x = mhlo.constant dense<[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]> : tensor<2x3xf16>
+  %scale = mhlo.constant dense<0.1> : tensor<f16>
+  %zero_point =  mhlo.constant dense<0> : tensor<i32>
+  %y = "mhlo_disc.quantize"(%x, %scale, %zero_point) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<2x3xf16>, tensor<f16>, tensor<i32>) -> tensor<2x3xi8>
+  return %y : tensor<2x3xi8>
+}
+
+
+func.func @quantize_per_channel_asymmetric_uint8_fp16() ->  tensor<2x3xui8> {
+  // CHECK{LITERAL}: mhlo.constant dense<[[20, 30, 40], [40, 45, 50]]> : tensor<2x3xui8>
+  // CHECK-NOT: mhlo_disc.quantize
+  %x = mhlo.constant dense<[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]> : tensor<2x3xf16>
+  %scale = mhlo.constant dense<[0.1, 0.2]> : tensor<2xf16>
+  %zero_point =  mhlo.constant dense<[10, 20]> : tensor<2xi32>
+  %y = "mhlo_disc.quantize"(%x, %scale, %zero_point) {axis = dense<0> : tensor<1xi64>, quant_max = 255 : i64, quant_min = 0 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = false} : (tensor<2x3xf16>, tensor<2xf16>, tensor<2xi32>) -> tensor<2x3xui8>
+  return %y : tensor<2x3xui8>
+}
+
+
+func.func @quantize_per_tensor_asymmetric_uint8_fp16() ->  tensor<2x3xui8> {
+  // CHECK{LITERAL}: mhlo.constant dense<[[20, 30, 40], [50, 60, 70]]> : tensor<2x3xui8>
+  // CHECK-NOT: mhlo_disc.quantize
+  %x = mhlo.constant dense<[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]> : tensor<2x3xf16>
+  %scale = mhlo.constant dense<0.1> : tensor<f16>
+  %zero_point =  mhlo.constant dense<10> : tensor<i32>
+  %y = "mhlo_disc.quantize"(%x, %scale, %zero_point) {axis = dense<> : tensor<0xi64>, quant_max = 255 : i64, quant_min = 0 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = false} : (tensor<2x3xf16>, tensor<f16>, tensor<i32>) -> tensor<2x3xui8>
+  return %y : tensor<2x3xui8>
+}
+
 
 // int8 outside quant range
 func.func @quantize_per_channel_symmetric_int8_outside_quant_range() ->  tensor<2x3xi8> {

@@ -1,4 +1,4 @@
-workspace(name = "disc_compiler")
+workspace(name = "org_disc_compiler")
 
 local_repository(
     name = "org_tensorflow",
@@ -26,3 +26,9 @@ tf_workspace1()
 load("@org_tensorflow//tensorflow:workspace0.bzl", "tf_workspace0")
 
 tf_workspace0()
+
+load("@org_tensorflow//tensorflow:workspace0.bzl", "tf_workspace0")
+
+load("//build_tools/bazel:workspace.bzl", "disc_compiler_workspace")
+
+disc_compiler_workspace()

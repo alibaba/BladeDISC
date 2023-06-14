@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 
 import torch_blade.pass_manager as pm
-from torch_blade import jit_pass_propagate_input_shapes
+from torch_blade import jit_pass_propagate_input_shapes, jit_pass_constant_propagation
 from torch_blade.config import Config
 from torch_blade.logging import logger
 from torch_blade.tools import set_tensor_shape
@@ -68,6 +68,11 @@ def _script_module_preprocess(s_module, inputs, input_dims=[]):
         inp_typ = input.type()
         inp_typ = inp_typ.with_dtype(inp.dtype)
         input.setType(inp_typ.with_device(inp.device))
+    if cfg.disable_optimization_for_inference:
+        # TODO(note): using a simple constant propagation pass on training
+        jit_pass_constant_propagation(graph)
+    else:
+        torch._C._jit_pass_constant_propagation(graph)
     jit_pass_propagate_input_shapes(graph)
 
 def _deep_copy_script_module(model):
@@ -241,7 +246,12 @@ def export(model, allow_tracing=None, model_inputs=None):
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
 
-    _model = _deepcopy(model)
+    with Config.get_current_context_or_new() as cfg:
+        # If disable_optimization_for_inference is True, we will not need deep copy of the model.
+        if not cfg.disable_optimization_for_inference:
+            _model = _deepcopy(model)
+        else:
+            _model = model
 
     if allow_tracing:
         assert model_inputs is not None, 'model_inputs can not be None when use torch.jit.trace'

@@ -18,12 +18,11 @@ limitations under the License.
 #include <algorithm>
 #include <mutex>
 
-#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
-#include "mlir-hlo/utils/placement_utils.h"
+#include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"  // TF:llvm-project
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
@@ -33,6 +32,7 @@ limitations under the License.
 #include "mlir/disc/transforms/disc_shape_optimization_utils.h"
 #include "mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "mlir/disc/transforms/placement_utils.h"
+#include "utils/placement_utils.h"
 
 // This file implements some helper functions and classes used to do fusion
 // & code generation.
@@ -323,7 +323,7 @@ std::string generateSignatureForFusion(FusionPattern& fusionPattern) {
       auto appendShapeToStr = [&](ArrayRef<int64_t> shape) {
         for (const auto& en : llvm::enumerate(shape)) {
           if (en.index() > 0) sig.append("x");
-          if (en.value() == ShapedType::kDynamicSize) {
+          if (en.value() == ShapedType::kDynamic) {
             sig.append("u");
           } else {
             sig.append(Twine(en.value()).str());
@@ -371,10 +371,21 @@ bool inSameFusionFamily(Operation* op, Operation* other) {
   return ((opFusionName == otherFusionName) && !opFusionName.empty());
 }
 
+bool isSingleElementH2DOp(Operation* op) {
+  auto h2d_op = dyn_cast<lmhlo_disc::H2DOp>(op);
+  if (!h2d_op) return false;
+  return op->getOperand(0).getType().cast<MemRefType>().getNumElements() == 1;
+}
+
 // Returns true if the op is an elementwise unary lmhlo op.
 // TODO(disc): use fusibility interface
 // TODO(disc): Unify with disc_supported_list.h and Elementwise Trait
 bool isElementWiseUnary(Operation* op) {
+  // scalar h2d op can be fused and promoted to as operands of the kernel.
+  if (isa<lmhlo_disc::H2DOp>(op)) {
+    return isSingleElementH2DOp(op);
+  }
+
   // clang-format off
   return isa<
     lmhlo::AbsOp,
@@ -831,11 +842,12 @@ void FusionPattern::findOpsOfSkeletonGroup(
                                      !xroot_members.contains(input_op);
       if (existing_group_op_set.contains(input_op) &&
           !shmem_cached_ops.contains(input_op) &&
-          !all_skeletons.contains(input_op)) {
+          !all_skeletons.contains(input_op) &&
+          !isa<lmhlo::ConstantOp>(input_op)) {
         auto output = input_op->getOperand(input_op->getNumOperands() - 1);
-        int collapsed_tile_dim = getCollapsedTileDim(output);
+        int64_t collapsed_tile_dim = getCollapsedTileDim(output);
         auto output_type = output.getType().cast<MemRefType>();
-        if (collapsed_tile_dim != ShapedType::kDynamicSize) {
+        if (collapsed_tile_dim != ShapedType::kDynamic) {
           auto bit_width = row_per_block * collapsed_tile_dim *
                            output_type.getElementType().getIntOrFloatBitWidth();
           if (shmem_usage_bits + bit_width < shmem_limit_bits) {
@@ -863,11 +875,11 @@ void FusionPattern::findOpsOfSkeletonGroup(
 int64_t FusionPattern::getCollapsedTileDim(Value value) {
   auto value_type = value.getType().cast<MemRefType>();
   auto value_shape = value_type.getShape();
-  int collapsed_tile_dim = 1;
+  int64_t collapsed_tile_dim = 1;
   for (auto tile : tile_plan_[value].tileSizes) {
     int dim = tile.first;
-    if (value_shape[dim] == ShapedType::kDynamicSize) {
-      collapsed_tile_dim = ShapedType::kDynamicSize;
+    if (value_shape[dim] == ShapedType::kDynamic) {
+      collapsed_tile_dim = ShapedType::kDynamic;
       break;
     } else {
       collapsed_tile_dim *= value_shape[dim];
@@ -1049,7 +1061,7 @@ bool mergeSkeletonGroupsInOrder(
 
       auto optional_merged_id =
           TryMergeNode(&cycle_detector, merged.first, to_merge.first);
-      if (!optional_merged_id.hasValue()) {
+      if (!optional_merged_id.has_value()) {
         // It forms a cycle.
         continue;
       }
@@ -1441,12 +1453,6 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 ////////////////////// Base GPU FusionStrategy Implementation /////////
 //////////////////////////////////////////////////////////////////
 
-bool isSingleElementH2DOp(Operation* op) {
-  auto h2d_op = dyn_cast<lmhlo_disc::H2DOp>(op);
-  if (!h2d_op) return false;
-  return op->getOperand(0).getType().cast<MemRefType>().getNumElements() == 1;
-}
-
 bool BaseGpuFusionStrategy::isFusible(Operation* op) {
   // Only rank-2 tensor -> rank-1 tensor reduction are supported now.
   if (isa<lmhlo::ReduceOp>(op) &&
@@ -1454,8 +1460,6 @@ bool BaseGpuFusionStrategy::isFusible(Operation* op) {
     return false;
 
   if (isa<lmhlo::TransposeOp>(op) && isRank2or3Transpose(op)) return false;
-  if (isSingleElementH2DOp(op)) return true;
-
   return BaseFusionStrategy::isFusible(op);
 }
 
@@ -1464,6 +1468,23 @@ Value BaseGpuFusionStrategy::getEffectiveShape(FusionPattern& target, Value v) {
   assert(result_op);
   // effective shape of reduce op is its operand's shape.
   return isa<lmhlo::ReduceOp>(result_op) ? result_op->getOperand(0) : v;
+}
+
+bool BaseGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
+                                    FusionPattern& lhs, FusionPattern& rhs,
+                                    FusionPattern& target) {
+  // TODO(Yancey): support fusion with different reduction type
+  bool has_row_reduction = llvm::any_of(target.getOpList(), [](Operation* op) {
+    return isRank2RowReduction(op);
+  });
+  bool has_col_reduciton = llvm::any_of(target.getOpList(), [](Operation* op) {
+    return isRank2ColReduction(op);
+  });
+
+  if (has_row_reduction && has_col_reduciton) {
+    return false;
+  }
+  return BaseFusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target);
 }
 
 ////////////////////// Stitch-Base CPU FusionStrategy Implemenation /////
@@ -1706,12 +1727,12 @@ void StitchCPUAnalysis::dumpParallelPlan() {
     llvm::dbgs() << "  value: " << en.first << "\n";
     for (const auto& en2 : llvm::enumerate(en.second)) {
       llvm::dbgs() << "  parallel info #" << en2.index() << ": ";
-      int test = en2.value();
+      int64_t test = en2.value();
       auto& info = parallelInfoStore_[test];
       llvm::dbgs() << "id@prevId: " << info.id << "@" << info.producerId
                    << " || ";
       llvm::dbgs() << "consumerIds: ";
-      for (int id : info.consumerIds) llvm::dbgs() << id << " ";
+      for (int64_t id : info.consumerIds) llvm::dbgs() << id << " ";
       llvm::dbgs() << " || ";
       for (auto& innerEn : info.indices) {
         llvm::dbgs() << innerEn.first << " : "
@@ -1873,17 +1894,17 @@ bool TileInfo::merge(TileInfo& other) {
 }
 
 // Returns false if failed to merge.
-bool TileInfo::merge(int axis, int tileSize) {
+bool TileInfo::merge(int64_t axis, int64_t tileSize) {
   auto it = tileSizes.find(axis);
   if (it == tileSizes.end()) {
     tileSizes[axis] = tileSize;
     return true;
   }
 
-  int minSize = std::min(it->second, tileSize);
-  int maxSize = std::max(it->second, tileSize);
-  if (minSize == ShapedType::kDynamicSize) {
-    it->second = ShapedType::kDynamicSize;
+  int64_t minSize = std::min(it->second, tileSize);
+  int64_t maxSize = std::max(it->second, tileSize);
+  if (minSize == ShapedType::kDynamic) {
+    it->second = ShapedType::kDynamic;
     return true;
   }
 
@@ -1901,8 +1922,8 @@ bool TileInfo::updateIfNotEqual(TileInfo& other) {
 
 // Assigns a tile sizes for each buffers.
 // Take buffer `a` memref<?x?x?xf32> as an example:
-//  Tile(a) = {0 : -1}: means axis 0 is fully selected as tile
-//  Tile(a) = {1 : -1, 2 : 4}: means axis 1 is fully selected and
+//  Tile(a) = {0 : kDynamic}: means axis 0 is fully selected as tile
+//  Tile(a) = {1 : kDynamic, 2 : 4}: means axis 1 is fully selected and
 //                             tile size for axis 2 is 4.
 bool StitchCPUAnalysis::doTileAnalysis() {
   bool changed = false;
@@ -2119,7 +2140,7 @@ bool StitchCPUAnalysis::doParallelAnalysis() {
 ParallelIndex& StitchCPUAnalysis::makeParallelIndex(int64_t step,
                                                     int64_t value) {
   // Return early if a existing const parallel index.
-  if (value != ShapedType::kDynamicSize) {
+  if (value != ShapedType::kDynamic) {
     auto it = constParallelIndexStore_.find(value);
     if (it != constParallelIndexStore_.end())
       return parallelIndexStore_[it->second];
@@ -2127,7 +2148,7 @@ ParallelIndex& StitchCPUAnalysis::makeParallelIndex(int64_t step,
 
   int id = newSymbolId();
   // Cache const parallel index
-  if (value != ShapedType::kDynamicSize) constParallelIndexStore_[value] = id;
+  if (value != ShapedType::kDynamic) constParallelIndexStore_[value] = id;
   return parallelIndexStore_[id] = ParallelIndex{id, step, value};
 }
 
@@ -2146,18 +2167,17 @@ ParallelInfo& StitchCPUAnalysis::makeParallelInfo(Value value, int producerId,
     auto it = tileInfo.tileSizes.find(d);
     if (it == tileInfo.tileSizes.end()) {
       bool isAlwaysZeroIndex =
-          (dimSize != ShapedType::kDynamicSize && dimSize <= 1);
+          (dimSize != ShapedType::kDynamic && dimSize <= 1);
       // select the whole dimension
       parallelInfo.indices[d] =
-          makeParallelIndex(1, isAlwaysZeroIndex ? 0 : ShapedType::kDynamicSize)
-              .id;
-    } else if (it->second != ShapedType::kDynamicSize) {
+          makeParallelIndex(1, isAlwaysZeroIndex ? 0 : ShapedType::kDynamic).id;
+    } else if (it->second != ShapedType::kDynamic) {
       bool isAlwaysZeroIndex =
-          (dimSize != ShapedType::kDynamicSize && dimSize <= it->second);
+          (dimSize != ShapedType::kDynamic && dimSize <= it->second);
       // partially select the dimension.
       parallelInfo.indices[d] =
           makeParallelIndex(it->second,
-                            isAlwaysZeroIndex ? 0 : ShapedType::kDynamicSize)
+                            isAlwaysZeroIndex ? 0 : ShapedType::kDynamic)
               .id;
     }
   }
@@ -2550,10 +2570,10 @@ bool StitchCPUAnalysis::doSubRootsAnalysis() {
         int64_t totalSize = 1;
         for (auto& en : tileInfo.tileSizes) {
           int64_t tileSize = en.second;
-          if (tileSize == ShapedType::kDynamicSize) {
+          if (tileSize == ShapedType::kDynamic) {
             tileSize = ty.getShape()[en.first];
           }
-          if (tileSize == ShapedType::kDynamicSize) return false;
+          if (tileSize == ShapedType::kDynamic) return false;
           totalSize *= tileSize;
         }
         return totalSize == 1;
@@ -2909,8 +2929,8 @@ bool StitchCPUAnalysis::emitInOutTiles(OpBuilder& b, Location loc,
           ++parallelIdx;
         } else if (tileIt != tileInfo.tileSizes.end()) {
           subViewOffsets.push_back(getIntAttr(0));
-          if (tileIt->second == ShapedType::kDynamicSize) {
-            if (inType.getShape()[d] == ShapedType::kDynamicSize) {
+          if (tileIt->second == ShapedType::kDynamic) {
+            if (inType.getShape()[d] == ShapedType::kDynamic) {
               Value dimSize = b.create<memref::DimOp>(loc, in, d);
               subViewSizes.push_back(dimSize);
               if (inSymbols && mgr) {
@@ -2958,10 +2978,10 @@ Value StitchCPUAnalysis::emitTileBuffer(OpBuilder& b, Location loc, Value val) {
     int64_t totalSize = 1;
     for (auto& en : tileInfo.tileSizes) {
       int64_t tileSize = en.second;
-      if (tileSize == ShapedType::kDynamicSize) {
+      if (tileSize == ShapedType::kDynamic) {
         tileSize = ty.getShape()[en.first];
       }
-      if (tileSize == ShapedType::kDynamicSize) return false;
+      if (tileSize == ShapedType::kDynamic) return false;
       totalSize *= tileSize;
     }
     return totalSize < 64;
@@ -2986,14 +3006,14 @@ Value StitchCPUAnalysis::emitTileBuffer(OpBuilder& b, Location loc, Value val) {
       }
       continue;
     }
-    if (it->second != ShapedType::kDynamicSize) {
+    if (it->second != ShapedType::kDynamic) {
       newTyShape.push_back(it->second);
       if (mgr && valSymbols) {
         tileSymbols.push_back(mgr->newConstantSymbolicDim(it->second));
       }
       continue;
     }
-    if (ty.getShape()[d] == ShapedType::kDynamicSize) {
+    if (ty.getShape()[d] == ShapedType::kDynamic) {
       dynDims.push_back(b.create<memref::DimOp>(loc, val, d));
       if (mgr && valSymbols) {
         tileSymbols.push_back(mgr->symbolTable().lookup<SymbolicDimOp>(

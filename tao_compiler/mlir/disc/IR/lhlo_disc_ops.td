@@ -21,14 +21,15 @@ limitations under the License.
 include "mlir/Dialect/MemRef/IR/MemRefBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
-include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_base.td"
-include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_structs.td"
-include "mlir-hlo/Dialect/lhlo/IR/lhlo_structured_interface.td"
+include "lhlo/IR/lhlo_ops_base.td"
+include "lhlo/IR/lhlo_ops_structs.td"
+include "lhlo/IR/lhlo_structured_interface.td"
+include "mlir/disc/IR/lhlo_disc_enums.td"
 
 def LHLODISC_Dialect : Dialect {
   let name = "lmhlo_disc";
   let cppNamespace = "::mlir::lmhlo_disc";
-  let emitAccessorPrefix = kEmitAccessorPrefix_Prefixed;
+  let useFoldAPI = kEmitFoldAdaptorFolder;
 }
 
 def LHLO_I32Tensor : MemRefOf<[SignlessIntOfWidths<[32]>]>;
@@ -137,7 +138,7 @@ def LHLODISC_QuantizedDotGeneralOp: LHLODISC_Op<"quantized_dot_general", []> {
     Arg<LHLO_FpBuffer, "", [MemRead]>:$result_scale,
     Arg<LHLO_I32Tensor, "", [MemRead]>:$result_zero_point,
     Arg<LHLO_IntBuffer, "", [MemWrite]>:$result,
-    DotDimensionNumbers:$dot_dimension_numbers,
+    MHLO_DotDimensionNumbers:$dot_dimension_numbers,
     DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
     DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
     DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
@@ -169,8 +170,8 @@ def LHLODISC_QuantizedDynamicConvOp: LHLODISC_Op<"quantized_dynamic_conv", []> {
     // Default value: one for each of the spatial dimension.
     OptionalAttr<I64ElementsAttr>:$rhs_dilation,
     // Default value: false for each of the spatial dimension.
-    OptionalAttr<BoolElementsAttr>:$window_reversal,
-    ConvDimensionNumbers:$dimension_numbers,
+    OptionalAttr<MHLO_BoolElementsAttr>:$window_reversal,
+    MHLO_ConvDimensionNumbers:$dimension_numbers,
     I64Attr:$feature_group_count,
     I64Attr:$batch_group_count,
     DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
@@ -211,16 +212,33 @@ def LHLO_SparseFillEmptyRowsOp : LHLODISC_Op<"sparse_fill_empty_rows", []> {
   );
 }
 
-def LHLO_SparseSegmentMeanOp : LHLODISC_Op<"sparse_segment_mean", []> {
-  let summary = "One-to-one mapping of TF_SparseSegmentMeanOp";
+def LHLO_SparseSegmentReductionOp : LHLODISC_Op<"sparse_segment_reduction", []> {
+  let summary = "One-to-one mapping of TF_SparseSegmentMeanOp or TF_SparseSegmentSumOp";
   let description = [{
-    See tf's sparse_segment_mean operator.
+    See tf's sparse_segment_mean or sparse_segment_sum operator.
   }];
   let arguments = (ins
     Arg<LHLO_FpBuffer, "", [MemRead]>:$data,
     Arg<LHLO_IntBuffer, "", [MemRead]>:$indices,
     Arg<LHLO_IntBuffer, "", [MemRead]>:$segment_ids,
+    DefaultValuedAttr<LHLO_ReductionModeEnum, "ReductionModeEnum::Mean">:$reduction_mode,
     Arg<LHLO_FpBuffer, "", [MemWrite]>:$output
+  );
+}
+
+def LHLO_SparseSegmentReductionWithEmptyRowsOp : LHLODISC_Op<"sparse_segment_reduction_with_empty_rows", []> {
+  let summary = "This is combination of sparse_fill_empty_rows + sparse_segment_mean/sum";
+  let description = [{
+    Since fuse 2 thses ops is difficult when these 2 both contains many loops after legalize-to-roots pass, however we can greatly simplify the computation in current impl.
+  }];
+  let arguments = (ins
+    Arg<LHLO_FpBuffer, "", [MemRead]>:$data,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$indices,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$unfilled_segment_ids,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$dense_shape,
+    DefaultValuedAttr<LHLO_ReductionModeEnum, "ReductionModeEnum::Mean">:$reduction_mode,
+    Arg<LHLO_FpBuffer, "", [MemWrite]>:$output,
+    Arg<LHLO_PredBuffer, "", [MemWrite]>:$empty_row_indicator
   );
 }
 
@@ -248,6 +266,20 @@ def LHLODISC_SourceCodeOp: LHLODISC_Op<"source_code", [AttrSizedOperandSegments]
     StrAttr:$code,
     StrAttr:$call_target_name
   );
+}
+
+def LHLODISC_ConcatenateOp : LHLODISC_Op<"concatenate", []> {
+  let summary = "DISC's concatenate op";
+  let description = [{
+     Concatenates a set of tensors along the specified dimension,
+     please note, this operator only supports fixed shape in the current codebase.
+   }];
+   let arguments = (ins
+     Arg<Variadic<LHLO_Buffer>, "", [MemRead]>:$val,
+     Arg<LHLO_Buffer, "", [MemRead]>:$input_ptrs,
+     Arg<LHLO_Buffer, "", [MemWrite]>:$output,
+     I64Attr:$dimension
+   );
 }
 
 #endif // LMHLO_DISC_OPS

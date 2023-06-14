@@ -150,7 +150,7 @@ class GpuKernelToBlobPass
       return xla::InternalError("llc execute fail: %s, error code %d",
                                 error_message, result);
     }
-    return xla::Status::OK();
+    return xla::OkStatus();
   }
 
   xla::StatusOr<std::vector<uint8_t>> GetGpuBinaryBlob(
@@ -387,16 +387,16 @@ class GpuKernelToBlobPass
 
     // Compile and collect requested fatbin and PTX images.
     std::vector<tensorflow::se::CubinOrPTXImage> images;
-    TF_ASSIGN_OR_RETURN(std::string libdevice_dir, GetLibdeviceDir(config));
     auto gpu_asm_opts =
         xla::gpu::PtxOptsFromDebugOptions(config.debug_options());
 
+    // [GPU] Fold finding libdevice_dir into PTX compilation
     TF_ASSIGN_OR_RETURN(
         std::string ptx,
         xla::gpu::nvptx::CompileToPtx(
             llvmModule.get(),
             tensorflow::se::CudaComputeCapability{cc_major, cc_minor}, config,
-            libdevice_dir, enable_fusion));
+            enable_fusion));
 
     VLOG(1) << "PTX code: \n" << ptx;
 
@@ -417,6 +417,51 @@ class GpuKernelToBlobPass
       TF_ASSIGN_OR_RETURN(gpu_asm,
                           tensorflow::se::BundleGpuAsm({image}, gpu_asm_opts));
     }
+
+    bool keep_tempfiles = false;
+    TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("DISC_CUDA_KEEP_TEMPFILES",
+                                               /*default_val=*/false,
+                                               &keep_tempfiles));
+    if (keep_tempfiles) {
+      auto* env = tsl::Env::Default();
+      std::vector<std::string> tempdir_vector;
+      env->GetLocalTempDirectories(&tempdir_vector);
+      if (tempdir_vector.empty()) {
+        return xla::InternalError(
+            "Unable to locate a temporary directory for compile-time "
+            "artifacts.");
+      }
+      std::string tempdir_name = tempdir_vector.front();
+      VLOG(1) << "Compile-time artifacts located at: " << tempdir_name;
+      std::string random_number = std::to_string(tensorflow::random::New64());
+      std::string filename =
+          absl::StrCat(llvmModule->getModuleIdentifier(), random_number);
+      std::string ir_path =
+          tensorflow::io::JoinPath(tempdir_name, absl::StrCat(filename, ".ll"));
+      std::string ptx_path = tensorflow::io::JoinPath(
+          tempdir_name, absl::StrCat(filename, ".ptx"));
+      std::string cubin_path = tensorflow::io::JoinPath(
+          tempdir_name, absl::StrCat(filename, ".cubin"));
+
+      // Dump LLVM IR.
+      std::error_code ec;
+      std::unique_ptr<llvm::raw_fd_ostream> ir_fs(
+          new llvm::raw_fd_ostream(ir_path, ec, llvm::sys::fs::OF_None));
+      llvmModule->print(*ir_fs, nullptr);
+      ir_fs->flush();
+
+      // Dump PTX.
+      auto status = tsl::WriteStringToFile(env, ptx_path, ptx);
+      if (!status.ok()) {
+        LOG(ERROR) << "Could not write PTX to " << ptx_path << ": " << status;
+      }
+
+      // Dump cubin.
+      std::ofstream fout(cubin_path, std::ios::binary);
+      fout.write(reinterpret_cast<const char*>(gpu_asm.data()),
+                 gpu_asm.size() * sizeof(uint8_t));
+      fout.close();
+    }
     return gpu_asm;
 
 #endif
@@ -431,23 +476,6 @@ class GpuKernelToBlobPass
     registerLLVMDialectTranslation(registry);
     registerNVVMDialectTranslation(registry);
     OperationPass<gpu::GPUModuleOp>::getDependentDialects(registry);
-  }
-
- private:
-  xla::StatusOr<std::string> GetLibdeviceDir(
-      const xla::HloModuleConfig& hlo_module_config) {
-    for (const std::string& cuda_root : tsl::CandidateCudaRoots(
-             hlo_module_config.debug_options().xla_gpu_cuda_data_dir())) {
-      std::string libdevice_dir =
-          tensorflow::io::JoinPath(cuda_root, "nvvm", "libdevice");
-      VLOG(2) << "Looking for libdevice at " << libdevice_dir;
-      if (tsl::Env::Default()->IsDirectory(libdevice_dir).ok()) {
-        VLOG(2) << "Found libdevice dir " << libdevice_dir;
-        return libdevice_dir;
-      }
-    }
-    return InternalError(
-        "Can't find libdevice directory ${CUDA_DIR}/nvvm/libdevice");
   }
 };
 

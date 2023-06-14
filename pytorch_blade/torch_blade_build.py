@@ -71,9 +71,6 @@ class TorchBladeBuild:
         self.build_hie = check_env_flag(
             "TORCH_BLADE_BUILD_HIE", "OFF"
         )
-        self.build_hie = check_env_flag(
-            "TORCH_BLADE_BUILD_HIE", "OFF"
-        )
         self.skip_compute_intensive_fusion = check_env_flag(
             "TORCH_BLADE_BUILD_SKIP_COMPUTE_INTENSIVE_FUSION", "OFF"
         )

@@ -9,6 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "lib/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -47,16 +48,16 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const {
     Location loc = op.getLoc();
-    auto name = op.name();
-    auto operands = adaptor.operands();
+    auto name = op.getName();
+    auto operands = adaptor.getOperands();
     auto input = operands[0];
     auto scale = operands[1];
     auto zeroPoint = operands[2];
 
-#define I64_VAR_FROM_CONST_OPERAND(var, idx)                         \
-  int64_t var;                                                       \
-  if (!matchPattern(op.operands()[idx], m_TorchConstantInt(&var))) { \
-    return op.emitError(#var " must be a scalar constant int");      \
+#define I64_VAR_FROM_CONST_OPERAND(var, idx)                            \
+  int64_t var;                                                          \
+  if (!matchPattern(op.getOperands()[idx], m_TorchConstantInt(&var))) { \
+    return op.emitError(#var " must be a scalar constant int");         \
   }
     I64_VAR_FROM_CONST_OPERAND(qmin, 3);
     I64_VAR_FROM_CONST_OPERAND(qmax, 4);
@@ -64,14 +65,14 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
 #undef I64_VAR_FROM_CONST_OPERAND
 
     SmallVector<int64_t, 4> axis;
-    if (!matchPattern(op.operands()[6], m_TorchConstantIntList(axis))) {
+    if (!matchPattern(op.getOperands()[6], m_TorchListOfConstantInts(axis))) {
       return op.emitError("only constant dims are supported a.t.m");
     }
 
-#define BOOL_VAR_FROM_CONST_OPERAND(var, idx)                         \
-  bool var;                                                           \
-  if (!matchPattern(op.operands()[idx], m_TorchConstantBool(&var))) { \
-    return op.emitError(#var " must be a scalar constant boolean");   \
+#define BOOL_VAR_FROM_CONST_OPERAND(var, idx)                            \
+  bool var;                                                              \
+  if (!matchPattern(op.getOperands()[idx], m_TorchConstantBool(&var))) { \
+    return op.emitError(#var " must be a scalar constant boolean");      \
   }
 
     BOOL_VAR_FROM_CONST_OPERAND(useSigned, 7);
@@ -166,7 +167,7 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       ConversionPatternRewriter& rewriter) const {
     auto ctx = rewriter.getContext();
     Location loc = op.getLoc();
-    auto operands = adaptor.operands();
+    auto operands = adaptor.getOperands();
     SmallVector<Type> resultTypes;
     for (const auto& result : op.getResults()) {
       auto torchMlirResultTy = result.getType().dyn_cast<ValueTensorType>();
@@ -239,12 +240,57 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
     return success();
   }
 
+  LogicalResult convertSqueezeDimsOp(
+      OperatorOp op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const {
+    auto operands = adaptor.getOperands();
+    auto self = operands[0];
+    auto selfTy = self.getType().template cast<RankedTensorType>();
+    auto rank = selfTy.getRank();
+    SmallVector<int64_t> squeezeDims;
+    if (!matchPattern(
+            op.getOperand(1), m_TorchListOfConstantInts(squeezeDims))) {
+      return rewriter.notifyMatchFailure(op, "non-int dim list unsupported");
+    }
+
+    SmallVector<int64_t, 4> dims;
+    for (int i = 0; i < rank; ++i) {
+      // note(Yancey): to avoid dynamic rank, we suppose squeeze dim is 1.
+      if (std::find(squeezeDims.begin(), squeezeDims.end(), i) ==
+          squeezeDims.end())
+        dims.push_back(i);
+    }
+
+    auto torchMlirResultTy =
+        op.getResult(0).getType().dyn_cast<ValueTensorType>();
+    if (dims.size() == 0) {
+      rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(
+          op, getTypeConverter()->convertType(torchMlirResultTy), self);
+      return success();
+    }
+    auto newDimSizesInfo =
+        mhlo::getDimSizesOfTensor(rewriter, op, self, dims, 32);
+    if (failed(newDimSizesInfo))
+      return rewriter.notifyMatchFailure(
+          op, "failed to get dimension sizes of the input");
+    auto newDimSizes = *newDimSizesInfo;
+    auto mhloShape =
+        rewriter.create<tensor::FromElementsOp>(op.getLoc(), newDimSizes);
+    rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
+        op,
+        getTypeConverter()->convertType(torchMlirResultTy),
+        self,
+        mhloShape);
+    return success();
+  }
+
   LogicalResult matchAndRewrite(
       OperatorOp op,
       OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
-    auto name = op.name();
+    auto name = op.getName();
     if (std::find(
             std::begin(quantizationOpList),
             std::end(quantizationOpList),
@@ -252,6 +298,8 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       return convertQuantizationRelatedOp(op, adaptor, rewriter);
     } else if (name == customCallName) {
       return convertCustomCallOp(op, adaptor, rewriter);
+    } else if (name == "aten.squeeze.dims") {
+      return convertSqueezeDimsOp(op, adaptor, rewriter);
     } else {
       auto emitter = op.emitError();
       emitter.append(

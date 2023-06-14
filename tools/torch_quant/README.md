@@ -39,6 +39,12 @@ quantizer = Quantizer()
 # create a proxy model and run forward to calibrate quantization params
 quantizer.calib(model)(typical_data)
 
+# [Optional] perform automatic mixed precision quantization
+# create a proxy model and run forward to fallback few sensitive layers to float precision
+amp_model = quantizer.amp(model)
+amp_model(typical_data)
+quantizer.fallback(amp_model, num=1)
+
 # create a proxy model representing quantized model
 quant_model = quantizer.quantize(model)
 

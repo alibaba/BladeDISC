@@ -81,11 +81,6 @@ def ReductionRewriterPass : Pass<"disc-reduction-rewriter", "mlir::func::FuncOp"
   let constructor = "createDiscReductionRewriterPass()";
 }
 
-def DiscMhloCSEPass : Pass<"disc-mhlo-cse", "mlir::func::FuncOp"> {
-  let summary = "disc mhlo cse pass";
-  let constructor = "createDiscMhloCSEPass()";
-}
-
 def QuantizedDotRewriterPass : Pass<"quantized-disc-dot-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite quantized dot to transpose weight(row2col).";
   let constructor = "createDiscQuantizedDotRewriter()";
@@ -118,7 +113,8 @@ def ElementTypeConverterPass : Pass<"disc-element-type-converter", "mlir::func::
            /*default=*/"false", "Enable fp16 for GEMM or not.">,
     Option<"enable_fp16_conv_", "enable-fp16-conv", "bool",
            /*default=*/"false", "Enable fp16 for CONV or not.">,
-
+    Option<"promote_fp16_sensitive_ops_to_f32_", "promote-fp16-sensitive-ops-to-f32", "bool",
+           /*default=*/"false", "Promote some fp16 opts to fp32 if enabled.">
   ];
 }
 
@@ -515,6 +511,15 @@ def DiscSparseGemmTransposeSimplifierPass : Pass<"disc-sparse-gemm-transpose-sim
   let constructor = "createDiscSparseGemmTransposeSimplifierPass()";
 }
 
+
+def DiscBF16ExpansionPass : Pass<"disc-bf16-expansion", "mlir::func::FuncOp"> {
+  let summary = "expand ext/trunc of bf16";
+  let constructor = "createDiscBF16ExpansionPass()";
+  let dependentDialects = [
+    "arith::ArithDialect"
+  ];
+}
+
 def DiscConvertFakeQuantOpPass : Pass<"disc-convert-fake-quant-op", "mlir::func::FuncOp"> {
   let summary = "Convert fake_quant annotated graph to the real quantized version.";
   let constructor = "createDiscConvertFakeQuantOpPass()";
@@ -526,6 +531,16 @@ def DiscConvertFakeQuantOpPass : Pass<"disc-convert-fake-quant-op", "mlir::func:
 def DiscLowerQuantizeAndDequantizePass : Pass<"disc-lower-quantize-and-dequantize", "mlir::func::FuncOp"> {
   let summary = "Lower quantize and dequantize op to a bound of basic elementwise ops.";
   let constructor = "createDiscLowerQuantizeAndDequantizePass()";
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+      "shape::ShapeDialect",
+      "mhlo::MhloDialect",
+  ];
+}
+
+def DiscTranformWeightDataLayoutForWeightOnlyQuantPass : Pass<"disc-transform-weight-data-layout-for-weight-only-quant", "mlir::func::FuncOp"> {
+  let summary = "Transform weight data layout for faster-transformer's weight only gemm kernel";
+  let constructor = "createDiscTranformWeightDataLayoutForWeightOnlyQuantPass()";
   let dependentDialects = [
       "disc_shape::DISCShapeDialect",
       "shape::ShapeDialect",
@@ -595,4 +610,14 @@ def DiscTransformLegalizeToLoopPass : Pass<"disc-transform-legalize-to-loop", "m
     Option<"enableExpensiveChecks_", "enable-expensive-checks", "bool",
            /*default=*/"false", "perform expensive checks to better report errors in the transform IR.">,
   ];
+}
+
+def DiscSparseOpRewriterPass : Pass<"disc-sparse-op-rewriter", "mlir::func::FuncOp"> {
+  let summary = "Rewrite sparse op for possible fusion";
+  let constructor = "createDiscSparseOpRewriterPass()";
+}
+
+def DiscDuplicateComputationAfterFusionPass : Pass<"disc-duplicate-computation-after-fusion", "mlir::func::FuncOp"> {
+  let summary = "Duplicate and fuse some computations into the consumer fusion op in order to remove memory footprint.";
+  let constructor = "createDiscDuplicateComputationAfterFusionPass()";
 }

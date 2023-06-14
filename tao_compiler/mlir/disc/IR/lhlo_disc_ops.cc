@@ -16,6 +16,8 @@ limitations under the License.
 
 #include <unordered_set>
 
+#include "mlir/disc/IR/lhlo_disc_enums.cc.inc"
+
 namespace mlir {
 namespace lmhlo_disc {
 

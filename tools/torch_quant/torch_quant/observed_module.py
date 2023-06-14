@@ -29,7 +29,9 @@ def _from_float(cls, mod,
 
 def _conv_type(name: str, base: Type) -> Type:
     def forward(self, input):
-        return self._conv_forward(input, self.w_ob(self.weight), self.bias_ob(self.bias))
+        weight = self.w_ob(self.weight) if self.w_ob is not None else self.weight
+        bias = self.bias_ob(self.bias) if self.bias_ob is not None else self.bias
+        return self._conv_forward(input, weight, bias)
 
     return type(name, (base,), {'from_float': classmethod(_from_float), 'forward': forward})
 
@@ -40,7 +42,9 @@ Conv3d = _conv_type('Conv3d', nnqat.Conv3d)
 
 
 def _linear_forward(self, input):
-    return F.linear(input, self.w_ob(self.weight), self.bias_ob(self.bias))
+    weight = self.w_ob(self.weight) if self.w_ob is not None else self.weight
+    bias = self.bias_ob(self.bias) if self.bias_ob is not None else self.bias
+    return F.linear(input, weight, bias)
 
 
 Linear = type('Linear', (nnqat.Linear, ), {

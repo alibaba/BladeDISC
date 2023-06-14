@@ -15,6 +15,8 @@ limitations under the License.
 
 #ifndef DISC_DISC_UTIL_H_
 #define DISC_DISC_UTIL_H_
+#include <functional>
+#include <string>
 #include <vector>
 
 #include "llvm/ADT/StringRef.h"  // TF:llvm-project
@@ -24,6 +26,12 @@ limitations under the License.
 #include "mlir/IR/BuiltinAttributes.h"  // from @llvm-project
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/disc/utils/cycle_detector.h"
+
+namespace llvm {
+class Module;
+class Error;
+class TargetMachine;
+}  // namespace llvm
 
 namespace mlir {
 namespace disc_ral {
@@ -65,6 +73,15 @@ inline std::vector<int64_t> ConvertDenseIntAttr(
     llvm::Optional<mlir::DenseIntElementsAttr> attr) {
   if (!attr) return {};
   return ConvertDenseIntAttr(*attr);
+}
+
+inline std::vector<int64_t> ConvertArrayAttrToInt(mlir::ArrayAttr array_attr) {
+  SmallVector<float, 4> values;
+  values.reserve(array_attr.getValue().size());
+  for (Attribute val : array_attr.getValue()) {
+    values.push_back(static_cast<int64_t>(val.cast<IntegerAttr>().getInt()));
+  }
+  return {values.begin(), values.end()};
 }
 
 inline mlir::DenseElementsAttr GetScalarOfType(Type ty, int64_t raw_value) {
@@ -117,6 +134,9 @@ bool useHorizontalFusion();
 // Returns true if `DISC_ENABLE_TRANSFORM_SCHEDULE` is true.
 bool useTransformSchedule();
 
+// Returns true if `DISC_ENABLE_TRANSFORM_GEMM_EPILOGUE_FUSION` is true.
+bool useTransformGEMMEpilogueFusionSchedule();
+
 // Returns true if `DISC_FAKE_QUANT_TO_QUANT_AND_DEQUANT` is true
 bool lowerFakeQuantToQuantAndDequant();
 
@@ -160,6 +180,14 @@ Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
 Value createViewLike(OpBuilder& b, Location loc, Value from, Value to);
 
 SmallVector<Value> getShapeValues(OpBuilder* b, Value memref);
+
+/// Create a module transformer function for MLIR ExecutionEngine that runs
+/// LLVM IR passes corresponding to the given speed and size optimization
+/// levels (e.g. -O2 or -Os). If not null, `targetMachine` is used to
+/// initialize passes that provide target-specific information to the LLVM
+/// optimizer. `targetMachine` must outlive the returned std::function.
+std::function<llvm::Error(llvm::Module*)> makeOptimizingTransformer(
+    unsigned optLevel, unsigned sizeLevel, llvm::TargetMachine* targetMachine);
 
 }  // namespace disc_ral
 }  // namespace mlir

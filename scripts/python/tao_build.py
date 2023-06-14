@@ -20,7 +20,6 @@ from __future__ import print_function
 import argparse
 import os
 import re
-import shutil
 import socket
 import tarfile
 import fnmatch
@@ -31,25 +30,20 @@ from common_setup import (
     time_stage,
     build_mkldnn,
     config_mkldnn,
-    mkl_install_dir,
     symlink_disc_files,
     internal_root_dir,
     tao_bridge_dir,
     get_version_file,
-    ensure_empty_dir,
     cwd,
     get_source_root_dir,
-    add_ral_link_if_not_exist,
     logger,
     which,
     running_on_ci,
     ci_build_flag,
     remote_cache_token,
     update_cpu_specific_setting,
-    acl_root_dir,
     get_tf_info,
     deduce_cuda_info,
-    add_arguments_platform_alibaba,
     configure_bridge_platform_alibaba,
     configure_compiler_platform_alibaba,
     build_tao_compiler_add_flags_platform_alibaba,
@@ -64,9 +58,7 @@ from tao_common import (
     git_head,
     get_tf_gpu_version,
     execute,
-    default_env,
     gcc_env,
-    overwrite_file,
 )
 
 PYTHON_BIN_NAME = os.getenv("PYTHON", "python")
@@ -366,7 +358,7 @@ def test_tao_compiler(root, args):
     TARGET_DISC_TRANSFORMS_TEST = "//mlir/disc/transforms/tests/..."
     TARGET_DISC_E2E_TEST = "//mlir/disc/tests/..."
     TARGET_DISC_RAL_TESTS = [
-        "//mlir/xla/ral:ral_metadata_test"
+        "//mlir/ral:ral_metadata_test"
     ]
     TARGET_DISC_PDLL_TESTS = [
         "//mlir/disc/tools/disc-pdll/tests/..."
@@ -409,13 +401,14 @@ def test_tao_compiler(root, args):
                 flag += ' --config=disc_mkldnn'
             if args.platform_alibaba:
                 flag += " --config=platform_alibaba"
+            flag += ' --test_tag_filters=-gpu'
             mlir_test_list = [
                 TARGET_DISC_IR_TEST,
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
             ] + TARGET_DISC_RAL_TESTS \
               + TARGET_DISC_TRANSFORM_DIALECT_TESTS \
-              + TARGET_DISC_PDLL_TESTS 
+              + TARGET_DISC_PDLL_TESTS
             MLIR_TESTS = " ".join(mlir_test_list)
             bazel_test(MLIR_TESTS, flag=flag)
         else:
@@ -431,6 +424,7 @@ def test_tao_compiler(root, args):
                 flag += ' --cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"'
 
             flag = test_tao_compiler_add_flags_platform_alibaba(root, args, flag)
+            flag += ' --test_tag_filters=-no_gpu'
 
             mlir_tests_list = [
                 TARGET_DISC_IR_TEST,

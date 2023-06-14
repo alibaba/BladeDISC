@@ -15,8 +15,10 @@ limitations under the License.
 
 #include "mlir/disc/disc_compiler.h"
 
+#include <chrono>
 #include <fstream>
 
+#include "lhlo/transforms/passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/IR/IRBuilder.h"
@@ -29,8 +31,7 @@ limitations under the License.
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/passes.h"
-#include "mlir-hlo/Dialect/mhlo/transforms/passes.h"
+#include "mhlo/transforms/passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
 #include "mlir/Conversion/GPUToROCDL/GPUToROCDLPass.h"
@@ -247,6 +248,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(
+      disc_ral::createDiscTranformWeightDataLayoutForWeightOnlyQuantPass());
+  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
   // quantization related passes.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscCustomCallRewriterPass());
@@ -340,13 +344,16 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   bool enable_fp16 = false;
   bool enable_fp16_gemm = false;
   bool enable_fp16_conv = false;
+  bool promote_sensitive_ops = false;
   tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP", false, &enable_fp16);
   tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP_GEMM", enable_fp16,
                                  &enable_fp16_gemm);
   tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP_CONV", enable_fp16,
                                  &enable_fp16_conv);
+  tensorflow::ReadBoolFromEnvVar("TAO_MLIR_PROMOTE_SENSITIVE_OPS",
+                                 promote_sensitive_ops, &promote_sensitive_ops);
   pm.addNestedPass<FuncOp>(disc_ral::createDiscElementTypeConverterPass(
-      enable_fp16_gemm, enable_fp16_conv));
+      enable_fp16_gemm, enable_fp16_conv, promote_sensitive_ops));
   if (enable_shape_constraint_ir) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
@@ -381,7 +388,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   }
   // Run CSE after rewriter pass to eliminate some redundant ops.
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscMhloCSEPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(disc_ral::createTransposeSimplifierPass());
@@ -418,6 +424,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addPass(func::createFuncBufferizePass());
   pm.addPass(mhlo_disc::createDiscLegalizeToLhloPass());
   pm.addPass(mhlo::createLegalizeToLhloPass());
+  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addPass(mhlo_disc::createDiscLhloRewriterPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
   // Convert shape to std. Community ```convert-shape-to-std``` pass
@@ -487,6 +495,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
             gpu_options.sm_count, gpu_options.max_threads_per_sm));
   } else {
     pm.addNestedPass<FuncOp>(
+        disc_ral::createDiscDuplicateComputationAfterFusionPass());
+    pm.addNestedPass<FuncOp>(
         disc_ral::createDiscSpecializeFusionWithSpeculationPass());
   }
 
@@ -509,7 +519,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
-
   pm.addNestedPass<FuncOp>(bufferization::createBufferDeallocationPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscBufferDeallocationPass());
 
@@ -544,6 +553,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(disc_ral::createForLoopUnrollInterleavePass());
   }
   pm.addNestedPass<FuncOp>(arith::createArithExpandOpsPass());
+  // Origin: https://reviews.llvm.org/D147585
+  // Should be removed after rebasing to the latest llvm head
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscBF16ExpansionPass());
   pm.addNestedPass<FuncOp>(mlir::memref::createFoldMemRefAliasOpsPass());
 
   // Flatten multi dim memref accesses to its 1D format to enable more
@@ -629,12 +641,15 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     kernelPm.addNestedPass<FuncOp>(createCSEPass());
     kernelPm.addNestedPass<FuncOp>(createCanonicalizerPass());
     kernelPm.addPass(createStripDebugInfoPass());
+    int64_t codegen_bitwidth = 32;
+    tensorflow::ReadInt64FromEnvVar("DISC_CODEGEN_INDEX_BITWIDTH",
+                                    codegen_bitwidth, &codegen_bitwidth);
 #if TENSORFLOW_USE_ROCM
     kernelPm.addPass(disc_ral::createDiscLowerGpuOpsToROCDLOpsPass(
-        /*kDeriveIndexBitwidthFromDataLayout*/ 32));
+        /*kDeriveIndexBitwidthFromDataLayout*/ codegen_bitwidth));
 #elif GOOGLE_CUDA
     kernelPm.addPass(disc_ral::createDiscLowerGpuOpsToNVVMOpsPass(
-        /*kDeriveIndexBitwidthFromDataLayout*/ 32));
+        /*kDeriveIndexBitwidthFromDataLayout*/ codegen_bitwidth));
 #endif
     if (isMemIntensiveOptExperimentalEnabled()) {
       // To eliminate dead argument of GPU LLVM functions. First, it has to
@@ -671,10 +686,12 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addNestedPass<FuncOp>(::mlir::createConvertLinalgToLoopsPass());
   pm.addPass(createConvertSCFToCFPass());
-  pm.addPass(createLowerAffinePass());
+  // Expands memref operations that modify the metadata of a memref
+  pm.addNestedPass<FuncOp>(memref::createExpandStridedMetadataPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addPass(createLowerAffinePass());
   pm.addPass(createStripDebugInfoPass());
 
   if (enable_shape_constraint_ir) {
@@ -723,25 +740,6 @@ LogicalResult ApplyCpuOptionsBeforeTranslatingToLLVM(
     });
     if (VLOG_IS_ON(1)) {
       llvm::dbgs() << "[[DISC DEBUG]] noalias dump begin: \n"
-                   << module << "\ndump end\n";
-    }
-  }
-
-  if (cpuOptions.disable_loop_unroll) {
-    module.walk([&](Operation* op) {
-      if (!isa<LLVM::BrOp, LLVM::CondBrOp>(op)) return;
-      OpBuilder opBuilder(op);
-      auto keyName = LLVM::LLVMDialect::getLoopOptionsAttrName();
-      LLVM::LoopOptionsAttrBuilder b;
-      b.setDisableUnroll(true);
-      auto valueAttr = LLVM::LoopOptionsAttr::get(op->getContext(), b);
-      SmallVector<NamedAttribute> namedAttrs;
-      namedAttrs.emplace_back(opBuilder.getNamedAttr(keyName, valueAttr));
-      auto dictAttr = DictionaryAttr::get(op->getContext(), namedAttrs);
-      op->setAttr(LLVM::LLVMDialect::getLoopAttrName(), dictAttr);
-    });
-    if (VLOG_IS_ON(1)) {
-      llvm::dbgs() << "[[DISC DEBUG]] no_unroll dump begin: \n"
                    << module << "\ndump end\n";
     }
   }
@@ -805,7 +803,7 @@ LogicalResult ApplyCpuOptionsAfterTranslatingToLLVM(
         break;
     }
     for (auto&& func : module->getFunctionList()) {
-      for (auto&& bb : func.getBasicBlockList())
+      for (auto&& bb : func)
         for (auto&& I : bb) {
           if (!llvm::isa<llvm::SelectInst>(&I)) continue;
           I.setFastMathFlags(ffm);
@@ -860,7 +858,7 @@ LogicalResult LowerLLVMToBinary(ModuleOp module,
     return failure();
   }
 
-  auto transformer = mlir::makeOptimizingTransformer(
+  auto transformer = mlir::disc_ral::makeOptimizingTransformer(
       /*optLevel=*/3, /*sizeLevel=*/0, /*targetMachine=*/tm.get());
   if (!transformer) {
     llvm::errs() << "transformer create failed\n";
@@ -930,21 +928,40 @@ LogicalResult BinaryStrToSharedLibrary(const DISCLoweringOptions& options,
 
 LogicalResult LowerHLOToSharedLibrary(ModuleOp m,
                                       const DISCLoweringOptions& options) {
+  std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
   if (failed(LowerHLOToLLVM(m, options))) {
     llvm::errs() << "lower hlo to llvm failed\n";
     return failure();
   }
+  std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+  llvm::errs() << "[DISC] LowerHLOToLLVM takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0)
+                          .count() /
+                      1e6
+               << " s.\n";
 
   std::string binary;
   if (failed(LowerLLVMToBinary(m, options, binary))) {
     llvm::errs() << "lower llvm to binary failed\n";
     return failure();
   }
+  std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+  llvm::errs() << "[DISC] LowerLLVMToBinary takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1)
+                          .count() /
+                      1e6
+               << " s.\n";
 
   if (failed(BinaryStrToSharedLibrary(options, binary))) {
     llvm::errs() << "lower binary to shared library failed\n";
     return failure();
   }
+  std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
+  llvm::errs() << "[DISC] BinaryStrToSharedLibrary takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2)
+                          .count() /
+                      1e6
+               << " s.\n";
 
   return success();
 }
@@ -987,6 +1004,13 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   pm.addPass(mlir::createInlinerPass());
   pm.addNestedPass<mlir::func::FuncOp>(
       mlir::TF::CreateDropWhileShapeInvariantPass());
+  // Create a replicated TensorList initialization ops for all of its uses. This
+  // pass undo some CSE because shape_inference is not correctly able to
+  // identify the shapes of TensorList initialization ops.
+  // This pass requires CanonicalizerPass before
+  // CreateTensorListOpsDecompositionPass for clean-ups.
+  pm.addNestedPass<mlir::func::FuncOp>(
+      mlir::TF::CreateReplicateTensorListInitOpsPass());
   pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
   // The SCCP pass performs constant propagation across the IR, which, for
   // example, propagates constant arguments into callee functions.
@@ -1013,15 +1037,23 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
       mlir::TFDevice::CreateDecomposeResourceOpsPass());
   pm.addPass(mlir::TF::CreatePromoteResourcesToArgsPass());
   pm.addPass(mlir::createSymbolDCEPass());
+
+  // Sink constants to regions so that ops requiring constant operands can
+  // access the constant and there is no indirection through control flow region
+  // arguments. Also, note that this pass is in MHLO but it is generic and sinks
+  // constants for all ops with regions.
+  pm.addNestedPass<mlir::func::FuncOp>(
+      mlir::mhlo::createSinkConstantsToControlFlowPass());
   pm.addPass(mlir::TF::CreateTFShapeInferencePass());
-  // TODO(b/171426148): We cannot completely remove region to functional control
-  // flow conversion from this pipeline yet as it causes some unit tests to
-  // fail.
-  pm.addPass(mlir::TF::CreateTFRegionControlFlowToFunctional());
-  // LegalizeTFControlFlow encapsulates arguments for control flow operations
-  // with a tuple argument which break the assumption of resource lifting
-  // inside PromoteResourcesToArgs.
-  pm.addPass(mlir::mhlo::createLegalizeTFControlFlowPass());
+
+  // Legalize any StableHLO ops to MHLO. Bridge still doesn't use StableHLO but
+  // such ops might be present in the input from upstream like TFRT compilation.
+  // Later on, this could be merged in the legalization pass when we migrate
+  // bridge to StableHLO.
+  // TODO(b/259459405): Avoid this peculiar use through some refactoring in
+  // the the caller.
+  // This needs to happen before legalization.
+  pm.addPass(mlir::mhlo::createStablehloLegalizeToHloPass());
 
   // customized tf2mhlo converters of DISC
   std::string disc_tf_pdll_files;
@@ -1044,7 +1076,6 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
       disc_tf_pdll_files, disc_tf_pdll_include_dirs));
 
   pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::CreateAdjustLayoutPass());
-  pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
   pm.addPass(mlir::mhlo::CreateLegalizeTFCollectivePass());
   pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
   // Run shape inference pass to propagate shapes through tensor_cast operations
@@ -1056,9 +1087,15 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   // expose more graph pruning and canonicalization opportunities that are
   // necessary for the second LegalizeTFPass(allow_partial_conversion=false)
   // invocation.
+  // TODO(wyzero): we can not set `allow_partial_conversion = false` since
+  // `createLegalizeTFPass` pass does not known ops from hlo_disc dialect.
   pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
-      /*allow_partial_conversion=*/false, /*legalize_chlo=*/true,
+      /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
       /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
+
+  // This pass operates on MHLO control flow ops so it should be legalized after
+  // the control flow ops are legalized.
+  pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
 
   // convert mhlo.dynamic_slice to mhlo.real_dynamic_slice after tf2mhlo passes
   pm.addNestedPass<mlir::func::FuncOp>(
@@ -1079,7 +1116,7 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
         errors::Internal("MLIR TF to XLA legalization failed"));
   }
 
-  return Status::OK();
+  return OkStatus();
 }
 
 }  // namespace tensorflow

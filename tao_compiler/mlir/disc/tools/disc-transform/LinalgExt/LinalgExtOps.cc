@@ -22,6 +22,8 @@
 #include "mlir/Dialect/Affine/Utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
+#include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
@@ -130,7 +132,7 @@ void MultiLevelPackOp::build(OpBuilder& builder, OperationState& state,
     ShapedType inputType, ArrayRef<int64_t> tileLevels,
     ArrayRef<int64_t> tileSizes, ArrayRef<int64_t> permutation) {
   int expectedResultRank = MultiLevelPackOp::getExpectedResultRank(tileLevels);
-  SmallVector<int64_t> tiledShape(expectedResultRank, ShapedType::kDynamicSize);
+  SmallVector<int64_t> tiledShape(expectedResultRank, ShapedType::kDynamic);
   int tileSizeIdx = 0;
   int tiledDimIdx = 0;
   for (int dimIdx = 0; dimIdx < inputType.getRank(); ++dimIdx) {
@@ -144,7 +146,7 @@ void MultiLevelPackOp::build(OpBuilder& builder, OperationState& state,
           ceilDiv(tileSize, lastTileSize);
       lastTileSize = tileSize;
     }
-    if (dimSize != ShapedType::kDynamicSize)
+    if (dimSize != ShapedType::kDynamic)
       tiledShape[tiledDimIdx] = ceilDiv(dimSize, lastTileSize);
     tileSizeIdx += level;
     tiledDimIdx += 1 + level;
@@ -437,12 +439,17 @@ void ConditionalGenericOp::build(
 void ConditionalGenericOp::build(
     OpBuilder& builder, OperationState& result, TypeRange resultTensorTypes,
     ValueRange inputs, ValueRange outputs, ArrayRef<AffineMap> indexingMaps,
-    ArrayRef<StringRef> iteratorTypes, StringRef doc, StringRef libraryCall,
+    ArrayRef<utils::IteratorType> iteratorTypes, StringRef doc,
+    StringRef libraryCall,
     function_ref<void(OpBuilder&, Location, ValueRange)> bodyBuild,
     ArrayRef<NamedAttribute> attributes) {
   build(builder, result, resultTensorTypes, inputs, outputs,
         builder.getAffineMapArrayAttr(indexingMaps),
-        builder.getStrArrayAttr(iteratorTypes),
+        builder.getArrayAttr(llvm::to_vector(llvm::map_range(
+            iteratorTypes,
+            [&](utils::IteratorType iter) -> mlir::Attribute {
+              return linalg::IteratorTypeAttr::get(builder.getContext(), iter);
+            }))),
         doc.empty() ? StringAttr() : builder.getStringAttr(doc),
         libraryCall.empty() ? StringAttr() : builder.getStringAttr(libraryCall),
         bodyBuild, attributes);
@@ -451,7 +458,8 @@ void ConditionalGenericOp::build(
 void ConditionalGenericOp::build(
     OpBuilder& builder, OperationState& result, ValueRange inputs,
     ValueRange outputs, ArrayRef<AffineMap> indexingMaps,
-    ArrayRef<StringRef> iteratorTypes, StringRef doc, StringRef libraryCall,
+    ArrayRef<utils::IteratorType> iteratorTypes, StringRef doc,
+    StringRef libraryCall,
     function_ref<void(OpBuilder&, Location, ValueRange)> bodyBuild,
     ArrayRef<NamedAttribute> attributes) {
   build(builder, result, TypeRange{}, inputs, outputs, indexingMaps,
@@ -461,7 +469,7 @@ void ConditionalGenericOp::build(
 void ConditionalGenericOp::build(
     OpBuilder& builder, OperationState& result, ValueRange inputs,
     ValueRange outputs, ArrayRef<AffineMap> indexingMaps,
-    ArrayRef<StringRef> iteratorTypes,
+    ArrayRef<utils::IteratorType> iteratorTypes,
     function_ref<void(OpBuilder&, Location, ValueRange)> bodyBuild,
     ArrayRef<NamedAttribute> attributes) {
   build(builder, result, inputs, outputs, indexingMaps, iteratorTypes,
@@ -472,7 +480,7 @@ void ConditionalGenericOp::build(
 void ConditionalGenericOp::build(
     OpBuilder& builder, OperationState& result, TypeRange resultTensorTypes,
     ValueRange inputs, ValueRange outputs, ArrayRef<AffineMap> indexingMaps,
-    ArrayRef<StringRef> iteratorTypes,
+    ArrayRef<utils::IteratorType> iteratorTypes,
     function_ref<void(OpBuilder&, Location, ValueRange)> bodyBuild,
     ArrayRef<NamedAttribute> attributes) {
   build(builder, result, resultTensorTypes, inputs, outputs, indexingMaps,
@@ -490,9 +498,29 @@ void ConditionalGenericOp::print(OpAsmPrinter& p) {
   llvm::StringSet<> genericAttrNamesSet;
   genericAttrNamesSet.insert(genericAttrNames.begin(), genericAttrNames.end());
   SmallVector<NamedAttribute, 8> genericAttrs;
-  for (auto attr : (*this)->getAttrs())
-    if (genericAttrNamesSet.count(attr.getName().strref()) > 0)
+  for (auto attr : (*this)->getAttrs()) {
+    if (attr.getName() == getIteratorTypesAttrName()) {
+      auto iteratorTypes =
+          attr.getValue()
+              .cast<ArrayAttr>()
+              .getAsValueRange<linalg::IteratorTypeAttr, utils::IteratorType>();
+      // Convert IteratorType enums into the string representation. This is
+      // needed, because tests still use the old format when 'iterator_types'
+      // attribute is represented as an array of strings.
+      // TODO: Remove this conversion once tests are fixed.
+      SmallVector<Attribute> iteratorTypeNames =
+          llvm::to_vector(llvm::map_range(
+              iteratorTypes, [&](utils::IteratorType t) -> Attribute {
+                return StringAttr::get(getContext(), stringifyIteratorType(t));
+              }));
+
+      genericAttrs.emplace_back(
+          getIteratorTypesAttrName(),
+          ArrayAttr::get(getContext(), iteratorTypeNames));
+    } else if (genericAttrNamesSet.count(attr.getName().strref()) > 0) {
       genericAttrs.push_back(attr);
+    }
+  }
   if (!genericAttrs.empty()) {
     auto genericDictAttr = DictionaryAttr::get(getContext(), genericAttrs);
     p << genericDictAttr;
@@ -536,6 +564,28 @@ ParseResult ConditionalGenericOp::parse(OpAsmParser& parser,
   if (parser.parseAttribute(dictAttr, "_", result.attributes)) return failure();
   result.attributes.assign(dictAttr.getValue().begin(),
                            dictAttr.getValue().end());
+
+  // Convert array of string into an array of IteratyType enums. This is needed,
+  // because tests still use the old format when 'iterator_types' attribute is
+  // represented as an array of strings.
+  // TODO: Remove this conversion once tests are fixed.
+  ArrayAttr iteratorTypes =
+      result.attributes.get(getIteratorTypesAttrName(result.name))
+          .cast<ArrayAttr>();
+
+  SmallVector<Attribute> iteratorTypeAttrs;
+
+  for (StringRef s : iteratorTypes.getAsValueRange<StringAttr>()) {
+    auto maybeIteratorType = utils::symbolizeIteratorType(s);
+    if (!maybeIteratorType.has_value())
+      return parser.emitError(parser.getCurrentLocation())
+             << "unexpected iterator_type (" << s << ")";
+
+    iteratorTypeAttrs.push_back(linalg::IteratorTypeAttr::get(
+        parser.getContext(), maybeIteratorType.value()));
+  }
+  result.attributes.set(getIteratorTypesAttrName(result.name),
+                        parser.getBuilder().getArrayAttr(iteratorTypeAttrs));
 
   // Parsing is shared with named ops, except for the region.
   SmallVector<Type, 1> inputTypes, outputTypes;
@@ -627,7 +677,7 @@ static SmallVector<Value> getIndicesForAccess(OpBuilder& b, Location loc,
 static LogicalResult inlinePayload(OpBuilder& b, LinalgOp linalgOp,
                                    ValueRange ivs, ValueRange argValues) {
   Block* body = linalgOp.getBlock();
-  BlockAndValueMapping map;
+  IRMapping map;
   map.map(body->getArguments(), argValues);
   for (auto& op : body->without_terminator()) {
     if (auto indexOp = dyn_cast<IndexOp>(&op)) {
@@ -668,10 +718,7 @@ struct LinalgOpTilingInterface
   /// Return the loop iterator type.
   SmallVector<utils::IteratorType> getLoopIteratorTypes(Operation* op) const {
     LinalgOpTy concreteOp = cast<LinalgOpTy>(op);
-    return llvm::to_vector(llvm::map_range(
-        concreteOp.getIteratorTypesArray(), [](StringRef iteratorType) {
-          return utils::symbolizeIteratorType(iteratorType).value();
-        }));
+    return concreteOp.getIteratorTypesArray();
   }
 
   /// Return the iteration domain range.
@@ -707,8 +754,7 @@ struct LinalgOpTilingInterface
     SmallVector<Type> resultTensorTypes =
         getTensorOutputTypes(linalgOp, tiledOperands);
 
-    Operation* tiledOp =
-        linalgOp.clone(b, loc, resultTensorTypes, tiledOperands);
+    Operation* tiledOp = mlir::clone(b, op, resultTensorTypes, tiledOperands);
     offsetIndices(b, cast<LinalgOp>(tiledOp), offsets);
 
     return {tiledOp};
@@ -833,6 +879,144 @@ void registerTilingInterfaceExternalModels(DialectRegistry& registry) {
 }
 
 //===----------------------------------------------------------------------===//
+// External Model for implementing `BufferizableOpInterface` for `LinalgOp`s.
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+/// Generic conversion for any DestinationStyleOpInterface on tensors.
+static LogicalResult bufferizeDestinationStyleOpInterface(
+    RewriterBase& rewriter, DestinationStyleOpInterface op,
+    const bufferization::BufferizationOptions& options) {
+  // Take a guard before anything else.
+  OpBuilder::InsertionGuard g(rewriter);
+  rewriter.setInsertionPoint(op);
+
+  // Nothing to do. This op is already bufferized.
+  if (op.hasBufferSemantics()) return success();
+
+  // Ensure op has only tensors. Allow mixed tensor-buffer mode on a per-need
+  // basis.
+  if (!op.hasTensorSemantics())
+    return op->emitError() << "op does not have tensor semantics";
+
+  // New input operands for the cloned op.
+  SmallVector<Value> newInputBuffers;
+  newInputBuffers.reserve(op.getNumDpsInputs());
+  for (OpOperand* opOperand : op.getDpsInputOperands()) {
+    if (op.isScalar(opOperand)) {
+      newInputBuffers.push_back(opOperand->get());
+      continue;
+    }
+    FailureOr<Value> buffer = getBuffer(rewriter, opOperand->get(), options);
+    if (failed(buffer)) return failure();
+    newInputBuffers.push_back(*buffer);
+  }
+
+  // New output operands for the cloned op.
+  SmallVector<Value> newOutputBuffers;
+  for (OpResult opResult : op->getOpResults()) {
+    OpOperand* opOperand = op.getDpsInitOperand(opResult.getResultNumber());
+    FailureOr<Value> resultBuffer =
+        getBuffer(rewriter, opOperand->get(), options);
+    if (failed(resultBuffer)) return failure();
+    newOutputBuffers.push_back(*resultBuffer);
+  }
+
+  // Merge input/output operands.
+  SmallVector<Value> newOperands = newInputBuffers;
+  newOperands.append(newOutputBuffers.begin(), newOutputBuffers.end());
+
+  // Set insertion point now that potential alloc/dealloc are introduced.
+  rewriter.setInsertionPoint(op);
+  // Clone the op, but use the new operands. Move the existing block into the
+  // new op. Since the new op does not have any tensor results, it does not
+  // return anything.
+  assert(op->getNumRegions() == 1 && "expected that op has 1 region");
+  auto newOp = cast<DestinationStyleOpInterface>(cloneWithoutRegions(
+      rewriter, op, /*resultTypes=*/TypeRange{}, newOperands));
+  rewriter.inlineRegionBefore(op->getRegion(0), newOp->getRegion(0),
+                              newOp->getRegion(0).begin());
+
+  // Replace the results of the old op with the new output buffers.
+  bufferization::replaceOpWithBufferizedValues(rewriter, op, newOutputBuffers);
+
+  return success();
+}
+
+/// Bufferization of linalg.generic. Replace with a new linalg.generic that
+/// operates entirely on memrefs.
+template <typename OpTy>
+struct LinalgOpInterface
+    : public bufferization::BufferizableOpInterface::ExternalModel<
+          LinalgOpInterface<OpTy>, OpTy> {
+  bool bufferizesToMemoryRead(Operation* op, OpOperand& opOperand,
+                              const bufferization::AnalysisState& state) const {
+    // Operand is read if it is used in the computation.
+    auto genericOp = cast<linalg::LinalgOp>(op);
+    return genericOp.payloadUsesValueFromOperand(&opOperand);
+  }
+
+  bool bufferizesToMemoryWrite(
+      Operation* op, OpOperand& opOperand,
+      const bufferization::AnalysisState& state) const {
+    // Operand is written to if it has an aliasing OpResult.
+    auto bufferizableOp = cast<bufferization::BufferizableOpInterface>(op);
+    return !bufferizableOp.getAliasingOpResults(opOperand, state).empty();
+  }
+
+  SmallVector<OpOperand*> getAliasingOpOperand(
+      Operation* op, OpResult opResult,
+      const bufferization::AnalysisState& state) const {
+    auto genericOp = cast<DestinationStyleOpInterface>(op);
+
+    // The i-th OpResult may alias with the i-th "out" tensor.
+    return {genericOp.getDpsInitOperand(opResult.getResultNumber())};
+  }
+
+  SmallVector<OpResult> getAliasingOpResults(
+      Operation* op, OpOperand& opOperand,
+      const bufferization::AnalysisState& state) const {
+    auto genericOp = cast<DestinationStyleOpInterface>(op);
+
+    // The i-th "out" tensor may alias with the i-th OpResult.
+    if (genericOp.isDpsInit(&opOperand))
+      return {genericOp.getTiedOpResult(&opOperand)};
+    return {};
+  }
+
+  bufferization::BufferRelation bufferRelation(
+      Operation* op, OpResult opResult,
+      const bufferization::AnalysisState& state) const {
+    return bufferization::BufferRelation::Equivalent;
+  }
+
+  LogicalResult bufferize(
+      Operation* op, RewriterBase& rewriter,
+      const bufferization::BufferizationOptions& options) const {
+    return bufferizeDestinationStyleOpInterface(
+        rewriter, cast<DestinationStyleOpInterface>(op), options);
+  }
+};
+
+/// Helper structure that iterates over all LinalgOps in `OpTys` and registers
+/// the `BufferizableOpInterface` with each of them.
+template <typename... Ops>
+struct LinalgOpInterfaceHelper {
+  static void registerOpInterface(MLIRContext* ctx) {
+    (Ops::template attachInterface<LinalgOpInterface<Ops>>(*ctx), ...);
+  }
+};
+
+}  // namespace
+
+void registerBufferizableOpInterfaceExternalModels(DialectRegistry& registry) {
+  registry.addExtension(+[](MLIRContext* ctx, DISCLinalgExtDialect* dialect) {
+    LinalgOpInterfaceHelper<ConditionalGenericOp>::registerOpInterface(ctx);
+  });
+}
+
+//===----------------------------------------------------------------------===//
 // YieldOp
 //===----------------------------------------------------------------------===//
 
@@ -946,8 +1130,7 @@ struct FoldTensorCastOp : public OpInterfaceRewritePattern<LinalgExtOp> {
     }
     // Clone op.
     Operation* newOp =
-        cast<DestinationStyleOpInterface>(op.getOperation())
-            .clone(rewriter, op->getLoc(), newResultTypes, newOperands);
+        mlir::clone(rewriter, op.getOperation(), newResultTypes, newOperands);
     SmallVector<Value, 4> replacements;
     replacements.reserve(newOp->getNumResults());
     for (auto result : llvm::zip(op->getResults(), newOp->getResults())) {

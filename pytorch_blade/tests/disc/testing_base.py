@@ -102,6 +102,13 @@ class DiscTestCase(TestCase):
         self.assertGreaterEqual(mlir.num_engines(opt_module), n_engines)
         return output, result
 
+    def _test_torchscipte_to_mhlo(self, graph, expected_str):
+        cfg = Config.get_current_context_or_new()
+        cfg.optimization_pipeline = mlir.backend_name()
+        with cfg:
+            _, mhlo_graph_str, _, _ = mlir.cvt_torchscript_to_mhlo(graph)
+        FileCheck().run(expected_str, mhlo_graph_str)
+
     def _gen_test_data(self, annotation, random_seed, lower=1, upper=10):
         test_data = []
         random.seed(random_seed)
@@ -144,9 +151,9 @@ class DiscPdlTestCase(TestCase):
 
     def _test_torchscipte_to_mhlo(
             self, module, expected_str, pdll_files=None,
-            pdll_dirs=None, enable_int8=False
+            pdll_dirs=None, enable_int8=False, 
+            env_var = {},
     ):
-        env_var = {}
         if pdll_files is not None:
             env_var["DISC_TORCH_PDL_FILES"] = pdll_files
         if pdll_dirs is not None:

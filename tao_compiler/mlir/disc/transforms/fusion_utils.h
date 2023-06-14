@@ -21,9 +21,9 @@ limitations under the License.
 #include <string>
 #include <vector>
 
+#include "lhlo/IR/lhlo_ops.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "mlir/disc/transforms/shape_utils.h"
@@ -173,14 +173,14 @@ SmallVector<Operation*, 4> getValueUsers(Value v);
 struct TileInfo {
   // Maps axis -> tile_size along this axis.
   // select all the elements along the axis if tile_size ==
-  // ShapedType::kDynamicSize
-  DenseMap<int, int> tileSizes;
+  // ShapedType::kDynamic
+  DenseMap<int64_t, int64_t> tileSizes;
 
   // Returns false if failed to merge.
   bool merge(TileInfo& other);
 
   // Returns false if failed to merge.
-  bool merge(int axis, int tileSize = ShapedType::kDynamicSize);
+  bool merge(int64_t axis, int64_t tileSize = ShapedType::kDynamic);
 
   // return true if updated.
   bool updateIfNotEqual(TileInfo& other);
@@ -566,9 +566,9 @@ struct ParallelIndex {
   int64_t step = 1;
 
   // The actual index value at compile time.
-  // unknown if it's ShapedType::kDynamicSize, otherwise it's a constant
+  // unknown if it's ShapedType::kDynamic, otherwise it's a constant
   // parallel index.
-  int64_t value = ShapedType::kDynamicSize;
+  int64_t value = ShapedType::kDynamic;
 };
 
 // Represents the parallel info for a buffer.
@@ -659,7 +659,7 @@ class StitchCPUAnalysis {
   bool doParallelAnalysis();
   // Creates a new parallel index.
   ParallelIndex& makeParallelIndex(int64_t step = 1,
-                                   int64_t value = ShapedType::kDynamicSize);
+                                   int64_t value = ShapedType::kDynamic);
   // Creates a new parallel info.
   ParallelInfo& makeParallelInfo(Value value, int producerId = 0,
                                  Operation* op = nullptr);
@@ -791,7 +791,8 @@ class BaseGpuFusionStrategy : public BaseFusionStrategy {
                       FusionPattern& target) {
     return lhs.isKInputFusion() && rhs.isKInputFusion();
   }
-
+  virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
+                       FusionPattern& rhs, FusionPattern& target) override;
   Value getEffectiveShape(FusionPattern& target, Value v) override;
   virtual StringRef getName() override { return "BaseGpuFusionStrategy"; }
 };
@@ -801,7 +802,8 @@ class StitchGpuFusionStrategy : public FusionStrategy {
   StitchGpuFusionStrategy(const FusionOptions& options)
       : FusionStrategy(options) {}
   virtual bool isFusible(Operation* op) override;
-
+  virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
+                       FusionPattern& rhs, FusionPattern& target) override;
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fusion_pattern) override;
   virtual StringRef getName() override { return "StitchGpuFusionStrategy"; }

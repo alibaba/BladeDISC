@@ -15,8 +15,9 @@ limitations under the License.
 
 #include <openssl/md5.h>
 
+#include "lhlo/IR/lhlo_ops.h"
 #include "llvm/ADT/StringExtras.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "llvm/Support/Debug.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/Attributes.h"   // TF:llvm-project
 #include "mlir/IR/Location.h"     // TF:llvm-project
@@ -28,7 +29,7 @@ limitations under the License.
 #include "mlir/disc/disc_util.h"
 #include "mlir/disc/transforms/PassDetail.h"
 #include "mlir/disc/transforms/placement_utils.h"
-#include "mlir/xla/ral/ral_metadata.h"
+#include "mlir/ral/ral_metadata.h"
 #include "tensorflow/core/platform/env.h"
 
 namespace mlir {

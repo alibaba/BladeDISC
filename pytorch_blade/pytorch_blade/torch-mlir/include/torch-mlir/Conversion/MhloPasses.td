@@ -98,4 +98,12 @@ def DiscConvertTorchToDiscMhlo : Pass<"convert-torch-to-disc-mhlo", "func::FuncO
  let constructor = "mlir::torch::TorchConversion::createDiscConvertTorchToDiscMhlo()";
 }
 
+def DiscSimplifyPatternsPass : Pass<"disc-simplify-patterns", "func::FuncOp"> {
+  let summary = "simplify Torch Dialect patterns";
+  let description = [{
+    simplify patterns based on Torch Dialect.
+  }];
+  let constructor = "mlir::torch::TorchConversion::createDiscSimplifyPatternsPass()";
+}
+
 #endif // TORCHMLIR_CONVERSION_DISC_MHLO_PASSES

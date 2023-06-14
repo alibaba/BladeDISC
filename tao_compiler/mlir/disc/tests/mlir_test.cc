@@ -27,15 +27,15 @@
 #endif
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
-#include "mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
+#include "mlir/ral/context/base/cuda/cuda_context_impl.h"
 #else
 // TODO(disc): figure out why the bazel does not trigger re-compile this file
 // after we update ral.
 //
-#include "mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
+#include "mlir/ral/context/base/cpu/cpu_context_impl.h"
 #endif
 
-#include "mlir/xla/ral/ral_api.h"
+#include "mlir/ral/ral_api.h"
 #include "tensorflow/core/framework/graph.pb.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"
@@ -245,7 +245,7 @@ Status MlirTest::Run() {
     TF_RETURN_IF_ERROR(RunGoldenTF());
   }
   TF_RETURN_IF_ERROR(CompareResults());
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 int MlirTest::CallBinary(std::string program_path,
@@ -307,7 +307,7 @@ Status MlirTest::CompileMlirToBinary() {
     return Internal("tf dialect -> compilation result failed");
   }
 
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 Status MlirTest::LoadGraph(const std::string& graph_file_name) {
@@ -332,7 +332,7 @@ Status MlirTest::LoadGraph(const std::string& graph_file_name) {
     return Internal("Error: create session failed" +
                     session_create_status.error_message());
   }
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 // TODO: configurable relative/absolute error tolerance according to
@@ -476,7 +476,7 @@ Status MlirTest::RunGoldenTF() {
   }
 
   expected_output_vals_ = std::move(output_tensors);
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 Status MlirTest::CompareResults() {
@@ -594,7 +594,7 @@ Status MlirTest::CompareResults() {
       return Internal("Error: unexpected output tensor dtype");
     }
   }
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 MlirTestImpl::MlirTestImpl(
@@ -1194,7 +1194,7 @@ Status MlirTestImpl::GenerateInputAndRun() {
   }
 #endif
 
-  return Status::OK();
+  return tsl::OkStatus();
 }
 
 }  //  namespace mlir_test

@@ -20,11 +20,11 @@ limitations under the License.
 #include "iree-dialects/Dialect/LinalgTransform/LinalgTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/Passes.h"
 #include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/lhlo/transforms/passes.h"
-#include "mlir-hlo/Dialect/lhlo_gpu/IR/lhlo_gpu_ops.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir-hlo/Dialect/mhlo/transforms/passes.h"
+#include "lhlo/IR/lhlo_ops.h"
+#include "lhlo/transforms/passes.h"
+#include "lhlo_gpu/IR/lhlo_gpu_ops.h"
+#include "mhlo/IR/hlo_ops.h"
+#include "mhlo/transforms/passes.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
@@ -67,9 +67,11 @@ int main(int argc, char** argv) {
 
   registry.addExtensions<
       mlir::iree_compiler::IREE::LinalgExt::LinalgExtTransformOpsExtension,
-      transform_ext::StructuredTransformOpsExtension>();
+      mlir::transform_ext::StructuredTransformOpsExtension>();
   mlir::disc_ral::disc_linalg_ext::registerTilingInterfaceExternalModels(
       registry);
+  mlir::disc_ral::disc_linalg_ext::
+      registerBufferizableOpInterfaceExternalModels(registry);
 
   return failed(mlir::MlirOptMain(argc, argv, "MLIR HLO pass driver\n",
                                   registry,

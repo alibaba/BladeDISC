@@ -1,5 +1,5 @@
-// RUN: disc-opt -split-input-file -pass-pipeline='func.func(disc-fusion{gpu-enabled=false fusion-strategy=base})' %s | FileCheck %s --check-prefix=BASE
-// RUN: DISC_ENABLE_TRANSFORM_SCHEDULE=1 disc-opt -split-input-file -pass-pipeline='func.func(disc-fusion{gpu-enabled=false fusion-strategy=stitch})' %s -o - | FileCheck %s --check-prefix=TRANSFORM
+// RUN: disc-opt -split-input-file -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=false fusion-strategy=base}))' %s | FileCheck %s --check-prefix=BASE
+// RUN: DISC_ENABLE_TRANSFORM_SCHEDULE=1 disc-opt -split-input-file -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=false fusion-strategy=stitch}))' %s -o - | FileCheck %s --check-prefix=TRANSFORM
 
 // BASE-LABEL: @custom_call_op
 // BASE-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "cpu">, %[[ARG1:.*]]: memref<?x?xf32, "cpu">, %[[ARG2:.*]]: memref<?x?xf32, "cpu">, %[[ARG3:.*]]: memref<?x?xf32, "cpu">) -> memref<?x?xf32, "cpu">
@@ -96,7 +96,7 @@ func.func @matmul_nn_const_weight_with_epilogue0(%arg1: memref<1024x1024xf32, "c
   return %t2 : memref<?x1024xf32, "cpu">
 }
 
-"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
+"disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -9223372036854775808 : i64} : () -> ()
 "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = true, knownNonSizeZero = true, sym_name = "C1024", value = 1024 : i64} : () -> ()
 func.func @shape_constraint_graph() {
   return

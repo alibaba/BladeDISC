@@ -15,8 +15,16 @@ limitations under the License.
 #include "mlir/disc/disc_util.h"
 
 #include <numeric>
+#include <optional>
 
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Passes/OptimizationLevel.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/FormatVariadic.h"
+#include "llvm/Target/TargetMachine.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
@@ -179,7 +187,7 @@ llvm::Optional<int32_t> TryMergeNode(GraphCycles* graph_cycles, int32_t a,
   int32_t from = graph_cycles->HasEdge(a, b) ? a : b;
   int32_t to = (from == a) ? b : a;
   auto result = graph_cycles->ContractEdge(from, to);
-  if (!result.hasValue() && has_edge_inserted_a2b) {
+  if (!result.has_value() && has_edge_inserted_a2b) {
     // Restore the graph.
     graph_cycles->RemoveEdge(a, b);
   }
@@ -229,6 +237,17 @@ bool useTransformSchedule() {
   return enabled;
 }
 
+// Returns true if `DISC_ENABLE_TRANSFORM_GEMM_EPILOGUE_FUSION` is true.
+bool useTransformGEMMEpilogueFusionSchedule() {
+  static bool enabled = []() {
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_TRANSFORM_GEMM_EPILOGUE_FUSION",
+                                   enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
 bool lowerFakeQuantToQuantAndDequant() {
   static bool enabled = []() {
     bool enabled = false;
@@ -264,6 +283,46 @@ bool isCompIntensFusionEnabled() {
     bool enabled = false;
     tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE",
                                    enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool enableLoopUnroll() {
+  static bool enabled = []() {
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar(
+        "DISC_LLVM_PIPELINE_TUNING_ENABLE_LOOP_UNROLL", enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool enableLoopInterleave() {
+  static bool enabled = []() {
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar(
+        "DISC_LLVM_PIPELINE_TUNING_ENABLE_LOOP_INTERLEAVE", enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool enableLoopVectorize() {
+  static bool enabled = []() {
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar(
+        "DISC_LLVM_PIPELINE_TUNING_ENABLE_LOOP_VECTORIZE", enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool enableSLPVectorize() {
+  static bool enabled = []() {
+    bool enabled = true;
+    tensorflow::ReadBoolFromEnvVar(
+        "DISC_LLVM_PIPELINE_TUNING_ENABLE_SLP_VECTORIZE", enabled, &enabled);
     return enabled;
   }();
   return enabled;
@@ -378,7 +437,7 @@ Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
 
   SmallVector<OpFoldResult> foldSizes;
   for (int i = 0; i < rank; ++i) {
-    if (memrefTy.getDimSize(i) == ShapedType::kDynamicSize) {
+    if (memrefTy.getDimSize(i) == ShapedType::kDynamic) {
       foldSizes.push_back(toShape[i]);
     } else {
       foldSizes.push_back(getIntAttr(memrefTy.getDimSize(i)));
@@ -389,11 +448,11 @@ Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
   int64_t staticStride = 1;
   SmallVector<OpFoldResult> foldStrides;
   for (int i = rank - 1; i >= 0; --i) {
-    if (staticStride != ShapedType::kDynamicSize) {
+    if (staticStride != ShapedType::kDynamic) {
       foldStrides.push_back(getIntAttr(staticStride));
-      if (memrefTy.getDimSize(i) == ShapedType::kDynamicSize) {
+      if (memrefTy.getDimSize(i) == ShapedType::kDynamic) {
         dynamicStride = b.create<arith::ConstantIndexOp>(loc, staticStride);
-        staticStride = ShapedType::kDynamicSize;
+        staticStride = ShapedType::kDynamic;
       } else {
         staticStride *= memrefTy.getDimSize(i);
       }
@@ -429,7 +488,7 @@ SmallVector<Value> getShapeValues(OpBuilder* b, Value memref) {
 
   SmallVector<Value> result;
   for (int i = 0; i < rank; ++i) {
-    if (shape[i] == ShapedType::kDynamicSize) {
+    if (shape[i] == ShapedType::kDynamic) {
       result.push_back(b->create<memref::DimOp>(loc, memref, i));
     } else {
       result.push_back(b->create<arith::ConstantIndexOp>(loc, shape[i]));
@@ -439,5 +498,71 @@ SmallVector<Value> getShapeValues(OpBuilder* b, Value memref) {
 }
 
 // Returns 1D 64-bit dense elements attribute with the given values.
+
+using namespace llvm;
+
+static std::optional<OptimizationLevel> mapToLevel(unsigned optLevel,
+                                                   unsigned sizeLevel) {
+  switch (optLevel) {
+    case 0:
+      return OptimizationLevel::O0;
+
+    case 1:
+      return OptimizationLevel::O1;
+
+    case 2:
+      switch (sizeLevel) {
+        case 0:
+          return OptimizationLevel::O2;
+
+        case 1:
+          return OptimizationLevel::Os;
+
+        case 2:
+          return OptimizationLevel::Oz;
+      }
+      break;
+    case 3:
+      return OptimizationLevel::O3;
+  }
+  return std::nullopt;
+}
+// Create and return a lambda that uses LLVM pass manager builder to set up
+// optimizations based on the given level.
+std::function<Error(Module*)> makeOptimizingTransformer(
+    unsigned optLevel, unsigned sizeLevel, TargetMachine* targetMachine) {
+  return [optLevel, sizeLevel, targetMachine](Module* m) -> Error {
+    std::optional<OptimizationLevel> ol = mapToLevel(optLevel, sizeLevel);
+    if (!ol) {
+      return make_error<StringError>(
+          formatv("invalid optimization/size level {0}/{1}", optLevel,
+                  sizeLevel)
+              .str(),
+          inconvertibleErrorCode());
+    }
+    LoopAnalysisManager lam;
+    FunctionAnalysisManager fam;
+    CGSCCAnalysisManager cgam;
+    ModuleAnalysisManager mam;
+
+    PipelineTuningOptions tuningOptions;
+    tuningOptions.LoopUnrolling = enableLoopUnroll();
+    tuningOptions.LoopInterleaving = enableLoopInterleave();
+    tuningOptions.LoopVectorization = enableLoopVectorize();
+    tuningOptions.SLPVectorization = enableSLPVectorize();
+    PassBuilder pb(targetMachine, tuningOptions);
+
+    pb.registerModuleAnalyses(mam);
+    pb.registerCGSCCAnalyses(cgam);
+    pb.registerFunctionAnalyses(fam);
+    pb.registerLoopAnalyses(lam);
+    pb.crossRegisterProxies(lam, fam, cgam, mam);
+
+    ModulePassManager mpm;
+    mpm.addPass(pb.buildPerModuleDefaultPipeline(*ol));
+    mpm.run(*m, mam);
+    return Error::success();
+  };
+}
 }  // namespace disc_ral
 }  // namespace mlir

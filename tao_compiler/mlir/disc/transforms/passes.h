@@ -71,9 +71,6 @@ createDiscMhloDecompositionRewriterPass();
 // Rewrite mhlo::ReduceOp
 std::unique_ptr<OperationPass<FuncOp>> createDiscReductionRewriterPass();
 
-// Mhlo cse pass for some special cases such as mhlo::reduce
-std::unique_ptr<OperationPass<FuncOp>> createDiscMhloCSEPass();
-
 // Rewrite dot to fold transpose.
 std::unique_ptr<OperationPass<FuncOp>> createDiscDotRewriterPass();
 
@@ -89,7 +86,8 @@ createDiscSpecializeFusionWithSpeculationPass(int sm_count = -1,
 // Eliminates certain element types as the input or output of ops by inserting
 // Convert ops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscElementTypeConverterPass(
-    bool enable_fp16_gemm = false, bool enable_fp16_conv = false);
+    bool enable_fp16_gemm = false, bool enable_fp16_conv = false,
+    bool promote_fp16_sensitive_ops_to_f32 = false);
 
 // Greedily maps loops to GPU hardware dimensions.
 // TODO: this pass is only a wrapper to mlir func, copied from
@@ -267,12 +265,19 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscDenseToSparsePass(
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscSparseGemmTransposeSimplifierPass();
 
+// Epand ext/trunc of bfloat16
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscBF16ExpansionPass();
+
 // Converts fake_quant annotated graph to the real quantized version.
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertFakeQuantOpPass();
 
 // Lowers quantize and dequantize ops to a bunch of basic elementwise ops.
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscLowerQuantizeAndDequantizePass();
+
+// transform weight data layout for ft's weight-only qgemm.
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscTranformWeightDataLayoutForWeightOnlyQuantPass();
 
 // Lowers quantize and dequantize ops to a bunch of basic elementwise ops on
 // gpu.
@@ -281,6 +286,9 @@ createDiscLowerGpuQuantizeAndDequantizePass();
 
 // Convert mhlo.dynamic_slice to mhlo.real_dynamic_slice
 std::unique_ptr<OperationPass<FuncOp>> createDiscDynamicSliceConverterPass();
+
+// Sparse op rewriter
+std::unique_ptr<OperationPass<FuncOp>> createDiscSparseOpRewriterPass();
 
 // Inserts dealloc ops for some disc specific ops (e.g. custom_call_v2 op).
 std::unique_ptr<OperationPass<FuncOp>> createDiscBufferDeallocationPass();
@@ -306,6 +314,11 @@ createDiscTransformLegalizeToLoopPass(bool gpuEnabled = false,
                                       const std::string& filename = "",
                                       bool expensiveCheck = false);
 
+// Duplicate and fuse some computation into their fusion consumer to reduce
+// memory footprint.
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscDuplicateComputationAfterFusionPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 
@@ -314,6 +327,8 @@ namespace mhlo_disc {
 
 // Legalizes mhlo_disc ops to lmhlo_disc ops.
 std::unique_ptr<OperationPass<ModuleOp>> createDiscLegalizeToLhloPass();
+
+std::unique_ptr<OperationPass<ModuleOp>> createDiscLhloRewriterPass();
 
 }  // namespace mhlo_disc
 }  // namespace mlir

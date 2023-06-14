@@ -69,7 +69,7 @@ tensorflow::Status RealMain(int argc, char** argv) {
 #if GOOGLE_CUDA
   if (enable_nvprof) cudaProfilerStop();
 #endif
-  return tensorflow::Status::OK();
+  return tsl::OkStatus();
 }
 
 int main(int argc, char** argv) {

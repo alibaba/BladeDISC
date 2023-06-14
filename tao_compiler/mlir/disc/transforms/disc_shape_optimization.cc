@@ -22,7 +22,7 @@ limitations under the License.
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
@@ -43,6 +43,8 @@ limitations under the License.
 #include "mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 #define DEBUG_TYPE "disc-shape-optimization"
+
+#define DISC_DEBUG(x) LLVM_DEBUG(x)
 
 namespace mlir {
 namespace disc_ral {
@@ -247,8 +249,7 @@ LogicalResult materializeShapeComputation(ModuleOp m, FuncOp main) {
   >(patterns.getContext());
   // clang-format on
 
-  if (failed(
-          applyPatternsAndFoldGreedily(m->getRegions(), std::move(patterns)))) {
+  if (failed(applyPatternsAndFoldGreedily(m, std::move(patterns)))) {
     return m.emitError() << "fail to materialize shape computation\n";
   }
   return success();
@@ -662,8 +663,7 @@ LogicalResult runCanonicalizer(ModuleOp m, PassPipelineRunner runner) {
       "mlir::disc_shape::{anonymous}::IdentityTieShapeOp"};
   FrozenRewritePatternSet frozenSet(std::move(patterns), disablePatterns);
 
-  if (failed(applyPatternsAndFoldGreedily(m->getRegions(),
-                                          std::move(frozenSet)))) {
+  if (failed(applyPatternsAndFoldGreedily(m, std::move(frozenSet)))) {
     return m.emitError() << "fail to run canonicalizer\n";
   }
 
@@ -987,6 +987,21 @@ LogicalResult ShapeComputationIRAnalysis::applyShapeTensorOpConstraint(
       if (getRoot(rhsSymbol) == getRoot(sizeOneDim))
         if (failed(mgr_.mapSymbolicDimEqual(lhsSymbol, outSymbol)))
           return op->emitError() << "fail to merge dim\n";
+    }
+  } else if (auto computeReshapeOp =
+                 dyn_cast<mhlo::ComputeReshapeShapeOp>(op)) {
+    auto& inDims = shapeTensor2SymDims_[op->getOperand(1)];
+    auto& outDims = shapeTensor2SymDims_[op->getResult(0)];
+
+    if (inDims.size() != outDims.size()) {
+      return op->emitError() << "ComputeReshapeShapeOp mismatch rank\n";
+    }
+
+    for (auto [inSymbol, outSymbol] : llvm::zip(inDims, outDims)) {
+      if (mgr_.getRootSymbolicDim(inSymbol).getKnownNonNegative()) {
+        if (failed(mgr_.mapSymbolicDimEqual(inSymbol, outSymbol)))
+          return op->emitError() << "fail to merge dim\n";
+      }
     }
   }
 
@@ -1428,7 +1443,7 @@ Type ShapeComputationIRAnalysis::getRefinedType(Value value) {
   for (SymbolicDimOp sym : rankedTensor2SymDims_[value]) {
     auto root = mgr_.getRootSymbolicDim(sym);
     newShape.push_back(root.getDimSize());
-    if (newShape.back() == ShapedType::kDynamicSize) noDynamicDim = false;
+    if (newShape.back() == ShapedType::kDynamic) noDynamicDim = false;
     refAttrs.push_back(SymbolRefAttr::get(value.getContext(), root.getName()));
   }
 
@@ -1780,12 +1795,12 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
   do {
     changed = false;
     std::chrono::steady_clock::time_point begin, end;
-    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
+    DISC_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(runCanonicalizer(m, runner))) {
       return failure();
     }
-    LLVM_DEBUG(end = std::chrono::steady_clock::now());
-    LLVM_DEBUG(llvm::dbgs()
+    DISC_DEBUG(end = std::chrono::steady_clock::now());
+    DISC_DEBUG(llvm::dbgs()
                << "  runCanonicalizer takes: "
                << std::chrono::duration_cast<std::chrono::microseconds>(end -
                                                                         begin)
@@ -1797,47 +1812,47 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
         << "Module after runCanonicalizer in optimize-shape-computation:\n"
         << m << "\n");
 
-    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
+    DISC_DEBUG(begin = std::chrono::steady_clock::now());
     SymbolicDimMgr mgr(m);
-    LLVM_DEBUG(end = std::chrono::steady_clock::now());
-    LLVM_DEBUG(llvm::dbgs()
+    DISC_DEBUG(end = std::chrono::steady_clock::now());
+    DISC_DEBUG(llvm::dbgs()
                << "  Building SymbolicDimMgr takes: "
                << std::chrono::duration_cast<std::chrono::microseconds>(end -
                                                                         begin)
                       .count()
                << " us\n");
 
-    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
+    DISC_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(mgr.load())) {
       return m.emitError() << "fail to load shape constraint IR\n";
     }
-    LLVM_DEBUG(end = std::chrono::steady_clock::now());
-    LLVM_DEBUG(llvm::dbgs()
+    DISC_DEBUG(end = std::chrono::steady_clock::now());
+    DISC_DEBUG(llvm::dbgs()
                << "  SymbolicDimMgr.load() takes: "
                << std::chrono::duration_cast<std::chrono::microseconds>(end -
                                                                         begin)
                       .count()
                << " us\n");
 
-    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
+    DISC_DEBUG(begin = std::chrono::steady_clock::now());
     ShapeComputationIRAnalysis analysis(main, mgr);
     if (failed(analysis.run())) {
       return m.emitError() << "fail to analysis shape computation IR\n";
     }
-    LLVM_DEBUG(end = std::chrono::steady_clock::now());
-    LLVM_DEBUG(llvm::dbgs()
+    DISC_DEBUG(end = std::chrono::steady_clock::now());
+    DISC_DEBUG(llvm::dbgs()
                << "  Building ShapeComputationIRAnalysis takes: "
                << std::chrono::duration_cast<std::chrono::microseconds>(end -
                                                                         begin)
                       .count()
                << " us\n");
 
-    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
+    DISC_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(applyShapeComputationOptimization(analysis, changed))) {
       return m.emitError() << "fail to optimize shape computation IR\n";
     }
-    LLVM_DEBUG(end = std::chrono::steady_clock::now());
-    LLVM_DEBUG(llvm::dbgs()
+    DISC_DEBUG(end = std::chrono::steady_clock::now());
+    DISC_DEBUG(llvm::dbgs()
                << "  applyShapeComputationOptimization takes: "
                << std::chrono::duration_cast<std::chrono::microseconds>(end -
                                                                         begin)
@@ -1849,12 +1864,12 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
         << "Module after apply-shape-opt in optimize-shape-computation:\n"
         << m << "\n");
 
-    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
+    DISC_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(mgr.save())) {
       return m.emitError() << "fail to save shape constraint IR\n";
     }
-    LLVM_DEBUG(end = std::chrono::steady_clock::now());
-    LLVM_DEBUG(llvm::dbgs()
+    DISC_DEBUG(end = std::chrono::steady_clock::now());
+    DISC_DEBUG(llvm::dbgs()
                << "  SymbolicDimMgr.save() takes: "
                << std::chrono::duration_cast<std::chrono::microseconds>(end -
                                                                         begin)
@@ -1894,8 +1909,7 @@ LogicalResult cleanUp(ModuleOp m, bool keep_tie_shape) {
     RewritePatternSet patterns(m.getContext());
     patterns.add<ForwardTieShapeOperandToItsConsumers>(patterns.getContext());
 
-    if (failed(applyPatternsAndFoldGreedily(m->getRegions(),
-                                            std::move(patterns)))) {
+    if (failed(applyPatternsAndFoldGreedily(m, std::move(patterns)))) {
       return m.emitError() << "fail to do cleanup\n";
     }
   } else {
@@ -1992,14 +2006,14 @@ void DiscShapeOptimizationPass::runOnOperation() {
   }
 
   std::chrono::steady_clock::time_point begin, end;
-  LLVM_DEBUG(begin = std::chrono::steady_clock::now());
+  DISC_DEBUG(begin = std::chrono::steady_clock::now());
   // Stage #1: Explictily materialize shape computation IR on tensor level
   if (failed(materializeShapeComputation(m, main))) {
     signalPassFailure();
     return;
   }
-  LLVM_DEBUG(end = std::chrono::steady_clock::now());
-  LLVM_DEBUG(
+  DISC_DEBUG(end = std::chrono::steady_clock::now());
+  DISC_DEBUG(
       llvm::dbgs() << "materializeShapeComputation takes: "
                    << std::chrono::duration_cast<std::chrono::microseconds>(
                           end - begin)
@@ -2009,7 +2023,7 @@ void DiscShapeOptimizationPass::runOnOperation() {
                           << m << "\n");
 
   // Stage #2: Optimize shape computation IR on tensor level
-  LLVM_DEBUG(begin = std::chrono::steady_clock::now());
+  DISC_DEBUG(begin = std::chrono::steady_clock::now());
   PassPipelineRunner runner = [this](OpPassManager& dynamicPM, ModuleOp m) {
     return runPipeline(dynamicPM, m);
   };
@@ -2017,29 +2031,29 @@ void DiscShapeOptimizationPass::runOnOperation() {
     signalPassFailure();
     return;
   }
-  LLVM_DEBUG(end = std::chrono::steady_clock::now());
-  LLVM_DEBUG(
+  DISC_DEBUG(end = std::chrono::steady_clock::now());
+  DISC_DEBUG(
       llvm::dbgs() << "optimizeShapeComputation takes: "
                    << std::chrono::duration_cast<std::chrono::microseconds>(
                           end - begin)
                           .count()
                    << " us\n");
-  LLVM_DEBUG(llvm::dbgs() << "Module after shape optimizaiton:\n" << m << "\n");
+  DISC_DEBUG(llvm::dbgs() << "Module after shape optimizaiton:\n" << m << "\n");
 
   // Stage #3: clean up
-  LLVM_DEBUG(begin = std::chrono::steady_clock::now());
+  DISC_DEBUG(begin = std::chrono::steady_clock::now());
   if (failed(cleanUp(m, keep_tie_shape_))) {
     signalPassFailure();
     return;
   }
-  LLVM_DEBUG(end = std::chrono::steady_clock::now());
-  LLVM_DEBUG(
+  DISC_DEBUG(end = std::chrono::steady_clock::now());
+  DISC_DEBUG(
       llvm::dbgs() << "cleanUp takes: "
                    << std::chrono::duration_cast<std::chrono::microseconds>(
                           end - begin)
                           .count()
                    << " us\n");
-  LLVM_DEBUG(llvm::dbgs() << "Module after cleanup:\n" << m << "\n");
+  DISC_DEBUG(llvm::dbgs() << "Module after cleanup:\n" << m << "\n");
 }
 
 }  // namespace

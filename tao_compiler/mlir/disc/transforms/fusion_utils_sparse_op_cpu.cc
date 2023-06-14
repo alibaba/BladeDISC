@@ -33,7 +33,7 @@ bool iskSparseReductionOutputFusible(Operation* op) {
 }
 
 bool isFusibleSparseReductionOp(Operation* op) {
-  return isa<lmhlo_disc::SparseSegmentMeanOp>(op);
+  return isa<lmhlo_disc::SparseSegmentReductionWithEmptyRowsOp>(op);
 }
 
 ////////////////////// CPU SparseOp FusionStrategy Implemenation ////////////
@@ -92,9 +92,6 @@ bool SparseOpCpuFusionStrategy::initFusionPattern(
     fusion_pattern.setFusionType(FusionType::kWhere);
     fusion_pattern.setDominantOp(where_ops[0]);
   } else if (sparse_reduction_ops.size() == 1) {
-    LLVM_DEBUG(llvm::dbgs() << "Not supported by now, need more codegen "
-                               "support for kSparseReduction fusion now\n");
-    return false;
     LLVM_DEBUG(llvm::dbgs() << "Init kSparseReduction fusion \n");
     fusion_pattern.setFusionType(FusionType::kSparseReduction);
     fusion_pattern.setDominantOp(sparse_reduction_ops[0]);
@@ -132,13 +129,28 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 
   // check fusiblity
   if (rhs.getFusionType() == FusionType::kWhere) {
-    // Basic Input fusion for where op
+    // Input fusion for where op
     for (Operation* op : lhs.getOpList()) {
       if (!iskWhereInputFusible(op) ||
           op->getAttr(kDiscShapeCalcAttr) != nullptr) {
         LLVM_DEBUG(llvm::dbgs()
                    << "tryFuse for kWhere input fusion failed, unfusible op or "
                       "fusible op with shape calculation attr encountered\n");
+        return false;
+      }
+    }
+  } else if (lhs.getFusionType() == FusionType::kSparseReduction) {
+    // output fusion with sparse reduction op
+    for (Operation* op : rhs.getOpList()) {
+      if (!iskSparseReductionOutputFusible(op)) {
+        return false;
+      }
+    }
+  } else if (rhs.getFusionType() == FusionType::kSparseReduction) {
+    // fuse kLoop that only broadcast constant
+    for (Operation* op : lhs.getOpList()) {
+      if (!(isa<lmhlo::DynamicBroadcastInDimOp>(op) ||
+            isa<lmhlo::ConstantOp>(op))) {
         return false;
       }
     }

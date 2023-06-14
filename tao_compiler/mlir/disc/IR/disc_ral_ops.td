@@ -23,8 +23,7 @@ include "mlir/IR/OpBase.td"
 def RAL_Dialect : Dialect {
   let name = "disc_ral";
   let cppNamespace = "::mlir::disc_ral";
-
-  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
+  let useFoldAPI = kEmitFoldAdaptorFolder;
 }
 
 class RAL_Op<string mnemonic, list<Trait> traits> :
@@ -111,4 +110,14 @@ def RAL_CpuLaunchOp: RAL_Op<"cpu_launch", []> {
   let results = (outs);
 }
 
+def RAL_GetPointerOp: RAL_Op<"get_pointer", [SameTypeOperands]> {
+  let summary = "return buffer pointer as int8";
+  let description = [{
+    get data pointer from memref type.
+  }];
+  let arguments = (ins
+   MemRefOf<[AnyType]>:$operand 
+  );
+  let results = (outs I64:$result);
+}
 #endif // DISC_RAL_OPS

@@ -55,6 +55,23 @@ bool StitchGpuFusionStrategy::isFusible(Operation* op) {
   return true;
 }
 
+bool StitchGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
+                                      FusionPattern& lhs, FusionPattern& rhs,
+                                      FusionPattern& target) {
+  // TODO(Yancey): support fusion with different reduction type
+  bool has_row_reduction = llvm::any_of(target.getOpList(), [](Operation* op) {
+    return isRank2RowReduction(op);
+  });
+  bool has_col_reduciton = llvm::any_of(target.getOpList(), [](Operation* op) {
+    return isRank2ColReduction(op);
+  });
+
+  if (has_row_reduction && has_col_reduciton) {
+    return false;
+  }
+  return FusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target);
+}
+
 Value StitchGpuFusionStrategy::getEffectiveShape(FusionPattern& target,
                                                  Value v) {
   Operation* result_op = target.findLastWriter(v);
@@ -155,7 +172,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
         }
         if (is_tiled) {
           for (auto in : ins) {
-            in_tile.tileSizes[in] = ShapedType::kDynamicSize;
+            in_tile.tileSizes[in] = ShapedType::kDynamic;
           }
           out_tiles_left -= outs.size();
         } else {
@@ -170,7 +187,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
           // dims not in equal-map are tiled.
           for (int64_t i = 0; i < in_rank; i++) {
             if (!in_ranks_mapped.contains(i)) {
-              in_tile.tileSizes[i] = ShapedType::kDynamicSize;
+              in_tile.tileSizes[i] = ShapedType::kDynamic;
             }
           }
         }
@@ -215,7 +232,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
             last_map_output_dim = out_group_end_dim;
             if (out_tile.tileSizes.count(last_map_output_dim) != 0) {
               for (int inIdx = last_map_input_dim; inIdx < i; ++inIdx) {
-                in_tile.tileSizes[inIdx] = ShapedType::kDynamicSize;
+                in_tile.tileSizes[inIdx] = ShapedType::kDynamic;
               }
             }
             matched = true;
@@ -227,7 +244,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
 
       if (last_is_tiled) {
         for (int inIdx = last_map_input_dim; inIdx < in_rank; ++inIdx) {
-          in_tile.tileSizes[inIdx] = ShapedType::kDynamicSize;
+          in_tile.tileSizes[inIdx] = ShapedType::kDynamic;
         }
       }
       in_info.emplace_back(in_value, in_tile);
@@ -296,7 +313,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
       }
       if (is_tiled) {
         for (auto in : ins) {
-          in_tile.tileSizes[in] = ShapedType::kDynamicSize;
+          in_tile.tileSizes[in] = ShapedType::kDynamic;
         }
         out_tiles_left -= outs.size();
       } else {
@@ -312,7 +329,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
         // dims not in equal-map are tiled.
         for (int64_t i = 0; i < in_rank; i++) {
           if (!in_ranks_mapped.contains(i)) {
-            in_tile.tileSizes[i] = ShapedType::kDynamicSize;
+            in_tile.tileSizes[i] = ShapedType::kDynamic;
           }
         }
       }
@@ -493,7 +510,7 @@ bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
     auto reduce = cast<lmhlo::ReduceOp>(op);
     auto dimensions = reduce.getDimensions().getValues<int64_t>();
     for (auto& en : llvm::enumerate(dimensions)) {
-      in.tileSizes[en.value()] = ShapedType::kDynamicSize;
+      in.tileSizes[en.value()] = ShapedType::kDynamic;
     }
     // No tile dimention for output.
     tile_plan.try_emplace(op->getOperand(2), std::move(TileInfo()));
@@ -579,8 +596,8 @@ bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
         if (res_non_tiled_dims.count(i) == 0) {
           // Note that we only log whether a dimension is tiled or not. We do
           // not care about the tiling size. Thus we set all tiled dims with
-          // with the value `kDynamicSize`.
-          plan.tileSizes[i] = ShapedType::kDynamicSize;
+          // with the value `kDynamic`.
+          plan.tileSizes[i] = ShapedType::kDynamic;
         }
       }
       regular_xroots.insert(op);
@@ -607,8 +624,8 @@ bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
       for (int i = last_non_tied_dim + 1; i < result_rank; ++i) {
         // Note that we only log whether a dimension is tiled or not. We do
         // not care about the tiling size. Thus we set all tiled dims with
-        // with the value `kDynamicSize`.
-        plan.tileSizes[i] = ShapedType::kDynamicSize;
+        // with the value `kDynamic`.
+        plan.tileSizes[i] = ShapedType::kDynamic;
       }
       regular_xroots.insert(op);
     }

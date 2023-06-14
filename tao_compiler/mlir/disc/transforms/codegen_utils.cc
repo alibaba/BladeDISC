@@ -14,14 +14,14 @@ limitations under the License.
 ==============================================================================*/
 #include "mlir/disc/transforms/codegen_utils.h"
 
-#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Dominance.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/disc/IR/disc_shape_ops.h"
 #include "mlir/disc/disc_util.h"
 
@@ -133,7 +133,7 @@ Value getDimSizeValue(OpBuilder* b, Value memref, int dim) {
   auto loc = memref.getLoc();
   assert(memref_ty && memref_ty.getRank() > dim);
   auto dim_size = memref_ty.getDimSize(dim);
-  if (dim_size == ShapedType::kDynamicSize) {
+  if (dim_size == ShapedType::kDynamic) {
     return b->create<DimOp>(loc, memref, dim);
   } else {
     return b->create<arith::ConstantIndexOp>(loc, dim_size);
@@ -431,7 +431,7 @@ LogicalResult generateUnrolledLoopMayInterleave(
   SmallVector<Value, 4> lastYielded(yieldedValues);
 
   for (unsigned i = 1; i < unrollFactor; i++) {
-    BlockAndValueMapping operandMap;
+    IRMapping operandMap;
 
     // Prepare operand map.
     operandMap.map(iterArgs, lastYielded);

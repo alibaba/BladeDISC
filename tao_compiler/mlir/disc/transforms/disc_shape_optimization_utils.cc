@@ -19,6 +19,7 @@ limitations under the License.
 #include "mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 #include <algorithm>
+#include <chrono>
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
@@ -35,6 +36,18 @@ limitations under the License.
 #include "mlir/disc/transforms/PassDetail.h"
 
 #define DEBUG_TYPE "disc-shape-optimization-utils"
+// #define DISC_DEBUG(x) LLVM_DEBUG(x)
+#define DISC_DEBUG(x) (x)
+
+#define DEBUG_TIMER(msg)                                                     \
+  DISC_DEBUG(end = std::chrono::steady_clock::now());                        \
+  DISC_DEBUG(                                                                \
+      llvm::dbgs() << msg << " takes: "                                      \
+                   << std::chrono::duration_cast<std::chrono::microseconds>( \
+                          end - begin)                                       \
+                          .count()                                           \
+                   << " us\n");                                              \
+  DISC_DEBUG(begin = std::chrono::steady_clock::now());
 
 namespace mlir {
 namespace disc_ral {
@@ -346,6 +359,8 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
   // early return if nothing is updated.
   if (productEqualityMapUpdated_) return success();
 
+  std::chrono::steady_clock::time_point begin, end;
+  DISC_DEBUG(begin = std::chrono::steady_clock::now());
   SymbolicDimProductMap newMap;
   DenseSet<SymbolicDimProduct> productSet;
   for (auto& pairOutter : productEqualityMap_) {
@@ -361,19 +376,55 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
       productSet.insert(newY);
     }
   }
+  DEBUG_TIMER(
+      "SymbolicDimMgr::updateProductEqualityMap "
+      "simplifySymbolicDimProductPair");
 
-  bool changed;
-  do {
-    changed = false;
-    for (auto& x : productSet)
-      for (auto& y : productSet)
-        for (auto& z : productSet) {
-          if (x != z && newMap[x][y] && newMap[y][z] && !newMap[x][z]) {
-            newMap[x][z] = newMap[z][x] = true;
-            changed = true;
-          }
-        }
-  } while (changed);
+  // hash function of SymbolicDimProduct is expensive, thus we map it to integer
+  // domain first.
+  DenseMap<SymbolicDimProduct*, size_t> symProd2Idx;
+  SmallVector<SymbolicDimProduct*> idx2SymProd(productSet.size());
+  SmallVector<size_t> idx2root(productSet.size());
+  for (auto& x : productSet) {
+    size_t idx = symProd2Idx.size();
+    symProd2Idx[&x] = idx;
+    idx2SymProd[idx] = &x;
+    idx2root[idx] = idx;
+  }
+
+  auto getRootIdx = [&](size_t root) {
+    SmallVector<size_t> path;
+    while (idx2root[root] != root) {
+      path.push_back(root);
+      root = idx2root[root];
+    }
+    for (size_t idx : path) idx2root[idx] = root;
+    return root;
+  };
+
+  for (size_t x = 0; x < symProd2Idx.size(); ++x) {
+    auto& xProd = *idx2SymProd[x];
+    auto& rowMap = newMap[xProd];
+    size_t xRoot = getRootIdx(x);
+    for (size_t y = x; y < symProd2Idx.size(); ++y) {
+      auto& yProd = *idx2SymProd[y];
+      if (!rowMap[yProd]) continue;
+      idx2root[getRootIdx(y)] = xRoot;
+    }
+  }
+
+  for (size_t x = 0; x < symProd2Idx.size(); ++x)
+    for (size_t y = x; y < symProd2Idx.size(); ++y) {
+      if (getRootIdx(x) != getRootIdx(y)) continue;
+      auto& xSymProd = *idx2SymProd[x];
+      auto& ySymProd = *idx2SymProd[y];
+
+      newMap[xSymProd][ySymProd] = newMap[ySymProd][xSymProd] = true;
+    }
+
+  DISC_DEBUG(llvm::dbgs() << "productSet.size() = " << productSet.size()
+                          << "\n");
+  DEBUG_TIMER("SymbolicDimMgr::updateProductEqualityMap propagate graph");
 
   productEqualityMap_ = std::move(newMap);
 
@@ -385,6 +436,7 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
         productEqualityMap_[x][y] = productEqualityMap_[y][x] = true;
       }
     }
+  DEBUG_TIMER("SymbolicDimMgr::updateProductEqualityMap remove multiply");
 
   DenseSet<SymbolicDimProduct> toRemove;
   for (auto& x : productSet) {
@@ -394,6 +446,7 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
       toRemove.insert(x);
     }
   }
+  DEBUG_TIMER("SymbolicDimMgr::updateProductEqualityMap build toRemove ");
   for (auto& x : toRemove) {
     productEqualityMap_.erase(x);
     LLVM_DEBUG(llvm::dbgs() << "When updateProductEqualityMap try to remove "
@@ -410,11 +463,14 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
       LLVM_DEBUG(llvm::dbgs() << "Pair: x = " << x << "\ny = " << y << "\n");
     }
   }
+  DEBUG_TIMER("SymbolicDimMgr::updateProductEqualityMap apply toRemove ");
   productEqualityMapUpdated_ = true;
   return success();
 }
 
 LogicalResult SymbolicDimMgr::save() {
+  std::chrono::steady_clock::time_point begin, end;
+  DISC_DEBUG(begin = std::chrono::steady_clock::now());
   // replace all uses of a symbolic dim op with its root symbolic dim op
   using Name2SymbolFn = std::function<SymbolicDimOp(StringRef)>;
   auto updateAttrs = [&](ArrayAttr attrs, Name2SymbolFn fn) {
@@ -441,6 +497,8 @@ LogicalResult SymbolicDimMgr::save() {
           }))) {
     return failure();
   }
+  DEBUG_TIMER("SymbolicDimMgr::save walkRankedTensorValue");
+
   // update attributes attached in operations.
   m_.walk([&](Operation* op) {
     auto attrs =
@@ -451,12 +509,15 @@ LogicalResult SymbolicDimMgr::save() {
     });
     op->setAttr(SymbolicDimOp::getSymbolicDimAttrName(), symbolicShapeAttr);
   });
+  DEBUG_TIMER("SymbolicDimMgr::save update attributes");
   // update shape production equality
   if (failed(updateProductEqualityMap()))
     return m_->emitError() << "fail to update prodcut euqal map\n";
+  DEBUG_TIMER("SymbolicDimMgr::save updateProductEqualityMap");
 
   // Update function type
   if (failed(updateFunctionType(m_))) return failure();
+  DEBUG_TIMER("SymbolicDimMgr::save updateFunctionType");
 
   // collect symbolic dim ops that are referred by other ops/types.
   DenseSet<SymbolicDimOp> usedSymbolicOps;
@@ -485,11 +546,13 @@ LogicalResult SymbolicDimMgr::save() {
     if (!attrs) return;
     collectUsedSymbols(attrs);
   });
+  DEBUG_TIMER("SymbolicDimMgr::save collect symbolicDim ops");
 
   // remove symbolic dim ops that are known not used by any other ops/types.
   for (auto& p : symbolDimUnionSet_) {
     if (!usedSymbolicOps.count(p.first)) p.first->erase();
   }
+  DEBUG_TIMER("SymbolicDimMgr::save remove symbolicDim ops");
 
   // remove unused shape production equality
   SmallVector<SymbolicDimProduct> candidates;
@@ -500,6 +563,7 @@ LogicalResult SymbolicDimMgr::save() {
       candidates.push_back(outter.first);
   }
   for (auto& prod : candidates) productEqualityMap_.erase(prod);
+  DEBUG_TIMER("SymbolicDimMgr::save remove unused production");
 
   for (auto& outter : productEqualityMap_) {
     SmallVector<SymbolicDimProduct> candidates;
@@ -511,6 +575,7 @@ LogicalResult SymbolicDimMgr::save() {
     }
     for (auto& prod : candidates) outter.second.erase(prod);
   }
+  DEBUG_TIMER("SymbolicDimMgr::save remove unused production #2");
 
   // canonicalize the name of symbolic dim ops
   llvm::sort(usedSymbolNames,
@@ -533,6 +598,7 @@ LogicalResult SymbolicDimMgr::save() {
     op.setName(nameMapping[name]);
     name2Symbol[name] = op;
   }
+  DEBUG_TIMER("SymbolicDimMgr::save canonicalize the name");
 
   // replace the name of a symbolic dim op to its new name.
   // update attributes attached to operations.
@@ -556,9 +622,12 @@ LogicalResult SymbolicDimMgr::save() {
           }))) {
     return failure();
   }
+  DEBUG_TIMER("SymbolicDimMgr::save replace the name");
 
   // Update function type
   if (failed(updateFunctionType(m_))) return failure();
+
+  DEBUG_TIMER("SymbolicDimMgr::save updateFunctionType");
 
   // Save shape constraint graph function
   return saveShapeConstraintGraph();
@@ -666,7 +735,7 @@ SymbolicDimMgr::getOrCreateSymbolicDimsForRankedValue(Value value) {
     assert(ty.getRank() == symbols.size());
   } else {
     for (int64_t dim : ty.getShape()) {
-      symbols.push_back(dim == ShapedType::kDynamicSize
+      symbols.push_back(dim == ShapedType::kDynamic
                             ? newSymbolicDim()
                             : newConstantSymbolicDim(dim));
     }
@@ -888,7 +957,7 @@ template <typename Combiner>
 /* static */ SymbolicDimExpr SymbolicDimExpr::buildMulExpr(
     const SymbolicDimExpr& lhs, const SymbolicDimExpr& rhs) {
   return buildBinaryExpr(lhs, rhs,
-                         [](AffineExpr a, AffineExpr b) { return a + b; });
+                         [](AffineExpr a, AffineExpr b) { return a * b; });
 }
 
 /* static */ bool SymbolicDimExpr::isEqual(const SymbolicDimExpr& lhs,

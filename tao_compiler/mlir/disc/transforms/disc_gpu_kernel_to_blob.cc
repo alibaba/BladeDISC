@@ -422,7 +422,7 @@ class GpuKernelToBlobPass
     TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("DISC_CUDA_KEEP_TEMPFILES",
                                                /*default_val=*/false,
                                                &keep_tempfiles));
-    if (!keep_tempfiles) {
+    if (keep_tempfiles) {
       auto* env = tsl::Env::Default();
       std::vector<std::string> tempdir_vector;
       env->GetLocalTempDirectories(&tempdir_vector);

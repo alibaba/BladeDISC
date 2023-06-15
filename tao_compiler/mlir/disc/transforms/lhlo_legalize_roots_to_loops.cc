@@ -503,12 +503,10 @@ void emitNotToVectorReduction(OpBuilder& b, Location loc, Operation* root_op,
                                 root_op->getOperand(2), output_multidim_index);
 }
 
-// BLOCK TILE LOOP IMPL: num_thread threads load thread_num * tile_h elements
-// each thread reduces tile_h elements from gmem and
-// atomic to gmem
+// BLOCK TILE LOOP IMPL: thread_num threads load thread_num * tile_h elements
+// each thread reduces tile_h elements from gmem and atomic to gmem
 // var_tile_h = 32;
 // var_threads = 512;
-// block_limit = 104;
 // num_blocks_col = ceil(var_cols / var_threads);
 // num_blocks_row = ceil(var_rows / var_tile_h);
 // for (m = 0; m < num_blocks_col * num_blocks_row; ++m) {

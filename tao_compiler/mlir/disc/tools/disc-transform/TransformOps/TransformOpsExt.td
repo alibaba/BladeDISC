@@ -1348,4 +1348,139 @@ def DISCInlineAndConvertGPUIdsOp : Op<Transform_Dialect, "disc.inline_and_conver
   }];
 }
 
+def DISCLowerVectorContractionToBFMMLA2x2x4 : Op<Transform_Dialect, "disc.vector.lower_vector_contraction_to_bfmmla_2x2x4",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    This converts slices of operations containing vector.contract op into
+    bfmmla operations, targetting warp level tensorcore operations. If the vector
+    operations are bigger than the native mma size it will first split up those
+    vector operations.
+
+    #### Return modes
+
+    This transform consumes the target handle and produces a result handle.
+  }];
+  
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs PDL_Operation:$results);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type($target, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCLowerVectorContractionToBFMMLA4x4x8 : Op<Transform_Dialect, "disc.vector.lower_vector_contraction_to_bfmmla_4x4x8",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    This converts slices of operations containing vector.contract op into
+    bfmmla operations, targetting warp level tensorcore operations. If the vector
+    operations are bigger than the native mma size it will first split up those
+    vector operations.
+
+    #### Return modes
+
+    This transform consumes the target handle and produces a result handle.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs PDL_Operation:$results);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type($target, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCLowerVectorContractionToBFMMLA8x8x8 : Op<Transform_Dialect, "disc.vector.lower_vector_contraction_to_bfmmla_8x8x8",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    This converts slices of operations containing vector.contract op into
+    bfmmla operations, targetting warp level tensorcore operations. If the vector
+    operations are bigger than the native mma size it will first split up those
+    vector operations.
+
+    #### Return modes
+
+    This transform consumes the target handle and produces a result handle.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs PDL_Operation:$results);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type($target, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCLowerVectorContractionToBFMMLA8x4x40 : Op<Transform_Dialect, "disc.vector.lower_vector_contraction_to_bfmmla_8x4x40",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    This converts slices of operations containing vector.contract op into
+    bfmmla operations, targetting warp level tensorcore operations. If the vector
+    operations are bigger than the native mma size it will first split up those
+    vector operations.
+
+    #### Return modes
+
+    This transform consumes the target handle and produces a result handle.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs PDL_Operation:$results);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type($target, results)
+  }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
 #endif // DISC_TRANSFORM_OPS_EXT

@@ -1222,6 +1222,43 @@ LogicalResult ConvertDISCArmNeonExtBFMMLAIntrinsicPattern::matchAndRewrite(
       op, typeConverter->convertType(acc.getType()), intrinName, args);
   return success();
 }
+class ConvertDISCArmNeonExtUZPIntrinsicPattern
+    : public ConvertOpToLLVMPattern<disc_ral::disc_arm_neon_ext::UZPOp> {
+ public:
+  ConvertDISCArmNeonExtUZPIntrinsicPattern(LLVMTypeConverter& type_converter,
+                                           SymbolTable& symbol_table)
+      : ConvertOpToLLVMPattern<disc_ral::disc_arm_neon_ext::UZPOp>(
+            type_converter),
+        symbol_table_(symbol_table) {}
+
+ private:
+  LogicalResult matchAndRewrite(
+      disc_ral::disc_arm_neon_ext::UZPOp, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override;
+  SymbolTable& symbol_table_;
+};
+
+LogicalResult ConvertDISCArmNeonExtUZPIntrinsicPattern::matchAndRewrite(
+    disc_ral::disc_arm_neon_ext::UZPOp op, OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  // auto res = op.getOperand(0);
+  auto lhs = op.getOperand(0);
+  auto rhs = op.getOperand(1);
+  auto isEven = op.getIsEvenAttr().getValue();  // 1 for even, 2 for odd
+
+  MLIRContext* ctx = rewriter.getContext();
+  SmallVector<Value, 4> args;
+  for (Value operand : adaptor.getOperands()) {
+    args.push_back(operand);
+  }
+  auto intrinName = isEven ? StringAttr::get(ctx, "llvm.aarch64.sve.uzp1")
+                           : StringAttr::get(ctx, "llvm.aarch64.sve.uzp2");
+  auto uzp_intrinsic = rewriter.create<LLVM::CallIntrinsicOp>(
+      op.getLoc(), typeConverter->convertType(op.getType()), intrinName, args);
+  rewriter.replaceOpWithNewOp<LLVM::CallIntrinsicOp>(
+      op, typeConverter->convertType(op.getType()), intrinName, args);
+  return success();
+}
 
 class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
   void getDependentDialects(DialectRegistry& registry) const override {
@@ -1432,6 +1469,7 @@ void populateDiscToLLVMConversionPatterns(LLVMTypeConverter* converter,
       ConvertMemRefAllocOpToDispatchOpPattern,
       ConvertMemRefDeallocOpToDispatchOpPattern,
       ConvertSourceCodeOpToDispatchOpPattern,
+      ConvertDISCArmNeonExtUZPIntrinsicPattern,
       DispatchOpToLLVMPattern,
       PrintfToLLVMPattern,
       GetPointerToLLVMPattern

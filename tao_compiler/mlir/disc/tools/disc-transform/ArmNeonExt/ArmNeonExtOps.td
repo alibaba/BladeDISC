@@ -86,4 +86,19 @@ def DISCArmNeonExt_BFMMLAOp : DISCArmNeonExt_OverloadedOperandsWithOneResultIntr
     "$c `,` $a `,` $b `,` attr-dict `:` type($c) `,` type($a) `,` type($b) `,` `to` type($res)";
 }
 
+def DISCArmNeonExt_UZPOp : DISCArmNeonExt_OverloadedOperandsWithOneResultIntrOp<"uzp", [1], [
+      Pure,
+      AllTypesMatch<["a", "b"]>,
+      AllTypesMatch<["a", "res"]>]> {
+  let summary = "bfmmla op";
+  let description = [{"res = uzp1(a, b) or uzp2(a, b)"}];
+
+  let arguments = (ins AnyVectorOfAnyRank:$a,
+                       AnyVectorOfAnyRank:$b,
+                       BoolAttr:$isEven);
+  let results = (outs AnyShaped:$res);
+  let assemblyFormat =
+    "$a `,` $b `,` attr-dict `:` type($a) `,` type($b) `,` `to` type($res)";
+}
+
 #endif  // DISC_ARMNEONGEXT_OPS

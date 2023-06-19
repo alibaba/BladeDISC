@@ -937,19 +937,12 @@ def DISCLowerVectorsOp : Op<Transform_Dialect, "disc.vector.lower_vectors",
   }];
 }
 
-<<<<<<< HEAD
 def DISCForeachThreadToGPUCTAsOp : Op<Transform_Dialect, "disc.foreach_thread_to_gpu_ctas",
-=======
-// Copied from community as an workaournd for some wired bugs, e.g, it'll not
-// converge if the tile of the k is one.
-def DISCVectorToBFMMLAConversionOp : Op<Transform_Dialect, "disc.vector.vector_to_bfmmla_conversion",
->>>>>>> support transform-dialect based bf16 gemm codegen
     [FunctionalStyleTransformOpTrait,
      MemoryEffectsOpInterface,
      TransformEachOpTrait,
      TransformOpInterface]> {
   let description = [{
-<<<<<<< HEAD
     This converts the foreach_threads op with at most three ranks into a
     parallel op for GPU threads mapping of both blocks and threads. the target
     op should have GPU Block mapping.
@@ -1131,35 +1124,6 @@ def DISCVectorToMMAConversionOp : Op<Transform_Dialect, "disc.vector.vector_to_m
 
   let arguments = (ins TransformHandleTypeInterface:$target);
   let results = (outs);
-=======
-    This converts slices of operations containing vector.contract op into
-    bfmmla operations, targetting warp level tensorcore operations. If the vector
-    operations are bigger than the native mma size it will first split up those
-    vector operations.
-
-    #### Return modes
-
-    This transform consumes the target handle and produces a result handle.
-
-    /// Example:
-    /// ```
-    ///    %0 = vector.transfer_read %alloc_0[...], %cst : memref<?x?xbf16>, vector<?x?xbf16>
-    ///    %1 = vector.transfer_read %alloc_1[...], %cst : memref<?x?xbf16>, vector<?x?xbf16>
-    ///    %2 = arith.extf %0 : vector<?x?xbf16> to vector<?x?xf32>
-    ///    %3 = arith.extf %1 : vector<?x?xbf16> to vector<?x?xf32>
-    ///    %4 = vector.contract %2, %3, %arg0 : vector<?x?xf32>, vector<?x?xf32> into vector<?x?xf32>
-    /// ```
-    /// is transformed into:
-    /// ```
-    ///    %0 = vector.transfer_read %alloc_0[...], %cst : memref<?x?xbf16>, vector<?x?xbf16>
-    ///    %1 = vector.transfer_read %alloc_1[...], %cst : memref<?x?xbf16>, vector<?x?xbf16>
-    ///    %2 = arm_neon_ext.bfmmla %0, %3, %arg0 : vector<?x?xbf16>, vector<?x?xbf16> into vector<?x?xf32>
-    /// ```
-  }];
-
-  let arguments = (ins TransformHandleTypeInterface:$target);
-  let results = (outs PDL_Operation:$results);
->>>>>>> support transform-dialect based bf16 gemm codegen
 
   let assemblyFormat = [{
     $target

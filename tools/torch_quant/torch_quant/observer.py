@@ -113,6 +113,7 @@ class Observer(torch.nn.Module, ABC):
         self.observe = True
         self.fake_quant = True
         self.ch_axis = ch_axis
+        self._qparams_calculated = False
         self._register_load_state_dict_pre_hook(partial(pre_load_state_dict_hook, self))
 
     @property
@@ -160,6 +161,14 @@ class Observer(torch.nn.Module, ABC):
             f'signed={self.signed}, scale={scale}, zero_point={zero_point}'
         )
         return scale, zero_point
+
+    def _calculate(self):
+        pass
+
+    def calculate_qparams(self):
+        if not self._qparams_calculated:
+            self._calculate()
+            self._qparams_calculated = True
 
     @classmethod
     def from_qparams(cls, qparams: QParams):
@@ -706,32 +715,30 @@ class HistogramObserver(Observer):
                 self.min_val.copy_(combined_min)
                 self.max_val.detach_().resize_(combined_max.shape)
                 self.max_val.copy_(combined_max)
-            scale, zero_point = self.calculate_qparams()
-            self.scale.resize_(scale.shape)
-            self.zero_point.resize_(zero_point.shape)
-            self.scale.copy_(scale)
-            self.zero_point.copy_(zero_point)
 
         if self.fake_quant:
             x_orig = self._fake_quant(x_orig, self.scale, self.zero_point)
         return x_orig
 
-    def calculate_qparams(self):
-        is_uninitialized = self.min_val == float("inf") and self.max_val == float(
-            "-inf"
-        )
+    def _calculate(self):
+        init_min, init_max = float("inf"), float("-inf")
+        is_uninitialized = self.min_val == init_min and self.max_val == init_max
         if is_uninitialized:
             LOGGER.warning(
                 "must run observer before calling calculate_qparams.\
                                     Returning default scale and zero point "
             )
-            return torch.tensor([1.0], device=self.min_val.device.type), torch.tensor([0],
-                                                                                      device=self.min_val.device.type)
-        assert self.bins == len(self.histogram), (
-            "The number of bins in histogram should be equal to the number of bins "
-            "supplied while making this observer"
-        )
+            scale = torch.tensor([1.0], device=self.min_val.device.type)
+            zero_point = torch.tensor([0], device=self.min_val.device.type)
+        else:
+            assert self.bins == len(self.histogram), (
+                "The number of bins in histogram should be equal to the number of bins "
+                "supplied while making this observer"
+            )
+            new_min, new_max = self._non_linear_param_search()
+            scale, zero_point = self._calculate_qparams(new_min, new_max)
 
-        new_min, new_max = self._non_linear_param_search()
-
-        return self._calculate_qparams(new_min, new_max)
+        self.scale.resize_(scale.shape)
+        self.zero_point.resize_(zero_point.shape)
+        self.scale.copy_(scale)
+        self.zero_point.copy_(zero_point)

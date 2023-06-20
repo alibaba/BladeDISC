@@ -169,6 +169,35 @@ class Observer(torch.nn.Module, ABC):
         self.observe = observe
         self.fake_quant = fake_quant
 
+    def _fake_quant(self, x, scale, zero_point):
+        scale, zero_point = scale.data, zero_point.data
+        if not self.per_channel:
+            scale = torch.unsqueeze(scale, 0)
+            zero_point = torch.unsqueeze(zero_point, 0)
+
+        if torch.onnx.is_in_onnx_export():
+            factor = 1.0  # set the default value for grad_factor
+            zero_point = zero_point.to(torch.float32)
+            if self.per_channel:
+                x = FakeQuantizeLearnablePerChannelAffine.apply(
+                    x, scale, zero_point, self.ch_axis, self.q_min, self.q_max, factor
+                )
+            else:
+                x = FakeQuantizeLearnablePerTensorAffine.apply(
+                    x, scale, zero_point, self.q_min, self.q_max, factor
+                )
+        else:
+            zero_point = zero_point.to(torch.int32)
+            if self.per_channel:
+                x = torch.fake_quantize_per_channel_affine(
+                    x, scale, zero_point, self.ch_axis, self.q_min, self.q_max
+                )
+            else:
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, scale, zero_point, self.q_min, self.q_max
+                )
+        return x
+
 
 def toggle_observer(root: nn.Module, *, observe: bool, fake_quant: bool) -> None:
     for m in root.modules():
@@ -207,7 +236,7 @@ class MinMaxObserver(Observer):
             self.scale.copy_(scale)
             self.zero_point.copy_(zero_point)
         if self.fake_quant:
-            return torch.fake_quantize_per_tensor_affine(x, self.scale, self.zero_point, self.q_min, self.q_max)
+            return self._fake_quant(x, self.scale, self.zero_point)
         else:
             return x
 
@@ -254,7 +283,7 @@ class PerChannelMinMaxObserver(Observer):
             self.scale.copy_(scale)
             self.zero_point.copy_(zero_point)
         if self.fake_quant:
-            return torch.fake_quantize_per_channel_affine(x, self.scale, self.zero_point, self.ch_axis, self.q_min, self.q_max)
+            return self._fake_quant(x, self.scale, self.zero_point)
         else:
             return x
 
@@ -280,12 +309,7 @@ class BiasObserver(Observer):
                 self.zero_point.data = torch.zeros_like(scale)
             self.scale.copy_(scale)
         if self.fake_quant:
-            if self.per_channel:
-                return torch.fake_quantize_per_channel_affine(
-                    x, self.scale, self.zero_point, self.ch_axis, self.q_min, self.q_max
-                )
-            else:
-                return torch.fake_quantize_per_tensor_affine(x, self.scale, self.zero_point, self.q_min, self.q_max)
+            return self._fake_quant(x, self.scale, self.zero_point)
         else:
             return x
 
@@ -689,7 +713,7 @@ class HistogramObserver(Observer):
             self.zero_point.copy_(zero_point)
 
         if self.fake_quant:
-            x_orig = torch.fake_quantize_per_tensor_affine(x_orig, self.scale, self.zero_point, self.q_min, self.q_max)
+            x_orig = self._fake_quant(x_orig, self.scale, self.zero_point)
         return x_orig
 
     def calculate_qparams(self):

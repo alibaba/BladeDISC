@@ -392,4 +392,18 @@ def MHLO_WhereOp : HLODISC_ShapedInterfaceOp<"where", [Pure]> {
   );
 }
 
+def MHLO_ArgsMutationOp : HLODISC_ShapedInterfaceOp<"args_mutation", []> {
+  let summary = "Argument mutation annotation operator";
+  let description = [{
+    This operator is used to annotate the mutation of arguments.
+    It is used to indicate that the arguments are mutated in the body of the
+    function. This is used to prevent the arguments from being hoisted out of
+    the function.
+  }];
+  let arguments = (ins
+    MHLO_Tensor:$input,
+    MHLO_Tensor:$output
+  );
+}
+
 #endif // MHLO_DISC_OPS

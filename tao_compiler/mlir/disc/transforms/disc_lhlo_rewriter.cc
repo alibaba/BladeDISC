@@ -57,6 +57,22 @@ namespace {
 template <typename T>
 using BaseOpConversion = OpConversionPattern<T>;
 
+struct LhloArgsMutationOpRewriter
+    : public OpRewritePattern<lmhlo_disc::ArgsMutationOp> {
+  explicit LhloArgsMutationOpRewriter(MLIRContext* context)
+      : OpRewritePattern(context) {}
+  LogicalResult matchAndRewrite(lmhlo_disc::ArgsMutationOp lhloOp,
+                                PatternRewriter& rewriter) const override {
+    auto op = lhloOp.getOperation();
+    auto operands = op->getOperands();
+    auto in = operands[0];
+    auto out = operands[1];
+    out.replaceAllUsesWith(in);
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
 struct LhloConcatenateOpConverter
     : public OpRewritePattern<lmhlo::ConcatenateOp> {
   explicit LhloConcatenateOpConverter(MLIRContext* context)
@@ -140,6 +156,7 @@ struct DiscLhloRewriterPass
     target.addIllegalOp<lmhlo::ConcatenateOp>();
 
     patterns.insert<LhloConcatenateOpConverter>(&context);
+    patterns.insert<LhloArgsMutationOpRewriter>(&context);
     if (failed(
             applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
       signalPassFailure();

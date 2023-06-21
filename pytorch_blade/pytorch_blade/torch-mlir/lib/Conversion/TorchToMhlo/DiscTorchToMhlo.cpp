@@ -1618,7 +1618,6 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
     INSERT_ATENOP_PATTERN(AtenEmptyMemoryFormatOp);
     INSERT_ATENOP_PATTERN(AtenDropoutOp);
-    // INSERT_ATENOP_PATTERN(TensorStaticInfoCastOp);
     INSERT_ATENOP_PATTERN(AtenFlipOp);
     INSERT_ATENOP_PATTERN(AtenUniformOp);
     INSERT_ATENOP_PATTERN(AtenTensorOp);

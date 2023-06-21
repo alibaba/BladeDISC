@@ -278,7 +278,6 @@ c10::optional<std::vector<TensorTypePtr>> gatherTensorTypes(
       return c10::nullopt;
     } else if (args[i].type()->isSubtypeOf(TensorType::get())) {
       if (auto type = node->input(i)->type()->cast<TensorType>()) {
-        // note: DISC do not care about stride information.
         if (complete && !type->isComplete()) {
           return c10::nullopt;
         }

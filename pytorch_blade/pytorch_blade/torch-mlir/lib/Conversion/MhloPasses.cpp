@@ -103,7 +103,6 @@ void mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(
   //===--------------------------------------------------------------------===//
 
   // Convert the bulk of non-ABI-visible !torch.tensor's to !torch.vtensor's.
-  // pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(Torch::createMaximizeValueSemanticsPass());
 
   // Do shape refinement.

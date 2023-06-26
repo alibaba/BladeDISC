@@ -90,7 +90,7 @@ LogicalResult lowerToLibraryCallSpargeGemmImpl(CustomCallOp op,
 
   bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(0));
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
-      op, llvm::None, ctx, newOperands, "sparse_gemm", false,
+      op, TypeRange{}, ctx, newOperands, "sparse_gemm", false,
       on_gpu ? "gpu" : "cpu");
   return success();
 }

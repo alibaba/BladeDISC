@@ -70,7 +70,7 @@ inline std::vector<int64_t> ConvertDenseIntAttr(
 }
 
 inline std::vector<int64_t> ConvertDenseIntAttr(
-    llvm::Optional<mlir::DenseIntElementsAttr> attr) {
+    std::optional<mlir::DenseIntElementsAttr> attr) {
   if (!attr) return {};
   return ConvertDenseIntAttr(*attr);
 }
@@ -120,8 +120,8 @@ bool parseEinsumEquation(
     SmallVector<char>* rhs_original_tokens,
     SmallVector<char>* result_original_tokens);
 
-llvm::Optional<int32_t> TryMergeNode(GraphCycles* graph_cycles, int32_t a,
-                                     int32_t b);
+std::optional<int32_t> TryMergeNode(GraphCycles* graph_cycles, int32_t a,
+                                    int32_t b);
 
 SmallVector<Value, 4> GetAllPossibleUsedValues(Operation* op);
 

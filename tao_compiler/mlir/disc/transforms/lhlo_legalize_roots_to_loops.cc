@@ -500,7 +500,7 @@ void emitNotToVectorReduction(OpBuilder& b, Location loc, Operation* root_op,
                                           index, b.saveInsertionPoint());
   SmallVector<Value, 4> output_multidim_index;
   auto dimensions = reduce_op.getDimensions().getValues<int64_t>();
-  for (auto idx : llvm::enumerate(index)) {
+  for (const auto& idx : llvm::enumerate(index)) {
     if (std::find(dimensions.begin(), dimensions.end(), idx.index()) ==
         dimensions.end()) {
       output_multidim_index.push_back(idx.value());
@@ -1343,7 +1343,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_WARP_WISE_ROW_REDUCE>(
     //   sum += inputs[rowIdx][k];
     // }
     SmallVector<Value, 4> init_values(row_reduction_roots.size() * vector_size);
-    for (auto root_pair : llvm::enumerate(row_reduction_roots)) {
+    for (const auto& root_pair : llvm::enumerate(row_reduction_roots)) {
       Operation* root_op = root_pair.value();
       int idx = root_pair.index();
       Value init_value = b.create<memref::LoadOp>(
@@ -1379,7 +1379,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_WARP_WISE_ROW_REDUCE>(
     SmallVector<Type, 4> shuffle_type(row_reduction_roots.size());
     SmallVector<AccumulatorFactory, 4> accum_factory(
         row_reduction_roots.size());
-    for (auto root_pair : llvm::enumerate(row_reduction_roots)) {
+    for (const auto& root_pair : llvm::enumerate(row_reduction_roots)) {
       Operation* root_op = root_pair.value();
       int idx = root_pair.index();
       for (int i = 0; i < vector_size; i++) {
@@ -1407,7 +1407,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_WARP_WISE_ROW_REDUCE>(
       Value offset_val =
           b.create<arith::ConstantIntOp>(loc, offset, b.getIntegerType(32));
 
-      for (auto root_pair : llvm::enumerate(row_reduction_roots)) {
+      for (const auto& root_pair : llvm::enumerate(row_reduction_roots)) {
         Operation* root_op = root_pair.value();
         int idx = root_pair.index();
         for (int i = 0; i < vector_size; i++) {
@@ -1432,7 +1432,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_WARP_WISE_ROW_REDUCE>(
     if_lane_id_is_zero.getThenRegion().front().clear();
     b.setInsertionPointToStart(&if_lane_id_is_zero.getThenRegion().front());
 
-    for (auto root_pair : llvm::enumerate(row_reduction_roots)) {
+    for (const auto& root_pair : llvm::enumerate(row_reduction_roots)) {
       Operation* root_op = root_pair.value();
       int idx = root_pair.index();
       auto output_memref = root_op->getOperand(root_op->getNumOperands() - 1);
@@ -1510,7 +1510,7 @@ LogicalResult emitFirstRoundShuffle(
   Value warp_size =
       b.create<arith::ConstantIntOp>(loc, kWarpSize, b.getIntegerType(32));
   auto xorAttr = b.getStringAttr("xor");
-  for (auto root_op_en : llvm::enumerate(row_reduction_ops)) {
+  for (const auto& root_op_en : llvm::enumerate(row_reduction_ops)) {
     auto idx = root_op_en.index();
     auto root_op = root_op_en.value();
     SmallVector<Value, 2> sum_vec(vector_size);
@@ -1598,7 +1598,7 @@ LogicalResult emitSecondRoundShuffle(
   Value shuffle_size =
       b.create<arith::ConstantIntOp>(loc, num_warps, b.getIntegerType(32));
   auto xorAttr = gpu::ShuffleMode::XOR;
-  for (auto root_op_en : llvm::enumerate(row_reduction_ops)) {
+  for (const auto& root_op_en : llvm::enumerate(row_reduction_ops)) {
     auto idx = root_op_en.index();
     auto root_op = root_op_en.value();
     SmallVector<Value> sum_vec(vector_size);
@@ -1751,7 +1751,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
       b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq, var_n, zero);
 
   SmallVector<Value, 4> init_values(row_reduction_ops.size() * vector_size);
-  for (auto root_pair : llvm::enumerate(row_reduction_ops)) {
+  for (const auto& root_pair : llvm::enumerate(row_reduction_ops)) {
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     auto init_value = b.create<memref::LoadOp>(
@@ -1809,7 +1809,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
   b.create<gpu::BarrierOp>(loc);
 
   SmallVector<Type, 4> root_elem_types(row_reduction_ops.size() * vector_size);
-  for (auto root_op_en : llvm::enumerate(row_reduction_ops)) {
+  for (const auto& root_op_en : llvm::enumerate(row_reduction_ops)) {
     auto idx = root_op_en.index();
     auto root_op = root_op_en.value();
     auto elem_type = getLhloOpsElementType(root_op);
@@ -1830,7 +1830,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
   b.setInsertionPointToStart(&if_lane_id_inbound.getThenRegion().front());
   SmallVector<Value, 4> true_yield_values(row_reduction_ops.size() *
                                           vector_size);
-  for (auto root_op_en : llvm::enumerate(row_reduction_ops)) {
+  for (const auto& root_op_en : llvm::enumerate(row_reduction_ops)) {
     auto idx = root_op_en.index();
     auto root_op = root_op_en.value();
     auto shared_idx = lane_id;
@@ -1861,7 +1861,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
   b.setInsertionPointToStart(&if_lane_id_inbound.getElseRegion().front());
   SmallVector<Value, 4> false_yield_values(row_reduction_ops.size() *
                                            vector_size);
-  for (auto root_op_en : llvm::enumerate(row_reduction_ops)) {
+  for (const auto& root_op_en : llvm::enumerate(row_reduction_ops)) {
     auto idx = root_op_en.index();
     auto root_op = root_op_en.value();
     assert((init_values_cache.find(root_op) != init_values_cache.end()) &&
@@ -2020,7 +2020,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   // sum = init_value;
   SmallVector<Value, 4> init_values(col_reduction_roots.size());
   SmallVector<Type, 4> init_values_types(col_reduction_roots.size());
-  for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+  for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     Value init_value = b.create<memref::LoadOp>(
@@ -2051,7 +2051,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
 
   // define SHM
   std::map<Operation*, Value> shared_mem_map;
-  for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+  for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     const auto elemType = getLhloOpsElementType(root_op);
@@ -2149,7 +2149,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   b.create<scf::YieldOp>(loc, if_row_valid.getResults());
   b.setInsertionPointAfter(for_op_l);
 
-  for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+  for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     b.create<memref::StoreOp>(loc, *(for_op_l.getResults().begin() + idx),
@@ -2158,7 +2158,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
 
   b.create<scf::YieldOp>(loc, ValueRange({}));
   b.setInsertionPointToStart(&if_col_valid.getElseRegion().front());
-  for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+  for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     b.create<memref::StoreOp>(loc, init_values[idx], shared_mem_map[root_op],
@@ -2200,7 +2200,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
     b.setInsertionPointToStart(&if_is_lt_stride_rows.getThenRegion().front());
     Value var_shm_offset = b.create<mlir::arith::AddIOp>(
         loc, b.create<arith::MulIOp>(loc, var_stride, var_tile_w), var_n);
-    for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+    for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
       Operation* root_op = root_pair.value();
       int idx = root_pair.index();
       Value shm_op0 =
@@ -2238,7 +2238,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   if_is_atom_add.getThenRegion().front().clear();
   b.setInsertionPointToStart(&if_is_atom_add.getThenRegion().front());
   Value shm_offset = b.create<mlir::arith::AddIOp>(loc, var_tile_w, var_n);
-  for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+  for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     Value shm_op0 =
@@ -2351,7 +2351,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
   SmallVector<AccumulatorFactory, 4> accum_factory(col_reduction_roots.size());
   // sum = init_value;
   SmallVector<Value, 4> init_values(col_reduction_roots.size());
-  for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+  for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     Value init_value = b.create<memref::LoadOp>(
@@ -2380,7 +2380,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
 
   // define SHM
   std::map<Operation*, Value> shared_mem_map;
-  for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+  for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     const auto elemType = getLhloOpsElementType(root_op);
@@ -2442,7 +2442,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
   // else {
   //    shm[n] = 0;
   // }
-  for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+  for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     b.create<memref::StoreOp>(loc, init_values[idx], shared_mem_map[root_op],
@@ -2475,7 +2475,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
     b.setInsertionPointToStart(&if_is_lt_stride_rows.getThenRegion().front());
     Value var_shm_offset = b.create<mlir::arith::AddIOp>(
         loc, b.create<arith::MulIOp>(loc, var_stride, var_tile_w), var_n);
-    for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+    for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
       Operation* root_op = root_pair.value();
       int idx = root_pair.index();
       Value shm_op0 =
@@ -2508,7 +2508,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
   if_is_atom_add.getThenRegion().front().clear();
   b.setInsertionPointToStart(&if_is_atom_add.getThenRegion().front());
   Value shm_offset = b.create<mlir::arith::AddIOp>(loc, var_tile_w, var_n);
-  for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
+  for (const auto& root_pair : llvm::enumerate(col_reduction_roots)) {
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     Value shm_op0 =
@@ -3259,7 +3259,7 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
       // Deal with the case that tiled dims are not the same between result and
       // sub-roots' input.
       Value tiled_linear = nullptr;
-      for (auto en : llvm::enumerate(outShapeValues)) {
+      for (const auto& en : llvm::enumerate(outShapeValues)) {
         if (tile_info->second.tileSizes.count(en.index()) > 0) {
           tiled_linear =
               (tiled_linear == nullptr)
@@ -3992,7 +3992,7 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
         // Deal with the case that tiled dims are not the same between result
         // and sub-roots' input.
         Value tiled_linear = nullptr;
-        for (auto en : llvm::enumerate(outShapeValues)) {
+        for (const auto& en : llvm::enumerate(outShapeValues)) {
           if (tile_info->second.tileSizes.count(en.index()) > 0) {
             tiled_linear =
                 (tiled_linear == nullptr)
@@ -4050,7 +4050,7 @@ static void createPrintFusionParams(lmhlo::FusionOp fusion,
   OpBuilder b(fusion);
   auto operands = pattern.getOperands();
   auto results = pattern.getResults();
-  for (auto operand_enum : llvm::enumerate(operands)) {
+  for (const auto& operand_enum : llvm::enumerate(operands)) {
     auto index = operand_enum.index();
     auto operand = operand_enum.value();
     int64_t rank = operand.getType().cast<MemRefType>().getRank();
@@ -4063,10 +4063,10 @@ static void createPrintFusionParams(lmhlo::FusionOp fusion,
       formStr += "%d ";
     }
     formStr += "\n";
-    auto lhloOp = b.create<lmhlo_disc::PrintfOp>(loc, llvm::None, buffer_args);
+    auto lhloOp = b.create<lmhlo_disc::PrintfOp>(loc, TypeRange{}, buffer_args);
     lhloOp->setAttr("format", b.getStringAttr(formStr));
   }
-  for (auto result_enum : llvm::enumerate(results)) {
+  for (const auto& result_enum : llvm::enumerate(results)) {
     auto index = result_enum.index();
     auto result = result_enum.value();
     int64_t rank = result.getType().cast<MemRefType>().getRank();
@@ -4079,7 +4079,7 @@ static void createPrintFusionParams(lmhlo::FusionOp fusion,
       formStr += "%d ";
     }
     formStr += "\n";
-    auto lhloOp = b.create<lmhlo_disc::PrintfOp>(loc, llvm::None, buffer_args);
+    auto lhloOp = b.create<lmhlo_disc::PrintfOp>(loc, TypeRange{}, buffer_args);
     lhloOp->setAttr("format", b.getStringAttr(formStr));
   }
 }
@@ -4275,7 +4275,7 @@ LogicalResult emitSwitchOperandIdx(OpBuilder& b, Location loc,
   Value medianValue = b.create<arith::ConstantIndexOp>(loc, median);
   Value predEQ = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
                                          operandIdx, medianValue);
-  auto ifOp = b.create<scf::IfOp>(loc, llvm::None, predEQ, true);
+  auto ifOp = b.create<scf::IfOp>(loc, TypeRange{}, predEQ, true);
   Block* thenBlock = &ifOp.getThenRegion().getBlocks().front();
   Block* elseBlock = &ifOp.getElseRegion().getBlocks().front();
 
@@ -4306,7 +4306,7 @@ LogicalResult emitSwitchOperandIdx(OpBuilder& b, Location loc,
   {
     Value predLT = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
                                            operandIdx, medianValue);
-    auto ifOp = b.create<scf::IfOp>(loc, llvm::None, predLT, true);
+    auto ifOp = b.create<scf::IfOp>(loc, TypeRange{}, predLT, true);
     Block* thenBlock = &ifOp.getThenRegion().getBlocks().front();
     Block* elseBlock = &ifOp.getElseRegion().getBlocks().front();
     b.setInsertionPoint(thenBlock, thenBlock->begin());
@@ -4552,7 +4552,8 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
     ArrayRef<Operation*> root_ops, Operation* dominant_op,
     Block* parent = nullptr, bool non_fusion = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
-  llvm::dbgs() << "come in lowerWithScheduleSparseFillEmptyRowsOpCPU\n";
+  LLVM_DEBUG(
+      llvm::dbgs() << "come in lowerWithScheduleSparseFillEmptyRowsOpCPU\n");
   if (!(root_ops.size() == 1 &&
         isa<lmhlo_disc::SparseFillEmptyRowsOp>(root_ops[0]))) {
     return dominant_op->emitError()
@@ -4616,9 +4617,7 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
     auto alloc = b.create<memref::AllocOp>(
         loc,
         MemRefType::get({ShapedType::kDynamic}, b.getIntegerType(64),
-                        MemRefLayoutAttrInterface(),
-                        StringAttr::get(sparse_fill_empty_rows_op->getContext(),
-                                        placement_utils::kCpu)),
+                        MemRefLayoutAttrInterface()),
         num_rows);
     row_count_memref = alloc.getResult();
 
@@ -4922,8 +4921,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionOpCPU(
       auto alloc = b.create<memref::AllocOp>(
           loc,
           MemRefType::get({ShapedType::kDynamic}, output_type.getElementType(),
-                          MemRefLayoutAttrInterface(),
-                          StringAttr::get(context, placement_utils::kCpu)),
+                          MemRefLayoutAttrInterface()),
           num_results);
       segment_count_memref = alloc.getResult();
 
@@ -5133,8 +5131,7 @@ LogicalResult lowerWithScheduleSparseSegmentReductionWithEmptyRowsOpCPU(
   auto alloc = b.create<memref::AllocOp>(
       loc,
       MemRefType::get({ShapedType::kDynamic}, output_type.getElementType(),
-                      MemRefLayoutAttrInterface(),
-                      StringAttr::get(context, placement_utils::kCpu)),
+                      MemRefLayoutAttrInterface()),
       dense_rows);
   row_value_count = alloc.getResult();
   create_init_for_loop(zero_floating, row_value_count);
@@ -5285,9 +5282,8 @@ LogicalResult lowerWithScheduleWhereOpCPU(
       b.create<arith::ConstantIndexOp>(loc, 0)};
   // stack temp buffer for num_output_elements to 0
   auto alloc = b.create<memref::AllocaOp>(
-      loc, MemRefType::get(
-               {}, b.getIntegerType(64), MemRefLayoutAttrInterface(),
-               StringAttr::get(where->getContext(), placement_utils::kCpu)));
+      loc,
+      MemRefType::get({}, b.getIntegerType(64), MemRefLayoutAttrInterface()));
   auto temp_count = alloc.getResult();
   b.create<memref::StoreOp>(loc,
                             b.create<arith::ConstantOp>(
@@ -5334,7 +5330,7 @@ LogicalResult lowerWithScheduleWhereOpCPU(
     return dominant_op->emitError() << "type other than float or int for "
                                        "lmhlo_disc::where is not supported yet";
   }
-  auto if_is_zero = b.create<scf::IfOp>(loc, /*resultTypes*/ llvm::None,
+  auto if_is_zero = b.create<scf::IfOp>(loc, /*resultTypes*/ TypeRange{},
                                         /* condition */ is_zero,
                                         /*hasElseRegion*/ false);
   if_is_zero.getThenRegion().front().clear();
@@ -5385,11 +5381,11 @@ LogicalResult lowerWithScheduleLoopCPU(
     Block* parent = nullptr, bool non_fusion = false, bool parallel_loop = true,
     bool multi_dim_loop = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
-  llvm::dbgs() << "parallel_loop: " << parallel_loop << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "parallel_loop: " << parallel_loop << "\n");
   Value result = cast<lmhlo::LmhloOp>(dominant_op).getResultBuffer();
   int64_t rank = result.getType().cast<MemRefType>().getRank();
   if (!multi_dim_loop || !rank || !parallel_loop) {
-    llvm::dbgs() << "lower with lowerWithScheduleLoop\n";
+    LLVM_DEBUG(llvm::dbgs() << "lower with lowerWithScheduleLoop\n");
     return lowerWithScheduleLoop(root_ops, dominant_op, parent, non_fusion,
                                  parallel_loop, shape_analysis);
   }
@@ -5711,16 +5707,17 @@ struct DiscLhloLegalizeRootsToParallelLoops
       if (parent && !isa<lmhlo::FusionOp>(op)) {
         return;
       }
-      if (isFusionType<FusionType::kStitch>(op) && !disc_ral::isOnGpu(op)) {
+      if (isFusionType<FusionType::kStitch>(op) &&
+          !placement_utils::isGpuLmhlo(op)) {
         return;
       }
       if (isa<lmhlo::FusionOp>(op)) {
-        if (disc_ral::isOnGpu(op))
+        if (placement_utils::isGpuLmhlo(op))
           gpu_fusion_worklist.push_back(op);
         else
           cpu_fusion_worklist.push_back(op);
       } else {
-        if (disc_ral::isOnGpu(op))
+        if (placement_utils::isGpuLmhlo(op))
           gpu_non_fusion_worklist.push_back(op);
         else
           cpu_non_fusion_worklist.push_back(op);
@@ -5732,6 +5729,7 @@ struct DiscLhloLegalizeRootsToParallelLoops
       // should be sufficient for performance.
       // TODO(disc): Revisit this when the backend is cpu and the calculation is
       // for data.
+      LLVM_DEBUG(llvm::dbgs() << "cpu-no-fusion-op: \n" << *op << "\n");
       if (failed(lowerWithScheduleLoopCPU({op}, op, nullptr,
                                           /*non_fusion=*/true,
 #ifdef TAO_CPU_ONLY
@@ -5799,7 +5797,7 @@ struct DiscLhloLegalizeRootsToParallelLoops
       std::vector<Operation*> to_be_removed;
       func.walk([&](lmhlo::FusionOp fusion) {
         auto op = fusion.getOperation();
-        if (!isOnGpu(op)) {
+        if (!placement_utils::isGpuLmhlo(op)) {
           return;
         }
         FusionType fusionType = FusionType::kNone;

@@ -110,7 +110,8 @@ bool miscFuseHelper<ConstantOp>(PatternRewriter& rewriter, Operation* user,
   } else {
     auto attr = is_splat ? constant.getValue().getSplatValue<Attribute>()
                          : constant.getValue().getValues<Attribute>()[{}];
-    inlined_result = rewriter.create<arith::ConstantOp>(loc, elem_ty, attr);
+    inlined_result =
+        rewriter.create<arith::ConstantOp>(loc, elem_ty, cast<TypedAttr>(attr));
   }
   for (memref::LoadOp to_be_replaced : load_ops)
     to_be_replaced.replaceAllUsesWith(inlined_result);

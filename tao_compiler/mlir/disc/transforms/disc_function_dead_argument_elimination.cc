@@ -33,7 +33,7 @@ struct DeadArgumentElimination : public OpRewritePattern<LLVM::LLVMFuncOp> {
   LogicalResult matchAndRewrite(LLVM::LLVMFuncOp op,
                                 PatternRewriter& rewriter) const override {
     SmallVector<int64_t> deadArgsIndex;
-    for (auto& en : llvm::enumerate(op.getBody().getArguments())) {
+    for (const auto& en : llvm::enumerate(op.getBody().getArguments())) {
       Value argument = en.value();
       // Argument that is not used is regarded as dead argument.
       if (argument.use_empty()) {
@@ -69,6 +69,7 @@ struct DeadArgumentElimination : public OpRewritePattern<LLVM::LLVMFuncOp> {
     auto newFuncOp = rewriter.create<LLVM::LLVMFuncOp>(
         op.getLoc(), op.getName(), newType, op.getLinkage(), op.getDsoLocal(),
         op.getCConv(), op->getAttrs());
+    newFuncOp->setAttr("function_type", TypeAttr::get(newType));
 
     // Move the body of original function into the new function.
     rewriter.inlineRegionBefore(op.getBody(), newFuncOp.getBody(),

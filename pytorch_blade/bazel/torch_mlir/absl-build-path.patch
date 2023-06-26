@@ -1,0 +1,14 @@
+diff --git a/BUILD b/BUILD
+index e4df40b5a..b478156ce 100644
+--- a/BUILD
++++ b/BUILD
+@@ -1131,7 +1131,8 @@ cc_library(
+         ":mlir_hlo",
+         "//stablehlo:stablehlo_ops",
+         "//stablehlo:stablehlo_ops_inc_gen",
+-        "//third_party/absl/strings",
++        "@com_google_absl//absl/strings",
++        #"//third_party/absl/strings",
+         "@llvm-project//llvm:Support",
+         "@llvm-project//mlir:IR",
+         "@llvm-project//mlir:Support",

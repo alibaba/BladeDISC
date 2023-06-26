@@ -29,12 +29,12 @@ using disc_shape::SymbolicDimOp;
 // Return the symbolicDim ref attribute if there is an attached disc
 // shape-constraint specific attribute filed. Return nullptr if there isn't an
 // attached symbolic dim ref attributes.
-llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
+std::optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
     Value value);
 // Return the symbolicDim ref attribute if there is an attached disc
 // shape-constraint specific attribute filed. Return nullptr if there isn't an
 // attached symbolic dim ref attributes.
-llvm::Optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
+std::optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
     Value value);
 
 // Returns a ArrayAttr composed of a list of ref attributes to corresponding
@@ -288,7 +288,7 @@ class SymbolicDimExpr {
   explicit operator bool() const { return static_cast<bool>(expr); }
 
   // Returns null if not a const SymbolicDimExpr, or the const value.
-  llvm::Optional<int64_t> getConstValue();
+  std::optional<int64_t> getConstValue();
 
   static SymbolicDimExpr buildMulExpr(const SymbolicDimExpr& lhs,
                                       const SymbolicDimExpr& rhs);
@@ -358,7 +358,7 @@ class SymbolicDimMgr {
   //   x = 6 * symbol_0 * symbol_1 * symbol_2
   //   y = 3 * symbol_0 * symbol_1
   //   x / y == 2 * symbol_2 (suppose symbol_0 and symbol_1 are not zero)
-  llvm::Optional<SymbolicDimProduct> symbolicDimProductDivide(
+  std::optional<SymbolicDimProduct> symbolicDimProductDivide(
       const SymbolicDimProduct& x, const SymbolicDimProduct& y);
 
   // mark group [a0, b0, ...] and group [a1, b1, c1, ...] are group
@@ -443,7 +443,7 @@ class SymbolicDimMgr {
 // Return the symbolicDim ops if there is an attached disc
 // shape-constraint specific attribute filed. Return nullptr if there isn't an
 // attached symbolic dim ref attributes.
-llvm::Optional<SmallVector<SymbolicDimOp>> getMemRefValueSymbolicDims(
+std::optional<SmallVector<SymbolicDimOp>> getMemRefValueSymbolicDims(
     SymbolicDimMgr& mgr, Value value);
 
 }  // namespace disc_ral

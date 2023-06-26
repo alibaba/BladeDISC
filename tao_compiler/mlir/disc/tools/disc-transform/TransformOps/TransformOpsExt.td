@@ -584,8 +584,9 @@ def LinalgEagerlyBackwardInitTensorOp : Op<Transform_Dialect, "disc.linalg.eager
   }];
 }
 
-// mainly copied from mlir community, adding support to fuse through
-// iter_args for normal scf.for ops.
+// Deprecated. May remove in the future.
+// Mainly copied from mlir community, adding support to fuse through iter_args
+// for scf.for ops. It only supports scf.for ops as containing ops.
 
 def DISCFuseIntoContainingOp :
     Op<Transform_Dialect, "disc.fuse_into_containing_op",
@@ -937,13 +938,13 @@ def DISCLowerVectorsOp : Op<Transform_Dialect, "disc.vector.lower_vectors",
   }];
 }
 
-def DISCForeachThreadToGPUCTAsOp : Op<Transform_Dialect, "disc.foreach_thread_to_gpu_ctas",
+def DISCForallToGPUCTAsOp : Op<Transform_Dialect, "disc.forall_to_gpu_ctas",
     [FunctionalStyleTransformOpTrait,
      MemoryEffectsOpInterface,
      TransformEachOpTrait,
      TransformOpInterface]> {
   let description = [{
-    This converts the foreach_threads op with at most three ranks into a
+    This converts the foralls op with at most three ranks into a
     parallel op for GPU threads mapping of both blocks and threads. the target
     op should have GPU Block mapping.
 
@@ -953,7 +954,7 @@ def DISCForeachThreadToGPUCTAsOp : Op<Transform_Dialect, "disc.foreach_thread_to
     ///
     /// from
     /// ```
-    /// scf.foreach_thread (%arg3, %arg4) in (%c2, %c2) {
+    /// scf.forall (%arg3, %arg4) in (%c2, %c2) {
     ///   xxx = some_op(%arg3, %arg4)
     /// }
     /// ```
@@ -987,13 +988,13 @@ def DISCForeachThreadToGPUCTAsOp : Op<Transform_Dialect, "disc.foreach_thread_to
 }
 
 
-def DISCForeachThreadToGPUWarpsOp : Op<Transform_Dialect, "disc.foreach_thread_to_gpu_warps",
+def DISCForallToGPUWarpsOp : Op<Transform_Dialect, "disc.forall_to_gpu_warps",
     [FunctionalStyleTransformOpTrait,
      MemoryEffectsOpInterface,
      TransformEachOpTrait,
      TransformOpInterface]> {
   let description = [{
-    This converts the foreach_threads op with at most three ranks into the
+    This converts the foralls op with at most three ranks into the
     computations of the current warp according to the calculation with gpu
     thread id and numthreads of current op.
     TODO: use gpu.warp instead of gpu.thread for the mapping attribute.
@@ -1002,7 +1003,7 @@ def DISCForeachThreadToGPUWarpsOp : Op<Transform_Dialect, "disc.foreach_thread_t
     ///
     /// from
     /// ```
-    /// scf.foreach_thread (%arg3, %arg4) in (%c2, %c2) {
+    /// scf.forall (%arg3, %arg4) in (%c2, %c2) {
     ///   xxx = some_op(%arg3, %arg4)
     /// } {mapping = [#gpu.thread<x>, #gpu.thread<y>]}
     /// ```
@@ -1046,7 +1047,7 @@ def DISCSplitReductionSerialOp :
     creates a tensor initialized with the identity value. Then it creates nested
     loops with a parallel version of `target` op inside. The parallel op
     dimensions are less or equal to the tile size passed by user.
-    The only difference with `structured.tile_reduction_using_foreach_thread` is
+    The only difference with `structured.tile_reduction_using_forall` is
     that, the splitted tiles are executed inplace in serial.
     The initial tensor always uses the tile size dimension. This may overallocate
     if the tile size is greater than the reduction dimension.
@@ -1083,7 +1084,7 @@ def DISCSplitReductionSerialOp :
     ```
   }];
 
-  // TODO: support mixed static-dynamic (see TileToForeachThreadOp).
+  // TODO: support mixed static-dynamic (see TileToForallOp).
   let arguments = (ins PDL_Operation:$target,
                    DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$tile_sizes);
   let results = (outs PDL_Operation:$for_op,

@@ -9,7 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "lib/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -19,8 +18,10 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/disc/IR/hlo_disc_ops.h"
 #include "stablehlo/dialect/ChloOps.h"
+#include "stablehlo/dialect/StablehloOps.h"
 #include "torch-mlir/Conversion/MhloPasses.h"
-#include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
+#include "torch-mlir/Conversion/TorchToStablehlo/StablehloLegalizeUtils.h"
+#include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
@@ -270,7 +271,7 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       return success();
     }
     auto newDimSizesInfo =
-        mhlo::getDimSizesOfTensor(rewriter, op, self, dims, 32);
+        hlo::getDimSizesOfTensor(rewriter, op, self, dims, 32);
     if (failed(newDimSizesInfo))
       return rewriter.notifyMatchFailure(
           op, "failed to get dimension sizes of the input");
@@ -326,6 +327,7 @@ class DiscConvertTorchToDiscMhlo
         chlo::ChloDialect,
         mhlo::MhloDialect,
         mhlo_disc::MhloDiscDialect,
+        stablehlo::StablehloDialect,
         tensor::TensorDialect>();
 
     TypeConverter typeConverter;

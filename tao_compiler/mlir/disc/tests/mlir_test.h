@@ -30,10 +30,6 @@
 #include "cuda.h"
 #endif
 
-namespace tensorflow {
-class Status;
-}  // namespace tensorflow
-
 namespace tao {
 namespace ral {
 class OutputBufferWrapper;

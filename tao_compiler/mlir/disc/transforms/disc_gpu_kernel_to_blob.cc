@@ -20,6 +20,7 @@ limitations under the License.
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
+#include "mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
@@ -118,7 +119,7 @@ class GpuKernelToBlobPass
                                         std::get<1>(item.second),
                                         std::get<2>(item.second));
         if (!blob_or.ok()) {
-          gpu_module.emitError(blob_or.status().error_message());
+          gpu_module.emitError(blob_or.status().ToString());
           return signalPassFailure();
         }
         const auto& blob = blob_or.value();
@@ -131,7 +132,7 @@ class GpuKernelToBlobPass
       VLOG(2) << "JIT mode";
       auto blob_or = GetGpuBinaryBlob(gpu_module, cc_major_, cc_minor_);
       if (!blob_or.ok()) {
-        gpu_module.emitError(blob_or.status().error_message());
+        gpu_module.emitError(blob_or.status().ToString());
         return signalPassFailure();
       }
       const auto& blob = blob_or.value();
@@ -145,7 +146,7 @@ class GpuKernelToBlobPass
                                     const std::vector<llvm::StringRef>& args) {
     std::string error_message;
     int result = llvm::sys::ExecuteAndWait(
-        program, AsArrayRef(args), llvm::None, {}, 0, 0, &error_message);
+        program, AsArrayRef(args), std::nullopt, {}, 0, 0, &error_message);
     if (result) {
       return xla::InternalError("llc execute fail: %s, error code %d",
                                 error_message, result);
@@ -473,6 +474,7 @@ class GpuKernelToBlobPass
 
  protected:
   void getDependentDialects(DialectRegistry& registry) const override {
+    registerGPUDialectTranslation(registry);
     registerLLVMDialectTranslation(registry);
     registerNVVMDialectTranslation(registry);
     OperationPass<gpu::GPUModuleOp>::getDependentDialects(registry);

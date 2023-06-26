@@ -1,4 +1,4 @@
-// RUN: disc-opt -pass-pipeline='builtin.module(gpu.module(gpu.func(disc-side-effect-loop-invariant-code-motion)))' \
+// RUN: disc-opt -split-input-file -pass-pipeline='builtin.module(gpu.module(gpu.func(disc-side-effect-loop-invariant-code-motion)))' \
 // RUN: -split-input-file %s | FileCheck %s
 
 

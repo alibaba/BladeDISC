@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s
 
 
 // CHECK-LABEL: @transfer_write_zero_to_scf
@@ -20,7 +20,7 @@ func.func @transfer_write_zero_to_scf(%arg0: memref<128x128xf16>) {
   return
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   %func = transform.structured.match ops{["func.func"]} in %arg1: (!pdl.operation) -> !pdl.operation
   transform.disc.transfer_write_zero_to_scf %func : (!pdl.operation) -> ()

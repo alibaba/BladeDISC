@@ -1,10 +1,11 @@
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %matmul = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
 
-  %0:2 = transform.structured.tile_to_foreach_thread_op %matmul num_threads [1, 1]
+  %0:2 = transform.structured.tile_to_forall_op %matmul num_threads [1, 1]
   transform.structured.fuse_into_containing_op %fill into %0#0
+    : (!pdl.operation, !pdl.operation) -> (!pdl.operation, !pdl.operation)
 
   // first level tile and fuse matmul and fill op.
   %1:3 = transform.structured.fuse %0#1 {tile_sizes = [288, 256, 0], tile_interchange = [0, 1, 2]}
@@ -24,6 +25,7 @@ transform.structured.canonicalized_sequence failures(propagate) {
 
   // pad to match the requirement of hardware vector/tensor instruction.
   %4 = transform.structured.pad %3#0 {padding_values=[0.0 : f32, 0.0 : f32, 0.0 : f32], padding_dimensions=[0, 1, 2], pack_paddings=[1, 1, 0], hoist_paddings=[4, 5, 0], transpose_paddings=[[1, 0], [0, 1], [0, 1]]}
+    : (!pdl.operation) -> !pdl.operation
 
   %func1 = transform.structured.match ops{["func.func"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   transform.structured.vectorize %func1 {vectorize_padding}

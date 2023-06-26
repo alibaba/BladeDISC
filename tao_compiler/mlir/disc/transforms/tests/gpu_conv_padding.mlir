@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-gpu-conv-padding-legalization %s | FileCheck %s
+// RUN: disc-opt -split-input-file -disc-gpu-conv-padding-legalization %s | FileCheck %s
 
 module  {
   func.func @main(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<?x8x7x16xf32> {

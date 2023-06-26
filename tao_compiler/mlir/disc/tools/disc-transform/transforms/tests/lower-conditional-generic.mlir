@@ -22,7 +22,7 @@ func.func @lower_conditional_generic(
   return %arg2 : memref<8x12xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
   %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   transform.disc.lower_conditional_generic %0

@@ -69,16 +69,25 @@ def ConvRewriterPass : Pass<"disc-conv-rewriter", "mlir::func::FuncOp"> {
 def MhloDecompositionRewriterPass : Pass<"disc-mhlo-decomp-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite and decompose mhlo ops.";
   let constructor = "createDiscMhloDecompositionRewriterPass()";
+  let dependentDialects = [
+      "tensor::TensorDialect",
+  ];
 }
 
 def DotRewriterPass : Pass<"disc-dot-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite dot to fold transpose.";
   let constructor = "createDiscDotRewriterPass()";
+  let dependentDialects = [
+      "tensor::TensorDialect",
+  ];
 }
 
 def ReductionRewriterPass : Pass<"disc-reduction-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite mhlo::ReduceOp";
   let constructor = "createDiscReductionRewriterPass()";
+  let dependentDialects = [
+      "tensor::TensorDialect",
+  ];
 }
 
 def QuantizedDotRewriterPass : Pass<"quantized-disc-dot-rewriter", "mlir::func::FuncOp"> {
@@ -135,7 +144,7 @@ def SCFParallelLoopTiling : Pass<"disc-parallel-loop-tiling", "mlir::func::FuncO
            "Perform tiling with fixed upperbound with inbound check "
            "for internal loops">
   ];
-  let dependentDialects = ["mlir::AffineDialect"];
+  let dependentDialects = ["affine::AffineDialect"];
 }
 
 def DiscFusionPass : Pass<"disc-fusion", "mlir::func::FuncOp"> {
@@ -201,6 +210,9 @@ def DiscAssignMemorySpacePass : Pass<"disc-assign-memory-space", "ModuleOp"> {
            /*default=*/"\"main\"", "Name of the entry function.">,
     Option<"gpu_enabled_", "gpu-enabled", "bool",
            /*default=*/"true", "whether gpu is available.">,
+  ];
+  let dependentDialects = [
+    "gpu::GPUDialect"
   ];
 }
 
@@ -298,7 +310,9 @@ def DiscLowerGpuOpsToNVVMOpsPass : Pass<"disc-convert-gpu-to-nvvm", "gpu::GPUMod
   let options = [
     Option<"indexBitwidth", "index-bitwidth", "unsigned",
            /*default=kDeriveIndexBitwidthFromDataLayout*/"0",
-           "Bitwidth of the index type, 0 to use size of machine word">
+           "Bitwidth of the index type, 0 to use size of machine word">,
+    Option<"hasRedux", "has-redux", "bool",
+           /*default=*/"false", "whether has redux.">,
   ];
 }
 
@@ -394,6 +408,9 @@ def DiscStitchFusion : Pass<"disc-stitch-fusion", "mlir::func::FuncOp"> {
 def TransposeSimplifierPass : Pass<"disc-transpose-simplifier", "mlir::func::FuncOp"> {
   let summary = "Remove some redundant transpose ops in the graph.";
   let constructor = "createTransposeSimplifierPass()";
+  let dependentDialects = [
+      "tensor::TensorDialect",
+  ];
 }
 
 def RalInjectExecutionContextPass : Pass<"disc-ral-inject-execution-context", "ModuleOp"> {
@@ -431,6 +448,9 @@ def DiscAlgebraicSimplifierPass : Pass<"disc-algebraic-simplifier", "mlir::func:
 def DiscDynamicSliceConverterPass : Pass<"disc-dynamic-slice-converter", "mlir::func::FuncOp"> {
   let summary = "Convert mhlo.dynamic_slice with dynamic input to mhlo.real_dynamic_slice.";
   let constructor = "createDiscDynamicSliceConverterPass()";
+  let dependentDialects = [
+      "tensor::TensorDialect",
+  ];
 }
 
 def DiscShapeOptimizationPass : Pass<"disc-shape-optimization", "ModuleOp"> {
@@ -469,6 +489,9 @@ def DiscDuplicateComputationForFusionPass : Pass<"disc-duplicate-computation-for
            /*default=*/"true", "whether gpu is available.">,
     Option<"fusion_strategy_", "fusion-strategy", "std::string",
            /*default=*/"\"base\"", "Name of the fusion strategy.">,
+  ];
+  let dependentDialects = [
+      "memref::MemRefDialect",
   ];
 }
 
@@ -622,4 +645,7 @@ def DiscSparseOpRewriterPass : Pass<"disc-sparse-op-rewriter", "mlir::func::Func
 def DiscDuplicateComputationAfterFusionPass : Pass<"disc-duplicate-computation-after-fusion", "mlir::func::FuncOp"> {
   let summary = "Duplicate and fuse some computations into the consumer fusion op in order to remove memory footprint.";
   let constructor = "createDiscDuplicateComputationAfterFusionPass()";
+  let dependentDialects = [
+      "memref::MemRefDialect",
+  ];
 }

@@ -101,7 +101,7 @@ Value GetDefaultStreamHandle(Operation* op, PatternRewriter& rewriter) {
 void InsertSyncOnStream(Operation* op, Value ctx, Value stream_handle,
                         PatternRewriter& rewriter) {
   Location loc = op->getLoc();
-  rewriter.create<DispatchOp>(loc, llvm::None, ctx, stream_handle,
+  rewriter.create<DispatchOp>(loc, TypeRange{}, ctx, stream_handle,
                               "sync_on_stream", false, "gpu");
 }
 
@@ -140,7 +140,7 @@ struct SendOutputOpConvertor : public OpRewritePattern<SendOutputOp> {
   LogicalResult matchAndRewrite(SendOutputOp op,
                                 PatternRewriter& rewriter) const override {
     auto operands = op.getOperands();
-    rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, operands.front(),
+    rewriter.replaceOpWithNewOp<DispatchOp>(op, TypeRange{}, operands.front(),
                                             operands.drop_front(),
                                             "ral_send_output", false, "cpu");
     return success();
@@ -181,7 +181,7 @@ struct GpuCopyOpConvertor : public OpRewritePattern<OpTy> {
     }
 
     auto newOp = rewriter.create<DispatchOp>(
-        op.getLoc(), llvm::None, ctx, newOperands, target_, false, "gpu");
+        op.getLoc(), TypeRange{}, ctx, newOperands, target_, false, "gpu");
     // TODO(disc): Re-visit this is necessary.
     // TODO(disc): add a pass to merge sync_on_stream call.
     InsertSyncOnStream(op, ctx, stream_handle, rewriter);
@@ -259,7 +259,7 @@ struct DotGeneralLikeConverter : public OpRewritePattern<OpTy> {
         op.getLoc(), isConstantMemRef(op->getOperand(1)), /*bitWidth*/ 1));
 
     bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(2));
-    rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, ctx, newOperands,
+    rewriter.replaceOpWithNewOp<DispatchOp>(op, TypeRange{}, ctx, newOperands,
                                             target_, false,
                                             on_gpu ? "gpu" : "cpu");
 
@@ -292,9 +292,8 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   int num_spatial_dims = rank - 2;
   int num_metadata_fields = rank * 3 + (rank - 2) * 2 + 1;
   Value metadata_value = rewriter.create<memref::AllocaOp>(
-      loc, MemRefType::get(
-               {num_metadata_fields}, field_type, MemRefLayoutAttrInterface(),
-               StringAttr::get(op->getContext(), placement_utils::kCpu)));
+      loc, MemRefType::get({num_metadata_fields}, field_type,
+                           MemRefLayoutAttrInterface()));
   std::vector<int64_t> fields;
   auto dimension_numbers = op.getDimensionNumbers();
   // input layout
@@ -325,7 +324,7 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   fields.insert(fields.end(), rhs_dilation.begin(), rhs_dilation.end());
   fields.push_back(isConstantMemRef(op->getOperand(1)));
 
-  for (auto&& en : llvm::enumerate(fields)) {
+  for (const auto&& en : llvm::enumerate(fields)) {
     Value value =
         rewriter.create<arith::ConstantIntOp>(loc, en.value(), field_type);
     Value offset = rewriter.create<arith::ConstantIndexOp>(loc, en.index());
@@ -345,12 +344,11 @@ struct ConvConverter : public OpRewritePattern<ConvolutionOp> {
     int rank = op.getOutput().getType().template cast<ShapedType>().getRank();
     int num_metadata_fields = (rank - 2) * 2;
     Value metadata_value = rewriter.create<memref::AllocaOp>(
-        loc, MemRefType::get(
-                 {num_metadata_fields}, field_type, MemRefLayoutAttrInterface(),
-                 StringAttr::get(op->getContext(), placement_utils::kCpu)));
+        loc, MemRefType::get({num_metadata_fields}, field_type,
+                             MemRefLayoutAttrInterface()));
     // padding
     auto padding = disc_ral::ConvertDenseIntAttr(op.getPadding());
-    for (auto&& en : llvm::enumerate(padding)) {
+    for (const auto&& en : llvm::enumerate(padding)) {
       Value value =
           rewriter.create<arith::ConstantIntOp>(loc, en.value(), field_type);
       Value offset = rewriter.create<arith::ConstantIndexOp>(loc, en.index());
@@ -383,7 +381,7 @@ struct ConvConverter : public OpRewritePattern<ConvolutionOp> {
     newOperands.push_back(GetConvMetadata(op, rewriter));
 
     bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(2));
-    rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, ctx, newOperands,
+    rewriter.replaceOpWithNewOp<DispatchOp>(op, TypeRange{}, ctx, newOperands,
                                             "ral_conv", false,
                                             on_gpu ? "gpu" : "cpu");
     return success();
@@ -415,7 +413,7 @@ struct DynamicConvLikeConverter : public OpRewritePattern<OpTy> {
     newOperands.push_back(GetConvMetadata(op, rewriter));
 
     bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(0));
-    rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, ctx, newOperands,
+    rewriter.replaceOpWithNewOp<DispatchOp>(op, TypeRange{}, ctx, newOperands,
                                             target_, false,
                                             on_gpu ? "gpu" : "cpu");
     return success();
@@ -508,11 +506,10 @@ struct TransposeConverter : public OpRewritePattern<lmhlo::TransposeOp> {
     // permute value
     Type permute_type = rewriter.getI32Type();
     Value permute_value = rewriter.create<memref::AllocOp>(
-        loc, MemRefType::get(
-                 {rank}, rewriter.getI32Type(), MemRefLayoutAttrInterface(),
-                 StringAttr::get(op->getContext(), placement_utils::kCpu)));
+        loc, MemRefType::get({rank}, rewriter.getI32Type(),
+                             MemRefLayoutAttrInterface()));
 
-    for (auto&& en : llvm::enumerate(permutation)) {
+    for (const auto&& en : llvm::enumerate(permutation)) {
       Value value =
           rewriter.create<arith::ConstantIntOp>(loc, en.value(), permute_type);
       Value offset = rewriter.create<arith::ConstantIndexOp>(loc, en.index());
@@ -524,7 +521,7 @@ struct TransposeConverter : public OpRewritePattern<lmhlo::TransposeOp> {
     // output
     newOperands.push_back(op->getOperand(1));
 
-    rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, ctx, newOperands,
+    rewriter.replaceOpWithNewOp<DispatchOp>(op, TypeRange{}, ctx, newOperands,
                                             "ral_transpose", false, "gpu");
     return success();
   }
@@ -593,9 +590,8 @@ struct CopyLikeOpConvertor : public OpRewritePattern<OpTy> {
     Location loc = op.getLoc();
     Type shapeIndexType = rewriter.getIndexType();
     auto targetType = result.getType().cast<MemRefType>();
-    auto shapeType = MemRefType::get(
-        {targetType.getRank()}, shapeIndexType, targetType.getLayout(),
-        StringAttr::get(op->getContext(), placement_utils::kCpu));
+    auto shapeType = MemRefType::get({targetType.getRank()}, shapeIndexType,
+                                     targetType.getLayout());
     Value targetShape = rewriter.create<memref::AllocaOp>(loc, shapeType);
     SmallVector<Value> dimSizes;
     for (int i = 0; i < targetType.getRank(); ++i) {

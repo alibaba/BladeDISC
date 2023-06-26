@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s
 
 #map = affine_map<(d0, d1) -> (d1)>
 #map1 = affine_map<(d0, d1) -> (d0, d1)>
@@ -37,7 +37,7 @@ func.func @elemwise_fuse(%arg0: tensor<?x3072xf32>, %arg1: tensor<2xindex>, %arg
   return %6 : tensor<?x768xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
   %0 = transform.structured.match attributes {disc.transform.name = "dynamic_broadcast_in_dim"} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1 = transform.structured.match attributes {disc.transform.name = "subtract"} in %arg0 : (!pdl.operation) -> !pdl.operation

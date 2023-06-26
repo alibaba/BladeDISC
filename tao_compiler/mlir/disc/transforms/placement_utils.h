@@ -101,7 +101,7 @@ inline bool isMarkShapeCalcTargetOp(Operation* op) {
 
 // Returns a new memref type with provided memory space
 MemRefType copyWithMemorySpace(MLIRContext* ctx, MemRefType type,
-                               StringRef memory_space);
+                               Attribute memory_space);
 }  // namespace placement_utils
 }  // namespace mlir
 

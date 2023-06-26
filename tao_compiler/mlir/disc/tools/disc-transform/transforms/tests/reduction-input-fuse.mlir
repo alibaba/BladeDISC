@@ -39,7 +39,7 @@ func.func @test_reduction_input_fuse(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x?
 }
 
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
   %0 = transform.structured.match attributes {disc.transform.name = "fill"} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1 = transform.structured.match ops{["scf.for"]} in %arg0 : (!pdl.operation) -> !pdl.operation

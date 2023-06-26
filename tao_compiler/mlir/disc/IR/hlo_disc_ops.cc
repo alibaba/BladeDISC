@@ -146,7 +146,8 @@ LogicalResult FakeQuantOp::verify() { return QuantVerify(this); }
 
 LogicalResult QuantizeOp::verify() { return QuantVerify(this); }
 
-OpFoldResult QuantizeOp::fold(ArrayRef<Attribute> operands) {
+OpFoldResult QuantizeOp::fold(FoldAdaptor adaptor) {
+  auto operands = adaptor.getOperands();
   auto val = operands[0].dyn_cast_or_null<DenseElementsAttr>();
   if (!val) {
     return {};
@@ -513,9 +514,10 @@ LogicalResult ConvReifyReturnTypeImpl(
       dimension_numbers.getOutputFeatureDimension();
   shape_values[output_feature_dimension] = feature_dim;
 
-  Optional<DenseIntElementsAttr> window_strides_attr = op->getWindowStrides();
-  Optional<DenseIntElementsAttr> lhs_dilation_attr = op->getLhsDilation();
-  Optional<DenseIntElementsAttr> rhs_dilation_attr = op->getRhsDilation();
+  std::optional<DenseIntElementsAttr> window_strides_attr =
+      op->getWindowStrides();
+  std::optional<DenseIntElementsAttr> lhs_dilation_attr = op->getLhsDilation();
+  std::optional<DenseIntElementsAttr> rhs_dilation_attr = op->getRhsDilation();
 
   Value one =
       to_shape_scalar_type(builder.create<arith::ConstantIndexOp>(loc, 1));
@@ -526,7 +528,7 @@ LogicalResult ConvReifyReturnTypeImpl(
         to_shape_scalar_type(builder.create<tensor::DimOp>(
             loc, lhs, input_spatial_dimensions_attr[i]));
     // Dilation.
-    if (lhs_dilation_attr) {
+    if (lhs_dilation_attr.has_value()) {
       Value input_dilation =
           to_shape_scalar_type(builder.create<arith::ConstantIndexOp>(
               loc, lhs_dilation_attr.value().getValues<int64_t>()[i]));
@@ -552,7 +554,7 @@ LogicalResult ConvReifyReturnTypeImpl(
     Value effective_kernel_size_value =
         to_shape_scalar_type(builder.create<tensor::DimOp>(
             loc, rhs, kernel_spatial_dimensions_attr[i]));
-    if (rhs_dilation_attr) {
+    if (rhs_dilation_attr.has_value()) {
       Value kernel_dilation =
           to_shape_scalar_type(builder.create<arith::ConstantIndexOp>(
               loc, rhs_dilation_attr.value().getValues<int64_t>()[i]));
@@ -568,7 +570,7 @@ LogicalResult ConvReifyReturnTypeImpl(
     //     (effective_input_value - effective_kernel_size_value) / stride + 1
     Value output_dim_value = builder.create<arith::SubIOp>(
         loc, effective_input_value, effective_kernel_size_value);
-    if (window_strides_attr) {
+    if (window_strides_attr.has_value()) {
       Value stride_value =
           to_shape_scalar_type(builder.create<arith::ConstantIndexOp>(
               loc, window_strides_attr.value().getValues<int64_t>()[i]));

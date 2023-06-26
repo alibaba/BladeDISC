@@ -134,7 +134,7 @@ class FusionPlanner {
   }
 
   // Returns a fusion plan if success, otherwise none.
-  llvm::Optional<FusionPlan> Run() {
+  std::optional<FusionPlan> Run() {
     // Greedily search connected fusible pattern, and ops belonging to
     // a same fusion pattern are grouped into a cluster.
     for (auto& strategy : fusionPipeline_) {
@@ -144,7 +144,7 @@ class FusionPlanner {
       initFusionPatterns();
       RunEdgeContractionLoop();
       if (!RunFusionPatternFinalization()) {
-        return llvm::None;
+        return std::nullopt;
       }
       LLVM_DEBUG(dumpCluster());
     }
@@ -790,8 +790,8 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     int64_t fusion_pattern_number = 0;
     for (Block* block : blocks) {
       FusionPlanner planner(pipeline, block, shapeAnalysisPtr.get());
-      llvm::Optional<FusionPlan> plan = planner.Run();
-      if (!plan) {
+      std::optional<FusionPlan> plan = planner.Run();
+      if (!plan.has_value()) {
         emitError(func.getLoc(),
                   "an error occurs while trying to find fusion candidates");
         signalPassFailure();
@@ -881,18 +881,12 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
                       b.getStringAttr(pattern.getFusionTypeStr()));
       Operation* dominant = pattern.getDominantOp();
       Value result = cast<lmhlo::LmhloOp>(dominant).getResultBuffer();
-      auto memorySpaceAttr =
-          result.getType().cast<MemRefType>().getMemorySpace();
-      if (memorySpaceAttr && memorySpaceAttr.isa<StringAttr>()) {
-        auto memorySpaceStr = memorySpaceAttr.cast<StringAttr>().getValue();
-        if (memorySpaceStr == placement_utils::kCpu) {
-          fusion->setAttr(kDiscPlaceAssignment,
-                          b.getStringAttr(placement_utils::kCpu));
-        } else {
-          assert(memorySpaceStr == placement_utils::kGpu);
-          fusion->setAttr(kDiscPlaceAssignment,
-                          b.getStringAttr(placement_utils::kGpu));
-        }
+      if (!placement_utils::isGpuMemRef(result)) {
+        fusion->setAttr(kDiscPlaceAssignment,
+                        b.getStringAttr(placement_utils::kCpu));
+      } else {
+        fusion->setAttr(kDiscPlaceAssignment,
+                        b.getStringAttr(placement_utils::kGpu));
       }
       // Dump fusion op for debugging.
       if (disc_debug_max_fusion_number_ != INT_MIN) {
@@ -915,7 +909,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
  private:
   int64_t applied_fusion_numbers_ = 0;
   int64_t disc_debug_max_fusion_number_;
-};
+};  // namespace
 
 }  // namespace
 

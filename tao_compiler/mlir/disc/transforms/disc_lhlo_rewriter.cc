@@ -134,7 +134,7 @@ struct LhloConcatenateOpConverter
                                        device_ptr_alloc);
     // {inputs, input_ptr, out}
     ins.insert(ins.begin() + num_input_operands, device_ptr_alloc);
-    rewriter.create<lmhlo_disc::ConcatenateOp>(op->getLoc(), llvm::None, ins,
+    rewriter.create<lmhlo_disc::ConcatenateOp>(op->getLoc(), TypeRange{}, ins,
                                                op->getAttrs());
     rewriter.eraseOp(op);
     return success();

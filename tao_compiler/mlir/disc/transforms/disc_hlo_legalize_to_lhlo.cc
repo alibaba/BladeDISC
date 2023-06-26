@@ -70,7 +70,7 @@ Value InsertDynamicAlloc(Location loc, Value result, Value shape_operand,
 
   // Extract the required element out of the vector.
   SmallVector<Value, 4> dynamic_operands;
-  for (auto shape_element : llvm::enumerate(result_type.getShape())) {
+  for (const auto& shape_element : llvm::enumerate(result_type.getShape())) {
     if (shape_element.value() != ShapedType::kDynamic) continue;
     Value index =
         rewriter->create<arith::ConstantIndexOp>(loc, shape_element.index());
@@ -106,7 +106,7 @@ LogicalResult ConvertResults(Operation* op, SmallVectorImpl<Value>& results,
                              ConversionPatternRewriter& rewriter) {
   size_t num_operands = results.size();
   SmallVector<Value, 2> tensor_operands;
-  for (auto result : llvm::enumerate(op->getResults())) {
+  for (const auto& result : llvm::enumerate(op->getResults())) {
     RankedTensorType resultType =
         result.value().getType().dyn_cast<RankedTensorType>();
     if (!resultType) return failure();
@@ -153,7 +153,7 @@ class HloToLhloOpConverter : public BaseOpConversion<HloOpTy> {
     SmallVector<Value, 4> buffer_args(operands.begin(), operands.end());
     if (failed(ConvertResults(op, buffer_args, rewriter))) return failure();
     rewriter.create<mhlo_disc::HloToLhloOp<HloOpTy>>(
-        op->getLoc(), llvm::None, buffer_args, op->getAttrs());
+        op->getLoc(), TypeRange{}, buffer_args, op->getAttrs());
     rewriter.replaceOp(
         op, llvm::makeArrayRef(buffer_args).drop_front(operands.size()));
     return success();
@@ -171,7 +171,7 @@ struct HloToLhloArgsMutationOpConverter
     auto operands = adaptor.getOperands();
     SmallVector<Value, 4> buffer_args(operands.begin(), operands.end());
     auto lhloOp = rewriter.create<lmhlo_disc::ArgsMutationOp>(
-        op->getLoc(), llvm::None, buffer_args);
+        op->getLoc(), TypeRange{}, buffer_args);
     rewriter.replaceOp(op, ArrayRef<Value>(buffer_args));
     return success();
   }
@@ -190,7 +190,7 @@ struct HloToLhloCustomCallOpConverter : public BaseOpConversion<CustomCallOp> {
     if (failed(ConvertResults(op, buffer_args, rewriter))) return failure();
 
     auto lhloOp = rewriter.create<lmhlo_disc::CustomCallOp>(
-        op->getLoc(), llvm::None, buffer_args, op->getAttrs());
+        op->getLoc(), TypeRange{}, buffer_args, op->getAttrs());
     // Setup AttrSizedOperandSegments attribute to indicate number of operands
     // for args and outputs.
     const int32_t segments[2] = {static_cast<int32_t>(operands.size()),

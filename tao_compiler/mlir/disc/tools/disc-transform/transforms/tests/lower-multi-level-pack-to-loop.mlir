@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s
 
 // CHECK-LABEL: @multi_level_pack
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: index, %[[ARG2:.*]]: index)
@@ -10,8 +10,6 @@ func.func @multi_level_pack(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index) 
   // CHECK:   %[[T1:.*]] = scf.for %[[IV1:.*]] = %c0 to %[[DIM1]] step %c32 iter_args(%[[V1:.*]] = %[[V0]]) -> (tensor<?x?x32x32xf32>) {
   // CHECK:     %[[SLICE:.*]] = tensor.extract_slice %[[ARG0]]
   // CHECK-SAME: %[[IV0]], %[[IV1]]
-  // CHECK-SAME: 32, 32
-  // CHECK-SAME: 1, 1
   // CHECK:     %[[UPDATE:.*]] = tensor.insert_slice %[[SLICE]] into %[[V1]]
   // CHECK:     scf.yield %[[UPDATE]] : tensor<?x?x32x32xf32>
   // CHECK:   scf.yield %[[T1]] : tensor<?x?x32x32xf32>
@@ -21,7 +19,7 @@ func.func @multi_level_pack(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index) 
   return %1 : tensor<?x?x32x32xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   %pack_op = transform.structured.match ops{["disc_linalg_ext.multi_level_pack"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   transform.disc.lower_multi_level_pack_to_loop %pack_op
@@ -51,7 +49,7 @@ func.func @multi_level_pack_with_pad(%arg0: tensor<?x?xf32>, %arg1: index, %arg2
   return %1 : tensor<?x?x32x32xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   %pack_op = transform.structured.match ops{["disc_linalg_ext.multi_level_pack"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   transform.disc.lower_multi_level_pack_to_loop %pack_op
@@ -83,7 +81,7 @@ func.func @multi_level_pack_with_pad_2(%arg0: tensor<?x?xf32>, %arg1: index, %ar
   return %1 : tensor<?x?x32x1xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   %pack_op = transform.structured.match ops{["disc_linalg_ext.multi_level_pack"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   transform.disc.lower_multi_level_pack_to_loop %pack_op

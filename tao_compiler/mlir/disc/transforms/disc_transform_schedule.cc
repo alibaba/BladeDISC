@@ -19,7 +19,6 @@ limitations under the License.
 #include "iree-dialects/Dialect/LinalgExt/TransformOps/LinalgExtTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/LinalgTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
-#include "iree-dialects/Dialect/LinalgTransform/TransformInterpreterPassBase.h"
 #include "lhlo/IR/lhlo_ops.h"
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -32,6 +31,7 @@ limitations under the License.
 #include "mlir/Dialect/SCF/TransformOps/SCFTransformOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/Dialect/Transform/Transforms/TransformInterpreterPassBase.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/Vector/TransformOps/VectorTransformOps.h"
 #include "mlir/IR/Attributes.h"
@@ -88,9 +88,9 @@ bool PatternKindAndStringMapRegistrar = []() {
 using transform::FuseIntoContainingOp;
 using transform::FuseOp;
 using transform::MatchOp;
-using transform::SplitHandlesOp;
+using transform::SplitHandleOp;
 using transform::TileOp;
-using transform::TileToForeachThreadOp;
+using transform::TileToForallOp;
 using transform::VectorizeOp;
 
 MatchOp buildMatchOp(OpBuilder& b, Location& loc, Value target,
@@ -110,18 +110,18 @@ MatchOp buildMatchOp(OpBuilder& b, Location& loc, Value target,
                            TypeAttr{});
 }
 
-TileToForeachThreadOp buildTileToForEachThreadOp(OpBuilder& b, Location& loc,
-                                                 Value target,
-                                                 ArrayRef<int64_t> numThreads) {
+TileToForallOp buildTileToForallOp(OpBuilder& b, Location& loc, Value target,
+                                   ArrayRef<int64_t> numThreads) {
   auto pdlType = pdl::OperationType::get(b.getContext());
-  return b.create<TileToForeachThreadOp>(
-      loc, target, numThreads, transform::NumThreadsSpec(), ArrayAttr{});
+  return b.create<TileToForallOp>(loc, target, numThreads,
+                                  transform::NumThreadsSpec(), ArrayAttr{});
 }
 
-FuseIntoContainingOp buildFuseIntoContainingOp(OpBuilder& b, Location& loc,
-                                               Value target, Value anchor) {
+Value buildFuseIntoContainingOp(OpBuilder& b, Location& loc, Value target,
+                                Value anchor) {
   auto pdlType = pdl::OperationType::get(b.getContext());
-  return b.create<FuseIntoContainingOp>(loc, pdlType, target, anchor);
+  return b.create<FuseIntoContainingOp>(loc, pdlType, target, anchor)
+      .getFusedOp();
 }
 
 FuseOp buildFuseOp(OpBuilder& b, Location& loc, Value target,
@@ -174,7 +174,7 @@ transform::PadOp buildPadOp(OpBuilder& b, Location& loc, Value target,
   // TODO(wyzero): support other types.
   SmallVector<Attribute> paddingAttrs(numOperands,
                                       b.getZeroAttr(b.getF32Type()));
-  for (auto [idx, type] : llvm::enumerate(paddingTypes)) {
+  for (const auto& [idx, type] : llvm::enumerate(paddingTypes)) {
     paddingAttrs[idx] = b.getZeroAttr(type);
   }
   return b.create<transform::PadOp>(loc, pdlType, target,
@@ -239,11 +239,9 @@ transform_dialect::DISCLowerVectorsOp buildLowerVectors(
                                                          options);
 }
 
-SplitHandlesOp buildSplitHandlesOp(OpBuilder& b, Location& loc, Value target,
-                                   uint64_t num_result_handles) {
-  SmallVector<Type> pdlTypes(num_result_handles,
-                             pdl::OperationType::get(b.getContext()));
-  return b.create<SplitHandlesOp>(loc, pdlTypes, target, num_result_handles);
+SplitHandleOp buildSplitHandleOp(OpBuilder& b, Location& loc, Value target,
+                                 uint64_t num_result_handles) {
+  return b.create<SplitHandleOp>(loc, target, num_result_handles);
 }
 
 transform_dialect::InlineReductionInitializerOp
@@ -389,11 +387,12 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
   MLIRContext* ctx = m->getContext();
-  auto seqOp = b.create<transform_ext::CanonicalizedSequenceOp>(
-      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{});
+  auto pdlOpType = pdl::OperationType::get(ctx);
+  auto seqOp = b.create<transform::SequenceOp>(
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
+      [&](OpBuilder& b, Location loc, Value variantH) {});
   seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  auto pdlOpType = pdl::OperationType::get(ctx);
   bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
@@ -430,18 +429,18 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
 
   // build handle to target dot op.
   Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
-  auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
+  auto matmulSplitOp = buildSplitHandleOp(b, loc, fillAndMatmul, 2);
   Value fill = matmulSplitOp->getResult(0);
   Value matmul = matmulSplitOp->getResult(1);
 
-  // transform.structured.tile_to_foreach_thread_op %matmul num_threads [1, 1]
-  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, matmul, {1, 1});
-  Value forEachThreadLoop = forEachThreadOp->getResult(0);
-  Value tiledMatmul = forEachThreadOp->getResult(1);
+  // transform.structured.tile_to_forall_op %matmul num_threads [1, 1]
+  auto forallOp = buildTileToForallOp(b, loc, matmul, {1, 1});
+  Value forallLoop = forallOp->getResult(0);
+  Value tiledMatmul = forallOp->getResult(1);
 
   // transform.structured.fuse_into_containing_op %fill into %0#0
   auto fuseIntoContainingOp =
-      buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+      buildFuseIntoContainingOp(b, loc, fill, forallLoop);
 
   // first/second level tile size for dimension m
   int64_t M0 = 288, M1 = 6;
@@ -538,7 +537,7 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
                      (N == ShapedType::kDynamic || N > N1));
   if (packWeight) {
     bool weightIsPadded = nIsPadded || kIsPadded;
-    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    forallLoop = buildMatchOp(b, loc, variant, {"scf.forall"});
     SmallVector<int64_t> tileSizes;
     SmallVector<int64_t> permutation;
     if (rhsTranspose) {
@@ -548,7 +547,7 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
       tileSizes = {K0, N1};
       permutation = {2, 0, 1, 3};
     }
-    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+    buildCacheRead(b, loc, padForWeight, forallLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
 
@@ -597,11 +596,12 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
   MLIRContext* ctx = m->getContext();
-  auto seqOp = b.create<transform_ext::CanonicalizedSequenceOp>(
-      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{});
+  auto pdlOpType = pdl::OperationType::get(ctx);
+  auto seqOp = b.create<transform::SequenceOp>(
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
+      [&](OpBuilder& b, Location loc, Value variantH) {});
   seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  auto pdlOpType = pdl::OperationType::get(ctx);
   bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
@@ -655,16 +655,16 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
     rootHandle = buildMatchOp(b, loc, variant, {}, nameMap[rootOp]);
   }
 
-  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, rootHandle, {1, 1});
-  Value forEachThreadLoop = forEachThreadOp->getResult(0);
-  rootHandle = forEachThreadOp->getResult(1);
+  auto forallOp = buildTileToForallOp(b, loc, rootHandle, {1, 1});
+  Value forallLoop = forallOp->getResult(0);
+  rootHandle = forallOp->getResult(1);
 
   Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
-  auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
+  auto matmulSplitOp = buildSplitHandleOp(b, loc, fillAndMatmul, 2);
   Value fill = matmulSplitOp->getResult(0);
   Value matmul = matmulSplitOp->getResult(1);
-  matmul = buildFuseIntoContainingOp(b, loc, matmul, forEachThreadLoop);
-  fill = buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+  matmul = buildFuseIntoContainingOp(b, loc, matmul, forallLoop);
+  fill = buildFuseIntoContainingOp(b, loc, fill, forallLoop);
 
   // first/second level tile size for dimension m
   int64_t M0 = 288, M1 = 6;
@@ -787,7 +787,7 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
                      (N == ShapedType::kDynamic || N > N1));
   if (packWeight) {
     bool weightIsPadded = nIsPadded || kIsPadded;
-    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    forallLoop = buildMatchOp(b, loc, variant, {"scf.forall"});
     SmallVector<int64_t> tileSizes;
     SmallVector<int64_t> permutation;
     if (rhsTranspose) {
@@ -797,7 +797,7 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
       tileSizes = {K0, N1};
       permutation = {2, 0, 1, 3};
     }
-    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+    buildCacheRead(b, loc, padForWeight, forallLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
 
@@ -879,11 +879,12 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
   MLIRContext* ctx = m->getContext();
-  auto seqOp = b.create<transform_ext::CanonicalizedSequenceOp>(
-      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{});
+  auto pdlOpType = pdl::OperationType::get(ctx);
+  auto seqOp = b.create<transform::SequenceOp>(
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
+      [&](OpBuilder& b, Location loc, Value variantH) {});
   seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  auto pdlOpType = pdl::OperationType::get(ctx);
   bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
@@ -920,18 +921,18 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
 
   // build handle to target dot op.
   Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
-  auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
+  auto matmulSplitOp = buildSplitHandleOp(b, loc, fillAndMatmul, 2);
   Value fill = matmulSplitOp->getResult(0);
   Value matmul = matmulSplitOp->getResult(1);
 
-  // transform.structured.tile_to_foreach_thread_op %matmul num_threads [1, 1]
-  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, matmul, {1, 1});
-  Value forEachThreadLoop = forEachThreadOp->getResult(0);
-  Value tiledMatmul = forEachThreadOp->getResult(1);
+  // transform.structured.tile_to_forall_op %matmul num_threads [1, 1]
+  auto forallOp = buildTileToForallOp(b, loc, matmul, {1, 1});
+  Value forallLoop = forallOp->getResult(0);
+  Value tiledMatmul = forallOp->getResult(1);
 
   // transform.structured.fuse_into_containing_op %fill into %0#0
   auto fuseIntoContainingOp =
-      buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+      buildFuseIntoContainingOp(b, loc, fill, forallLoop);
 
   // first level tile size for dimension m
   int64_t M0 = 288, M1 = 8;
@@ -1026,7 +1027,7 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
                      (N == ShapedType::kDynamic || N > N1));
   if (packWeight) {
     bool weightIsPadded = nIsPadded || kIsPadded;
-    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    forallLoop = buildMatchOp(b, loc, variant, {"scf.forall"});
     SmallVector<int64_t> tileSizes;
     SmallVector<int64_t> permutation;
     if (rhsTranspose) {
@@ -1036,7 +1037,7 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
       tileSizes = {K1, N1};
       permutation = {2, 0, 1, 3};
     }
-    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+    buildCacheRead(b, loc, padForWeight, forallLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
 
@@ -1062,7 +1063,7 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
     auto loop0 = buildGetParentForOp(b, loc, contractOp, outterMostKLoopLevel);
     auto loop1 = buildGetParentForOp(b, loc, contractOp, 2);
     auto readers = buildMatchOp(b, loc, loop1, {"vector.transfer_read"});
-    auto splitedReaders = buildSplitHandlesOp(b, loc, readers, 3);
+    auto splitedReaders = buildSplitHandleOp(b, loc, readers, 3);
     buildInlineReductionInitializerOp(b, loc, leftFillOp, loop0,
                                       splitedReaders->getResult(0));
   }
@@ -1098,11 +1099,12 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
   MLIRContext* ctx = m->getContext();
-  auto seqOp = b.create<transform_ext::CanonicalizedSequenceOp>(
-      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{});
+  auto pdlOpType = pdl::OperationType::get(ctx);
+  auto seqOp = b.create<transform::SequenceOp>(
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
+      [&](OpBuilder& b, Location loc, Value variantH) {});
   seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  auto pdlOpType = pdl::OperationType::get(ctx);
   bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
@@ -1157,17 +1159,17 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   }
   rootHandle = buildLinalgEagerlyBackwardInitTensorOp(b, loc, rootHandle);
 
-  auto forEachThreadOp = buildTileToForEachThreadOp(b, loc, rootHandle, {1, 1});
-  Value forEachThreadLoop = forEachThreadOp->getResult(0);
-  rootHandle = forEachThreadOp->getResult(1);
+  auto forallOp = buildTileToForallOp(b, loc, rootHandle, {1, 1});
+  Value forallLoop = forallOp->getResult(0);
+  rootHandle = forallOp->getResult(1);
 
   // build handle to target dot op.
   Value fillAndMatmul = buildMatchOp(b, loc, variant, {}, nameMap[dotOp]);
-  auto matmulSplitOp = buildSplitHandlesOp(b, loc, fillAndMatmul, 2);
+  auto matmulSplitOp = buildSplitHandleOp(b, loc, fillAndMatmul, 2);
   Value fill = matmulSplitOp->getResult(0);
   Value matmul = matmulSplitOp->getResult(1);
-  matmul = buildFuseIntoContainingOp(b, loc, matmul, forEachThreadLoop);
-  fill = buildFuseIntoContainingOp(b, loc, fill, forEachThreadLoop);
+  matmul = buildFuseIntoContainingOp(b, loc, matmul, forallLoop);
+  fill = buildFuseIntoContainingOp(b, loc, fill, forallLoop);
 
   // first level tile size for dimension m
   int64_t M0 = 288, M1 = 8;
@@ -1311,7 +1313,7 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
                      (N == ShapedType::kDynamic || N > N1));
   if (packWeight) {
     bool weightIsPadded = nIsPadded || kIsPadded;
-    forEachThreadLoop = buildMatchOp(b, loc, variant, {"scf.foreach_thread"});
+    forallLoop = buildMatchOp(b, loc, variant, {"scf.forall"});
     SmallVector<int64_t> tileSizes;
     SmallVector<int64_t> permutation;
     if (rhsTranspose) {
@@ -1321,7 +1323,7 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
       tileSizes = {K1, N1};
       permutation = {2, 0, 1, 3};
     }
-    buildCacheRead(b, loc, padForWeight, forEachThreadLoop, {1, 1}, tileSizes,
+    buildCacheRead(b, loc, padForWeight, forallLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
 

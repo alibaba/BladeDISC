@@ -1,4 +1,4 @@
-// RUN: disc-opt %s -disc-function-dead-argument-elimination | FileCheck %s
+// RUN: disc-opt -split-input-file %s -disc-function-dead-argument-elimination | FileCheck %s
 
 // CHECK-LABEL: @main_kernel
 gpu.module @main_kernel {

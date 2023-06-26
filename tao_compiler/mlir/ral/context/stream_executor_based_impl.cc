@@ -27,6 +27,11 @@
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/core/util/env_var.h"
 
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 12) || TF_MAJOR_VERSION > 2
+// TF2.13 and later
+#include "tensorflow/core/kernels/numeric_options_utils.h"
+#endif
+
 #if TF_MAJOR_VERSION < 2 || (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION <= 8)
 #define TF_LE_2_8
 #endif
@@ -755,13 +760,85 @@ std::vector<ProfileResult> GetMIOpenAlgorithms(
 
 #else
 
-std::vector<AlgorithmDesc> GetAlgorithms(ConvolutionKind kind,
+std::vector<AlgorithmDesc> GetAlgorithms(CudnnConvParams& params,
                                          se::dnn::DataType input_dtype,
-                                         se::StreamExecutor* stream_exec) {
+                                         se::Stream* stream) {
+  ConvolutionKind kind = params.kind;
+  auto stream_exec = stream->parent();
   std::vector<AlgorithmDesc> algorithms;
   bool succ = false;
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6) || TF_MAJOR_VERSION > 2
-  // TF2.7 and later
+
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 12) || TF_MAJOR_VERSION > 2
+  // TF2.13 and later
+  // TODO: enable using cuDNN frontend by reading XLA config.
+  bool use_cudnn_front = false;
+  switch (kind) {
+    default:
+      assert(false && "Unsupported convolution kind.");
+    case se::dnn::ConvolutionKind::FORWARD_BIAS_ACTIVATION: {
+      std::vector<std::unique_ptr<const se::dnn::FusedConvRunner>> runners;
+      succ =
+          stream_exec
+              ->GetFusedConvolveRunners(
+                  use_cudnn_front,
+                  // This refers to the kind of convolution op inside the
+                  // fusion, not the whole fused graph.
+                  se::dnn::ConvolutionKind::FORWARD,
+                  /* input_type */ input_dtype, /* bias_type */ input_dtype,
+                  /* output_type */ input_dtype,
+                  /* conv_input_scale = */ params.scale,
+                  /* side_input_scale = */ (float)0.0,
+                  /* leakyrelu_alpha = */ 0.0, stream, params.input_descriptor,
+                  params.filter_descriptor, params.bias_descriptor,
+                  params.output_descriptor, params.convolution_descriptor,
+                  /* use_fallback */ false, se::dnn::ActivationMode::kNone,
+                  GetNumericOptions(), &runners)
+              .ok();
+      for (auto& runner : runners) {
+        auto desc = runner->ToAlgorithmDesc();
+        if (desc.ok()) {
+          algorithms.push_back(desc.value());
+        }
+      }
+      break;
+    }
+    case se::dnn::ConvolutionKind::FORWARD:
+    case se::dnn::ConvolutionKind::BACKWARD_DATA:
+    case se::dnn::ConvolutionKind::BACKWARD_FILTER: {
+      std::vector<std::unique_ptr<const se::dnn::ConvRunner>> runners;
+      // This path is cuDNN-only, where the DeviceMemoryBase arguments and the
+      // allocator are unused; so, they're all provided as nullptr.
+      succ = stream_exec
+                 ->GetConvolveRunners(
+                     use_cudnn_front, kind, /* input_type */ input_dtype,
+                     /* output_type */ input_dtype, stream,
+                     params.input_descriptor,
+                     /* input_data = */ DeviceMemoryBase(nullptr),
+                     params.filter_descriptor,
+                     /* filter_data = */ DeviceMemoryBase(nullptr),
+                     params.output_descriptor,
+                     /* output_data = */ DeviceMemoryBase(nullptr),
+                     params.convolution_descriptor,
+                     /* use_fallback */ false, nullptr, GetNumericOptions(),
+                     &runners)
+                 .ok();
+      if (!succ) {
+        LOG(FATAL) << "Failed to get convolve runners.\n";
+      }
+      for (auto& runner : runners) {
+        auto desc = runner->ToAlgorithmDesc();
+        if (desc.ok()) {
+          algorithms.push_back(desc.value());
+        }
+      }
+      break;
+    }
+  }
+#elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 7)
+  // TF2.8 and latter
+  succ = stream_exec->GetConvolveAlgorithms(kind, &algorithms);
+#elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6)
+  // TF2.7
   succ = stream_exec->GetConvolveAlgorithms(kind, input_dtype, &algorithms);
 #elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 5)
   // TF2.6
@@ -1206,6 +1283,7 @@ std::unique_ptr<CudnnConvParams> makeNewConvParams(
     return nullptr;
   }
 
+  // TODO: update the convolution kind.
   params.kind = ConvolutionKind::FORWARD;
   params.input_shape = key.input_shape;
   params.filter_shape = key.filter_shape;
@@ -1536,7 +1614,7 @@ bool PickBestAlgorithm(CudnnConvParams& params,
     params.workspace_size = profile_result.algorithm().workspace_size();
 #else
   for (const AlgorithmDesc& alg :
-       GetAlgorithms(params.kind, se::dnn::ToDataType<T>::value, stream_exec)) {
+       GetAlgorithms(params, se::dnn::ToDataType<T>::value, stream)) {
     params.algo_id = alg.algo_id();
     params.tensor_ops_enabled = alg.tensor_ops_enabled();
     se::dnn::ProfileResult profile_result;
@@ -1557,7 +1635,7 @@ bool PickBestAlgorithm(CudnnConvParams& params,
     } else {
       TAO_VLOG(2) << "Run of conv algorithm failed: "
                   << " profile_result valid = " << profile_result.is_valid()
-                  << ", err_msg = " << launch_status.error_message();
+                  << ", err_msg = " << launch_status.ToString();
     }
   }
   if (best_result.is_valid()) {
@@ -1738,8 +1816,7 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
       *params, operand_se_buffers, result_buffer, &scratch_allocator, stream,
       /*profile_result*/ nullptr);
   if (!launch_status.ok()) {
-    std::string err_msg =
-        "d_conv launch failed: " + launch_status.error_message();
+    std::string err_msg = "d_conv launch failed: " + launch_status.ToString();
     ctx->signalError(Context::FAILURE, err_msg);
   }
   return;
@@ -1858,8 +1935,7 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
       *params, operand_se_buffers, result_buffer, &scratch_allocator, stream,
       /*profile_result*/ nullptr);
   if (!launch_status.ok()) {
-    std::string err_msg =
-        "d_conv launch failed: " + launch_status.error_message();
+    std::string err_msg = "d_conv launch failed: " + launch_status.ToString();
     ctx->signalError(Context::FAILURE, err_msg);
   }
   return;

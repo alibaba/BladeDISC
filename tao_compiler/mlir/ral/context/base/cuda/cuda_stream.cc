@@ -30,7 +30,7 @@ void CUDAStream::Destroy() {
     tsl::Status status = se::gpu::GpuDriver::DestroyEvent(
         parent_->gpu_context(), &completed_event_);
     if (!status.ok()) {
-      LOG(ERROR) << status.error_message();
+      LOG(ERROR) << status.ToString();
     }
   }
 }

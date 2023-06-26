@@ -229,7 +229,7 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
     //   %d0 = tensor.dim %0, %c0, or %d0 is a constant
     //   %d1 = tensor.dim %0, %c1, or %d1 is a constant
     bool allDimMatch = true;
-    for (auto& en : llvm::enumerate(
+    for (const auto& en : llvm::enumerate(
              llvm::zip(operandTy.getShape(), op.getShapeDimIndexes()))) {
       int64_t idx = en.index();
       int64_t staticDim = std::get<0>(en.value());

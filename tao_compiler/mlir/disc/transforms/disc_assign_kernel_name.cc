@@ -52,7 +52,7 @@ struct AssignKernelNamePass
     getOperation().walk([&](LaunchFuncOp op) {
       if (!op->getParentOfType<FusionOp>()) launchOps.push_back(op);
     });
-    for (auto& en : llvm::enumerate(launchOps)) {
+    for (const auto& en : llvm::enumerate(launchOps)) {
       auto name = (llvm::Twine("gKernel_") + llvm::Twine(en.index()) +
                    llvm::Twine("_") + en.value().getKernelName().getValue())
                       .str();
@@ -69,7 +69,7 @@ LogicalResult AssignKernelNamePass::processFusionOp(FusionOp op) {
   op.getBody()->walk([&](LaunchFuncOp gpuOp) { gpuOps.push_back(gpuOp); });
 
   auto fusionName = getFusionFullName(op);
-  for (auto&& en : llvm::enumerate(gpuOps)) {
+  for (const auto&& en : llvm::enumerate(gpuOps)) {
     auto kernelName =
         (fusionName +
          (en.index() != 0 ? ("_" + llvm::Twine(en.index())) : llvm::Twine("")))

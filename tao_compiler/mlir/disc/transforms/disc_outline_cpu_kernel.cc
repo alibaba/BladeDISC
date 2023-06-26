@@ -301,15 +301,14 @@ LogicalResult rewriteLaunchOpSetting(scf::ParallelOp parallelOp,
   Location loc = parallelOp.getLoc();
   OpBuilder builder(parallelOp);
   int numIvs = parallelOp.getInductionVars().size();
-  auto launchSettingType = MemRefType::get(
-      {numIvs}, builder.getIndexType(), MemRefLayoutAttrInterface(),
-      StringAttr::get(parallelOp->getContext(), placement_utils::kCpu));
+  auto launchSettingType = MemRefType::get({numIvs}, builder.getIndexType(),
+                                           MemRefLayoutAttrInterface());
   Value lowerBound = builder.create<memref::AllocaOp>(loc, launchSettingType);
   Value upperBound = builder.create<memref::AllocaOp>(loc, launchSettingType);
   Value step = builder.create<memref::AllocaOp>(loc, launchSettingType);
-  for (auto&& en : llvm::enumerate(llvm::zip(parallelOp.getLowerBound(),
-                                             parallelOp.getUpperBound(),
-                                             parallelOp.getStep()))) {
+  for (const auto&& en : llvm::enumerate(llvm::zip(parallelOp.getLowerBound(),
+                                                   parallelOp.getUpperBound(),
+                                                   parallelOp.getStep()))) {
     Value idx = builder.create<arith::ConstantIndexOp>(loc, en.index());
     builder.create<memref::StoreOp>(loc, std::get<0>(en.value()), lowerBound,
                                     idx);
@@ -324,7 +323,7 @@ LogicalResult rewriteLaunchOpSetting(scf::ParallelOp parallelOp,
   // We use a scf::if op as the wrapper op. The pred of the if op is a constant
   // true.
   Value pred = builder.create<arith::ConstantIntOp>(loc, 1, 1);
-  scf::IfOp ifOp = builder.create<scf::IfOp>(loc, llvm::None, pred, false);
+  scf::IfOp ifOp = builder.create<scf::IfOp>(loc, TypeRange{}, pred, false);
   Block* thenBlock = &ifOp.getThenRegion().getBlocks().front();
   parallelOp->moveBefore(thenBlock, thenBlock->begin());
   targetOp = ifOp;
@@ -348,7 +347,7 @@ LogicalResult rewriteLaunchOpSetting(scf::ParallelOp parallelOp,
         loc, arith::CmpIPredicate::eq, stepVec.back(), one);
     stepAllOnes = builder.create<arith::AndIOp>(loc, stepAllOnes, stepIsOne);
   }
-  ifOp = builder.create<scf::IfOp>(loc, llvm::None, stepAllOnes, true);
+  ifOp = builder.create<scf::IfOp>(loc, TypeRange{}, stepAllOnes, true);
   if (failed(cloneAndMoveTo(builder, parallelOp, lowerBoundVec, upperBoundVec,
                             stepOneVec,
                             &ifOp.getThenRegion().getBlocks().front()))) {
@@ -400,7 +399,7 @@ LogicalResult DiscOutlineCpuKernel::processFunction(SymbolTable& symbolTable,
 
   // Insert just after the function.
   Block::iterator insertPt(func->getNextNode());
-  for (auto&& en : llvm::enumerate(parallelOps)) {
+  for (const auto&& en : llvm::enumerate(parallelOps)) {
     // operands for the outlined function.
     SmallVector<Value> operands;
     operands.push_back(func.getArgument(0));

@@ -57,6 +57,7 @@ cc_test(
         "utils_test.cpp"
     ],
     linkopts = [
+        "-lm",
         "-ldl",
     ],
     linkstatic = True,

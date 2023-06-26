@@ -37,7 +37,7 @@ func.func @elemwise_fuse(%arg0: tensor<?x3072xf32>, %arg1: tensor<2xindex>, %arg
   return %6 : tensor<?x768xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
   %arg1 = transform.disc.apply_patterns %arg0 {canonicalization}
   %0 = transform.structured.match attributes {disc.transform.name = "dynamic_broadcast_in_dim"} in %arg1 : (!pdl.operation) -> !pdl.operation

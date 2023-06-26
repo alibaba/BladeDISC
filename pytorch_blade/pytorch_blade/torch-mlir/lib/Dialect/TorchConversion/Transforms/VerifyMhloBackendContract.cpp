@@ -32,8 +32,8 @@
 
 #include "stablehlo/dialect/ChloOps.h"
 #include "torch-mlir/Conversion/MhloPasses.h"
-#include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Conversion/TorchToSCF/TorchToSCF.h"
+#include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"

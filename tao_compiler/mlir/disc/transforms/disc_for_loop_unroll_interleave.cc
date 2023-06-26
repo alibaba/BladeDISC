@@ -87,7 +87,7 @@ void assumeAlignmentOnGPU(Operation* op, int tile_size) {
 // Original loop:
 // %result = scf.for %arg0 = %0 to %1 step %c256 iter_args(%arg1 = %cst)
 //     -> (f32) {
-//   %3 = memref.load %2[%arg0] : memref<?xf32, "gpu">
+//   %3 = memref.load %2[%arg0] : memref<?xf32, #gpu.address_space<global>>
 //   %4 = arith.addf %arg1, %3: f32
 //   scf.yield %4 : f32
 // }
@@ -98,10 +98,10 @@ void assumeAlignmentOnGPU(Operation* op, int tile_size) {
 //   %3 = arith.addi %arg0, %c256
 //   %4 = arith.addi %arg0, %c512
 //   %5 = arith.addi %arg0, %c768
-//   %6 = memref.load %2[%arg0] : memref<?xf32, "gpu">
-//   %7 = memref.load %2[%3] : memref<?xf32, "gpu">
-//   %8 = memref.load %2[%4] : memref<?xf32, "gpu">
-//   %9 = memref.load %2[%5] : memref<?xf32, "gpu">
+//   %6 = memref.load %2[%arg0] : memref<?xf32, #gpu.address_space<global>>
+//   %7 = memref.load %2[%3] : memref<?xf32, #gpu.address_space<global>>
+//   %8 = memref.load %2[%4] : memref<?xf32, #gpu.address_space<global>>
+//   %9 = memref.load %2[%5] : memref<?xf32, #gpu.address_space<global>>
 //   %10 = arith.addf %arg1, %6: f32
 //   %11 = arith.addf %10, %7: f32
 //   %12 = arith.addf %11, %8: f32
@@ -110,7 +110,7 @@ void assumeAlignmentOnGPU(Operation* op, int tile_size) {
 // }
 // %result = scf.for %arg0 = %peeling to %1 step %c256
 //     iter_args(%arg1 = %result0) -> (f32) {
-//   %3 = memref.load %2[%arg0] : memref<?xf32, "gpu">
+//   %3 = memref.load %2[%arg0] : memref<?xf32, #gpu.address_space<global>>
 //   %4 = arith.addf %arg1, %3: f32
 //   scf.yield %4 : f32
 // }
@@ -126,7 +126,7 @@ struct ForLoopUnrollInterleave
       // Currently, it only unrolls and interleaves loops for kStitch and
       // kLoop fusion on GPU.
       // TODO: support more types of fusions.
-      if (!isOnGpu(op)) return;
+      if (!placement_utils::isGpuLmhlo(op)) return;
       if (isFusionType<FusionType::kStitch, FusionType::kLoop>(op)) {
         SmallVector<scf::ParallelOp, 2> innermostPloops;
         getInnermostParallelLoops(op, innermostPloops);

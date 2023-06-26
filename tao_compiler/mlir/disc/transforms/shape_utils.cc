@@ -305,8 +305,8 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
   auto extractLmhloValueOfDim = [&](Value valueOfDims, int64_t index,
                                     DimValue& dimValue) {
     // case 1: dimValues are built with alloc and store.
-    //     %0 = memref.alloc() : memref<3xi32, "cpu">
-    //     memref.store %1, %0[%c0] : memref<3xi32, "cpu">
+    //     %0 = memref.alloc() : memref<3xi32>
+    //     memref.store %1, %0[%c0] : memref<3xi32>
     // TODO: there may be more scenarios.
     for (auto user : valueOfDims.getUsers()) {
       if (auto store = dyn_cast_or_null<memref::StoreOp>(user)) {
@@ -351,7 +351,7 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
     return false;
   };
   auto getTensorDimValues = [&](Value value) {
-    llvm::Optional<SmallVector<DimValue>> result;
+    std::optional<SmallVector<DimValue>> result;
     auto op = value.getDefiningOp();
     if (auto from_elements = dyn_cast_or_null<tensor::FromElementsOp>(op)) {
       SmallVector<DimValue> dimValues;
@@ -536,7 +536,7 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
     } else if (auto reinterpret = dyn_cast<memref::ReinterpretCastOp>(*op)) {
       Value result = reinterpret.getResult();
       auto sizes = reinterpret.sizes();
-      for (auto en : llvm::enumerate(sizes)) {
+      for (const auto& en : llvm::enumerate(sizes)) {
         auto dimVal = DimValue(en.value());
         if (failed(buildDimValueMap(result, en.index(), dimVal))) {
           continue;
@@ -572,7 +572,7 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
         return WalkResult::advance();
       }
       Value result = op->getResult(0);
-      for (auto& val : llvm::enumerate(*dimValues)) {
+      for (const auto& val : llvm::enumerate(*dimValues)) {
         auto& dimVal = val.value();
         if (failed(buildDimValueMap(result, val.index(), dimVal))) {
           continue;
@@ -900,7 +900,7 @@ LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
   if (auto transpose = dyn_cast<mhlo::TransposeOp>(op)) {
     Value operand = op->getOperand(0);
     Value result = op->getResult(0);
-    for (auto& en :
+    for (const auto& en :
          llvm::enumerate(transpose.getPermutation().getValues<int64_t>())) {
       mapDimEqual(operand, en.value(), result, en.index());
     }
@@ -933,7 +933,7 @@ LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
     Value result = op->getResult(0);
     auto ty = operand.getType().dyn_cast<ShapedType>();
     assert(ty);
-    for (auto& dim : llvm::enumerate(
+    for (const auto& dim : llvm::enumerate(
              broadcast_in_dim.getBroadcastDimensions().getValues<int64_t>())) {
       // Deal with non-static & non-one dim.
       if (!ty.isDynamicDim(dim.index()) && ty.getDimSize(dim.index()) != 1) {
@@ -1092,7 +1092,7 @@ LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
       }
       remapped_offset_dims.push_back(i);
     }
-    for (auto offset : llvm::enumerate(offset_dims)) {
+    for (const auto& offset : llvm::enumerate(offset_dims)) {
       mapDimEqual(in, remapped_offset_dims[offset.index()], result,
                   offset.value());
     }
@@ -1122,7 +1122,7 @@ LogicalResult ShapeAnalysisDeprecated::applyLmhloOpConstraint(Operation* op) {
   if (auto transpose = dyn_cast<lmhlo::TransposeOp>(op)) {
     Value operand = op->getOperand(0);
     Value result = op->getOperand(1);
-    for (auto& en :
+    for (const auto& en :
          llvm::enumerate(transpose.getPermutation().getValues<int64_t>())) {
       mapDimEqual(operand, en.value(), result, en.index());
     }
@@ -1156,7 +1156,7 @@ LogicalResult ShapeAnalysisDeprecated::applyLmhloOpConstraint(Operation* op) {
     Value result = op->getOperand(2);
     auto ty = operand.getType().dyn_cast<ShapedType>();
     assert(ty);
-    for (auto& dim : llvm::enumerate(
+    for (const auto& dim : llvm::enumerate(
              broadcast_in_dim.getBroadcastDimensions().getValues<int64_t>())) {
       // Deal with non-static & non-one dim.
       if (!ty.isDynamicDim(dim.index()) && ty.getDimSize(dim.index()) != 1) {

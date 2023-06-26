@@ -195,7 +195,8 @@ LogicalResult DiscConstToRALPass::convertConstantOp(
   std::string symbol_name =
       ("__global_const_" + llvm::Twine(num_processing_const_ops_++)).str();
   Value const_name_global = LLVM::createGlobalString(
-      loc, builder, symbol_name, name, LLVM::Linkage::Internal);
+      loc, builder, symbol_name, name, LLVM::Linkage::Internal,
+      /*TODO:useOpaquePointers=*/false);
 
   ModuleOp m = getOperation();
   MLIRContext* ctx = m.getContext();

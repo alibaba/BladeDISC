@@ -92,7 +92,8 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 1 && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
-RUN wget -O /usr/local/bin/bazel http://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/bazel/bazel-5.1.1-linux-arm64
+# RUN wget -O /usr/local/bin/bazel http://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/bazel/bazel-5.1.1-linux-arm64
+RUN wget -O /usr/local/bin/bazel https://releases.bazel.build/6.1.0/release/bazel-6.1.0-linux-arm64
 
 RUN mkdir -p ~/.pip && \
     echo "[global]\nindex-url = https://mirrors.aliyun.com/pypi/simple/\n\n[install]\ntrusted-host=mirrors.aliyun.com\n" > ~/.pip/pip.conf

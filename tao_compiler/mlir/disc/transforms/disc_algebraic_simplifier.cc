@@ -205,7 +205,7 @@ struct IdentityBroadCastInDimOpCanonicalizationPattern
     // Try to check if the input and out have the same symbolic dim shape.
     auto fromSymbols = getRankedValueSymbolicDimRefs(op->getOperand(0));
     auto toSymbols = getRankedValueSymbolicDimRefs(op->getResult(0));
-    if (!fromSymbols || !toSymbols ||
+    if (!fromSymbols.has_value() || !toSymbols.has_value() ||
         (*fromSymbols).size() != (*toSymbols).size())
       return failure();
 
@@ -318,7 +318,8 @@ struct BroadCastInDimOfReshapeOpCanonicalizationPattern
       // shape.
       auto reshapeInputSymbols = getRankedValueSymbolicDimRefs(reshapeInput);
       auto reshapeOutSymbols = getRankedValueSymbolicDimRefs(reshapeOut);
-      if (!reshapeInputSymbols || !reshapeOutSymbols) return failure();
+      if (!reshapeInputSymbols.has_value() || !reshapeOutSymbols.has_value())
+        return failure();
 
       if (failed(tryToExtractDimMap(*reshapeInputSymbols, *reshapeOutSymbols,
                                     reshapeOutTy, dimMap))) {

@@ -1,4 +1,4 @@
-// RUN: disc-opt %s -disc-llvm-insert-value-simplifier | FileCheck %s
+// RUN: disc-opt -split-input-file %s -disc-llvm-insert-value-simplifier | FileCheck %s
 
 llvm.func @__nv_fabsf(f32) -> f32
 // CHECK-LABEL: @abs2D

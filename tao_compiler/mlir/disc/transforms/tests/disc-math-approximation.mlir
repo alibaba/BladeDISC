@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-math-approximation %s -o - | FileCheck %s
+// RUN: disc-opt -split-input-file -disc-math-approximation %s -o - | FileCheck %s
 
 // CHECK-LABEL: @exp
 func.func @exp(%arg0 : f32) -> f32 {

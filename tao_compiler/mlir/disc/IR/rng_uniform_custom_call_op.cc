@@ -113,7 +113,7 @@ LogicalResult lowerToLibraryCallImpl<RngUniformBackendConfig>(
       op.getLoc(), backend_config->seed2, 64));
   on_gpu = placement_utils::isGpuMemRef(op->getOperand(3));
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
-      op, llvm::None, ctx, newOperands, "ral_gpu_rng_uniform",
+      op, TypeRange{}, ctx, newOperands, "ral_gpu_rng_uniform",
       /*has_side_effect*/ false,
       /*backend_config*/ on_gpu ? "gpu" : "cpu");
   return success();

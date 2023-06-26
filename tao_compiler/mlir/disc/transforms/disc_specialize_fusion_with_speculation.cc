@@ -107,7 +107,7 @@ FusionOp cloneFusion(OpBuilder& b, FusionOp op,
       if (!ty || ty.hasStaticShape()) continue;
       if (ctx->valueMapping.lookupOrNull(operand)) continue;
       auto symbols = getMemRefValueSymbolicDimRefs(operand);
-      if (!symbols) continue;
+      if (!symbols.has_value()) continue;
       ctx->valueMapping.map(operand,
                             createViewLike(b, op.getLoc(), operand, operand));
       auto& symbolOps = ctx->value2Symbols[operand];
@@ -266,7 +266,7 @@ struct DiscSpecializeFusionWithSpeculationPass
 
     assert(!broadcast_ops.empty());
 
-    auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
+    auto if_op = b.create<scf::IfOp>(loc, TypeRange{}, pred, true);
     Block* then_block = &if_op.getThenRegion().getBlocks().front();
     Block* else_block = &if_op.getElseRegion().getBlocks().front();
     cloned.getOperation()->moveBefore(then_block, then_block->begin());
@@ -438,7 +438,7 @@ struct DiscSpecializeFusionWithSpeculationPass
                                      ref_size);
     }
 
-    auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
+    auto if_op = b.create<scf::IfOp>(loc, TypeRange{}, pred, true);
 
     auto first_schedule = b.getIntegerAttr(b.getIntegerType(32), 1);
     auto second_schedule = b.getIntegerAttr(b.getIntegerType(32), 2);
@@ -509,7 +509,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     //   2. row >= col
     Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
                                          row_size, col_size);
-    auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
+    auto if_op = b.create<scf::IfOp>(loc, TypeRange{}, pred, true);
 
     auto first_schedule =
         b.getIntegerAttr(b.getIntegerType(32), DISC_THREAD_TILE_H32);
@@ -665,7 +665,7 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
-    auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
+    auto if_op = b.create<scf::IfOp>(loc, TypeRange{}, pred, true);
 
     // Vectorization/tiling branch.
     auto vec_tile = b.getIntegerAttr(b.getIntegerType(32), vector_size);

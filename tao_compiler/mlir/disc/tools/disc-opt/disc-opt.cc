@@ -73,7 +73,6 @@ int main(int argc, char** argv) {
   mlir::disc_ral::disc_linalg_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
 
-  return failed(mlir::MlirOptMain(argc, argv, "MLIR HLO pass driver\n",
-                                  registry,
-                                  /*preloadDialectsInContext=*/false));
+  return failed(
+      mlir::MlirOptMain(argc, argv, "MLIR HLO pass driver\n", registry));
 }

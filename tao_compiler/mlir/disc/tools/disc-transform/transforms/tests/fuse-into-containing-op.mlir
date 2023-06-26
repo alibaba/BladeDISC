@@ -37,7 +37,7 @@ func.func @main(%arg0: tensor<?x3072xf32>, %arg1: tensor<?x768xf32>) -> tensor<?
   }
   return %4 : tensor<?x768xf32>
 }
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
   %0 = transform.structured.match ops{["scf.for"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1 = transform.structured.match ops{["linalg.matmul"]}  in %arg0 : (!pdl.operation) -> !pdl.operation

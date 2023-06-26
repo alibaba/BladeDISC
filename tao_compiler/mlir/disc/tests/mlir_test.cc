@@ -330,7 +330,7 @@ Status MlirTest::LoadGraph(const std::string& graph_file_name) {
   Status session_create_status = sess_->Create(graph_def);
   if (!session_create_status.ok()) {
     return Internal("Error: create session failed" +
-                    session_create_status.error_message());
+                    session_create_status.ToString());
   }
   return tsl::OkStatus();
 }

@@ -26,8 +26,6 @@ namespace mlir {
 using disc_ral::kDhloInputShapeAttr;
 using disc_ral::kDhloInputValueAttr;
 using placement_utils::kConst;
-using placement_utils::kCpu;
-using placement_utils::kGpu;
 using placement_utils::kInputPlacementAttr;
 
 namespace disc_ral {

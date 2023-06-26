@@ -18,6 +18,9 @@ limitations under the License.
 #include "mlir/Transforms/Passes.h"
 #include "mlir/disc/transforms/PassDetail.h"
 
+// This pass has the same function with 'createDiscCanonicalizerPass'. To
+// remove.
+
 namespace mlir {
 namespace disc_ral {
 

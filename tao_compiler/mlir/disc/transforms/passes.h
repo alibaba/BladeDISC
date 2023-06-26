@@ -176,7 +176,8 @@ std::unique_ptr<OperationPass<ModuleOp>> createDiscAssignKernelNamePass();
 
 // Lower GPU ops to NVVM ops. Deal with GenericAtomicRMW specifically.
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
-createDiscLowerGpuOpsToNVVMOpsPass(unsigned indexBitwidth = 0);
+createDiscLowerGpuOpsToNVVMOpsPass(unsigned indexBitwidth = 0,
+                                   bool hasRedux = false);
 
 // Lower GPU ops to ROCDL ops.
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>>

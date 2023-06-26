@@ -1,5 +1,5 @@
-// RUN: disc-opt -disc-element-type-converter=enable-fp16-conv=false %s | FileCheck %s --check-prefix=BASIC
-// RUN: disc-opt -disc-element-type-converter=enable-fp16-conv=true %s | FileCheck %s --check-prefix=FP16
+// RUN: disc-opt -split-input-file -disc-element-type-converter=enable-fp16-conv=false %s | FileCheck %s --check-prefix=BASIC
+// RUN: disc-opt -split-input-file -disc-element-type-converter=enable-fp16-conv=true %s | FileCheck %s --check-prefix=FP16
 
 
 // CHECK-LABEL: @dynamic_conv_fp32

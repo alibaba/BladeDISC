@@ -7,7 +7,9 @@
 // CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<f32>
+// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<f32>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         %[[T2:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x?x?xf32>
 // CHECK:         %[[T3:.*]] = arith.index_cast %[[T2]] : index to i32
 // CHECK:         %[[T4:.*]] = tensor.dim %[[ARG0]], %[[C1]] : tensor<?x?x?x?xf32>
@@ -43,7 +45,9 @@ func.func @torch.aten.sum.div.Scalar(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !t
 // CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK:         %[[T1:.*]] = mhlo.convert %[[ARG0]] : (tensor<?x?x?x?xi32>) -> tensor<?x?x?x?xf32>
-// CHECK:         %[[T2:.*]] = mhlo.reduce(%[[T1]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<f32>
+// CHECK:         %[[T2:.*]] = mhlo.reduce(%[[T1]] init: %[[T0]]) across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<f32>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         %[[T3:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x?x?xi32>
 // CHECK:         %[[T4:.*]] = arith.index_cast %[[T3]] : index to i32
 // CHECK:         %[[T5:.*]] = tensor.dim %[[ARG0]], %[[C1]] : tensor<?x?x?x?xi32>
@@ -74,7 +78,9 @@ func.func @torch.aten.sum.div.Scalar.si32(%arg0: !torch.vtensor<[?,?,?,?],si32>)
 // CHECK-LABEL:  func.func @torch.aten.sum.outf32(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xf32>) -> tensor<f32> {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<f32>
+// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<f32>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         return %[[T1]] : tensor<f32>
 func.func @torch.aten.sum.outf32(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtensor<[],f32> {
   %int6 = torch.constant.int 6
@@ -88,7 +94,9 @@ func.func @torch.aten.sum.outf32(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xf32>) -> tensor<f64> {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f64>
 // CHECK:         %[[T1:.*]] = mhlo.convert %[[ARG0]] : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf64>
-// CHECK:         %[[T2:.*]] = mhlo.reduce(%[[T1]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf64>, tensor<f64>) -> tensor<f64>
+// CHECK:         %[[T2:.*]] = mhlo.reduce(%[[T1]] init: %[[T0]]) across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf64>, tensor<f64>) -> tensor<f64>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         return %[[T2]] : tensor<f64>
 func.func @torch.aten.sum.outf64(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtensor<[],f64> {
   %int7 = torch.constant.int 7
@@ -101,7 +109,9 @@ func.func @torch.aten.sum.outf64(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch
 // CHECK-LABEL:  func.func @torch.aten.sum(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xf32>) -> tensor<f32> {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<f32>
+// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<f32>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         return %[[T1]] : tensor<f32>
 func.func @torch.aten.sum(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtensor<[],f32> {
   %none = torch.constant.none
@@ -114,7 +124,9 @@ func.func @torch.aten.sum(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtenso
 // CHECK-LABEL:  func.func @torch.aten.sum.f64(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xf64>) -> tensor<f64> {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f64>
-// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf64>, tensor<f64>) -> tensor<f64>
+// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf64>, tensor<f64>) -> tensor<f64>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         return %[[T1]] : tensor<f64>
 func.func @torch.aten.sum.f64(%arg0: !torch.vtensor<[?,?,?,?],f64>) -> !torch.vtensor<[],f64> {
   %none = torch.constant.none
@@ -127,7 +139,9 @@ func.func @torch.aten.sum.f64(%arg0: !torch.vtensor<[?,?,?,?],f64>) -> !torch.vt
 // CHECK-LABEL:  func.func @torch.aten.sum.si32(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xi32>) -> tensor<i32> {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0> : tensor<i32>
-// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xi32>, tensor<i32>) -> tensor<i32>
+// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xi32>, tensor<i32>) -> tensor<i32>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         return %[[T1]] : tensor<i32>
 func.func @torch.aten.sum.si32(%arg0: !torch.vtensor<[?,?,?,?],si32>) -> !torch.vtensor<[],si32> {
   %int3 = torch.constant.int 3
@@ -140,7 +154,9 @@ func.func @torch.aten.sum.si32(%arg0: !torch.vtensor<[?,?,?,?],si32>) -> !torch.
 // CHECK-LABEL:  func.func @torch.aten.sum.dim_IntList(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<2x?x?x?xf32>) -> tensor<2xf32> {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) applies mhlo.add across dimensions = [1, 2, 3] : (tensor<2x?x?x?xf32>, tensor<f32>) -> tensor<2xf32>
+// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) across dimensions = [1, 2, 3] : (tensor<2x?x?x?xf32>, tensor<f32>) -> tensor<2xf32>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         return %[[T1]] : tensor<2xf32>
 func.func @torch.aten.sum.dim_IntList(%arg0: !torch.vtensor<[2,?,?,?],f32>) -> !torch.vtensor<[2],f32> {
   %none = torch.constant.none
@@ -158,7 +174,9 @@ func.func @torch.aten.sum.dim_IntList(%arg0: !torch.vtensor<[2,?,?,?],f32>) -> !
 // CHECK-LABEL:  func.func @torch.aten.sum.dim_IntList.keepdim(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<2x?x224x?xf32>) -> tensor<2x1x224x1xf32> {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) applies mhlo.add across dimensions = [1, 3] : (tensor<2x?x224x?xf32>, tensor<f32>) -> tensor<2x224xf32>
+// CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) across dimensions = [1, 3] : (tensor<2x?x224x?xf32>, tensor<f32>) -> tensor<2x224xf32>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         %[[T2:.*]] = mhlo.reshape %[[T1]] : (tensor<2x224xf32>) -> tensor<2x1x224x1xf32>
 // CHECK:         return %[[T2]] : tensor<2x1x224x1xf32>
 func.func @torch.aten.sum.dim_IntList.keepdim(%arg0: !torch.vtensor<[2,?,224,?],f32>) -> !torch.vtensor<[2,1,224,1],f32> {

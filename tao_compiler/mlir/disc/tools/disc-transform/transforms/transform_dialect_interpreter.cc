@@ -13,7 +13,6 @@
 #include "iree-dialects/Dialect/LinalgExt/TransformOps/LinalgExtTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/LinalgTransformOps.h"
 #include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
-#include "iree-dialects/Dialect/LinalgTransform/TransformInterpreterPassBase.h"
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -23,6 +22,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/TransformOps/DialectExtension.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
@@ -34,6 +34,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/Dialect/Transform/Transforms/TransformInterpreterPassBase.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/IR/MLIRContext.h"
@@ -61,7 +62,7 @@ void addTransformDialectDependentDialects(DialectRegistry& registry) {
   // clang-format off
   registry.insert<
       arith::ArithDialect,
-      AffineDialect,
+      affine::AffineDialect,
       bufferization::BufferizationDialect,
       disc_ral::disc_linalg_ext::DISCLinalgExtDialect,
       iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,

@@ -14,7 +14,7 @@ func.func @fold_extracted_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: ind
   return %1 : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.apply_patterns %arg1 {canonicalization}
 }
@@ -36,7 +36,7 @@ func.func @full_selected_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: inde
   return %2 : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.apply_patterns %arg1 {canonicalization}
 }
@@ -60,7 +60,7 @@ func.func @self_assigned_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: inde
   return %3 : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.apply_patterns %arg1 {canonicalization}
 }
@@ -80,7 +80,7 @@ func.func @transfer_read_of_fill(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: in
   return %2 : vector<6x16xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.apply_patterns %arg1 {canonicalization}
 }
@@ -105,7 +105,7 @@ func.func @transfer_write_of_fill(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: i
   return %2 : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.apply_patterns %arg1 {canonicalization}
 }
@@ -123,7 +123,7 @@ func.func @fold_constant_wrapper_and_multi_level_pack() -> tensor<64x512x1x16xf3
   return %2 : tensor<64x512x1x16xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.apply_patterns %arg1 {canonicalization}
 }
@@ -145,7 +145,7 @@ func.func @FoldXferReadOfXferWriterWithSelectPattern(%pred: i1, %arg0: tensor<?x
   return %3 : vector<8x12xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.apply_patterns %arg1 {canonicalization}
 }

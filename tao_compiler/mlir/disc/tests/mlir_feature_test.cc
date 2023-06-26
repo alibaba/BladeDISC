@@ -139,7 +139,7 @@ bool feature_test_main(
       ReadFileToString(Env::Default(), mlir_file_path, &tf_code);
   if (!tf_code_status.ok()) {
     LOG(ERROR) << "failed to load mlir file from " << mlir_file_path << ": "
-               << tf_code_status.error_message();
+               << tf_code_status.ToString();
     return false;
   }
   LOG(INFO) << "Original TF code: " << tf_code;
@@ -165,7 +165,7 @@ bool feature_test_main(
                     profiling, multi_cc_mode, multi_cc_mode_dbg_ptx_only);
   auto status = test.Run();
   if (status != tsl::OkStatus()) {
-    VLOG(0) << "[[FAILED]]: " << status.error_message();
+    VLOG(0) << "[[FAILED]]: " << status.ToString();
   }
   return (status == tsl::OkStatus());
 }

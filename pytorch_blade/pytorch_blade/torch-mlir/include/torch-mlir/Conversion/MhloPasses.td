@@ -93,7 +93,8 @@ def DiscConvertTorchToDiscMhlo : Pass<"convert-torch-to-disc-mhlo", "func::FuncO
   }];
   let dependentDialects = [
     "mlir::mhlo_disc::MhloDiscDialect",
-    "mhlo::MhloDialect"
+    "mhlo::MhloDialect",
+    "stablehlo::StablehloDialect"
   ];
  let constructor = "mlir::torch::TorchConversion::createDiscConvertTorchToDiscMhlo()";
 }

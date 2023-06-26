@@ -47,7 +47,7 @@ mlir_tf_tools_dirs = [
     'tensorflow/compiler/mlir/lite',
     'tensorflow/compiler/mlir/tensorflow',
     'tensorflow/compiler/mlir/tfjs',
-    'tensorflow/compiler/mlir/xla',
+    'tensorflow/compiler/mlir/tf2xla',
     'tensorflow/compiler/mlir/tools/kernel_gen',
     'tensorflow/compiler/aot',
     'tensorflow/compiler/xla/service/mlir_gpu',

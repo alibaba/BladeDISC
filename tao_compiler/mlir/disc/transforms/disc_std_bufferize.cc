@@ -62,7 +62,7 @@ LogicalResult ConstantOpConverter::matchAndRewrite(
   DenseElementsAttr attr = op.getValue().cast<DenseElementsAttr>();
   MemRefType bufferType = MemRefType::get({resultType.getShape()}, elemType);
   Value result = rewriter.create<memref::AllocOp>(loc, bufferType);
-  for (auto&& en : llvm::enumerate(attr.getValues<llvm::APInt>())) {
+  for (const auto&& en : llvm::enumerate(attr.getValues<llvm::APInt>())) {
     Value idx = rewriter.create<arith::ConstantIndexOp>(loc, en.index());
     Value val =
         rewriter.create<arith::ConstantIndexOp>(loc, en.value().getSExtValue());

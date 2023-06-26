@@ -24,6 +24,7 @@
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Bufferization/IR/DstBufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
@@ -31,6 +32,8 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Tensor/Utils/Utils.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -53,6 +56,9 @@ namespace mlir {
 namespace disc_ral {
 namespace disc_linalg_ext {
 
+// The following util functions are mainly copied from IREE project. May remove
+// in the future.
+
 static void getEffectsImpl(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>&
         effects,
@@ -73,32 +79,6 @@ static void getEffectsImpl(
   }
 }
 
-Value getDimValue(OpBuilder& builder, Location loc, Value v, int64_t dim) {
-  return TypeSwitch<Type, Value>(v.getType())
-      .Case<RankedTensorType>([&](RankedTensorType t) -> Value {
-        return builder.create<tensor::DimOp>(loc, v, dim);
-      })
-      .Case<MemRefType>([&](MemRefType t) -> Value {
-        return builder.create<memref::DimOp>(loc, v, dim);
-      });
-}
-
-OpFoldResult getDim(OpBuilder& builder, Location loc, Value v, int64_t dim) {
-  auto t = v.getType().cast<ShapedType>();
-  if (t.isDynamicDim(dim)) {
-    return getDimValue(builder, loc, v, dim);
-  }
-  return builder.getI64IntegerAttr(t.getDimSize(dim));
-}
-
-SmallVector<OpFoldResult> getDims(OpBuilder& builder, Location loc,
-                                  Value shapedTypeValue) {
-  return llvm::to_vector(llvm::map_range(
-      llvm::seq<int64_t>(
-          0, shapedTypeValue.getType().cast<ShapedType>().getRank()),
-      [&](int64_t dim) { return getDim(builder, loc, shapedTypeValue, dim); }));
-}
-
 //===----------------------------------------------------------------------===//
 // PackOp
 //===----------------------------------------------------------------------===//
@@ -111,7 +91,7 @@ void MultiLevelPackOp::build(OpBuilder& builder, OperationState& state,
                              ArrayRef<int64_t> tileLevels,
                              ArrayRef<int64_t> tileSizes,
                              ArrayRef<int64_t> permutation,
-                             Optional<Value> paddingValue) {
+                             std::optional<Value> paddingValue) {
   SmallVector<int64_t> permutationVec;
   int64_t expectedResultRank =
       MultiLevelPackOp::getExpectedResultRank(tileLevels);
@@ -125,7 +105,7 @@ void MultiLevelPackOp::build(OpBuilder& builder, OperationState& state,
   build(builder, state, resultType, source, output,
         builder.getI64ArrayAttr(tileLevels), builder.getI64ArrayAttr(tileSizes),
         builder.getI64ArrayAttr(permutation),
-        (paddingValue ? paddingValue.value() : nullptr));
+        (paddingValue.has_value() ? paddingValue.value() : nullptr));
 }
 
 /* static */ ShapedType MultiLevelPackOp::getPackedType(
@@ -249,11 +229,11 @@ SmallVector<OpFoldResult> MultiLevelPackOp::getResultShape(
       OpFoldResult tileSize =
           const2IndexAttr(tileSizes[tileSizeIdx + localResultDimIdx - 1]);
       resultDims[resultDimIdx + localResultDimIdx] =
-          makeComposedFoldedAffineApply(builder, loc, ceilDivExpr,
-                                        {tileSize, lastTileSize});
+          affine::makeComposedFoldedAffineApply(builder, loc, ceilDivExpr,
+                                                {tileSize, lastTileSize});
       lastTileSize = tileSize;
     }
-    resultDims[resultDimIdx] = makeComposedFoldedAffineApply(
+    resultDims[resultDimIdx] = affine::makeComposedFoldedAffineApply(
         builder, loc, ceilDivExpr, {dimSize, lastTileSize});
     tileSizeIdx += level;
     resultDimIdx += 1 + level;
@@ -271,8 +251,8 @@ SmallVector<OpFoldResult> MultiLevelPackOp::getResultShape(OpBuilder& builder) {
   auto tileSizes = getTileSizesVec();
   auto permutation = getPermutationVec();
   return getResultShape(builder, getLoc(),
-                        getDims(builder, getLoc(), getInput()), tileLevels,
-                        tileSizes, permutation);
+                        tensor::createDimValues(builder, getLoc(), getInput()),
+                        tileLevels, tileSizes, permutation);
 }
 
 LogicalResult MultiLevelPackOp::reifyResultShapes(
@@ -280,28 +260,18 @@ LogicalResult MultiLevelPackOp::reifyResultShapes(
   OpBuilder::InsertionGuard g(builder);
   builder.setInsertionPoint(getOperation());
   reifiedReturnShapes.resize(1);
-  reifiedReturnShapes[0] = getValueOrCreateConstantIndexOp(
-      builder, getLoc(), getResultShape(builder));
+  reifiedReturnShapes[0] = getResultShape(builder);
   return success();
 }
 
-static SmallVector<uint64_t> delinearize(uint64_t idx,
-                                         ArrayRef<int64_t> shape) {
-  SmallVector<uint64_t> indices(shape.size());
-  for (int d = static_cast<int>(shape.size()) - 1; d >= 0; --d) {
-    indices[d] = idx % shape[d];
-    idx /= shape[d];
-  }
-  return indices;
-}
-
-LogicalResult MultiLevelPackOp::fold(ArrayRef<Attribute> operands,
+LogicalResult MultiLevelPackOp::fold(FoldAdaptor adaptor,
                                      SmallVectorImpl<OpFoldResult>& results) {
+  auto operands = adaptor.getOperands();
   if (operands.size() < 1 || !operands[0]) return failure();
   auto srcElemAtts = operands[0].dyn_cast<ElementsAttr>();
   if (!srcElemAtts) return failure();
 
-  auto srcTy = srcElemAtts.getType();
+  auto srcTy = dyn_cast<ShapedType>(srcElemAtts.getType());
   int srcRank = srcTy.getRank();
   auto dstTy = this->getOutputType();
   if (!dstTy.hasStaticShape()) return failure();
@@ -317,7 +287,8 @@ LogicalResult MultiLevelPackOp::fold(ArrayRef<Attribute> operands,
 
   SmallVector<Attribute> dstAttrs;
   for (uint64_t idx = 0; idx < dstTy.getNumElements(); ++idx) {
-    auto indices = delinearize(idx, dstTy.getShape());
+    auto indices =
+        mlir::delinearize(idx, mlir::computeStrides(dstTy.getShape()));
     SmallVector<uint64_t> srcIndices(srcRank, 0);
     for (int dstIdx = 0; dstIdx < dstRank; ++dstIdx) {
       int logicalIdx = permutationVec[dstIdx];
@@ -339,6 +310,8 @@ LogicalResult MultiLevelPackOp::fold(ArrayRef<Attribute> operands,
 //===----------------------------------------------------------------------===//
 // ConditionalGenericOp
 //===----------------------------------------------------------------------===//
+
+// TODO: remove this op in the future.
 
 /// Common parsing used for both named structured ops created by ods-gen and by
 /// manually defined C++ ops. Does not handle regions.
@@ -666,7 +639,7 @@ static SmallVector<Value> getIndicesForAccess(OpBuilder& b, Location loc,
   for (auto result : indexingMap.getResults()) {
     AffineMap m = AffineMap::get(indexingMap.getNumDims(),
                                  indexingMap.getNumSymbols(), result);
-    Value v = b.create<AffineApplyOp>(loc, m, ivs);
+    Value v = b.create<affine::AffineApplyOp>(loc, m, ivs);
     indices.push_back(v);
   }
   return indices;
@@ -703,9 +676,11 @@ static LogicalResult inlinePayload(OpBuilder& b, LinalgOp linalgOp,
 
 //===----------------------------------------------------------------------===//
 // External Model for implementing `TilingInterface` for `LinalgOp`s.
+// Mainly copied from LLVM community.
 //===----------------------------------------------------------------------===//
 
 namespace {
+
 /// External model implementation of TilingInterface for LinalgOps. An external
 /// model implementation is used for now till the use of `TilingInterface` is
 /// on-par with the current Linalg tiling + fusion patterns. Once it is
@@ -733,14 +708,14 @@ struct LinalgOpTilingInterface
 
     return llvm::to_vector(
         llvm::map_range(map.getResults(), [&](AffineExpr loopExpr) {
-          OpFoldResult ofr =
-              makeComposedFoldedAffineApply(b, loc, loopExpr, allShapesSizes);
+          OpFoldResult ofr = affine::makeComposedFoldedAffineApply(
+              b, loc, loopExpr, allShapesSizes);
           return Range{b.getIndexAttr(0), ofr, b.getIndexAttr(1)};
         }));
   }
 
   // Instantiate the tiled implementation of the operation.
-  SmallVector<Operation*> getTiledImplementation(
+  FailureOr<TilingResult> getTiledImplementation(
       Operation* op, OpBuilder& b, ArrayRef<OpFoldResult> offsets,
       ArrayRef<OpFoldResult> sizes) const {
     // Leave the `sizeBounds` value empty. That is only needed when the `sizes`
@@ -748,16 +723,16 @@ struct LinalgOpTilingInterface
     Location loc = op->getLoc();
     LinalgOp linalgOp = cast<LinalgOp>(op);
     SmallVector<Value> valuesToTile = linalgOp->getOperands();
-    SmallVector<Value, 4> tiledOperands = linalg::makeTiledShapes(
+    SmallVector<Value, 4> tiledOperands = makeTiledShapes(
         b, loc, linalgOp, valuesToTile, offsets, sizes, {}, true);
 
     SmallVector<Type> resultTensorTypes =
         getTensorOutputTypes(linalgOp, tiledOperands);
 
-    Operation* tiledOp = mlir::clone(b, op, resultTensorTypes, tiledOperands);
+    Operation* tiledOp = clone(b, linalgOp, resultTensorTypes, tiledOperands);
     offsetIndices(b, cast<LinalgOp>(tiledOp), offsets);
 
-    return {tiledOp};
+    return TilingResult{{tiledOp}, SmallVector<Value>(tiledOp->getResults())};
   }
 
   // Return the details of the output tile generated by the tiled
@@ -774,7 +749,7 @@ struct LinalgOpTilingInterface
     bindDims(b.getContext(), d0);
     SmallVector<OpFoldResult> subShapeSizes =
         llvm::to_vector(llvm::map_range(sizes, [&](OpFoldResult ofr) {
-          return makeComposedFoldedAffineApply(b, loc, d0 - 1, ofr);
+          return affine::makeComposedFoldedAffineApply(b, loc, d0 - 1, ofr);
         }));
 
     OpOperand* outOperand = linalgOp.getDpsInitOperand(resultNumber);
@@ -787,10 +762,9 @@ struct LinalgOpTilingInterface
     return success();
   }
 
-  FailureOr<Value> generateResultTileValue(Operation* op, OpBuilder& b,
-                                           unsigned resultNumber,
-                                           ArrayRef<OpFoldResult> offsets,
-                                           ArrayRef<OpFoldResult> sizes) const {
+  FailureOr<TilingResult> generateResultTileValue(
+      Operation* op, OpBuilder& b, unsigned resultNumber,
+      ArrayRef<OpFoldResult> offsets, ArrayRef<OpFoldResult> sizes) const {
     auto linalgOp = cast<LinalgOp>(op);
 
     // Check that the indexing map used for the output is a projected
@@ -819,17 +793,20 @@ struct LinalgOpTilingInterface
     }
     for (const auto& resultExpr : llvm::enumerate(indexingMap.getResults())) {
       unsigned dimPosition =
-          resultExpr.value().cast<AffineDimExpr>().getPosition();
+          resultExpr.value().template cast<AffineDimExpr>().getPosition();
       iterationTileOffsets[dimPosition] = offsets[resultExpr.index()];
       iterationTileSizes[dimPosition] = sizes[resultExpr.index()];
     }
 
-    SmallVector<Operation*> tiledOp = tilingInterfaceOp.getTiledImplementation(
-        b, iterationTileOffsets, iterationTileSizes);
-    if (tiledOp.size() != 1)
+    FailureOr<TilingResult> tilingResult =
+        tilingInterfaceOp.getTiledImplementation(b, iterationTileOffsets,
+                                                 iterationTileSizes);
+    if (tilingResult->tiledOps.size() != 1)
       return op->emitOpError("failed to generate tiled implementation");
 
-    return tiledOp[0]->getResult(resultNumber);
+    return TilingResult{
+        tilingResult->tiledOps,
+        SmallVector<Value>{tilingResult->tiledValues[resultNumber]}};
   }
 
   LogicalResult generateScalarImplementation(Operation* op, OpBuilder& builder,
@@ -880,6 +857,7 @@ void registerTilingInterfaceExternalModels(DialectRegistry& registry) {
 
 //===----------------------------------------------------------------------===//
 // External Model for implementing `BufferizableOpInterface` for `LinalgOp`s.
+// Mainly copied from LLVM community.
 //===----------------------------------------------------------------------===//
 
 namespace {
@@ -934,7 +912,7 @@ static LogicalResult bufferizeDestinationStyleOpInterface(
   // return anything.
   assert(op->getNumRegions() == 1 && "expected that op has 1 region");
   auto newOp = cast<DestinationStyleOpInterface>(cloneWithoutRegions(
-      rewriter, op, /*resultTypes=*/TypeRange{}, newOperands));
+      rewriter, op, /*newResultTypes=*/TypeRange{}, newOperands));
   rewriter.inlineRegionBefore(op->getRegion(0), newOp->getRegion(0),
                               newOp->getRegion(0).begin());
 
@@ -948,7 +926,7 @@ static LogicalResult bufferizeDestinationStyleOpInterface(
 /// operates entirely on memrefs.
 template <typename OpTy>
 struct LinalgOpInterface
-    : public bufferization::BufferizableOpInterface::ExternalModel<
+    : public bufferization::DstBufferizableOpInterfaceExternalModel<
           LinalgOpInterface<OpTy>, OpTy> {
   bool bufferizesToMemoryRead(Operation* op, OpOperand& opOperand,
                               const bufferization::AnalysisState& state) const {
@@ -960,35 +938,9 @@ struct LinalgOpInterface
   bool bufferizesToMemoryWrite(
       Operation* op, OpOperand& opOperand,
       const bufferization::AnalysisState& state) const {
-    // Operand is written to if it has an aliasing OpResult.
-    auto bufferizableOp = cast<bufferization::BufferizableOpInterface>(op);
-    return !bufferizableOp.getAliasingOpResults(opOperand, state).empty();
-  }
-
-  SmallVector<OpOperand*> getAliasingOpOperand(
-      Operation* op, OpResult opResult,
-      const bufferization::AnalysisState& state) const {
-    auto genericOp = cast<DestinationStyleOpInterface>(op);
-
-    // The i-th OpResult may alias with the i-th "out" tensor.
-    return {genericOp.getDpsInitOperand(opResult.getResultNumber())};
-  }
-
-  SmallVector<OpResult> getAliasingOpResults(
-      Operation* op, OpOperand& opOperand,
-      const bufferization::AnalysisState& state) const {
-    auto genericOp = cast<DestinationStyleOpInterface>(op);
-
-    // The i-th "out" tensor may alias with the i-th OpResult.
-    if (genericOp.isDpsInit(&opOperand))
-      return {genericOp.getTiedOpResult(&opOperand)};
-    return {};
-  }
-
-  bufferization::BufferRelation bufferRelation(
-      Operation* op, OpResult opResult,
-      const bufferization::AnalysisState& state) const {
-    return bufferization::BufferRelation::Equivalent;
+    // Operand is written to if it is not an input/init.
+    auto dpsOp = cast<DestinationStyleOpInterface>(op);
+    return dpsOp.isDpsInit(&opOperand);
   }
 
   LogicalResult bufferize(
@@ -1007,7 +959,6 @@ struct LinalgOpInterfaceHelper {
     (Ops::template attachInterface<LinalgOpInterface<Ops>>(*ctx), ...);
   }
 };
-
 }  // namespace
 
 void registerBufferizableOpInterfaceExternalModels(DialectRegistry& registry) {

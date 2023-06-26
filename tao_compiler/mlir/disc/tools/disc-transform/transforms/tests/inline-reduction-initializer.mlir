@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s
 
 
 // CHECK-LABEL: @inline_reduction_loop_initializer
@@ -41,11 +41,11 @@ func.func @inline_reduction_loop_initializer(%arg0: memref<?x?xf32>, %arg1: memr
   return %arg0: memref<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
   %fill = transform.structured.match ops{["linalg.fill"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   %readers = transform.structured.match ops{["vector.transfer_read"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-  %reader_for_output, %reader_for_input = split_handles %readers in [2] : (!pdl.operation) -> (!pdl.operation, !pdl.operation)
+  %reader_for_output, %reader_for_input = split_handle %readers : (!pdl.operation) -> (!pdl.operation, !pdl.operation)
   %loop = transform.loop.get_parent_for %reader_for_output {num_loops = 2 : i64} : (!pdl.operation) -> !pdl.operation
   transform.disc.inline_reduction_initializer %fill for reader %reader_for_output into loop %loop
 }

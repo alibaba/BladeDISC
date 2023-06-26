@@ -13,8 +13,8 @@ jobs:
     uses: ./.github/workflows/resuable_cpu_build.yml
     with:
       remote_runtime_docker: bladedisc:latest-runtime-torch1.8.1-cpu
-      develop_base_image: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu18.04
-      runtime_base_image: nvidia/cuda:11.1.1-cudnn8-runtime-ubuntu18.04
+      develop_base_image: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
+      runtime_base_image: nvidia/cuda:11.1.1-cudnn8-runtime-ubuntu20.04
       extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
         -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh

@@ -9,7 +9,7 @@ func.func @tensor.empty(%arg0 : index) -> tensor<?x?xf32> {
   return %0 : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.bufferize %arg1
 }
@@ -18,7 +18,7 @@ transform.structured.canonicalized_sequence failures(propagate) {
 
 // CHECK-LABEL: @use_alloca
 func.func @use_alloca() -> tensor<20x20xf32> {
-  // CHECK: %[[ALLOCA:.*]] = memref.alloca() : memref<10x10xf32>
+  // CHECK: %[[ALLOCA:.*]] = memref.alloca() {alignment = 64 : i64} : memref<10x10xf32>
   // CHECK: linalg.fill ins({{.*}}) outs(%[[ALLOCA]] : memref<10x10xf32>)
   // CHECK: %[[RET:.*]] = memref.alloc() {alignment = 64 : i64} : memref<20x20xf32>
   // CHECK-NOT: dealloc
@@ -36,7 +36,7 @@ func.func @use_alloca() -> tensor<20x20xf32> {
   return %2 : tensor<20x20xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.bufferize %arg1
 }
@@ -62,7 +62,7 @@ func.func @not_use_alloca_due_to_too_large() -> tensor<2000x2000xf32> {
   return %2 : tensor<2000x2000xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.bufferize %arg1
 }
@@ -88,7 +88,7 @@ func.func @not_use_alloca_due_to_dynamic_shape(%arg0: index) -> tensor<?x?xf32> 
   return %2 : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.bufferize %arg1
 }
@@ -104,7 +104,7 @@ func.func @bufferize_constant_wrapper() -> tensor<512x1024xf32> {
   return %0 : tensor<512x1024xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.bufferize %arg1
 }
@@ -132,7 +132,7 @@ func.func @bufferize_conditional_generic(
   return %out : tensor<8x12xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
+transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   transform.disc.bufferize %arg1
 }

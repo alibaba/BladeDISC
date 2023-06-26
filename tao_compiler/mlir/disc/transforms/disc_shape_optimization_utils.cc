@@ -249,7 +249,7 @@ SymbolicDimMgr::simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
   return std::make_pair(std::move(newLhs), std::move(newRhs));
 }
 
-llvm::Optional<SymbolicDimProduct> SymbolicDimMgr::symbolicDimProductDivide(
+std::optional<SymbolicDimProduct> SymbolicDimMgr::symbolicDimProductDivide(
     const SymbolicDimProduct& lhs, const SymbolicDimProduct& rhs) {
   LLVM_DEBUG(llvm::dbgs() << "Try to check if x % y == 0?\nx = " << lhs
                           << "y = " << rhs << "\n");
@@ -259,10 +259,10 @@ llvm::Optional<SymbolicDimProduct> SymbolicDimMgr::symbolicDimProductDivide(
                           << newLhs << "y = " << newRhs << "\n");
 
   // early return if any is zero.
-  if (newLhs.factor == 0 || newRhs.factor == 0) return {};
+  if (newLhs.factor == 0 || newRhs.factor == 0) return std::nullopt;
   // early return if the const factor is divisible.
-  if (newLhs.factor % newRhs.factor != 0) return {};
-  if (newLhs.symbols.size() < newRhs.symbols.size()) return {};
+  if (newLhs.factor % newRhs.factor != 0) return std::nullopt;
+  if (newLhs.symbols.size() < newRhs.symbols.size()) return std::nullopt;
 
   SymbolicDimProduct result;
   result.factor = newLhs.factor / newRhs.factor;
@@ -282,7 +282,7 @@ llvm::Optional<SymbolicDimProduct> SymbolicDimMgr::symbolicDimProductDivide(
     }
   }
 
-  if (!symProcMap.empty()) return {};
+  if (!symProcMap.empty()) return std::nullopt;
   LLVM_DEBUG(llvm::dbgs() << "x % y == 0\nx = " << newLhs << "y = " << newRhs
                           << "x / y = " << result << "\n");
   return result;
@@ -297,12 +297,12 @@ bool SymbolicDimMgr::isMultipleOfKnownSymbolicDimProductEqualPair(
   for (auto& pairOutter : productEqualityMap_) {
     SymbolicDimProduct& x = pairOutter.first;
     auto factorX = symbolicDimProductDivide(lhs, x);
-    if (!factorX) continue;
+    if (!factorX.has_value()) continue;
     for (auto& pairInner : pairOutter.second) {
       if (!pairInner.second) continue;
       SymbolicDimProduct& y = pairInner.first;
       auto factorY = symbolicDimProductDivide(rhs, y);
-      if (!factorY || factorX != factorY) continue;
+      if (!factorY.has_value() || factorX != factorY) continue;
       return true;
     }
   }
@@ -674,7 +674,7 @@ LogicalResult SymbolicDimMgr::saveShapeConstraintGraph() {
       if (!productEqualityMap_[x][y]) continue;
       auto lhsOperands = build_operands(x);
       auto rhsOperands = build_operands(y);
-      b.create<disc_shape::TieProductEqualOp>(loc, llvm::None, lhsOperands,
+      b.create<disc_shape::TieProductEqualOp>(loc, TypeRange{}, lhsOperands,
                                               rhsOperands);
     }
   }
@@ -810,7 +810,7 @@ LogicalResult SymbolicDimMgr::cloneSymbolGroup(
   return success();
 }
 
-llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
+std::optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
     Value value) {
   auto ty = value.getType().dyn_cast<RankedTensorType>();
   if (!ty) return {};
@@ -826,7 +826,7 @@ llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
   return symbols;
 }
 
-llvm::Optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
+std::optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
     Value value) {
   auto ty = value.getType().dyn_cast<MemRefType>();
   Operation* op = value.getDefiningOp();
@@ -936,10 +936,10 @@ SymbolicDimExpr::SymbolicDimExpr(Value sym)
 SymbolicDimExpr::SymbolicDimExpr(int64_t val, MLIRContext* context)
     : expr(getAffineConstantExpr(val, context)) {}
 
-llvm::Optional<int64_t> SymbolicDimExpr::getConstValue() {
+std::optional<int64_t> SymbolicDimExpr::getConstValue() {
   if (auto cstExpr = expr.dyn_cast<AffineConstantExpr>())
     return cstExpr.getValue();
-  return {};
+  return std::nullopt;
 }
 
 template <typename Combiner>
@@ -1180,10 +1180,10 @@ LogicalResult PadOpShapeHelper::save() {
   return success();
 }
 
-llvm::Optional<SmallVector<SymbolicDimOp>> getMemRefValueSymbolicDims(
+std::optional<SmallVector<SymbolicDimOp>> getMemRefValueSymbolicDims(
     SymbolicDimMgr& mgr, Value value) {
   auto dimAttrs = getMemRefValueSymbolicDimRefs(value);
-  if (!dimAttrs) return llvm::None;
+  if (!dimAttrs.has_value()) return std::nullopt;
 
   SmallVector<SymbolicDimOp> syms;
   for (auto& attr : *dimAttrs) {

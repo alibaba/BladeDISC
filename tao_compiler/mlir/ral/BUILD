@@ -353,6 +353,7 @@ cc_library(
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:stream_executor_headers_lib",
         "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core/kernels:numeric_options_utils",
     ]) + if_blade_gemm([
         ":disc_blade_gemm_deps",
     ]) + if_mkldnn([

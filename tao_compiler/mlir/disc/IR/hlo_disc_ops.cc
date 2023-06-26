@@ -1101,7 +1101,7 @@ LogicalResult WhereOp::verify() {
 }
 
 // ArgsMutationOp
-///////
+//===----------------------------------------------------------------------===//
 LogicalResult ArgsMutationOp::reifyReturnTypeShapes(
     OpBuilder& builder, ValueRange operands,
     SmallVectorImpl<Value>& reifiedReturnShapes) {

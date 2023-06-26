@@ -81,12 +81,9 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
     BOOL_VAR_FROM_CONST_OPERAND(useDynamic, 9);
     BOOL_VAR_FROM_CONST_OPERAND(usePerChannel, 10);
 #undef BOOL_VAR_FROM_CONST_OPERAND
-
-    auto torchMlirResultTy =
-        op.getResult(0).getType().dyn_cast<ValueTensorType>();
     auto resultTy = getTypeConverter()
-                        ->convertType(torchMlirResultTy)
-                        .dyn_cast<RankedTensorType>();
+                        ->convertType(op.getResult(0).getType())
+                        .template cast<RankedTensorType>();
     if (!resultTy) {
       return op.emitError("failed to get type of output");
     }

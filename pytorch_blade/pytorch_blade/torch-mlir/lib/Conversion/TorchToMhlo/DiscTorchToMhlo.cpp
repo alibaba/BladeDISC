@@ -766,10 +766,8 @@ LogicalResult ConvertAtenOp<AtenSizeIntOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   // Not a tensor type.
   auto selfType = adaptor.getSelf().getType().cast<RankedTensorType>();
-  if (!selfType) {
-    llvm::dbgs() << "AtenSizeIntOp, not a tensor type\n";
+  if (!selfType)
     return op.emitError("Only tensor types are currently supported");
-  }
 
   Value dim;
   int64_t dimInt;
@@ -780,10 +778,9 @@ LogicalResult ConvertAtenOp<AtenSizeIntOp>::matchAndRewrite(
     dim = rewriter.create<arith::IndexCastOp>(
         op.getLoc(), rewriter.getIndexType(), adaptor.getDim());
   }
-  auto input = adaptor.getOperands()[0];
 
   auto dimSize = rewriter.create<tensor::DimOp>(
-      op.getLoc(), rewriter.getIndexType(), input, dim);
+      op.getLoc(), rewriter.getIndexType(), adaptor.getSelf(), dim);
 
   rewriter.replaceOpWithNewOp<arith::IndexCastOp>(
       op, getTypeConverter()->convertType(op.getType()), dimSize);
@@ -1490,7 +1487,7 @@ LogicalResult ConvertAtenOp<OverwriteTensorContentsOp>::matchAndRewrite(
   overwriten = backtraceOperand<CopyToNonValueTensorOp>(overwriten);
   overwriten = rewriter.create<ToBuiltinTensorOp>(loc, overwriten);
   value = rewriter.create<ToBuiltinTensorOp>(loc, value);
-  rewriter.create<mhlo_disc::ArgsMutationOp>(loc, overwriten, value);
+  rewriter.replaceOpWithNewOp<mhlo_disc::ArgsMutationOp>(op, overwriten, value);
   return success();
 }
 } //  namespace

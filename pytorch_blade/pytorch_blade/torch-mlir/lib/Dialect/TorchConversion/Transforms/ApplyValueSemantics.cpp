@@ -47,28 +47,6 @@ static Type getContainerOrTensorTypeWithValueSemantics(Type type) {
   return nullptr;
 }
 
-class FixOverwritenTensorContentsOp
-    : public OpConversionPattern<OverwriteTensorContentsOp> {
- public:
-  using OpConversionPattern<OverwriteTensorContentsOp>::OpConversionPattern;
-  using OpAdaptor = typename OverwriteTensorContentsOp::Adaptor;
-  LogicalResult matchAndRewrite(
-      OverwriteTensorContentsOp op,
-      OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override {
-    auto loc = op.getLoc();
-    auto operands = adaptor.getOperands();
-    auto value = operands[0];
-    auto overwriten = operands[1];
-    auto nonValueTensor =
-        rewriter.create<CopyToNonValueTensorOp>(loc, overwriten);
-    overwriten = nonValueTensor.getResult();
-    op.setOperand(1, overwriten);
-    op.getOperation()->dump();
-    return success();
-  }
-};
-
 //  Greedily apply value-semantic tensors where possible to make the program
 //  more easier to convert by later passes (also, backends prefer value
 //  semantics as well).
@@ -103,7 +81,6 @@ class ApplyValueSemanticsPass
     deadOps.clear();
     func.walk([&](mlir::Operation* op) {
       if (isa<TensorStaticInfoCastOp>(op)) {
-        Value result = op->getResult(0);
         op->getResult(0).replaceAllUsesWith(op->getOpOperand(0).get());
         deadOps.push_back(op);
         return;
@@ -112,6 +89,7 @@ class ApplyValueSemanticsPass
     for (auto op : deadOps) {
       op->erase();
     }
+
     // fix NonValueTensor type operator
     func.walk([&](Operation* op) {
       if (isa<OverwriteTensorContentsOp>(op)) {
@@ -149,7 +127,6 @@ class ApplyValueSemanticsPass
     typeConverter.addConversion([](Type type) { return type; });
 
     RewritePatternSet patterns(context);
-    patterns.add<FixOverwritenTensorContentsOp>(typeConverter, context);
     if (failed(applyPartialConversion(func, target, std::move(patterns)))) {
       // We avoid `func.emitError()` so that mlir-print-op-on-diagnostics
       // doesn't unnecessarily spew out the entire module.

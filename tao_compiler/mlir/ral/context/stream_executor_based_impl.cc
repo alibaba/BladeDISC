@@ -1269,7 +1269,13 @@ class ScratchAllocator : public se::ScratchAllocator {
   // TODO: For now we just set a small threshold to ease this problem.
   // Revisit this for the performance degrade in more models.
   int64 GetMemoryLimitInBytesImpl() {
-    return 1LL << 28;  // 256M.
+    static int64 value;
+    static std::once_flag flag;
+    std::call_once(flag, [&]() {
+      TF_CHECK_OK(ReadInt64FromEnvVar("TAO_SCRATCH_ALLOC_LIMIT_BYTES",
+                                      1LL << 28, &value));
+    });
+    return value;
   }
 
  private:

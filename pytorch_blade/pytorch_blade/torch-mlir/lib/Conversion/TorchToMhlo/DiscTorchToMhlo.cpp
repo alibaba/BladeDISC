@@ -765,9 +765,11 @@ LogicalResult ConvertAtenOp<AtenSizeIntOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   // Not a tensor type.
-  auto selfType = adaptor.getSelf().getType().dyn_cast<TensorType>();
-  if (!selfType)
+  auto selfType = adaptor.getSelf().getType().cast<RankedTensorType>();
+  if (!selfType) {
+    llvm::dbgs() << "AtenSizeIntOp, not a tensor type\n";
     return op.emitError("Only tensor types are currently supported");
+  }
 
   Value dim;
   int64_t dimInt;
@@ -778,9 +780,10 @@ LogicalResult ConvertAtenOp<AtenSizeIntOp>::matchAndRewrite(
     dim = rewriter.create<arith::IndexCastOp>(
         op.getLoc(), rewriter.getIndexType(), adaptor.getDim());
   }
+  auto input = adaptor.getOperands()[0];
 
   auto dimSize = rewriter.create<tensor::DimOp>(
-      op.getLoc(), rewriter.getIndexType(), adaptor.getSelf(), dim);
+      op.getLoc(), rewriter.getIndexType(), input, dim);
 
   rewriter.replaceOpWithNewOp<arith::IndexCastOp>(
       op, getTypeConverter()->convertType(op.getType()), dimSize);
@@ -1466,6 +1469,33 @@ LogicalResult ConvertAtenOp<AtenConstantPadNdOp>::matchAndRewrite(
 } // namespace
 
 namespace {
+template <typename T>
+Value backtraceOperand(Value operand) {
+  auto op = operand.getDefiningOp();
+  if (op && mlir::isa<T>(op)) {
+    return op->getOperand(0);
+  }
+  return operand;
+}
+
+template <>
+LogicalResult ConvertAtenOp<OverwriteTensorContentsOp>::matchAndRewrite(
+    OverwriteTensorContentsOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto loc = op.getLoc();
+  auto operands = op.getOperands();
+  auto value = operands[0];
+  auto overwriten = operands[1];
+  overwriten = backtraceOperand<CopyToNonValueTensorOp>(overwriten);
+  overwriten = rewriter.create<ToBuiltinTensorOp>(loc, overwriten);
+  value = rewriter.create<ToBuiltinTensorOp>(loc, value);
+  rewriter.create<mhlo_disc::ArgsMutationOp>(loc, overwriten, value);
+  return success();
+}
+} //  namespace
+
+namespace {
 template <>
 LogicalResult ConvertAtenOp<AtenSqueezeDimOp>::matchAndRewrite(
     AtenSqueezeDimOp op,
@@ -1538,6 +1568,7 @@ class DiscConvertTorchToMhlo
     target.addLegalDialect<
         chlo::ChloDialect,
         mhlo::MhloDialect,
+        mhlo_disc::MhloDiscDialect,
         tensor::TensorDialect,
         arith::ArithDialect,
         Torch::TorchDialect>();
@@ -1618,6 +1649,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
     INSERT_ATENOP_PATTERN(AtenEmptyMemoryFormatOp);
     INSERT_ATENOP_PATTERN(AtenDropoutOp);
+    INSERT_ATENOP_PATTERN(TensorStaticInfoCastOp);
     INSERT_ATENOP_PATTERN(AtenFlipOp);
     INSERT_ATENOP_PATTERN(AtenUniformOp);
     INSERT_ATENOP_PATTERN(AtenTensorOp);
@@ -1630,6 +1662,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenSqueezeDimOp);
     INSERT_ATENOP_PATTERN(AtenNegIntOp);
     INSERT_ATENOP_PATTERN(AtenFillScalarOp);
+    INSERT_ATENOP_PATTERN(OverwriteTensorContentsOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \

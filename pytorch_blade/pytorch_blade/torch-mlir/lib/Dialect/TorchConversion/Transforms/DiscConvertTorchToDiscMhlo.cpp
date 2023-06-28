@@ -361,7 +361,7 @@ class DiscConvertTorchToDiscMhlo
 
     RewritePatternSet patterns(context);
     patterns.add<ConvertOperatorOp>(typeConverter, context);
-    patterns.add<ConvertArgsMutationOp>(typeConverter, context);
+    // patterns.add<ConvertArgsMutationOp>(typeConverter, context);
     target.addIllegalOp<OperatorOp>();
 
     if (failed(applyPartialConversion(

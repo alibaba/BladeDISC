@@ -17,9 +17,11 @@ import torch_blade
 import unittest
 from tests.disc.testing_base import skipTorchLE
 import torch_blade.clustering.support_fusion_group as fusion
+from tests.disc.testing_base import DiscTestCase
 
-class TestInputMutation(unittest.TestCase):
+class TestInputMutation(DiscTestCase):
     def setUp(self):
+        super().setUp()
         os.environ["TORCH_MHLO_OP_WHITE_LIST"] = "aten::copy_;aten::add"
 
     def tearDown(self):
@@ -33,8 +35,8 @@ class TestInputMutation(unittest.TestCase):
         
         with fusion.min_group_nodes(1):
             opt_func = torch.compile(backend='aot_disc')(func)
-            add = torch.randn(8, 64).cuda()
-            value = torch.randn(8, 64).cuda()
+            add = torch.randn(8, 64, device=self.device)
+            value = torch.randn(8, 64, device=self.device)
             actual = opt_func(add.clone(), value.clone())
             expect = func(add.clone(), value.clone())
             self.assertTrue(torch.allclose(actual.cpu(), expect.cpu()))

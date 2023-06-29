@@ -3,8 +3,6 @@ load("//bazel/tests:glob_lit_test.bzl", "glob_lit_tests")
 package(licenses = ["notice"])
 
 glob_lit_tests(
-    # TODO(yancey): should confirm the test is correct and necessary. 
-    exclude = ["ops.mlir"],
     data = [":test_utilities"],
     driver = "@llvm-project//mlir:run_lit.sh",
     test_file_exts = ["mlir"],

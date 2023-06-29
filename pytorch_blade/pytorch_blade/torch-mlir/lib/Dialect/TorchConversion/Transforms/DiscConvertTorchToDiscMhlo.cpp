@@ -313,35 +313,6 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
   }
 };
 
-class ConvertArgsMutationOp
-    : public OpConversionPattern<OverwriteTensorContentsOp> {
- public:
-  using OpConversionPattern<OverwriteTensorContentsOp>::OpConversionPattern;
-  using OpAdaptor = typename OverwriteTensorContentsOp::Adaptor;
-  LogicalResult matchAndRewrite(
-      OverwriteTensorContentsOp op,
-      OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override {
-    auto loc = op.getLoc();
-    auto operands = adaptor.getOperands();
-    auto value = operands[0];
-    auto overwriten = operands[1];
-    for (auto user : overwriten.getUsers()) {
-      if (isa<torch::Torch::CopyToValueTensorOp>(user)) {
-        overwriten = user->getResult(0);
-      }
-    }
-    for (auto user : overwriten.getUsers()) {
-      if (isa<TorchConversion::ToBuiltinTensorOp>(user)) {
-        overwriten = user->getResult(0);
-      }
-    }
-    rewriter.replaceOpWithNewOp<mhlo_disc::ArgsMutationOp>(
-        op, overwriten, value);
-    return success();
-  }
-};
-
 class DiscConvertTorchToDiscMhlo
     : public DiscConvertTorchToDiscMhloBase<DiscConvertTorchToDiscMhlo> {
   void runOnOperation() override {
@@ -361,7 +332,6 @@ class DiscConvertTorchToDiscMhlo
 
     RewritePatternSet patterns(context);
     patterns.add<ConvertOperatorOp>(typeConverter, context);
-    // patterns.add<ConvertArgsMutationOp>(typeConverter, context);
     target.addIllegalOp<OperatorOp>();
 
     if (failed(applyPartialConversion(

@@ -140,22 +140,9 @@ void set_tensor_shape(
     torch::jit::Value* val,
     const std::vector<int64_t>& dims) {
   auto tensor_type = val->type()->cast<c10::TensorType>();
-  // strides[dims.size() - 1] = 1;
-  // for (size_t i = dims.size() - 1; i > 0; --i) {
-  //  strides[i - 1] = strides[i] * dims[i];
-  //}
-  std::cout << "debug2" << std::endl;
-  if (tensor_type) {
-    val->setType(tensor_type->withSizes(dims));
-    // val->setType(c10::TensorType::create(
-    //    tensor_type->scalarType(),
-    //    tensor_type->device(),
-    //    VaryingShape<int64_t>(dims);
-    //    VaryingShape<int64_t>(strides),
-    //    tensor_type->requires_grad()));
-    return;
-  }
-  TORCH_CHECK(false, "input value should be tensor type");
+  if (!tensor_type)
+    TORCH_CHECK(false, "input value should be tensor type");
+  val->setType(tensor_type->withSizes(dims));
 }
 
 } // namespace blade

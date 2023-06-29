@@ -65,9 +65,7 @@ struct LhloArgsMutationOpRewriter
                                 PatternRewriter& rewriter) const override {
     auto op = lhloOp.getOperation();
     auto operands = op->getOperands();
-    auto in = operands[0];
-    auto out = operands[1];
-    out.replaceAllUsesWith(in);
+    operands[0].replaceAllUsesWith(operands[1]);
     rewriter.eraseOp(op);
     return success();
   }

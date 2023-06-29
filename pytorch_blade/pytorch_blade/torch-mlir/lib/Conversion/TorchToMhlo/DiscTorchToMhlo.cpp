@@ -1487,7 +1487,7 @@ LogicalResult ConvertAtenOp<OverwriteTensorContentsOp>::matchAndRewrite(
   overwriten = backtraceOperand<CopyToNonValueTensorOp>(overwriten);
   overwriten = rewriter.create<ToBuiltinTensorOp>(loc, overwriten);
   value = rewriter.create<ToBuiltinTensorOp>(loc, value);
-  rewriter.replaceOpWithNewOp<mhlo_disc::ArgsMutationOp>(op, overwriten, value);
+  rewriter.replaceOpWithNewOp<mhlo_disc::ArgsMutationOp>(op, value, overwriten);
   return success();
 }
 } //  namespace

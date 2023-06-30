@@ -734,18 +734,18 @@ Value createSharedMemory(OpBuilder& b, Location loc, int64_t size,
 // BLOCK TILE LOOP IMPL: block_x * block_y threads load block_x * block_y *
 // tile_h elements, each thread reduces tile_h elements from gmem to SHM(block_x
 // * block_y), do reduction in SHM and atomic to gmem var_tile_h = 64;
-// num_threads_col = 32; // blockDim.x
-// num_threads_row = 8; // blockDim.y
+// num_threads_col = 32;
+// num_threads_row = 8;
 // var_threads = num_threads_col * num_threads_row;
-// num_blocks_col = ceil(var_cols / num_threads_col); // gridDim.x
-// num_blocks_row = ceil(var_rows / (var_tile_h * num_threads_row)); //
+// num_blocks_col = ceil(var_cols / num_threads_col);
+// num_blocks_row = ceil(var_rows / (var_tile_h * num_threads_row));
 // gridDim.y var_blocks = num_blocks_col * num_blocks_row; for (m = 0; m <
 // var_blocks; ++m) {
 //   for (n = 0; n < var_threads; ++n) {
-//     block_col_index = m % num_blocks_col; // blockIdx.x
-//     block_row_index = m / num_blocks_col; // blockIdx.y
-//     thread_col_index = n % num_threads_col; // threadIdx.x
-//     thread_row_index = n / num_threads_col;  // threadIdx.y
+//     block_col_index = m % num_blocks_col;
+//     block_row_index = m / num_blocks_col;
+//     thread_col_index = n % num_threads_col;
+//     thread_row_index = n / num_threads_col;
 //     shm_trans_index = thread_col_index * num_threads_row + thread_row_index;
 //     col_index = block_col_index * num_threads_col + thread_col_index;
 //     is_col_valid = col_index < var_cols;
@@ -753,8 +753,9 @@ Value createSharedMemory(OpBuilder& b, Location loc, int64_t size,
 //       accum = init_value;
 //       for (int l = 0; l < var_tile_h; ++l) {
 //         row_index = (thread_row_index  + block_row_index * num_threads_row) *
-//         var_tile_h + l; is_row_valid = row_index < var_rows; if
-//         (is_row_valid) {
+//         var_tile_h + l;
+//         is_row_valid = row_index < var_rows;
+//         if(is_row_valid) {
 //           accum = accum + global[row_index, col_index];
 //         } else {
 //           accum = accum;
@@ -794,47 +795,30 @@ LogicalResult lowerWithScheduleColReductionTileH(
       [](Operation* operation) { return isRank2ColReduction(operation); });
 
   Value lhs = *dominant_op->getOperands().begin();
-  // const int kThreads_col = THREADS_COL;  // 32
-  // const int kThreads_row = THREADS_ROW;  // 8
-  // const int kTileH = TILE_H;        // 64
-  // const int kTileRow = kThreads_row * TILE_H; //512
-  // const int kThreads = kThreads_col * kThreads_row; //256
-  const int kThreads_col = 32;  // 32
-  const int kThreads_row = 8;   // 8
-  const int kTileH = 64;        // 64
-  const int kTileRow = 512;     // 512
-  const int kThreads = 256;     // 256
+  const int kThreads_col = THREADS_COL;              // 32
+  const int kThreads_row = THREADS_ROW;              // 8
+  const int kTileH = TILE_H;                         // 64
+  const int kTileRow = kThreads_row * TILE_H;        // 512
+  const int kThreads = kThreads_col * kThreads_row;  // 256
 
   Location loc = dominant_op->getLoc();
   OpBuilder b(root_ops.back());
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   Value one = b.create<arith::ConstantIndexOp>(loc, 1);
-  Value var_rows = b.create<memref::DimOp>(loc, lhs, zero);  // 110
-  Value var_cols = b.create<memref::DimOp>(loc, lhs, one);   // 1300
+  Value var_rows = b.create<memref::DimOp>(loc, lhs, zero);
+  Value var_cols = b.create<memref::DimOp>(loc, lhs, one);
   // Start to emit.
 
-  // num_threads_col = 32; // blockDim.x
-  // num_threads_row = 8; // blockDim.y
-  // var_threads = num_threads_col * num_threads_row;
-  // num_blocks_col = ceil(var_cols / num_threads_col); // gridDim.x
-  // num_blocks_row = ceil(var_rows / (var_tile_h * num_threads_row)); //
-  // gridDim.y var_blocks = num_blocks_col * num_blocks_row;
-  Value num_threads_col =  // 32
-      b.create<arith::ConstantIndexOp>(loc, kThreads_col);
-  Value num_threads_row =  // 8
-      b.create<arith::ConstantIndexOp>(loc, kThreads_row);
-  Value var_tile_h =  // 64
-      b.create<arith::ConstantIndexOp>(loc, kTileH);
+  Value num_threads_col = b.create<arith::ConstantIndexOp>(loc, kThreads_col);
+  Value num_threads_row = b.create<arith::ConstantIndexOp>(loc, kThreads_row);
+  Value var_tile_h = b.create<arith::ConstantIndexOp>(loc, kTileH);
   Value num_tile_row = b.create<arith::ConstantIndexOp>(loc, kTileRow);
-  Value var_threads =  // 256
-      b.create<arith::ConstantIndexOp>(loc, kThreads);
-  Value num_blocks_col =  // 1300/32=41
+  Value var_threads = b.create<arith::ConstantIndexOp>(loc, kThreads);
+  Value num_blocks_col =
       b.create<arith::CeilDivUIOp>(loc, var_cols, num_threads_col);
-  // Value num_tile_row = //64*8=512
-  //     b.create<arith::MulIOp>(loc, var_tile_h, num_threads_row);
-  Value num_blocks_row =  // 110/512=1
+  Value num_blocks_row =
       b.create<arith::CeilDivUIOp>(loc, var_rows, num_tile_row);
-  Value var_blocks =  // 41*1=41
+  Value var_blocks =
       b.create<arith::MulIOp>(loc, num_blocks_col, num_blocks_row);
 
   // for (m = 0; m < var_blocks; ++m) {
@@ -863,8 +847,8 @@ LogicalResult lowerWithScheduleColReductionTileH(
   }
   // block_row_index = m / num_blocks_col;
   // block_col_index = m % num_blocks_col;
-  // thread_col_index = n % num_threads_col; // threadIdx.x
-  // thread_row_index = n / num_threads_col;  // threadIdx.y
+  // thread_col_index = n % num_threads_col;
+  // thread_row_index = n / num_threads_col;
   // shm_trans_index = thread_col_index * num_threads_row + thread_row_index;
   // col_index = block_col_index * num_threads_col + thread_col_index;
   Value block_row_index = b.create<arith::DivUIOp>(loc, var_m, num_blocks_col);
@@ -890,7 +874,6 @@ LogicalResult lowerWithScheduleColReductionTileH(
     shared_mem_map[root_op] = shared_mem;
   }
 
-  // is_col_valid = col_index < var_cols;
   Value is_lt_cols = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ult,
                                              col_index, var_cols);
   scf::IfOp if_col_valid_op =
@@ -898,8 +881,8 @@ LogicalResult lowerWithScheduleColReductionTileH(
                           /*hasElseRegion*/ true);
   if_col_valid_op.getThenRegion().front().clear();
   if_col_valid_op.getElseRegion().front().clear();
-  //     if (is_col_valid) {
   b.setInsertionPointToStart(&if_col_valid_op.getThenRegion().front());
+  //     if (is_col_valid) {
   //       for (int l = 0; l < var_tile_h; ++l) {
   //         row_index = (thread_row_index + block_row_index * num_threads_row)
   //         * var_tile_h + l; is_row_valid = row_index < var_rows; if
@@ -943,12 +926,6 @@ LogicalResult lowerWithScheduleColReductionTileH(
           loc, &b, root_op, *lhs, load_index, b.saveInsertionPoint());
       auto acc = (accum_factory[col_red_root_op_idx])(
           *(for_op_l.getRegionIterArgs().begin() + col_red_root_op_idx), data);
-      // Operation* map_op = getMapOpInReduceRegion(root_op);
-      // assert(map_op && "not supported reduce");
-      // auto acc = emitReduceMapOp(
-      //     b, loc, map_op,
-      //     *(for_op_l.getRegionIterArgs().begin() + col_red_root_op_idx),
-      //     data);
       yield_values_for_if.push_back(acc);
       col_red_root_op_idx++;
     } else if (isRank2RowReduction(root_op)) {
@@ -1068,6 +1045,7 @@ LogicalResult lowerWithScheduleColReductionTileH(
 
   // remove the root_op if it has no other users except the memref
   cleanUnusedLhloOps(parent);
+
   return success();
 }
 
@@ -4215,11 +4193,15 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
         // } else if (col_reduction_schedule == DISC_TILE_LOOP_W8_H8) {
         //   r = lowerWithScheduleColReductionForRocm<8, 8>(
         //       root_ops, dominant_op, fused_block, loop, core_count);
-      } else {
+      } else if (col_reduction_schedule == DISC_FLAT) {
+        r = lowerWithScheduleColReduction<512, 32>(root_ops, dominant_op,
+                                                   fused_block);
+      } else if (col_reduction_schedule == DISC_THIN) {
         r = lowerWithScheduleColReductionTileH<32, 8, 64>(root_ops, dominant_op,
                                                           fused_block);
-        // r = lowerWithScheduleColReduction<512, 32>(
-        //     root_ops, dominant_op,fused_block);
+      } else {
+        r = lowerWithScheduleColReduction<512, 32>(root_ops, dominant_op,
+                                                   fused_block);
       }
       if (failed(r)) {
         return dominant_op->emitError()

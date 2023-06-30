@@ -26,6 +26,7 @@ cmake(
         "CMAKE_CXX_COMPILER": cxx_bin_path(),
         "USE_TVM": blade_gemm_tvm(),
         "ROCM_PATH": blade_gemm_rocm_path(),
+        "BUILD_ATTENTION_BWD": "ON",
     },
     env = {
         "CC": cc_bin_path(),

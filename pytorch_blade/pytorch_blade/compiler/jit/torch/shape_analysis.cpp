@@ -1060,6 +1060,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::alias(Tensor self) -> Tensor",
             "aten::zero_(Tensor self) -> Tensor",
             "aten::tanh_backward(Tensor grad_output, Tensor output) -> Tensor",
+            "aten::copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)",
 #ifdef TORCH_BLADE_BUILD_QUANTIZATION
             "torch_blade::fake_quant(Tensor _0, Tensor _1, Tensor _2, int _3, int _4, int _5, int[] _6, bool _7, bool _8, bool _9, bool _10) -> Tensor",
             "torch_blade::placeholder(Tensor _0) -> (Tensor _0)",
@@ -2725,6 +2726,8 @@ class ShapePropagator : public PropertyPropBase {
           int64_t end = endOptional.value() != c10::nullopt
               ? node->get<int64_t>(attr::end).value()
               : INT64_MAX;
+          start =
+              at::maybe_wrap_dim(start, new_sizes[dim].static_size(), false);
           int64_t step = node->get<int64_t>(attr::step).value();
           if (end >= new_sizes[dim].static_size())
             end = new_sizes[dim].static_size();

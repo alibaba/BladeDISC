@@ -160,6 +160,23 @@ class HloToLhloOpConverter : public BaseOpConversion<HloOpTy> {
   }
 };
 
+struct HloToLhloArgsMutationOpConverter
+    : public BaseOpConversion<ArgsMutationOp> {
+ public:
+  using BaseOpConversion<ArgsMutationOp>::BaseOpConversion;
+  LogicalResult matchAndRewrite(
+      ArgsMutationOp hloOp, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    Operation* op = hloOp.getOperation();
+    auto operands = adaptor.getOperands();
+    SmallVector<Value, 4> buffer_args(operands.begin(), operands.end());
+    auto lhloOp = rewriter.create<lmhlo_disc::ArgsMutationOp>(
+        op->getLoc(), llvm::None, buffer_args);
+    rewriter.replaceOp(op, ArrayRef<Value>(buffer_args));
+    return success();
+  }
+};
+
 struct HloToLhloCustomCallOpConverter : public BaseOpConversion<CustomCallOp> {
  public:
   using BaseOpConversion<CustomCallOp>::BaseOpConversion;
@@ -256,6 +273,7 @@ struct DiscHloLegalizeToLhlo
                            tensor::TensorDialect, lmhlo::LmhloDialect>();
     target.addIllegalDialect<mhlo_disc::MhloDiscDialect>();
     target.addIllegalOp<disc_shape::TieShapeOp>();
+    target.addIllegalOp<mhlo_disc::ArgsMutationOp>();
 
     bufferization::BufferizeTypeConverter converter;
     populateDiscHLOToLHLOConversionPattern(&context, &converter, &patterns);
@@ -281,6 +299,7 @@ void populateDiscHLOToLHLOConversionPattern(
       HloToLhloOpConverter<mhlo_disc::SparseSegmentReductionOp>,
       HloToLhloOpConverter<mhlo_disc::SparseSegmentReductionWithEmptyRowsOp>,
       HloToLhloOpConverter<mhlo_disc::WhereOp>,
+      HloToLhloArgsMutationOpConverter,
       HloToLhloCustomCallOpConverter,
       HloToLhloCustomCallOpV2Converter,
       TieShapeOpConverter

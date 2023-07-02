@@ -43,7 +43,6 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   ::mlir::torch::Torch::TorchLoweringPipelineOptions funcOptions;
   funcOptions.decompose = false;
   ::mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(pm, funcOptions);
-
   // Apply pdl pattern match
   std::string disc_torch_pdl_files;
   std::string disc_torch_pdll_include_dirs;

@@ -54,6 +54,7 @@ class ApplyValueSemanticsPass
     : public TorchConversion::ApplyValueSemanticsBase<ApplyValueSemanticsPass> {
   void runOnOperation() override {
     MLIRContext* context = &getContext();
+    mlir::OpBuilder rewriter(context);
     auto func = getOperation();
 
     SmallVector<Operation*> deadOps;
@@ -75,8 +76,8 @@ class ApplyValueSemanticsPass
     for (auto op : deadOps) {
       op->erase();
     }
-
     reduceTensorConversions(func);
+
     deadOps.clear();
     func.walk([&](mlir::Operation* op) {
       if (isa<TensorStaticInfoCastOp>(op)) {
@@ -88,6 +89,16 @@ class ApplyValueSemanticsPass
     for (auto op : deadOps) {
       op->erase();
     }
+
+    // fix NonValueTensor type operator
+    func.walk([&](Operation* op) {
+      if (isa<OverwriteTensorContentsOp>(op)) {
+        rewriter.setInsertionPoint(op);
+        auto nonValueTensor = rewriter.create<CopyToNonValueTensorOp>(
+            op->getLoc(), op->getOperands()[1]);
+        op->setOperand(1, nonValueTensor);
+      }
+    });
 
     func.walk([&](Operation* op) {
       for (auto val : op->getResults()) {
@@ -111,12 +122,6 @@ class ApplyValueSemanticsPass
         cf::ControlFlowDialect,
         math::MathDialect>();
     target.addLegalOp<ModuleOp>();
-
-    target.addIllegalOp<TensorStaticInfoCastOp>();
-    target.addIllegalOp<CopyToValueTensorOp>();
-    target.addIllegalOp<CopyToNonValueTensorOp>();
-    target.addIllegalOp<ToBuiltinTensorOp>();
-    target.addIllegalOp<FromBuiltinTensorOp>();
 
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });

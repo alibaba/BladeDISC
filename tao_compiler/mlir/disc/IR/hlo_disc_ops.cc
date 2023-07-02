@@ -1100,6 +1100,16 @@ LogicalResult WhereOp::verify() {
   return success();
 }
 
+// ArgsMutationOp
+//===----------------------------------------------------------------------===//
+LogicalResult ArgsMutationOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  return success();
+}
+
+LogicalResult ArgsMutationOp::verify() { return Verify(*this); }
+
 }  // namespace mhlo_disc
 }  // namespace mlir
 

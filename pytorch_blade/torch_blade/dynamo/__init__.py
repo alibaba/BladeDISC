@@ -201,7 +201,8 @@ aot_disc = aot_autograd(
     bw_compiler=disc_compile,
     # NB: lambda here is to delay import of inductor
     decompositions=_get_disc_decomp(),
-    partition_fn=min_cut_rematerialization_partition)
+    partition_fn=min_cut_rematerialization_partition,
+    keep_inference_input_mutations=True)
 
 
 aot_disc_debug = aot_autograd(
@@ -210,7 +211,8 @@ aot_disc_debug = aot_autograd(
     bw_compiler=disc_compile_ts,
     # NB: lambda here is to delay import of inductor
     decompositions=_get_disc_decomp(),
-    partition_fn=min_cut_rematerialization_partition)
+    partition_fn=min_cut_rematerialization_partition,
+    keep_inference_input_mutations=True)
 
 
 register_backend(name="disc", compiler_fn=disc)

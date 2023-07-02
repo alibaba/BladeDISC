@@ -282,4 +282,19 @@ def LHLODISC_ConcatenateOp : LHLODISC_Op<"concatenate", []> {
    );
 }
 
+def LHLO_ArgsMutationOp : LHLODISC_Op<"args_mutation", []> {
+  let summary = "Argument mutation annotation operator";
+  let description = [{
+    This operator is used to annotate the mutation of arguments.
+    It is used to indicate that the arguments are mutated in the body of the
+    function. This is used to prevent the arguments from being hoisted out of
+    the function.
+  }];
+  let arguments = (ins
+    Arg<LHLO_Buffer, "", [MemRead]>:$input,
+    Arg<LHLO_Buffer, "", [MemWrite]>:$output
+  );
+}
+
+
 #endif // LMHLO_DISC_OPS

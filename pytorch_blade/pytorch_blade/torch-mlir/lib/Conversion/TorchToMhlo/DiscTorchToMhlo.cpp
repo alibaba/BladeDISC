@@ -765,7 +765,7 @@ LogicalResult ConvertAtenOp<AtenSizeIntOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   // Not a tensor type.
-  auto selfType = adaptor.getSelf().getType().dyn_cast<TensorType>();
+  auto selfType = adaptor.getSelf().getType().cast<RankedTensorType>();
   if (!selfType)
     return op.emitError("Only tensor types are currently supported");
 
@@ -1466,6 +1466,33 @@ LogicalResult ConvertAtenOp<AtenConstantPadNdOp>::matchAndRewrite(
 } // namespace
 
 namespace {
+template <typename T>
+Value backtraceOperand(Value operand) {
+  auto op = operand.getDefiningOp();
+  if (op && mlir::isa<T>(op)) {
+    return op->getOperand(0);
+  }
+  return operand;
+}
+
+template <>
+LogicalResult ConvertAtenOp<OverwriteTensorContentsOp>::matchAndRewrite(
+    OverwriteTensorContentsOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto loc = op.getLoc();
+  auto operands = op.getOperands();
+  auto value = operands[0];
+  auto overwriten = operands[1];
+  overwriten = backtraceOperand<CopyToNonValueTensorOp>(overwriten);
+  overwriten = rewriter.create<ToBuiltinTensorOp>(loc, overwriten);
+  value = rewriter.create<ToBuiltinTensorOp>(loc, value);
+  rewriter.replaceOpWithNewOp<mhlo_disc::ArgsMutationOp>(op, value, overwriten);
+  return success();
+}
+} //  namespace
+
+namespace {
 template <>
 LogicalResult ConvertAtenOp<AtenSqueezeDimOp>::matchAndRewrite(
     AtenSqueezeDimOp op,
@@ -1538,6 +1565,7 @@ class DiscConvertTorchToMhlo
     target.addLegalDialect<
         chlo::ChloDialect,
         mhlo::MhloDialect,
+        mhlo_disc::MhloDiscDialect,
         tensor::TensorDialect,
         arith::ArithDialect,
         Torch::TorchDialect>();
@@ -1631,6 +1659,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenSqueezeDimOp);
     INSERT_ATENOP_PATTERN(AtenNegIntOp);
     INSERT_ATENOP_PATTERN(AtenFillScalarOp);
+    INSERT_ATENOP_PATTERN(OverwriteTensorContentsOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \

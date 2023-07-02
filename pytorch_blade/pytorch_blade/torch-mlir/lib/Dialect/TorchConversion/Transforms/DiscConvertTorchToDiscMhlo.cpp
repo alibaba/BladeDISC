@@ -24,6 +24,7 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
+#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 using namespace mlir;
 using namespace mlir::torch;
@@ -80,7 +81,6 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
     BOOL_VAR_FROM_CONST_OPERAND(useDynamic, 9);
     BOOL_VAR_FROM_CONST_OPERAND(usePerChannel, 10);
 #undef BOOL_VAR_FROM_CONST_OPERAND
-
     auto torchMlirResultTy =
         op.getResult(0).getType().dyn_cast<ValueTensorType>();
     auto resultTy = getTypeConverter()

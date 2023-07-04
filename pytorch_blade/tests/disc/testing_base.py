@@ -16,14 +16,15 @@ import unittest
 
 import torch
 from torch.testing import FileCheck
-
 from torch_blade import mlir, optimize, utils
 from torch_blade.clustering import support_fusion_group
+from torch_blade.clustering.support_fusion_group import min_group_nodes
 from torch_blade.config import Config
 from torch_blade.mlir import is_available
 from torch_blade.pass_manager import _optimize_common
 from torch_blade.quantization import is_available as is_quantization_available
 from torch_blade.testing.common_utils import TestCase
+
 
 def skipIfOnYitian():
     return unittest.skipIf(os.popen("lscpu").read().find("svebf16") != -1, "Yitian bug was not fix")
@@ -239,7 +240,7 @@ class GPUDiscPdlQuantizationTestCase(DiscPdlQuantizationTestCase):
             env_var["DISC_TORCH_PDL_FILES"] = pdll_files
         if pdll_dirs is not None:
             env_var["DISC_TORCH_PDLL_INCLUDE_DIRS"] = pdll_dirs
-        with set_env(**env_var), cfg:
+        with set_env(**env_var), cfg, min_group_nodes(1):
             opt_model = optimize(model, True, inp)
         now_output = opt_model(inp)
         self.assertTrue(torch.allclose(now_output, origin_output, atol=1.0 * diff_scale))

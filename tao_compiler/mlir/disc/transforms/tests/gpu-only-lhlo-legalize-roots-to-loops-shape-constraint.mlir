@@ -269,7 +269,6 @@ func.func @multioutput_loop_fusion_without_dependency(%input1: memref<?xf32>, %i
 
 // -----
 
-
 // CHECK-LABEL: @kinput_col_reduce_schedule_1
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?x?xf32>, %[[ARG1:.*]]: memref<?x?xf32>, %[[ARG2:.*]]: memref<?xf32>, %[[ARG3:.*]]: memref<f32>) -> memref<?xf32>
 func.func @kinput_col_reduce_schedule_1(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>) -> memref<?xf32> {

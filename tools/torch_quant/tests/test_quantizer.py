@@ -11,7 +11,6 @@
 
 import tempfile
 import unittest
-from functools import partial
 from typing import List, Optional
 
 import torch
@@ -22,7 +21,6 @@ from parameterized import parameterized
 from tests.models import SimpleModule, SubModule, UntraceableSimpleModule
 from torch_quant.amp_module import AmpModule
 from torch_quant.module import ModuleFilter
-from torch_quant.observer import toggle_observer
 from torch_quant.quantizer import (
     DEFAULT_ACT_OB_CTR,
     DEFAULT_QAT_OB_CTR,
@@ -35,7 +33,12 @@ from torch_quant.quantizer import (
 
 def parameterized_with_backends(parameters: Optional[List] = None):
     if parameters is None:
-        parameters = [(Backend.REFERENCE,), (Backend.FBGEMM,), (Backend.DISC,)]
+        parameters = [
+            (Backend.REFERENCE,),
+            (Backend.FBGEMM,),
+            (Backend.DISC,),
+            (Backend.MNN,),
+        ]
     # skip if fbgemm not available
     if torch.backends.quantized.engine != 'fbgemm':
         parameters = [param for param in parameters if Backend.FBGEMM not in param]
@@ -57,8 +60,11 @@ class QuantizerTest(unittest.TestCase):
         quant_model = quantizer.quantize(model)
         quant_output = quant_model(dummy_input)
         self.assertFalse(torch.equal(original_output, quant_output))
-        torch.testing.assert_close(
-            quant_output, original_output, rtol=0.1, atol=0.5)
+        torch.testing.assert_close(quant_output, original_output, rtol=0.1, atol=0.5)
+
+        if backend == Backend.MNN:
+            _, compress_proto = quantizer.export_mnn_params(quant_model, dummy_input)
+            self.assertEqual(len(compress_proto.algo[0].quant_params.layer), 3)
 
     # TODO(litan.ls): QAT is more suitable for this case
     @parameterized_with_backends()

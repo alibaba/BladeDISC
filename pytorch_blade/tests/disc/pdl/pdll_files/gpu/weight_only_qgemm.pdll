@@ -79,6 +79,8 @@ Pattern TorchWeightOnlyQuantWithBiasOp {
         alpha: Value
     );
 
+    CheckTorchValueTensorLiteral(bias);
+
     rewrite gemm with {
         /// 1. create custom call op
         let transpose = CreateTorchTransposeOp(quantize_out, weight_transpose_op.0, idx0, idx1);

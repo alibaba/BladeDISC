@@ -12,7 +12,7 @@
 import logging
 from enum import Enum
 from functools import partial
-from typing import Callable, Dict, NamedTuple, Optional
+from typing import Any, Callable, Dict, NamedTuple, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -31,6 +31,8 @@ from torch_quant.graph import (
     quantizable_module_to_ref,
     set_qconfig
 )
+from torch_quant.mnn.export import convert_mnn_params, extract_quant_info
+from torch_quant.mnn.MNN_compression_pb2 import Pipeline
 from torch_quant.module import ModuleFilter, copy_and_replace, fx_trace, submodule_filter
 from torch_quant.observer import (
     BiasObserver,
@@ -49,6 +51,7 @@ class Backend(Enum):
     REFERENCE = 0
     DISC = 1
     FBGEMM = 2
+    MNN = 3
 
 
 class Device(Enum):
@@ -62,6 +65,7 @@ DEFAULT_X86_ACT_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
     Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
     Backend.DISC: partial(MinMaxObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
     Backend.FBGEMM: partial(HistogramObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
+    Backend.MNN: partial(HistogramObserver, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
 }
 
 
@@ -86,6 +90,7 @@ DEFAULT_X86_W_OB_CTR: Dict[Backend, Callable[..., Observer]] = {
     Backend.REFERENCE: partial(MinMaxObserver, dtype=torch.quint8, qscheme=torch.per_tensor_affine),
     Backend.DISC: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
     Backend.FBGEMM: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
+    Backend.MNN: partial(PerChannelMinMaxObserver, dtype=torch.qint8, qscheme=torch.per_channel_symmetric),
 }
 
 
@@ -332,6 +337,15 @@ class Quantizer:
                 q_ref_dq_to_fbgemm,
                 fold_qdq,
             ])
+        elif self.backend == Backend.MNN:
+            ctx.modify_graph([
+                set_qconfig,
+                fuse_modules,
+                insert_act_observer,
+                insert_w_observer,
+                quantizable_module_to_observed,
+            ])
+            toggle_observer(gm, observe=False, fake_quant=True)
         else:
             raise ValueError(f'Unsupported backend {self.backend.name}')
         # remove unused modules (e.g. observers) or the following tracing might fail
@@ -342,3 +356,30 @@ class Quantizer:
         for name, traced in trace_mapping.items():
             self.quantize_gm(name, traced.gm, traced.m)
         return copy_and_replace(model, trace_mapping)
+
+    def export_mnn_params_gm(
+        self, name: str, gm: GraphModule, root: nn.Module, ob_types: ObserverTypes
+    ) -> None:
+        mf = submodule_filter(self.module_filter, name) if self.module_filter else None
+        ctx = GraphModContext(
+            gm=gm,
+            root=root,
+            module_filter=mf,
+            act_ob_ctr=ob_types.act_ob_ctr,
+            w_ob_ctr=ob_types.w_ob_ctr,
+            bias_ob_ctr=ob_types.bias_ob_ctr,
+        )
+        ctx.modify_graph([
+            set_qconfig,
+            fuse_modules,
+            insert_act_observer,
+            insert_w_observer,
+            quantizable_module_to_observed,
+        ])
+
+    def export_mnn_params(
+        self, model: nn.Module, dummy_input: Union[Tuple[Any, ...], torch.Tensor]
+    ) -> Pipeline:
+        onnx_model, quant_info = extract_quant_info(model, dummy_input)
+        compress_proto = convert_mnn_params(quant_info)
+        return onnx_model, compress_proto

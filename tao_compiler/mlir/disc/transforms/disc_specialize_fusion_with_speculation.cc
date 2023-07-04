@@ -494,6 +494,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value row_size = b.create<memref::DimOp>(loc, operand, 0);
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
 
+
     // Col reduction schedule selection policy:
     // when the shape of matrix is flat(row < col), we use the first schedule.
     // Otherwise, we use the second schedule. The conditions are as follows:

@@ -17,6 +17,8 @@
 
 #include "mlir/ral/context/base/cuda/cuda_context_impl.h"
 
+#include <cuda_runtime.h>
+
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -248,6 +250,15 @@ buffer_t ral_base_cuda_alloc(ExecutionContext* ctx, size_t bytes) {
   TAO_VLOG(1) << "after ral_base_cuda_alloc with ptr=  " << ptr;
   exec_ctx->device_ptr_map.insert(std::make_pair(ptr, 1));
   return ptr;
+}
+
+void ral_base_cuda_memset(ExecutionContext* ctx, buffer_t buffer, int value,
+                          size_t bytes) {
+  if (!buffer) {
+    TAO_VLOG(1)
+        << "ral_base_cuda_memset should should opearte on non-null ptr.";
+  }
+  cudaMemset(buffer, value, bytes);
 }
 
 buffer_t ral_base_cuda_alloc_persistent(ExecutionContext* ctx, size_t bytes) {
@@ -728,6 +739,7 @@ TAO_RAL_API(tao::ral::gpu::kRalGpuD2H, "gpu", ral_base_cuda_d2h);
 TAO_RAL_API(tao::ral::gpu::kRalGpuD2D, "gpu", ral_base_cuda_d2d);
 TAO_RAL_API(tao::ral::gpu::kRalGpuSyncOnStream, "gpu",
             ral_base_cuda_sync_on_stream);
+TAO_RAL_API(tao::ral::gpu::kRalGpuMemset, "gpu", ral_base_cuda_memset);
 
 }  // namespace gpu
 }  // namespace ral

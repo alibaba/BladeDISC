@@ -549,8 +549,8 @@ LogicalResult lowerWithScheduleColReduction(
       [](Operation* operation) { return isRank2ColReduction(operation); });
 
   Value lhs = *dominant_op->getOperands().begin();
-  const int kTileH = TILE_H;        // 32
-  const int kThreads = THREAD_NUM;  // 512
+  const int kTileH = TILE_H;
+  const int kThreads = THREAD_NUM;
 
   Location loc = dominant_op->getLoc();
   OpBuilder b(root_ops.back());
@@ -768,13 +768,13 @@ Value createSharedMemory(OpBuilder& b, Location loc, int64_t size,
 //     for (int stride = num_threads_row / 2; stride > 0; stride /= 2) {
 //       __syncthreads();
 //       if (thread_row_index < stride) {
-//         sdata[shm_trans_index] += sdata[shm_trans_index + stride];
+//         shm[shm_trans_index] += shm[shm_trans_index + stride];
 //       }
 //     }
 //     __syncthreads();
 //     if (thread_row_index == 0) {
 //       if (is_col_valid) {
-//         result = sdata[shm_trans_index];
+//         result = shm[shm_trans_index];
 //         atomicAdd(&global[col_index], result);
 //       }
 //     }
@@ -795,11 +795,11 @@ LogicalResult lowerWithScheduleColReductionTileH(
       [](Operation* operation) { return isRank2ColReduction(operation); });
 
   Value lhs = *dominant_op->getOperands().begin();
-  const int kThreads_col = THREADS_COL;              // 32
-  const int kThreads_row = THREADS_ROW;              // 8
-  const int kTileH = TILE_H;                         // 64
-  const int kTileRow = kThreads_row * TILE_H;        // 512
-  const int kThreads = kThreads_col * kThreads_row;  // 256
+  const int kThreads_col = THREADS_COL;
+  const int kThreads_row = THREADS_ROW;
+  const int kTileH = TILE_H;
+  const int kTileRow = kThreads_row * TILE_H;
+  const int kThreads = kThreads_col * kThreads_row;
 
   Location loc = dominant_op->getLoc();
   OpBuilder b(root_ops.back());
@@ -976,11 +976,11 @@ LogicalResult lowerWithScheduleColReductionTileH(
   //     for (int stride = num_threads_row / 2; stride > 0; stride /= 2) {
   //       __syncthreads();
   //       if (thread_row_index < stride) {
-  //         sdata[shm_trans_index] += sdata[shm_trans_index + stride];
+  //         shm[shm_trans_index] += shm[shm_trans_index + stride];
   //       }
   //     }
   //     __syncthreads();
-  for (int stride = kThreads_row / 2; stride > 1; stride /= 2) {
+  for (int stride = kThreads_row / 2; stride > 0; stride /= 2) {
     b.create<gpu::BarrierOp>(loc);
     Value var_stride = b.create<arith::ConstantIndexOp>(loc, stride);
     Value is_lt_stride = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
@@ -1009,12 +1009,10 @@ LogicalResult lowerWithScheduleColReductionTileH(
 
   //     if (thread_row_index == 0) {
   //       if (is_col_valid) {
-  //         accum = sdata[thread_col_index * num_threads_row];
-  //         atomicAdd(&global[col_index], accum);
+  //         result = shm[shm_trans_index];
+  //         atomicAdd(&global[col_index], result);
   //       }
   //     }
-  //   }
-  // }
   Value is_thread_row_zero = b.create<arith::CmpIOp>(
       loc, arith::CmpIPredicate::eq, thread_row_index, zero);
   Value is_valid = b.create<arith::AndIOp>(loc, is_thread_row_zero, is_lt_cols);
@@ -1028,15 +1026,12 @@ LogicalResult lowerWithScheduleColReductionTileH(
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     auto root_element_type = getLhloOpsElementType(root_op);
-    Value shm_op0 =
+    Value result =
         b.create<memref::LoadOp>(loc, shared_mem_map[root_op], shm_trans_index);
-    Value shm_op1 =
-        b.create<memref::LoadOp>(loc, shared_mem_map[root_op], shm_offset1);
-    Value partial_result = (accum_factory[idx])(shm_op0, shm_op1);
     b.create<memref::AtomicRMWOp>(
         loc, root_element_type,
         getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()),
-        partial_result, root_op->getOperand(2), ValueRange({col_index}));
+        result, root_op->getOperand(2), ValueRange({col_index}));
   }
   b.create<scf::YieldOp>(loc, ValueRange({}));
 
@@ -4168,10 +4163,10 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
       llvm::errs() << "kColReduction <" << kname << ">, use_new: " << use_new
                    << " schedule_hint: " << col_reduction_schedule << "\n";
       LogicalResult r = success();
-      if (col_reduction_schedule == DISC_FLAT) {
+      if (col_reduction_schedule == DISC_THREAD_TILE_H32) {
         r = lowerWithScheduleColReduction<512, 32>(root_ops, dominant_op,
                                                    fused_block);
-      } else if (col_reduction_schedule == DISC_THIN) {
+      } else if (col_reduction_schedule == DISC_BLOCK_TILE_H64) {
         r = lowerWithScheduleColReductionTileH<32, 8, 64>(root_ops, dominant_op,
                                                           fused_block);
       } else {

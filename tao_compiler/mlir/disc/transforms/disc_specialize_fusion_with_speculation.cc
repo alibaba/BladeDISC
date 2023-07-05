@@ -494,8 +494,16 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value row_size = b.create<memref::DimOp>(loc, operand, 0);
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
 
-    // Col reduction schedule selection policy:
-    // when the shape of matrix is flat(row < col), we use the first schedule.
+    Value matrix_size = b.create<arith::MulIOp>(loc, row_size, col_size);
+    int thread_per_block = kThreadsRowReduction;
+    Value cur_threads = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
+    // b.create<arith::ConstantIndexOp>(loc, max_threads_per_block_);
+    Value cur_blocks =
+        b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
+    Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, core_count_);
+
+    // Schedule selection policy:
+    // when the shape of matrix is flat(row > col), we use the first schedule.
     // Otherwise, we use the second schedule. The conditions are as follows:
     //   1. row < col
     //   2. row >= col
@@ -503,8 +511,8 @@ struct DiscSpecializeFusionWithSpeculationPass
                                          row_size, col_size);
     auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 
-    auto first_schedule = b.getIntegerAttr(b.getIntegerType(32), DISC_FLAT);
-    auto second_schedule = b.getIntegerAttr(b.getIntegerType(32), DISC_THIN);
+    auto first_schedule = b.getIntegerAttr(b.getIntegerType(32), DISC_THREAD_TILE_H32);
+    auto second_schedule = b.getIntegerAttr(b.getIntegerType(32), DISC_BLOCK_TILE_H64);
     //  block-size is 256 in the second schedule
     auto num_thread_full_attr256 =
         b.getIntegerAttr(b.getIntegerType(32), kThreadsRowReduction);
@@ -514,11 +522,11 @@ struct DiscSpecializeFusionWithSpeculationPass
     fusion_op->setAttr(kThreadPerBlockHint, num_thread_full_attr512);
     fusion_op->setAttr(kColReductionScheduleHint, first_schedule);
     // use fisrt schedule if row_size < col_size
-    addFusionTag(b, fusion_op, "flat");
+    addFusionTag(b, fusion_op, "thread_tile_h32");
     cloned->setAttr(kThreadPerBlockHint, num_thread_full_attr256);
     cloned->setAttr(kColReductionScheduleHint, second_schedule);
     // use second schedule if row_size >= col_size
-    addFusionTag(b, cloned, "thin");
+    addFusionTag(b, cloned, "block_tile_h64");
 
     Block* then_block = &if_op.getThenRegion().getBlocks().front();
     Block* else_block = &if_op.getElseRegion().getBlocks().front();

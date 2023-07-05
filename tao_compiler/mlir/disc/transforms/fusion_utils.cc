@@ -69,14 +69,27 @@ bool enableTransposeLibraryCall() {
   return envValueIsTrue("DISC_GPU_ENABLE_TRANSPOSE_LIBRARY_CALL");
 }
 
+bool isInplaceOperator(Operation* op) {
+  if (isa<lmhlo::LmhloOp>(op)) {
+    Value resultMemref = cast<lmhlo::LmhloOp>(op).getResultBuffer();
+    for (int i = 0; i < op->getNumOperands() - 1; ++i) {
+      if (op->getOperand(i) == resultMemref) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops) {
   SmallVector<Operation*, 4> worklist;
   DenseSet<Operation*> has_loader_ops;
   for (Operation* op : ops) {
     Value memref = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     if (memref == nullptr) continue;
+
     for (Operation* user : getValueUsersInFusionLike(memref, op)) {
-      if (isa<memref::LoadOp>(user)) {
+      if (isa<memref::LoadOp>(user) && !isInplaceOperator(op)) {
         worklist.push_back(op);
         has_loader_ops.insert(op);
       }
@@ -92,7 +105,8 @@ DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops) {
         if ((!isa<lmhlo::LmhloOp>(user)) || has_loader_ops.count(user))
           continue;
         if (isSameUnderlineBuffer(cast<lmhlo::LmhloOp>(user).getResultBuffer(),
-                                  memref)) {
+                                  memref) &&
+            !isInplaceOperator(user)) {
           worklist.push_back(user);
           has_loader_ops.insert(user);
         }

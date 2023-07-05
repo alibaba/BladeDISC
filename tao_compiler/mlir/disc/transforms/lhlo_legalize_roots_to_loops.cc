@@ -277,6 +277,8 @@ LogicalResult lowerHelper(OpBuilder& b, Location loc, Operation* op,
       succeeded(miscLowerHelper<lmhlo_disc::H2DOp>(
           b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::ReverseOp>(
+          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+      succeeded(miscLowerHelper<lmhlo::DynamicUpdateSliceOp>(
           b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config))
     ) {
     return success();

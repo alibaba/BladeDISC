@@ -22,21 +22,21 @@ from tests.disc.testing_base import DiscTestCase
 class TestInputMutation(DiscTestCase):
     def setUp(self):
         super().setUp()
-        os.environ["TORCH_MHLO_OP_WHITE_LIST"] = "aten::copy_;aten::add"
+        os.environ["TORCH_MHLO_OP_WHITE_LIST"] = "aten::copy_;aten::add;aten::slice_scatter;"
 
     def tearDown(self):
         del os.environ["TORCH_MHLO_OP_WHITE_LIST"]
-
+        
     @skipTorchLE("2.0.0")
-    def test_input_mutation(self):
-        def func(add : Tensor, value : Tensor) -> Tensor:
-            add.add_(value)
-            return add
+    def test_inplace_kv_cache(self):
+        def func(k_cache: Tensor, k: Tensor) -> Tensor:
+            k_cache[...,k.shape[-2] :, :].add_(k)
+            return k_cache
         
         with fusion.min_group_nodes(1):
             opt_func = torch.compile(backend='aot_disc')(func)
-            add = torch.randn(8, 64, device=self.device)
-            value = torch.randn(8, 64, device=self.device)
+            add = torch.zeros(2, 8, 32, 2, device=self.device)
+            value = torch.ones(2, 8, 1, 2, device=self.device)
             actual = opt_func(add.clone(), value.clone())
             expect = func(add.clone(), value.clone())
             self.assertTrue(torch.allclose(actual.cpu(), expect.cpu()))

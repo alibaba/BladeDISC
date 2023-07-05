@@ -1466,6 +1466,53 @@ LogicalResult ConvertAtenOp<AtenConstantPadNdOp>::matchAndRewrite(
 } // namespace
 
 namespace {
+template <>
+LogicalResult ConvertAtenOp<AtenSliceScatterOp>::matchAndRewrite(
+    AtenSliceScatterOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto self = adaptor.getSelf();
+  auto selfTy = self.getType().dyn_cast<RankedTensorType>();
+  if (!selfTy)
+    return op.emitError("only ranked tensor types are supported");
+  auto inputShapeInfo = mhlo::getDimSizesOfTensor(
+      rewriter, op, adaptor.getSelf(), kMhloDimSizeBits);
+  auto inputShape = selfTy.getShape();
+
+  int64_t start, end, dim;
+  if (!matchPattern(op.getStart(), m_TorchConstantInt(&start)))
+    return rewriter.notifyMatchFailure(
+        op, "only constant start is currently supported");
+  if (!matchPattern(op.getEnd(), m_TorchConstantInt(&end)))
+    return rewriter.notifyMatchFailure(
+        op, "only constant end is currently supported");
+  if (!matchPattern(op.getDim(), m_TorchConstantInt(&dim)))
+    return rewriter.notifyMatchFailure(
+        op, "only constant dim is currently supported");
+  SmallVector<Value> start_indices(selfTy.getRank());
+  for (auto i = 0; i < inputShape.size(); ++i) {
+    if (i == dim) {
+      start = toPositiveDim(start, inputShape[i]);
+      start_indices[i] = rewriter.create<mhlo::ConstantOp>(
+          op.getLoc(),
+          rewriter.getIntegerAttr(rewriter.getIntegerType(32), start));
+    } else {
+      start_indices[i] = rewriter.create<mhlo::ConstantOp>(
+          op.getLoc(), rewriter.getIntegerAttr(rewriter.getIntegerType(32), 0));
+    }
+  }
+
+  rewriter.replaceOpWithNewOp<mhlo::DynamicUpdateSliceOp>(
+      op,
+      getTypeConverter()->convertType(op.getType()),
+      self,
+      adaptor.getSrc(),
+      start_indices);
+  return success();
+}
+} // namespace
+
+namespace {
 template <typename T>
 Value backtraceOperand(Value operand) {
   auto op = operand.getDefiningOp();
@@ -1660,6 +1707,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenNegIntOp);
     INSERT_ATENOP_PATTERN(AtenFillScalarOp);
     INSERT_ATENOP_PATTERN(OverwriteTensorContentsOp);
+    INSERT_ATENOP_PATTERN(AtenSliceScatterOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \

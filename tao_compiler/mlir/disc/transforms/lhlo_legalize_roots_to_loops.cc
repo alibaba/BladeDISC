@@ -1030,8 +1030,8 @@ LogicalResult lowerWithScheduleColReductionTileH(
         b.create<memref::LoadOp>(loc, shared_mem_map[root_op], shm_trans_index);
     b.create<memref::AtomicRMWOp>(
         loc, root_element_type,
-        getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()),
-        result, root_op->getOperand(2), ValueRange({col_index}));
+        getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()), result,
+        root_op->getOperand(2), ValueRange({col_index}));
   }
   b.create<scf::YieldOp>(loc, ValueRange({}));
 

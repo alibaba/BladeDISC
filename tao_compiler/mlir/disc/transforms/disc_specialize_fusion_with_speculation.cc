@@ -511,8 +511,10 @@ struct DiscSpecializeFusionWithSpeculationPass
                                          row_size, col_size);
     auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 
-    auto first_schedule = b.getIntegerAttr(b.getIntegerType(32), DISC_THREAD_TILE_H32);
-    auto second_schedule = b.getIntegerAttr(b.getIntegerType(32), DISC_BLOCK_TILE_H64);
+    auto first_schedule =
+        b.getIntegerAttr(b.getIntegerType(32), DISC_THREAD_TILE_H32);
+    auto second_schedule =
+        b.getIntegerAttr(b.getIntegerType(32), DISC_BLOCK_TILE_H64);
     //  block-size is 256 in the second schedule
     auto num_thread_full_attr256 =
         b.getIntegerAttr(b.getIntegerType(32), kThreadsRowReduction);

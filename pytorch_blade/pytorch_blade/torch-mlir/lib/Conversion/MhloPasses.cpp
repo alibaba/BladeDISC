@@ -61,8 +61,8 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   pm.addNestedPass<func::FuncOp>(createDiscSimplifyPatternsPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
-  pm.addNestedPass<func::FuncOp>(
-      Torch::createDecomposeComplexOpsPass(/*legalOps*/ {}));
+  pm.addNestedPass<func::FuncOp>(Torch::createDecomposeComplexOpsPass(
+      /*legalOps*/ {"torch.aten.slice_scatter"}));
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(createApplyDiscPdlPatternsPass(
       disc_torch_pdl_files, disc_torch_pdll_include_dirs));

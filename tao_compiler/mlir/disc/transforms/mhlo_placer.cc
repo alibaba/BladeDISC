@@ -426,8 +426,8 @@ void OpsPlacer::placeI32Ops() {
     if ((attr != nullptr) && (attr.getValue() == kCpu)) return;
 
     // Ops that only cares about the output element type
-    if (isa<mhlo::ConstantOp, mhlo::SelectOp, mhlo::IotaOp,
-            mhlo::DynamicIotaOp>(op)) {
+    if (isa<mhlo::ConstantOp, mhlo::SelectOp, mhlo::IotaOp, mhlo::DynamicIotaOp,
+            mhlo::DynamicUpdateSliceOp>(op)) {
       auto result_ty = op->getResult(0).getType().dyn_cast<RankedTensorType>();
       assert(result_ty && "unexpected non ranked type for ConstOp");
       auto elem_type = result_ty.getElementType();

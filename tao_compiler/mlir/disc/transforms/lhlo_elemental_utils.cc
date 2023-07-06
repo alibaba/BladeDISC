@@ -211,6 +211,91 @@ Value elementalLower(OpBuilder* b, Location loc, LHLO_OpTy op,
                      LowerConfig* lower_config);
 
 template <>
+Value elementalLower<lmhlo::DynamicUpdateSliceOp>(
+    OpBuilder* b, Location loc, lmhlo::DynamicUpdateSliceOp op,
+    ValueRange output_index, bool check_cache, LowerConfig* lower_config) {
+  int rank = output_index.size();
+  Value result_opearnd = op->getOperand(op->getNumOperands() - 1);
+  Value src_memref = op->getOperand(0);
+  Value update_memref = op->getOperand(1);
+  SmallVector<Value> start_indices;
+  for (int i = 0; i < op->getNumOperands() - 2; ++i) {
+    start_indices.push_back(op->getOperand(i + 2));
+  }
+  Value in_bound = b->create<arith::ConstantIntOp>(loc, 1, 1);
+
+  SmallVector<Value, 4> update_indices;
+  // for dim in rank:
+  //   dadjusted_index = clamp(0, start_indices[dim], output_index.shape[dim] -
+  //   update.shape[dim]) update_index = output_index.shape[dim] -
+  //   dadjusted_index in_bound = in_bound && update_index >= 0 && update_index
+  //   < update.shape[dim]
+  auto zero = b->create<arith::ConstantIndexOp>(loc, 0);
+  for (int dim = 0; dim < rank; ++dim) {
+    Value adjusted_start_index =
+        b->create<memref::LoadOp>(loc, start_indices[dim]);
+    adjusted_start_index = b->create<arith::IndexCastOp>(loc, b->getIndexType(),
+                                                         adjusted_start_index);
+    auto input_dim_size = b->create<memref::DimOp>(loc, src_memref, dim);
+    auto update_dim_size = b->create<memref::DimOp>(loc, update_memref, dim);
+    Value clamp_dim_size = b->create<arith::SubIOp>(
+        loc, b->getIndexType(), input_dim_size, update_dim_size);
+    Value max_value = b->create<arith::MaxSIOp>(loc, b->getIndexType(),
+                                                adjusted_start_index, zero);
+    adjusted_start_index =
+        b->create<arith::MinSIOp>(loc, max_value, clamp_dim_size);
+    auto update_index = b->create<arith::SubIOp>(
+        loc, b->getIndexType(), output_index[dim], adjusted_start_index);
+    update_indices.push_back(update_index);
+
+    auto cmp1 = b->create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge,
+                                         update_index, zero);
+    auto cmp2 = b->create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
+                                         update_index, update_dim_size);
+    in_bound = b->create<arith::AndIOp>(loc, in_bound, cmp1);
+    in_bound = b->create<arith::AndIOp>(loc, in_bound, cmp2);
+  }
+  // if in_bound:
+  //   result = update_memref[update_index]
+  // else:
+  //   result = input_memref[output_index]
+  SmallVector<Type, 4> result_types;
+  result_types.push_back(
+      src_memref.getType().cast<MemRefType>().getElementType());
+
+  auto if_inbound_op =
+      b->create<scf::IfOp>(loc, result_types, in_bound, /*hasElseRegion*/ true);
+  if_inbound_op.getThenRegion().front().clear();
+  if_inbound_op.getElseRegion().front().clear();
+  b->setInsertionPointToEnd(&if_inbound_op.getThenRegion().front());
+  auto ret_value =
+      check_cache
+          ? createLoadOrUseCachedValue(loc, b, op.getOperation(), update_memref,
+                                       update_indices, b->saveInsertionPoint(),
+                                       lower_config)
+          : createMaySpecificLoad(*b, loc, op.getOperation(), update_memref,
+                                  update_indices, lower_config);
+  b->create<scf::YieldOp>(loc, ret_value);
+  b->setInsertionPointToEnd(&if_inbound_op.getElseRegion().front());
+
+  auto update_value =
+      check_cache
+          ? createLoadOrUseCachedValue(loc, b, op.getOperation(), src_memref,
+                                       output_index, b->saveInsertionPoint(),
+                                       lower_config)
+          : createMaySpecificLoad(*b, loc, op.getOperation(), src_memref,
+                                  output_index, lower_config);
+
+  b->create<scf::YieldOp>(loc, update_value);
+  b->setInsertionPointAfter(if_inbound_op);
+
+  Value result = *(if_inbound_op.getResults().begin());
+
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
+}
+
+template <>
 Value elementalLower<lmhlo::SliceOp>(OpBuilder* b, Location loc,
                                      lmhlo::SliceOp op, ValueRange output_index,
                                      bool check_cache,

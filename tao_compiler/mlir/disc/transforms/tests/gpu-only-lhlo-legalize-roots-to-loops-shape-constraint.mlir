@@ -269,14 +269,13 @@ func.func @multioutput_loop_fusion_without_dependency(%input1: memref<?xf32>, %i
 
 // -----
 
-// CHECK-LABEL: @kinput_col_reduce
+// CHECK-LABEL: @kinput_col_reduce_schedule_1
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?x?xf32>, %[[ARG1:.*]]: memref<?x?xf32>, %[[ARG2:.*]]: memref<?xf32>, %[[ARG3:.*]]: memref<f32>) -> memref<?xf32>
-func.func @kinput_col_reduce(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>) -> memref<?xf32> {
+func.func @kinput_col_reduce_schedule_1(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>) -> memref<?xf32> {
   // CHECK-NOT: lmhlo.reduce
   // CHECK-DAG: %[[C0:.*]] = arith.constant 0 : index
   // CHECK-DAG: %[[C1:.*]] = arith.constant 1 : index
-  // CHECK-DAG: %[[C256:.*]] = arith.constant 256 : index
-  // CHECK-DAG: %[[C8:.*]] = arith.constant 8 : index
+  // CHECK-DAG: %[[C512:.*]] = arith.constant 512 : index
   // CHECK-DAG: %[[C32:.*]] = arith.constant 32 : index
   // initializer for column reduction
   // CHECK: %[[OUTSIZE:.*]] = memref.dim %[[ARG2]], {{.*}} : memref<?xf32>
@@ -288,10 +287,10 @@ func.func @kinput_col_reduce(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %ar
   // CHECK: }
   // CHECK: %[[ROWS:.*]] = memref.dim %[[ARG1]], %[[C0]] : memref<?x?xf32>
   // CHECK: %[[COLS:.*]] = memref.dim %[[ARG1]], %[[C1]] : memref<?x?xf32>
-  // CHECK-DAG: %[[BLKS_PER_COL:.*]] = arith.ceildivsi %[[COLS]], %[[C8]] : index
-  // CHECK-DAG: %[[BLKS_PER_ROW:.*]] = arith.ceildivsi %[[ROWS]], %[[C32]] : index
+  // CHECK-DAG: %[[BLKS_PER_COL:.*]] = arith.ceildivui %[[COLS]], %[[C512]] : index
+  // CHECK-DAG: %[[BLKS_PER_ROW:.*]] = arith.ceildivui %[[ROWS]], %[[C32]] : index
   // CHECK-DAG: %[[BLKS:.*]] = arith.muli %[[BLKS_PER_COL]], %[[BLKS_PER_ROW]] : index
-  // CHECK: scf.parallel (%[[H_IDX:.*]], %[[W_IDX:.*]]) = (%[[C0]], %[[C0]]) to (%[[BLKS]], %[[C256]]) step (%[[C1]], %[[C1]])
+  // CHECK: scf.parallel (%[[BLOCK_IDX:.*]], %[[THREAD_IDX:.*]]) = (%[[C0]], %[[C0]]) to (%[[BLKS]], %[[C512]]) step (%[[C1]], %[[C1]])
   // CHECK: %[[DATA:.*]] = memref.load %arg3[] : memref<f32>
   // CHECK: memref.atomic_rmw addf %[[TMP:.*]], %[[ARG2]]
   "lmhlo.fusion"() ({
@@ -303,7 +302,53 @@ func.func @kinput_col_reduce(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %ar
     }) {dimensions = dense<0> : tensor<1xi64>} : (memref<?x?xf32>, memref<f32>, memref<?xf32>) -> ()
     // CHECK: "lmhlo.terminator"() : () -> ()
     "lmhlo.terminator"() : () -> ()
-  }) {disc.fusion.name = "simple_kinput_reduce__2_1_0", disc.fusion_type = "kColReduction", disc.device = "gpu"} : () -> ()
+  }) {disc.fusion.name = "main_kColReduction_reduce__4_1_0", disc_col_reduction_schedule_hint = 7 : i32, disc.fusion_type = "kColReduction", disc.device = "gpu"} : () -> ()
+  // CHECK: return %[[ARG2]] : memref<?xf32>
+  return %arg2 : memref<?xf32>
+}
+
+// -----
+
+// CHECK-LABEL: @kinput_col_reduce_schedule_2
+// CHECK-SAME: (%[[ARG0:.*]]: memref<?x?xf32>, %[[ARG1:.*]]: memref<?x?xf32>, %[[ARG2:.*]]: memref<?xf32>, %[[ARG3:.*]]: memref<f32>) -> memref<?xf32>
+func.func @kinput_col_reduce_schedule_2(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>) -> memref<?xf32> {
+  // CHECK-NOT: lmhlo.reduce
+  // CHECK-DAG: %[[C0:.*]] = arith.constant 0 : index
+  // CHECK-DAG: %[[C1:.*]] = arith.constant 1 : index
+  // CHECK-DAG: %[[C32:.*]] = arith.constant 32 : index
+  // CHECK-DAG: %[[C8:.*]] = arith.constant 8 : index
+  // CHECK-DAG: %[[C64:.*]] = arith.constant 64 : index
+  // CHECK-DAG: %[[C256:.*]] = arith.constant 256 : index
+  // CHECK-DAG: %[[C512:.*]] = arith.constant 512 : index
+  // initializer for column reduction
+  // CHECK: %[[OUTSIZE:.*]] = memref.dim %[[ARG2]], {{.*}} : memref<?xf32>
+  // CHECK: scf.parallel (%[[INIT_ITER:.*]]) = (%{{.*}}) to (%{{.*}}) step (%{{.*}}) {
+  // CHECK:   %[[DELINEARIZE:.*]] = "disc_shape.delinearize"(%[[INIT_ITER]]
+  // CHECK:   %[[INIT_VALUE:.*]] = memref.load %[[ARG3]][] : memref<f32>
+  // CHECK:   memref.store %[[INIT_VALUE]], %[[ARG2]][%[[DELINEARIZE]]] : memref<?xf32>
+  // CHECK:   scf.yield
+  // CHECK: }
+  // CHECK-DAG: %[[ROWS:.*]] = memref.dim %[[ARG1]], %[[C0]] : memref<?x?xf32>
+  // CHECK-DAG: %[[COLS:.*]] = memref.dim %[[ARG1]], %[[C1]] : memref<?x?xf32>
+  // CHECK-DAG: %[[BLKS_PER_COL:.*]] = arith.ceildivui %[[COLS]], %[[C32]] : index
+  // CHECK-DAG: %[[BLKS_PER_ROW:.*]] = arith.ceildivui %[[ROWS]], %[[C512]] : index
+  // CHECK-DAG: %[[BLKS:.*]] = arith.muli %[[BLKS_PER_COL]], %[[BLKS_PER_ROW]] : index
+  // CHECK: scf.parallel (%[[BLK_IDX:.*]], %[[THRD_IDX:.*]]) = (%[[C0]], %[[C0]]) to (%[[BLKS]], %[[C256]]) step (%[[C1]], %[[C1]]) {
+  // CHECK: %[[DATA:.*]] = memref.load %arg3[] : memref<f32>
+  // CHECK: gpu.barrier
+  // CHECK: gpu.barrier
+  // CHECK: gpu.barrier
+  // CHECK: memref.atomic_rmw addf %[[TMP:.*]], %[[ARG2]]
+  "lmhlo.fusion"() ({
+    "lmhlo.abs"(%arg0, %arg1) : (memref<?x?xf32>, memref<?x?xf32>) -> ()
+    "lmhlo.reduce"(%arg1, %arg3, %arg2) ( {
+    ^bb0(%arg4: memref<f32>, %arg5: memref<f32>, %arg6: memref<f32>):  // no predecessors
+      "lmhlo.add"(%arg4, %arg5, %arg6) : (memref<f32>, memref<f32>, memref<f32>) -> ()
+      "lmhlo.terminator"() : () -> ()
+    }) {dimensions = dense<0> : tensor<1xi64>} : (memref<?x?xf32>, memref<f32>, memref<?xf32>) -> ()
+    // CHECK: "lmhlo.terminator"() : () -> ()
+    "lmhlo.terminator"() : () -> ()
+  }) {disc.fusion.name = "main_kColReduction_reduce__4_1_0", disc_col_reduction_schedule_hint = 8 : i32, disc.fusion_type = "kColReduction", disc.device = "gpu"} : () -> ()
   // CHECK: return %[[ARG2]] : memref<?xf32>
   return %arg2 : memref<?xf32>
 }

@@ -83,10 +83,13 @@ using DiscColReductionScheduleType = enum : int {
   DISC_TILE_LOOP_W64_H8 = 4,
   DISC_TILE_LOOP_W16_H32 = 5,
   DISC_TILE_LOOP_W8_H8 = 6,
+  DISC_THREAD_TILE_H32 = 7,
+  DISC_BLOCK_TILE_H64 = 8,
 };
 
 // number of therads per block when doing codegen on GPU.
 constexpr const char* kThreadPerBlockHint = "disc_thread_per_block_hint";
+// constexpr const char* kThreadPerBlockHint512 = 512;
 
 // empirical column size used to choose different row reduce schedule.
 constexpr const int kRowReductionScheduleTurningSize = 512;
@@ -96,6 +99,7 @@ constexpr const int kRowReductionScheduleTurningSize = 512;
 constexpr const int kThreadsRowReduction = 512;
 #else
 constexpr const int kThreadsRowReduction = 256;
+constexpr const int kThreadsRowReduction512 = 512;
 #endif
 
 constexpr const int kVectorizeOrTileSize = 2;

@@ -82,10 +82,10 @@ int getColReductionScheduleHint(Operation* op) {
     fusion = op->getParentOfType<lmhlo::FusionOp>();
   }
   // Use schedule 1 by default.
-  if (!fusion) return DISC_TILE_W8_H32;
+  if (!fusion) return DISC_THREAD_TILE_H32;
   IntegerAttr attr =
       fusion->getAttrOfType<IntegerAttr>(kColReductionScheduleHint);
-  if (!attr) return DISC_TILE_W8_H32;
+  if (!attr) return DISC_THREAD_TILE_H32;
   return attr.getInt();
 }
 

@@ -264,6 +264,12 @@ StringRef getFusionName(lmhlo::FusionOp op) {
   return attr.getValue();
 }
 
+StringRef formatFusionName(StringRef name) {
+  std::string formattedName = name.str();
+  std::replace(formattedName.begin(), formattedName.end(), '-', '_');
+  return formattedName;
+}
+
 // Sets the name of the fusion op
 void setFusionName(OpBuilder& b, lmhlo::FusionOp op, StringRef name) {
   op->setAttr(kFusionOpNameAttr, b.getStringAttr(name));
@@ -554,7 +560,8 @@ bool isFusible(Operation* op) {
     lmhlo::ReverseOp,
     lmhlo::SelectOp,
     lmhlo::SliceOp,
-    lmhlo::TransposeOp
+    lmhlo::TransposeOp,
+    lmhlo::DynamicUpdateSliceOp
   >(op);
   // clang-format on
 }
@@ -3244,7 +3251,7 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
     auto subFusionName =
         (llvm::Twine(fusionName) + "_" + llvm::Twine(subRootId)).str();
     ++subRootId;
-    setFusionName(b, subFusionOp, subFusionName);
+    setFusionName(b, subFusionOp, formatFusionName(subFusionName));
     subFusionOp->setAttr(
         kDiscFusionTypeAttrName,
         b.getStringAttr(fusionTypeToString(FusionType::kLoop)));

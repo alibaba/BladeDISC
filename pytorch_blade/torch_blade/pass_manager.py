@@ -355,7 +355,6 @@ def _optimize_common(c_module):
         logger.error("If do quantization, the model must in eval mode ")
     if cfg.enable_int8:
         _jit_pass_quantization_preprocess(c_module)
-
     if not is_training:
         # optimization passes only work in eval mode
         if cfg.freeze_module:
@@ -364,6 +363,7 @@ def _optimize_common(c_module):
         torch._C._jit_pass_remove_dropout(c_module)
         _fixup_for_dynamic_shape(cfg, c_module)
         graph = c_module.forward.graph
+        print("after fixup for dynamic shape", graph)
         _jit_pass_remove_nograd(graph)
         _jit_pass_freeze_requires_grad(graph)
         if hasattr(torch._C, "_jit_pass_fold_frozen_conv_bn"):
@@ -382,6 +382,8 @@ def _optimize_common(c_module):
         # we can't do the type promotion correctly.
         _jit_pass_replace_inplace_name(graph)
     torch._C._jit_pass_remove_mutation(graph)
+    _jit_pass_reinplace(graph)
+
 
     # TODO: if dynamic rank exists, this pass maybe leads to error
     if IGNORE_DYNAMIC_RANK:
@@ -419,11 +421,112 @@ def _jit_pass_replace_inplace_name(graph):
                 new_op.addInput(inp)
             graph.appendNode(new_op)
             new_op.moveBefore(node)
-            new_op.output().setType(value.type())
+            new_op.output().setType(node.output().type())
             value.replaceAllUsesWith(new_op.output())
             node.destroy()
 
     _replace_inplace_name(graph)
+
+
+def _jit_pass_reinplace(graph):
+    """
+    before:
+    %slice = slice(%arg0, %start, %end, %step)
+    %slice.1 = slice(%slice, %start.1, %end.1, %step)
+    %output = add_(%slice.1, %arg1)
+
+    after:
+    %slice = slice(%arg0, %start, %end, %step)
+    %slice.1 = slice(%slice, %start.1, %end.1, %step)
+    %output = add(%slice.1, %arg1)
+
+    %slice.2 = slice(%arg0, %start, %end, %step)
+    %slice_scatter.1 = slice_scatter(%slice.2, %output, %start, %end, %step)
+    %slice_scatter.2 = slice_scatter(%slice_scatter.1, %output, %start.1, %end.1, %step)
+    %copy = copy_(%arg0, %slice_scatter.2, %false)
+    """
+    print("before inplace mutation", graph)
+    def _collect_all_inplace_nodes(block):
+        all_nodes = []
+        for node in block.nodes():
+            if "inplace" in node.kind():
+                inp_value = next(node.inputs())
+                if inp_value.node().kind() == "aten::slice":
+                    all_nodes.append(node)
+        for node in block.nodes():
+            for inner_blk in node.blocks():
+                all_nodes += _collect_all_inplace_nodes(inner_blk)
+        return all_nodes
+
+    inplace_nodes = _collect_all_inplace_nodes(graph)
+    cst_false = graph.create("prim::Constant")
+    cst_false.i_("value", 0)
+    cst_false.output().setType(torch._C.BoolType.get())
+    graph.appendNode(cst_false)
+    for node in inplace_nodes:
+        # create a outplace op
+        new_op = graph.create(node.kind().rstrip("_inplace_"))
+        value = node.output()
+        for inp in node.inputs():
+            new_op.addInput(inp)
+        graph.appendNode(new_op)
+        new_op.moveBefore(node)
+        new_op.output().setType(value.type())
+        value.replaceAllUsesWith(new_op.output())
+
+        # find the first slice op
+        slice_ops = []
+        prv_node = None
+        inp_v = next(node.inputs())
+        cur_node = inp_v.node()
+        first_slice = cur_node
+        while cur_node.kind() == "aten::slice":
+            slice_ops.append(cur_node)
+            first_slice = cur_node
+            cur_node = next(cur_node.inputs()).node()
+
+        # create aten::slice 
+        slice_0 = graph.create("aten::slice")
+        for inp in first_slice.inputs():
+            slice_0.addInput(inp)
+        slice_0.output().setType(first_slice.output().type())
+        graph.appendNode(slice_0)
+        slice_0.moveAfter(new_op)
+
+        # create aten::slice_scatter
+        inp1_v = slice_0.output()
+        inp2_v = new_op.output()
+        prev_node = slice_0
+        for op_idx, op in enumerate(slice_ops):
+            print("iter", op_idx, op, flush=True)
+            slice_scatter = graph.create("aten::slice_scatter")
+            input_list = [v for v in op.inputs()]
+            if op_idx == 0:
+                slice_scatter.addInput(slice_0.output())
+                slice_scatter.addInput(new_op.output())
+            else:
+                slice_scatter.addInput(input_list[0])
+                slice_scatter.addInput(prev_node.output())
+            for idx, inp in enumerate(op.inputs()):
+                if idx < 1:
+                    continue
+                slice_scatter.addInput(inp)
+            slice_scatter.output().setType(next(slice_scatter.inputs()).type())
+            out = slice_scatter.output()
+            graph.appendNode(slice_scatter)
+            slice_scatter.moveAfter(prev_node)
+            prev_node = slice_scatter
+         
+        # create aten::copy_
+        copy_op = graph.create("aten::copy_")
+        copy_op.addInput(list(slice_scatter.inputs())[0])
+        copy_op.addInput(slice_scatter.output())
+        copy_op.addInput(cst_false.output())
+        copy_op.output().setType(list(slice_scatter.inputs())[0].type())
+        graph.appendNode(copy_op)
+        list(copy_op.inputs())[0].replaceAllUsesAfterNodeWith(copy_op, slice_scatter.output())
+        node.destroy()
+    print("after inplace mutation: \n", graph)
 
 def _jit_pass_hack_cpu_device(graph):
     cfg = Config.get_current_context_or_new()

@@ -1103,7 +1103,18 @@ class ShapePropagator : public PropertyPropBase {
           }
           return type_vec_t{};
         }};
-
+    static const register_formula_for disc_op{
+        {
+            "disc::attentionF(Tensor query, Tensor key, Tensor value, Tensor attn_mask, str i_layout, str o_layout, bool is_causal, bool compute_logsumexp) -> (Tensor, Tensor)",
+        },
+        [](Node* node) -> type_vec_t {
+          if (auto input_type = node->input(0)->type()->cast<TensorType>()) {
+            return type_vec_t{
+                input_type->dimensionedOnly(),
+                input_type->withDim(input_type->dim().value() - 1)};
+          }
+          return type_vec_t{};
+        }};
     static const register_formula_for permute_op{
         {
             "aten::permute(Tensor self, int[] dims) -> Tensor",

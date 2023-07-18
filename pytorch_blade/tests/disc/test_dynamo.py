@@ -26,7 +26,7 @@ class TestDynamoCapture(DiscTestCase):
         import torch._dynamo as dynamo
         import torch_blade.dynamo
         explain_out = dynamo.explain(func1, b=torch.rand([2]))
-        self.assertEqual(len(explain_out[2]), 1)
+        self.assertEqual(explain_out.graph_count, 1)
 
 if __name__ == '__main__':
     unittest.main()

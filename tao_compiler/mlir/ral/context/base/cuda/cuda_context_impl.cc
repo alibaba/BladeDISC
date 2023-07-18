@@ -258,7 +258,9 @@ void ral_base_cuda_memset(ExecutionContext* ctx, stream_t handle,
     TAO_VLOG(1)
         << "ral_base_cuda_memset should should opearte on non-null ptr.";
   }
-  cudaMemsetAsync(buffer, value, bytes, handle);
+  auto* state =
+      ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  cudaMemsetAsync(buffer, value, bytes, state->stream);
 }
 
 buffer_t ral_base_cuda_alloc_persistent(ExecutionContext* ctx, size_t bytes) {

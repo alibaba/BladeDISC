@@ -15,7 +15,7 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu117
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu118
       device: gpu-bench
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
@@ -30,7 +30,7 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu117
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu118
       device: gpu-bench
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
@@ -45,7 +45,7 @@ jobs:
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
-      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu117
+      base_image: bladedisc/bladedisc:latest-runtime-torch-pre-cu118
       device: gpu-bench
       timeout_minutes: 4320 # 72h
       dockerfile: docker/cronjobs/Dockerfile.torch.bench

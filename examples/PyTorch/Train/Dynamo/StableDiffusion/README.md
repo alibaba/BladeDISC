@@ -13,7 +13,7 @@ please go to the official [diffusers repo](https://github.com/huggingface/diffus
     clone diffusers repo and install requirements in the BladeDISC runtime Docker image.
 
     ``` bash
-    docker run --rm -it -v $PWD:/workspace -w /workspace bladedisc/bladedisc:latest-runtime-torch-pre-cu117 bash
+    docker run --rm -it -v $PWD:/workspace -w /workspace bladedisc/bladedisc:latest-runtime-torch-pre-cu118 bash
     pip install diffusers==0.17.0
     ```
 

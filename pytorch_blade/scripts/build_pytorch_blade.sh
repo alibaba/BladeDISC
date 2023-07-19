@@ -80,7 +80,7 @@ function ci_build() {
 }
 
 function test_training_examples() {
-  if [ "$TORCH_BLADE_CI_BUILD_TORCH_VERSION" == "pre+cu117" ]; then
+  if [ "$TORCH_BLADE_CI_BUILD_TORCH_VERSION" == "pre+cu118" ]; then
     (
       cd ../examples/PyTorch/Train/Dynamo/Bert && \
       python3 -m pip install -r requirements.txt && \

@@ -252,13 +252,15 @@ buffer_t ral_base_cuda_alloc(ExecutionContext* ctx, size_t bytes) {
   return ptr;
 }
 
-void ral_base_cuda_memset(ExecutionContext* ctx, buffer_t buffer, int value,
-                          size_t bytes) {
+void ral_base_cuda_memset(ExecutionContext* ctx, stream_t handle,
+                          buffer_t buffer, int value, size_t bytes) {
   if (!buffer) {
     TAO_VLOG(1)
         << "ral_base_cuda_memset should should opearte on non-null ptr.";
   }
-  cudaMemset(buffer, value, bytes);
+  auto* state =
+      ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  cudaMemsetAsync(buffer, value, bytes, state->stream);
 }
 
 buffer_t ral_base_cuda_alloc_persistent(ExecutionContext* ctx, size_t bytes) {

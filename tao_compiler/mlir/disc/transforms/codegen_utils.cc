@@ -104,7 +104,8 @@ Value emitNumElementsComputation(OpBuilder& b, Location loc, Operation* op) {
   // only const rank is supported for now
   assert(op->getDialect()->getNamespace() == "lmhlo");
   int num_operands = op->getNumOperands();
-  if (isa<lmhlo::DynamicUpdateSliceOp>(op) && isInplaceOperator(op)) {
+  if (isa<lmhlo::DynamicUpdateSliceOp>(op) &&
+      op->getOperand(0) == op->getOperand(num_operands - 1)) {
     return emitNumElementsComputation(b, loc, op->getOperand(1));
   }
   Value result_memref = op->getOperand(num_operands - 1);

@@ -92,7 +92,8 @@ class TestGPUQuantizedDotMerge(GPUDiscPdlQuantizationE2ETestCase):
                     x3, self.output_scale, self.output_zero_point,
                     self.activation_quant_min, self.activation_quant_max
                 )
-                return x1+x2+x3
+                return x1 + x2 + x3
+
         model = Model().eval().to(self.device)
         inp = torch.randn(512, 512).to(self.device)
         traced_model = torch.jit.trace(model, inp)
@@ -106,7 +107,7 @@ class TestGPUQuantizedDotMerge(GPUDiscPdlQuantizationE2ETestCase):
             os.path.join(self.device_pdll_dir, qgemm_pdl_file)
         ]
         pdll_files = ",".join(pdll_files)
-        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=3*model.output_scale)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, atol=3 * model.output_scale)
 
 if __name__ == "__main__":
     unittest.main()

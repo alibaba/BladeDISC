@@ -395,7 +395,6 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
                 return x
         model = Model().eval().to(self.device)
         inp = torch.randn(512, 512).to(self.device)
-        traced_model = torch.jit.trace(model, inp)
         # only cuda version 11.3/11.7 can be ensured correctness
         if torch.version.cuda == '11.3':
             qgemm_pdl_file = "dequant_gemm_quant_bias_quant.pdll"
@@ -406,7 +405,7 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
             os.path.join(self.device_pdll_dir, qgemm_pdl_file)
         ]
         pdll_files = ",".join(pdll_files)
-        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=model.output_scale)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, atol=model.output_scale)
 
     def test_s8s8s8_f32bias_per_tensor_three_rank_verify(self):
         class Model(nn.Module):
@@ -448,7 +447,6 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
                 return x
         model = Model().eval().to(self.device)
         inp = torch.randn(8, 512, 512).to(self.device)
-        traced_model = torch.jit.trace(model, inp)
         # only cuda version 11.3/11.7 can be ensured correctness
         if torch.version.cuda == '11.3':
             qgemm_pdl_file = "dequant_gemm_quant_bias_quant.pdll"
@@ -459,7 +457,7 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
             os.path.join(self.device_pdll_dir, qgemm_pdl_file)
         ]
         pdll_files = ",".join(pdll_files)
-        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=model.output_scale)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, atol=model.output_scale)
 
 
 if __name__ == "__main__":

@@ -164,6 +164,13 @@ LogicalResult miscLowerHelper(OpBuilder& b, Location loc, Operation* opaque_op,
   }
 
   SmallVector<SmallVector<Value>> multidim_index_vector(vector_size);
+  // for inplace dynamic-update-slice op, output_index according to operand(2)
+  if (isa<lmhlo::DynamicUpdateSliceOp>(op) &&
+      isInplaceOperator(
+          op)) {  // result_memref ==
+                  // cast<lmhlo::LmhloOp>(&*op).getOperation()->getOperand(0)) {
+    memref = cast<lmhlo::LmhloOp>(&*op).getOperation()->getOperand(1);
+  }
   for (int64_t i = 0; i < vector_size; i++) {
     Value linear_index = linear_indices[i];
     auto multidim_index = calcMultiDimIndex(&b, loc, linear_index, memref);
@@ -176,9 +183,12 @@ LogicalResult miscLowerHelper(OpBuilder& b, Location loc, Operation* opaque_op,
                                       /*check_cache=*/true, lower_config);
   }
   if (vector_size == 1) {
-    for (int i = 0; i < vector_size; i++) {
-      b.create<memref::StoreOp>(loc, operand_datas[i], result_memref,
-                                multidim_index_vector[i]);
+    if (result_memref !=
+        cast<lmhlo::LmhloOp>(&*op).getOperation()->getOperand(0)) {
+      for (int i = 0; i < vector_size; i++) {
+        b.create<memref::StoreOp>(loc, operand_datas[0], result_memref,
+                                  multidim_index_vector[0]);
+      }
     }
     return success();
   }
@@ -4108,11 +4118,8 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
   if (print_params_enabled) {
     createPrintFusionParams(fusion_op, fusion_pattern);
   }
-
   auto root_ops = fusion_pattern.getRootOps();
   auto fused_block = &(fusion_op.getRegion().front());
-  SmallVector<Operation*, 4> op_list;
-  for (Operation& op : *fused_block) op_list.push_back(&op);
 
   // No need to do codegen, return directly.
   if (root_ops.empty()) {
@@ -5729,8 +5736,6 @@ struct DiscLhloLegalizeRootsToParallelLoops
       // should be sufficient for performance.
       // TODO(disc): Revisit this when the backend is cpu and the calculation is
       // for data.
-      llvm::dbgs() << "cpu-no-fusion-op: \n";
-      op->dump();
       if (failed(lowerWithScheduleLoopCPU({op}, op, nullptr,
                                           /*non_fusion=*/true,
 #ifdef TAO_CPU_ONLY

@@ -288,8 +288,8 @@ LogicalResult InputInlineFusionPattern::inlineFuseLhloOp(
                                 lower_config) ||
       miscFuseHelper<SliceOp>(b, user, producer, load_op, load_ops,
                               lower_config) ||
-      // miscFuseHelper<DynamicUpdateSliceOp>(b, user, producer, load_op,
-      // load_ops, lower_config) ||
+      miscFuseHelper<DynamicUpdateSliceOp>(b, user, producer, load_op, load_ops,
+                                           lower_config) ||
       miscFuseHelper<TransposeOp>(b, user, producer, load_op, load_ops,
                                   lower_config)) {
     return success();

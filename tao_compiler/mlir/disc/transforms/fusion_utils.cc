@@ -1488,7 +1488,13 @@ Value BaseGpuFusionStrategy::getEffectiveShape(FusionPattern& target, Value v) {
   Operation* result_op = target.findLastWriter(v);
   assert(result_op);
   // effective shape of reduce op is its operand's shape.
-  return isa<lmhlo::ReduceOp>(result_op) ? result_op->getOperand(0) : v;
+  if (isa<lmhlo::ReduceOp>(result_op)) {
+    return result_op->getOperand(0);
+  } else if (isa<lmhlo::DynamicUpdateSliceOp>(result_op) &&
+             isInplaceOperator(result_op)) {
+    return result_op->getOperand(1);
+  }
+  return v;
 }
 
 bool BaseGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,

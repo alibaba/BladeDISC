@@ -498,7 +498,6 @@ def _jit_pass_reinplace(graph):
         inp2_v = new_op.output()
         prev_node = slice_0
         for op_idx, op in enumerate(slice_ops):
-            print("iter", op_idx, op, flush=True)
             slice_scatter = graph.create("aten::slice_scatter")
             input_list = [v for v in op.inputs()]
             if op_idx == 0:
@@ -524,6 +523,9 @@ def _jit_pass_reinplace(graph):
         copy_op.addInput(cst_false.output())
         copy_op.output().setType(list(slice_scatter.inputs())[0].type())
         graph.appendNode(copy_op)
+        if list(graph.return_node().inputs())[0].node().kind() == "prim::TupleConstruct":
+            copy_op.moveBefore(list(graph.return_node().inputs())[0].node())
+        
         list(copy_op.inputs())[0].replaceAllUsesAfterNodeWith(copy_op, slice_scatter.output())
         node.destroy()
     print("after inplace mutation: \n", graph)

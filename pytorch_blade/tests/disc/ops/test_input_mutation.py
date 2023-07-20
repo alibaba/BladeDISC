@@ -19,47 +19,36 @@ import unittest
 import torch_blade.clustering.support_fusion_group as fusion
 from tests.disc.testing_base import skipTorchLE, DiscTestCase
 
+class KVCacheModule(nn.Module):
+    def forward(self, k_cache: Tensor, k: Tensor, step : Tensor):
+        k_cache[..., step - k.shape[-2]: step , :].add_(k)
+        value = k_cache[..., : step, :]
+        # attention
+        value = torch.matmul(k, value.transpose(-2, -1))
+        return k_cache, value
+
 class TestInputMutation(DiscTestCase):
     def setUp(self):
         super().setUp()
         os.environ["TORCH_MHLO_OP_WHITE_LIST"] = "aten::copy_;aten::add;aten::slice_scatter;"
+        os.environ["TORCH_BLADE_EXPERIMENTAL_MERGE_HORIZONTAL_GROUPS"] = "true"
 
     def tearDown(self):
         del os.environ["TORCH_MHLO_OP_WHITE_LIST"]
-        pass
-        
-    @skipTorchLE("2.0.0")
-    def notest_inplace_kv_cache(self):
-        def func(k_cache: Tensor, k: Tensor) -> Tensor:
-            k_cache[...,-k.shape[-2] :, :].add_(k)
-            return k_cache
-        
-        with fusion.min_group_nodes(1):
-            opt_func = torch.compile(backend='aot_disc')(func)
-            add = torch.zeros(2, 8, 32, 2, device=self.device)
-            value = torch.ones(2, 8, 1, 2, device=self.device)
-            actual = opt_func(add.clone(), value.clone())
-            expect = func(add.clone(), value.clone())
-            self.assertTrue(torch.allclose(actual.cpu(), expect.cpu()))
+        del os.environ["TORCH_BLADE_EXPERIMENTAL_MERGE_HORIZONTAL_GROUPS"]
 
-    def test_ts_inplace_kv(self):
-        import torch.nn as nn
-        class TestModule(nn.Module):
-            def forward(self, k_cache: Tensor, k: Tensor) -> Tensor:
-                # TODO(yancey) supports lowering mhlo.dynamic_update_slice on dynamic shape
-                k_cache[-1 : , :].add_(k)
-                return k_cache
-        from torch_blade.config import Config
-        add = torch.zeros(8, 32, device=self.device)
-        value = torch.ones(1, 32, device=self.device)
-        m = TestModule()
+    def test_inplace_kv(self):
+        k_cache = torch.zeros(8, 32, 4096, 128, device=self.device)
+        k = torch.ones(8, 32, 1, 128, device=self.device)
+        
+        m = KVCacheModule()
         m.train(False)
-        traced = torch.jit.trace(m, (add.clone(), value.clone())).eval()
-        opt_func = torch_blade.optimize(m, allow_tracing=True, model_inputs=(add.clone(), value.clone()))
-        expect = m(add.clone(), value.clone())
-        actual = opt_func(add.clone(), value.clone())
-        self.assertTrue(torch.allclose(actual.cpu(), expect.cpu()))
-
+        step = torch.tensor(1)
+        opt_func = torch_blade.optimize(m, allow_tracing=True, model_inputs=(k_cache.clone(), k.clone(), step))
+        expect = m(k_cache.clone(), k.clone(), step)
+        actual = opt_func(k_cache.clone(), k.clone(), step)
+        for exp, act in zip(expect, actual):
+            self.assertTrue(torch.allclose(exp.cpu(), act.cpu()))
 
 if __name__ == "__main__":
     unittest.main()

@@ -173,16 +173,11 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
 
   std::call_once(white, [&]() {
     auto list = StrSplit(env::ReadStringFromEnvVar("TORCH_MHLO_OP_WHITE_LIST", ""), ';');
-    for (auto s : list) {
-      std::cout << "white insert: " << s << std::endl;
-      white_list.insert(s);
-    }
+    for (auto s : list) white_list.insert(s);
   });
   std::call_once(black, [&]() {
     auto list = StrSplit(env::ReadStringFromEnvVar("TORCH_MHLO_OP_BLACK_LIST", ""), ';');
-    for (auto s : list) {
-      white_list.erase(s);
-    }
+    for (auto s : list) white_list.erase(s);
   });
 
   std::ostringstream ostr;

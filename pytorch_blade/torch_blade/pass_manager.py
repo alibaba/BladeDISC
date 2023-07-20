@@ -363,7 +363,6 @@ def _optimize_common(c_module):
         torch._C._jit_pass_remove_dropout(c_module)
         _fixup_for_dynamic_shape(cfg, c_module)
         graph = c_module.forward.graph
-        print("after fixup for dynamic shape", graph)
         _jit_pass_remove_nograd(graph)
         _jit_pass_freeze_requires_grad(graph)
         if hasattr(torch._C, "_jit_pass_fold_frozen_conv_bn"):
@@ -525,10 +524,8 @@ def _jit_pass_reinplace(graph):
         graph.appendNode(copy_op)
         if list(graph.return_node().inputs())[0].node().kind() == "prim::TupleConstruct":
             copy_op.moveBefore(list(graph.return_node().inputs())[0].node())
-        
         list(copy_op.inputs())[0].replaceAllUsesAfterNodeWith(copy_op, slice_scatter.output())
         node.destroy()
-    print("after inplace mutation: \n", graph)
 
 def _jit_pass_hack_cpu_device(graph):
     cfg = Config.get_current_context_or_new()

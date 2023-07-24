@@ -444,7 +444,6 @@ def _jit_pass_reinplace(graph):
     %slice_scatter.2 = slice_scatter(%slice_scatter.1, %output, %start.1, %end.1, %step)
     %copy = copy_(%arg0, %slice_scatter.2, %false)
     """
-    print("before inplace mutation", graph)
     def _collect_all_inplace_nodes(block):
         all_nodes = []
         for node in block.nodes():

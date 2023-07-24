@@ -32,6 +32,7 @@ limitations under the License.
 #include "mlir/disc/transforms/disc_shape_optimization_utils.h"
 #include "mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "mlir/disc/transforms/placement_utils.h"
+#include "tensorflow/tsl/platform/str_util.h"
 #include "utils/placement_utils.h"
 
 // This file implements some helper functions and classes used to do fusion
@@ -261,13 +262,7 @@ FusionType getFusionType(Operation* op) {
 StringRef getFusionName(lmhlo::FusionOp op) {
   auto attr = op->getAttrOfType<StringAttr>(kFusionOpNameAttr);
   if (!attr) return "";
-  return attr.getValue();
-}
-
-StringRef formatFusionName(StringRef name) {
-  std::string formattedName = name.str();
-  std::replace(formattedName.begin(), formattedName.end(), '-', '_');
-  return formattedName;
+  return tsl::str_util::StringReplace(attr.getValue().str(), "-", "_", true);
 }
 
 // Sets the name of the fusion op
@@ -3257,7 +3252,7 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
     auto subFusionName =
         (llvm::Twine(fusionName) + "_" + llvm::Twine(subRootId)).str();
     ++subRootId;
-    setFusionName(b, subFusionOp, formatFusionName(subFusionName));
+    setFusionName(b, subFusionOp, subFusionName);
     subFusionOp->setAttr(
         kDiscFusionTypeAttrName,
         b.getStringAttr(fusionTypeToString(FusionType::kLoop)));

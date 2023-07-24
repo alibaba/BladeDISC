@@ -432,9 +432,6 @@ StringRef getFusionName(lmhlo::FusionOp op);
 // Sets the name of the fusion op
 void setFusionName(OpBuilder& b, lmhlo::FusionOp op, StringRef name);
 
-// format the fusion name to be valid in MLIR world.
-StringRef formatFusionName(StringRef name);
-
 // Attaches a new tag to the fusion op.
 // Here different tags is mapping to different variants of the fusion op.
 void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag);

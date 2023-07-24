@@ -844,7 +844,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
         int counter = nameCounter[signature]++;
         name = (func.getName() + "_" + signature + "_" + Twine(counter)).str();
       } while (nameSet.count(name));
-      setFusionName(b, op, formatFusionName(name));
+      setFusionName(b, op, name);
     });
   }
 

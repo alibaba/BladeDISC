@@ -165,10 +165,7 @@ LogicalResult miscLowerHelper(OpBuilder& b, Location loc, Operation* opaque_op,
 
   SmallVector<SmallVector<Value>> multidim_index_vector(vector_size);
   // for inplace dynamic-update-slice op, output_index according to operand(2)
-  if (isa<lmhlo::DynamicUpdateSliceOp>(op) &&
-      isInplaceOperator(
-          op)) {  // result_memref ==
-                  // cast<lmhlo::LmhloOp>(&*op).getOperation()->getOperand(0)) {
+  if (isa<lmhlo::DynamicUpdateSliceOp>(op) && isInplaceOperator(op)) {
     memref = cast<lmhlo::LmhloOp>(&*op).getOperation()->getOperand(1);
   }
   for (int64_t i = 0; i < vector_size; i++) {
@@ -183,8 +180,7 @@ LogicalResult miscLowerHelper(OpBuilder& b, Location loc, Operation* opaque_op,
                                       /*check_cache=*/true, lower_config);
   }
   if (vector_size == 1) {
-    if (result_memref !=
-        cast<lmhlo::LmhloOp>(&*op).getOperation()->getOperand(0)) {
+    if (!isa<lmhlo::DynamicUpdateSliceOp>(op) && !isInplaceOperator(op)) {
       for (int i = 0; i < vector_size; i++) {
         b.create<memref::StoreOp>(loc, operand_datas[0], result_memref,
                                   multidim_index_vector[0]);

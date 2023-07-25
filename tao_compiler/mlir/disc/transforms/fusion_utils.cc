@@ -262,7 +262,7 @@ FusionType getFusionType(Operation* op) {
 StringRef getFusionName(lmhlo::FusionOp op) {
   auto attr = op->getAttrOfType<StringAttr>(kFusionOpNameAttr);
   if (!attr) return "";
-  return tsl::str_util::StringReplace(attr.getValue().str(), "-", "_", true);
+  return attr.getValue();
 }
 
 // Sets the name of the fusion op

@@ -38,8 +38,8 @@ class TestInputMutation(DiscTestCase):
         del os.environ["TORCH_BLADE_EXPERIMENTAL_MERGE_HORIZONTAL_GROUPS"]
 
     def test_inplace_kv(self):
-        k_cache = torch.zeros(8, 32, 4096, 128, device=self.device)
-        k = torch.ones(8, 32, 1, 128, device=self.device)
+        k_cache = torch.zeros(2, 32, 8, device=self.device)
+        k = torch.ones(2, 1, 8, device=self.device)
         
         m = KVCacheModule()
         m.train(False)
@@ -48,6 +48,8 @@ class TestInputMutation(DiscTestCase):
         expect = m(k_cache.clone(), k.clone(), step)
         actual = opt_func(k_cache.clone(), k.clone(), step)
         for exp, act in zip(expect, actual):
+            print(exp)
+            print(act)
             self.assertTrue(torch.allclose(exp.cpu(), act.cpu()))
 
 if __name__ == "__main__":

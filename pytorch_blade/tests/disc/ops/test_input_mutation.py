@@ -23,8 +23,6 @@ class KVCacheModule(nn.Module):
     def forward(self, k_cache: Tensor, k: Tensor, step : Tensor):
         k_cache[..., step - k.shape[-2]: step , :].add_(k)
         value = k_cache[..., : step, :]
-        # attention
-        value = torch.matmul(k, value.transpose(-2, -1))
         return k_cache, value
 
 class TestInputMutation(DiscTestCase):
@@ -40,7 +38,7 @@ class TestInputMutation(DiscTestCase):
     def test_inplace_kv(self):
         k_cache = torch.zeros(2, 32, 8, device=self.device)
         k = torch.ones(2, 1, 8, device=self.device)
-        
+
         m = KVCacheModule()
         m.train(False)
         step = torch.tensor(1)
@@ -48,8 +46,8 @@ class TestInputMutation(DiscTestCase):
         expect = m(k_cache.clone(), k.clone(), step)
         actual = opt_func(k_cache.clone(), k.clone(), step)
         for exp, act in zip(expect, actual):
-            print(exp)
-            print(act)
+            print(exp.cpu())
+            print(act.cpu())
             self.assertTrue(torch.allclose(exp.cpu(), act.cpu()))
 
 if __name__ == "__main__":

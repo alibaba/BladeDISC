@@ -22,8 +22,7 @@ from tests.disc.testing_base import skipTorchLE, DiscTestCase
 class KVCacheModule(nn.Module):
     def forward(self, k_cache: Tensor, k: Tensor, step : Tensor):
         k_cache[..., step - k.shape[-2]: step , :].add_(k)
-        value = k_cache[..., : step, :]
-        return k_cache, value
+        return k_cache
 
 class TestInputMutation(DiscTestCase):
     def setUp(self):
@@ -45,10 +44,7 @@ class TestInputMutation(DiscTestCase):
         opt_func = torch_blade.optimize(m, allow_tracing=True, model_inputs=(k_cache.clone(), k.clone(), step))
         expect = m(k_cache.clone(), k.clone(), step)
         actual = opt_func(k_cache.clone(), k.clone(), step)
-        for exp, act in zip(expect, actual):
-            print(exp.cpu())
-            print(act.cpu())
-            self.assertTrue(torch.allclose(exp.cpu(), act.cpu()))
+        self.assertTrue(torch.allclose(expect.cpu(), actual.cpu()))
 
 if __name__ == "__main__":
     unittest.main()

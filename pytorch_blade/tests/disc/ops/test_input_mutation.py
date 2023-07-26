@@ -11,35 +11,42 @@
 
 import os
 import torch
+import torch.nn as nn
 from typing import List, Optional, Tuple
 from torch import Tensor
 import torch_blade
 import unittest
-from tests.disc.testing_base import skipTorchLE
 import torch_blade.clustering.support_fusion_group as fusion
-from tests.disc.testing_base import DiscTestCase
+from tests.disc.testing_base import skipTorchLE, DiscTestCase
+
+class KVCacheModule(nn.Module):
+    def forward(self, k_cache: Tensor, k: Tensor, step : Tensor):
+        k_cache[..., step - k.shape[-2]: step , :].add_(k)
+        return k_cache
 
 class TestInputMutation(DiscTestCase):
     def setUp(self):
         super().setUp()
         os.environ["TORCH_MHLO_OP_WHITE_LIST"] = "aten::copy_;aten::add;aten::slice_scatter;"
+        os.environ["TORCH_BLADE_EXPERIMENTAL_MERGE_HORIZONTAL_GROUPS"] = "true"
 
     def tearDown(self):
         del os.environ["TORCH_MHLO_OP_WHITE_LIST"]
-        
-    @skipTorchLE("2.0.0")
-    def test_inplace_kv_cache(self):
-        def func(k_cache: Tensor, k: Tensor) -> Tensor:
-            k_cache[...,k.shape[-2] :, :].add_(k)
-            return k_cache
-        
-        with fusion.min_group_nodes(1):
-            opt_func = torch.compile(backend='aot_disc')(func)
-            add = torch.zeros(2, 8, 32, 2, device=self.device)
-            value = torch.ones(2, 8, 1, 2, device=self.device)
-            actual = opt_func(add.clone(), value.clone())
-            expect = func(add.clone(), value.clone())
-            self.assertTrue(torch.allclose(actual.cpu(), expect.cpu()))
+        del os.environ["TORCH_BLADE_EXPERIMENTAL_MERGE_HORIZONTAL_GROUPS"]
+
+    @skipTorchLE("1.10.0")
+    def test_inplace_kv(self):
+        k_cache = torch.zeros(2, 32, 8, device=self.device)
+        k = torch.ones(2, 1, 8, device=self.device)
+
+        m = KVCacheModule()
+        m.train(False)
+        step = torch.tensor(1)
+        opt_func = torch_blade.optimize(m, allow_tracing=True, model_inputs=(k_cache.clone(), k.clone(), step))
+        expect = m(k_cache.clone(), k.clone(), step)
+        actual = opt_func(k_cache.clone(), k.clone(), step)
+        self.assertTrue(torch.allclose(expect.cpu(), actual.cpu()))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -32,6 +32,7 @@ limitations under the License.
 #include "mlir/disc/transforms/disc_shape_optimization_utils.h"
 #include "mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "mlir/disc/transforms/placement_utils.h"
+#include "tensorflow/tsl/platform/str_util.h"
 #include "utils/placement_utils.h"
 
 // This file implements some helper functions and classes used to do fusion
@@ -554,7 +555,8 @@ bool isFusible(Operation* op) {
     lmhlo::ReverseOp,
     lmhlo::SelectOp,
     lmhlo::SliceOp,
-    lmhlo::TransposeOp
+    lmhlo::TransposeOp,
+    lmhlo::DynamicUpdateSliceOp
   >(op);
   // clang-format on
 }
@@ -1481,7 +1483,13 @@ Value BaseGpuFusionStrategy::getEffectiveShape(FusionPattern& target, Value v) {
   Operation* result_op = target.findLastWriter(v);
   assert(result_op);
   // effective shape of reduce op is its operand's shape.
-  return isa<lmhlo::ReduceOp>(result_op) ? result_op->getOperand(0) : v;
+  if (isa<lmhlo::ReduceOp>(result_op)) {
+    return result_op->getOperand(0);
+  } else if (isa<lmhlo::DynamicUpdateSliceOp>(result_op) &&
+             isInplaceOperator(result_op)) {
+    return result_op->getOperand(1);
+  }
+  return v;
 }
 
 bool BaseGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,

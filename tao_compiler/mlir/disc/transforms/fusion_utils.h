@@ -76,6 +76,8 @@ DenseSet<Operation*> getValueUsersInFusionLike(Value memref, Operation* op);
 
 bool isOnGpu(Operation* op);
 
+bool isInplaceOperator(Operation* op);
+
 // Attributes used to annotate the fusion type, fusion name and tags.
 constexpr const char* kDiscFusionTypeAttrName = "disc.fusion_type";
 constexpr StringRef kFusionOpNameAttr = "disc.fusion.name";

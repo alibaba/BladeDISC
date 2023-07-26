@@ -57,6 +57,15 @@ namespace {
 template <typename T>
 using BaseOpConversion = OpConversionPattern<T>;
 
+template <typename T>
+Value backtraceOperand(Value operand) {
+  auto op = operand.getDefiningOp();
+  if (op && mlir::isa<T>(op)) {
+    return op->getOperand(0);
+  }
+  return operand;
+}
+
 struct LhloArgsMutationOpRewriter
     : public OpRewritePattern<lmhlo_disc::ArgsMutationOp> {
   explicit LhloArgsMutationOpRewriter(MLIRContext* context)
@@ -65,7 +74,8 @@ struct LhloArgsMutationOpRewriter
                                 PatternRewriter& rewriter) const override {
     auto op = lhloOp.getOperation();
     auto operands = op->getOperands();
-    operands[0].replaceAllUsesWith(operands[1]);
+    Value value = backtraceOperand<memref::ReinterpretCastOp>(operands[0]);
+    value.replaceAllUsesWith(operands[1]);
     rewriter.eraseOp(op);
     return success();
   }

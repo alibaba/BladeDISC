@@ -1466,6 +1466,29 @@ LogicalResult ConvertAtenOp<AtenConstantPadNdOp>::matchAndRewrite(
 } // namespace
 
 namespace {
+
+Value getNormalizedDimSizeInternal(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value index,
+    Value dimSize) {
+  auto loc = op->getLoc();
+  Value zero = rewriter.create<arith::ConstantOp>(
+      loc, rewriter.getIntegerAttr(rewriter.getI32Type(), 0));
+
+  // To normalize index into range [-dimSize, dimSize]
+  // index = min(max(-dimSize, index), dimSize)
+  auto negDimSize = rewriter.create<arith::SubIOp>(loc, zero, dimSize);
+  index = rewriter.create<arith::MaxSIOp>(loc, negDimSize, index);
+  index = rewriter.create<arith::MinSIOp>(loc, dimSize, index);
+
+  auto dimSizePlusIndex = rewriter.create<arith::AddIOp>(loc, dimSize, index);
+  auto indexPositive = rewriter.create<arith::CmpIOp>(
+      loc, arith::CmpIPredicate::sge, index, zero);
+  // get positive index: (index >=0) ? index: index + dimSize
+  return rewriter.create<arith::SelectOp>(
+      loc, indexPositive, index, dimSizePlusIndex);
+}
 template <>
 LogicalResult ConvertAtenOp<AtenSliceScatterOp>::matchAndRewrite(
     AtenSliceScatterOp op,
@@ -1479,23 +1502,27 @@ LogicalResult ConvertAtenOp<AtenSliceScatterOp>::matchAndRewrite(
       rewriter, op, adaptor.getSelf(), kMhloDimSizeBits);
   auto inputShape = selfTy.getShape();
 
-  int64_t start, end, dim;
-  if (!matchPattern(op.getStart(), m_TorchConstantInt(&start)))
-    return rewriter.notifyMatchFailure(
-        op, "only constant start is currently supported");
-  if (!matchPattern(op.getEnd(), m_TorchConstantInt(&end)))
-    return rewriter.notifyMatchFailure(
-        op, "only constant end is currently supported");
+  int64_t dim;
   if (!matchPattern(op.getDim(), m_TorchConstantInt(&dim)))
     return rewriter.notifyMatchFailure(
         op, "only constant dim is currently supported");
+
+  Value dimSize = rewriter.create<arith::IndexCastOp>(
+      op.getLoc(),
+      rewriter.getI32Type(),
+      rewriter.create<tensor::DimOp>(op.getLoc(), self, dim));
+  auto startIndexValue = rewriter.create<arith::TruncIOp>(
+      op.getLoc(), rewriter.getI32Type(), adaptor.getStart());
+
   SmallVector<Value> start_indices(selfTy.getRank());
   for (auto i = 0; i < inputShape.size(); ++i) {
     if (i == dim) {
-      start = toPositiveDim(start, inputShape[i]);
-      start_indices[i] = rewriter.create<mhlo::ConstantOp>(
+      auto normalizedStartIndex =
+          getNormalizedDimSizeInternal(rewriter, op, startIndexValue, dimSize);
+      start_indices[i] = rewriter.create<tensor::FromElementsOp>(
           op.getLoc(),
-          rewriter.getIntegerAttr(rewriter.getIntegerType(32), start));
+          RankedTensorType::get({}, rewriter.getI32Type()),
+          normalizedStartIndex);
     } else {
       start_indices[i] = rewriter.create<mhlo::ConstantOp>(
           op.getLoc(), rewriter.getIntegerAttr(rewriter.getIntegerType(32), 0));
@@ -1531,6 +1558,9 @@ LogicalResult ConvertAtenOp<OverwriteTensorContentsOp>::matchAndRewrite(
   auto operands = op.getOperands();
   auto value = operands[0];
   auto overwriten = operands[1];
+  // torch-mlir lowering aten::copy to broadcast_to operator, in this case,
+  // we can skip this operator and use the input directly.
+  value = backtraceOperand<AtenBroadcastToOp>(value);
   overwriten = backtraceOperand<CopyToNonValueTensorOp>(overwriten);
   overwriten = rewriter.create<ToBuiltinTensorOp>(loc, overwriten);
   value = rewriter.create<ToBuiltinTensorOp>(loc, value);

@@ -161,8 +161,7 @@ at::List<at::Tensor> RalContext::PreProcessInputs(
   at::List<at::Tensor> contiguous_inputs;
   for (at::Tensor inp_tensor : inputs) {
     // make sure the input is in contiguous layout
-    auto contiguous_tensor = inp_tensor.contiguous();
-    contiguous_inputs.push_back(contiguous_tensor);
+    contiguous_inputs.push_back(inp_tensor.contiguous());
   }
   return contiguous_inputs;
 }

@@ -133,9 +133,9 @@ Value mayCreateStore(OpBuilder* b, Location loc, Operation* op, Value value,
       return nullptr;
     }
     // Write back to off-chip memory.
-    if (lower_config->isWrittenBack(op)) {
+    if (lower_config->isWrittenBack(op))
       b->create<memref::StoreOp>(loc, value, out_memref, out_indices);
-    }
+
     // Store on on-chip memory.
     auto store = lower_config->getSpecificStore(op, out_memref);
     if (store != nullptr) {
@@ -210,10 +210,42 @@ Value elementalLower(OpBuilder* b, Location loc, LHLO_OpTy op,
                      ValueRange output_index, bool check_cache,
                      LowerConfig* lower_config);
 
-template <>
-Value elementalLower<lmhlo::DynamicUpdateSliceOp>(
-    OpBuilder* b, Location loc, lmhlo::DynamicUpdateSliceOp op,
-    ValueRange output_index, bool check_cache, LowerConfig* lower_config) {
+Value LowerInplaceDynamicUpdateSliceOp(OpBuilder* b, Location loc,
+                                       lmhlo::DynamicUpdateSliceOp op,
+                                       ValueRange output_index,
+                                       bool check_cache,
+                                       LowerConfig* lower_config) {
+  auto input_memref = op->getOperand(0);
+  auto update_memref = op->getOperand(1);
+  int rank = output_index.size();
+  SmallVector<Value> start_indices(rank);
+  for (int dim = 0; dim < rank; ++dim) {
+    start_indices[dim] = op->getOperand(dim + 2);
+  }
+  auto ret_value =
+      check_cache
+          ? createLoadOrUseCachedValue(loc, b, op.getOperation(), update_memref,
+                                       output_index, b->saveInsertionPoint(),
+                                       lower_config)
+          : createMaySpecificLoad(*b, loc, op.getOperation(), update_memref,
+                                  output_index, lower_config);
+  SmallVector<Value, 4> update_indices;
+  Value one = b->create<arith::ConstantIndexOp>(loc, 1);
+  for (int dim = 0; dim < rank; ++dim) {
+    Value start_index = b->create<memref::LoadOp>(loc, start_indices[dim]);
+    start_index =
+        b->create<arith::IndexCastOp>(loc, b->getIndexType(), start_index);
+    update_indices.push_back(b->create<arith::AddIOp>(
+        loc, b->getIndexType(), output_index[dim], start_index));
+  }
+  b->create<memref::StoreOp>(loc, ret_value, input_memref, update_indices);
+  return ret_value;
+}
+
+Value LowerOutofDynamicUpdateSliceOp(OpBuilder* b, Location loc,
+                                     lmhlo::DynamicUpdateSliceOp op,
+                                     ValueRange output_index, bool check_cache,
+                                     LowerConfig* lower_config) {
   int rank = output_index.size();
   Value result_opearnd = op->getOperand(op->getNumOperands() - 1);
   Value src_memref = op->getOperand(0);
@@ -225,11 +257,13 @@ Value elementalLower<lmhlo::DynamicUpdateSliceOp>(
   Value in_bound = b->create<arith::ConstantIntOp>(loc, 1, 1);
 
   SmallVector<Value, 4> update_indices;
+  // in_bound = true
   // for dim in rank:
   //   dadjusted_index = clamp(0, start_indices[dim], output_index.shape[dim] -
-  //   update.shape[dim]) update_index = output_index.shape[dim] -
-  //   dadjusted_index in_bound = in_bound && update_index >= 0 && update_index
-  //   < update.shape[dim]
+  //      update.shape[dim])
+  //   update_index = output_index.shape[dim] - dadjusted_index
+  //   in_bound = in_bound && update_index >= 0 && update_index
+  //        < update.shape[dim]
   auto zero = b->create<arith::ConstantIndexOp>(loc, 0);
   for (int dim = 0; dim < rank; ++dim) {
     Value adjusted_start_index =
@@ -263,8 +297,7 @@ Value elementalLower<lmhlo::DynamicUpdateSliceOp>(
   result_types.push_back(
       src_memref.getType().cast<MemRefType>().getElementType());
 
-  auto if_inbound_op =
-      b->create<scf::IfOp>(loc, result_types, in_bound, /*hasElseRegion*/ true);
+  auto if_inbound_op = b->create<scf::IfOp>(loc, result_types, in_bound, true);
   if_inbound_op.getThenRegion().front().clear();
   if_inbound_op.getElseRegion().front().clear();
   b->setInsertionPointToEnd(&if_inbound_op.getThenRegion().front());
@@ -290,9 +323,23 @@ Value elementalLower<lmhlo::DynamicUpdateSliceOp>(
   b->setInsertionPointAfter(if_inbound_op);
 
   Value result = *(if_inbound_op.getResults().begin());
-
   mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
   return result;
+}
+
+template <>
+Value elementalLower<lmhlo::DynamicUpdateSliceOp>(
+    OpBuilder* b, Location loc, lmhlo::DynamicUpdateSliceOp op,
+    ValueRange output_index, bool check_cache, LowerConfig* lower_config) {
+  int rank = output_index.size();
+  Value result_opearnd = op->getOperand(op->getNumOperands() - 1);
+  Value src_memref = op->getOperand(0);
+  if (result_opearnd == src_memref) {
+    return LowerInplaceDynamicUpdateSliceOp(b, loc, op, output_index,
+                                            check_cache, lower_config);
+  }
+  return LowerOutofDynamicUpdateSliceOp(b, loc, op, output_index, check_cache,
+                                        lower_config);
 }
 
 template <>

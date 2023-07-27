@@ -55,6 +55,10 @@ cc_test(
     "disc_compiler_test.cpp",
     #"passes/disc_fuser_test.cpp",
   ]),
+  linkopts = [
+      "-lm",
+      "-ldl",
+  ],
   deps = [
     "@local_org_torch//:libtorch",
     "@googltest//:gtest_main",

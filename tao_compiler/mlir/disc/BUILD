@@ -223,6 +223,7 @@ disc_cc_library(
         "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tf_dialect_passes",
         "@llvm-project//llvm:OrcJIT",
         "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:BuiltinToLLVMIRTranslation",
         "@llvm-project//mlir:ExecutionEngineUtils",
         "@llvm-project//mlir:IR",
     ],

@@ -260,7 +260,8 @@ bool lowerFakeQuantToQuantAndDequant() {
 
 bool isMemIntensiveOptExperimentalEnabled() {
   static bool enabled = []() {
-    bool enabled = false;
+    // Enable mem-intensive operator optimization by default.
+    bool enabled = true;
     tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL",
                                    enabled, &enabled);
     return enabled;

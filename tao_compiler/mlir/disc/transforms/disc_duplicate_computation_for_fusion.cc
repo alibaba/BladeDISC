@@ -69,7 +69,7 @@ LogicalResult DuplicateConstant::matchAndRewrite(
     auto bcast = bcast_ops[i];
     // Clone the constant.
     OpBuilder builder(op);
-    auto orig_alloc = dyn_cast<memref::AllocOp>(output.getDefiningOp());
+    auto orig_alloc = dyn_cast_or_null<memref::AllocOp>(output.getDefiningOp());
     if (orig_alloc == nullptr) {
       continue;
     }
@@ -130,7 +130,8 @@ LogicalResult DuplicateConstantWithBcast::matchAndRewrite(
       auto user = bcast_users[i];
       OpBuilder builder(bcast);
       // Clone the constant.
-      auto orig_const_alloc = dyn_cast<memref::AllocOp>(output.getDefiningOp());
+      auto orig_const_alloc =
+          dyn_cast_or_null<memref::AllocOp>(output.getDefiningOp());
       if (orig_const_alloc == nullptr) {
         continue;
       }
@@ -139,7 +140,7 @@ LogicalResult DuplicateConstantWithBcast::matchAndRewrite(
       builder.create<lmhlo::ConstantOp>(loc, value, new_const_memref);
       // Clone the bcast.
       auto orig_bcast_alloc =
-          dyn_cast<memref::AllocOp>(bcast_output.getDefiningOp());
+          dyn_cast_or_null<memref::AllocOp>(bcast_output.getDefiningOp());
       if (orig_bcast_alloc == nullptr) {
         continue;
       }

@@ -214,7 +214,9 @@ def remote_cache_token():
     """
     Return a remote cache token if exists
     """
-    fn = os.path.expanduser("~/.cache/remote_cache_token")
+    # fn = os.path.expanduser("~/.cache/remote_cache_token")
+    # Disable remote cache for testing.
+    return None
     if os.path.exists(fn):
         with open(fn) as f:
             return str(f.read()).strip()

@@ -40,6 +40,8 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/disc/IR/disc_shape_ops.h"
+#include "mlir/disc/tools/disc-transform/ArmNeonExt/ArmNeonExtDialect.h"
+#include "mlir/disc/tools/disc-transform/ArmNeonExt/ArmNeonExtOps.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
@@ -63,6 +65,7 @@ void addTransformDialectDependentDialects(DialectRegistry& registry) {
       arith::ArithDialect,
       AffineDialect,
       bufferization::BufferizationDialect,
+      disc_ral::disc_arm_neon_ext::DISCArmNeonExtDialect,
       disc_ral::disc_linalg_ext::DISCLinalgExtDialect,
       iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,
       func::FuncDialect,

@@ -32,6 +32,8 @@ limitations under the License.
 #include "mlir/disc/IR/disc_shape_ops.h"
 #include "mlir/disc/IR/hlo_disc_ops.h"
 #include "mlir/disc/IR/lhlo_disc_ops.h"
+#include "mlir/disc/tools/disc-transform/ArmNeonExt/ArmNeonExtDialect.h"
+#include "mlir/disc/tools/disc-transform/ArmNeonExt/ArmNeonExtOps.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
@@ -58,6 +60,7 @@ int main(int argc, char** argv) {
   registry.insert<mlir::lmhlo_disc::LmhloDiscDialect>();
   registry.insert<mlir::lmhlo_gpu::LmhloGpuDialect>();
   registry.insert<mlir::disc_ral::RalDialect>();
+  registry.insert<mlir::disc_ral::disc_arm_neon_ext::DISCArmNeonExtDialect>();
   registry.insert<mlir::disc_ral::disc_linalg_ext::DISCLinalgExtDialect>();
   registry.insert<mlir::TF::TensorFlowDialect>();
   registry.insert<mlir::disc_shape::DISCShapeDialect>();

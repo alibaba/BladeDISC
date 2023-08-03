@@ -46,6 +46,8 @@
 #include "mlir/Interfaces/VectorInterfaces.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/MathExtras.h"
+#include "mlir/disc/tools/disc-transform/ArmNeonExt/ArmNeonExtDialect.h"
+#include "mlir/disc/tools/disc-transform/ArmNeonExt/ArmNeonExtOps.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/utils.h"
 #include "mlir/disc/transforms/codegen_utils.h"
@@ -3812,6 +3814,2020 @@ transform_dialect::DISCInlineAndConvertGPUIdsOp::applyToOne(
   return DiagnosedSilenceableFailure::success();
 }
 
+//===---------------------------------------------------------------------===//
+// DISCLowerVectorContractionToBFMMLA2x2x4
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure DISCLowerVectorContractionToBFMMLA2x2x4::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  vector::ContractionOp vec_contract = dyn_cast<vector::ContractionOp>(target);
+  if (!vec_contract) {
+    return mlir::emitDefiniteFailure(target,
+                                     "apples only to vector.contract op.");
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = vec_contract.getLoc();
+  rewriter.setInsertionPoint(target);
+  auto extf1 =
+      dyn_cast<arith::ExtFOp>(vec_contract.getOperand(0).getDefiningOp());
+  auto extf2 =
+      dyn_cast<arith::ExtFOp>(vec_contract.getOperand(1).getDefiningOp());
+  if (!extf1 || !extf2) {
+    return mlir::emitDefiniteFailure(target, "require extf bf16 to f32.");
+  }
+  int64_t m =
+      vec_contract.getOperand(0).getType().cast<VectorType>().getShape()[0];
+  int64_t k =
+      vec_contract.getOperand(0).getType().cast<VectorType>().getShape()[1];
+  int64_t n =
+      vec_contract.getOperand(1).getType().cast<VectorType>().getShape()[0];
+  if (m != 2 || n != 2 || k != 4) {
+    return mlir::emitDefiniteFailure(target, "m, n, k not satisfied.");
+  }
+
+  // flatten 2x4xbf16 to 8xbf16
+  VectorType flattenedVectorType =
+      VectorType::get({m * k}, FloatType::getBF16(ctx));
+  flattenedVectorType.dump();
+  Value a1d = rewriter.create<vector::ShapeCastOp>(loc, flattenedVectorType,
+                                                   extf1->getOperand(0));
+  Value b1d = rewriter.create<vector::ShapeCastOp>(loc, flattenedVectorType,
+                                                   extf2->getOperand(0));
+  // flatten 2x2xf32 to 4xf32
+  Value c1d = rewriter.create<vector::ShapeCastOp>(
+      loc, VectorType::get({m * n}, FloatType::getF32(ctx)),
+      vec_contract.getOperand(2));
+
+  auto bfmmla_op = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(
+      vec_contract.getLoc(), VectorType::get({m * n}, FloatType::getF32(ctx)),
+      c1d, a1d, b1d);
+  vec_contract.getResult().getType().cast<VectorType>().dump();
+  auto res = rewriter.create<vector::ShapeCastOp>(
+      loc, vec_contract.getResult().getType().cast<VectorType>(), bfmmla_op);
+  target->replaceAllUsesWith(res);
+  results.push_back({res.getOperation()});
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// DISCLowerVectorContractionToBFMMLA4x4x8
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure DISCLowerVectorContractionToBFMMLA4x4x8::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  vector::ContractionOp vec_contract = dyn_cast<vector::ContractionOp>(target);
+  if (!vec_contract) {
+    return mlir::emitDefiniteFailure(target,
+                                     "apples only to vector.contract op.");
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = vec_contract.getLoc();
+  rewriter.setInsertionPoint(target);
+  auto extf1 =
+      dyn_cast<arith::ExtFOp>(vec_contract.getOperand(0).getDefiningOp());
+  auto extf2 =
+      dyn_cast<arith::ExtFOp>(vec_contract.getOperand(1).getDefiningOp());
+  if (!extf1 || !extf2) {
+    return mlir::emitDefiniteFailure(target, "require extf bf16 to f32.");
+  }
+  int64_t m =
+      vec_contract.getOperand(0).getType().cast<VectorType>().getShape()[0];
+  int64_t k =
+      vec_contract.getOperand(0).getType().cast<VectorType>().getShape()[1];
+  int64_t n =
+      vec_contract.getOperand(1).getType().cast<VectorType>().getShape()[0];
+  if (m != 4 || n != 4 || k != 8) {
+    return mlir::emitDefiniteFailure(target, "m, n, k not satisfied.");
+  }
+  using I64Array = ArrayRef<int64_t>;
+  SmallVector<int64_t, 2> offsets_0 = {0, 0};
+  SmallVector<int64_t, 2> offsets_1 = {1, 0};
+  SmallVector<int64_t, 2> offsets_2 = {2, 0};
+  SmallVector<int64_t, 2> offsets_3 = {3, 0};
+  SmallVector<int64_t, 2> sizes = {1, 8};
+  SmallVector<int64_t, 2> strides = {1, 1};
+
+  auto f64x2_vecTy = VectorType::get({2}, FloatType::getF64(ctx));    // 2xf64
+  auto f32x4_vecTy = VectorType::get({4}, FloatType::getF32(ctx));    // 4xf32
+  auto bf16x8_vecTy = VectorType::get({8}, FloatType::getBF16(ctx));  // 8xbf16
+
+  // Preprocessing A
+  // extract 8xbf16 from 4x8xbf16
+  auto ASliceOp0 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{0, 0}, sizes, strides));
+  auto ASliceOp1 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{1, 0}, sizes, strides));
+  auto ASliceOp2 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{2, 0}, sizes, strides));
+  auto ASliceOp3 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{3, 0}, sizes, strides));
+  // 8xbf16 -> 2xf64
+  auto ASliceOp0Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp0);
+  auto ASliceOp1Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp1);
+  auto ASliceOp2Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp2);
+  auto ASliceOp3Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp3);
+  // UZP1 and UZP2
+  auto ASlicpOP0UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp0Bitcast, ASliceOp1Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASlicpOP1UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp0Bitcast, ASliceOp1Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto ASlicpOP2UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp2Bitcast, ASliceOp3Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASlicpOP3UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp2Bitcast, ASliceOp3Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  auto A0 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASlicpOP0UZP1);
+  auto A1 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASlicpOP1UZP2);
+  auto A2 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASlicpOP2UZP1);
+  auto A3 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASlicpOP3UZP2);
+
+  // Preprocessing B
+  // extract 8xbf16 from 4x8xbf16
+  auto BSliceOp0 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), offsets_0, sizes, strides));
+  auto BSliceOp1 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), offsets_1, sizes, strides));
+  auto BSliceOp2 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), offsets_2, sizes, strides));
+  auto BSliceOp3 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), offsets_3, sizes, strides));
+  // 8xbf16 -> 2xf64
+  auto BSliceOp0Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp0);
+  auto BSliceOp1Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp1);
+  auto BSliceOp2Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp2);
+  auto BSliceOp3Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp3);
+  // UZP1 and UZP2
+  auto BSliceOp0UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp0Bitcast, BSliceOp1Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp1UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp0Bitcast, BSliceOp1Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp2UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp2Bitcast, BSliceOp3Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp3UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp2Bitcast, BSliceOp3Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  auto B0 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp0UZP1);
+  auto B1 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp1UZP2);
+  auto B2 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp2UZP1);
+  auto B3 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp3UZP2);
+
+  // Preprocessing C
+  Value acc = vec_contract.getOperand(2);  // 4x4xf32
+  SmallVector<int64_t, 2> C_sizes = {1, 4};
+  // extract 4xf32 from 4x4xf32
+  auto CSliceOp0 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, offsets_0,
+                                                     C_sizes, strides));
+  auto CSliceOp1 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, offsets_1,
+                                                     C_sizes, strides));
+  auto CSliceOp2 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, offsets_2,
+                                                     C_sizes, strides));
+  auto CSliceOp3 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, offsets_3,
+                                                     C_sizes, strides));
+  // 4xf32 -> 2xf64
+  auto CSliceOp0Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp0);
+  auto CSliceOp1Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp1);
+  auto CSliceOp2Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp2);
+  auto CSliceOp3Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp3);
+  // UZP1 and UZP2
+  auto C0UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp0Bitcast, CSliceOp1Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C1UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp0Bitcast, CSliceOp1Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto C2UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp2Bitcast, CSliceOp3Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C3UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp2Bitcast, CSliceOp3Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  auto C0 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C0UZP);
+  auto C1 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C1UZP);
+  auto C2 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C2UZP);
+  auto C3 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C3UZP);
+
+  // BFMMLA
+  auto bfmmla_op_0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(
+      loc, f32x4_vecTy, C0, A0, B0);
+  auto bfmmla_op_1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(
+      loc, f32x4_vecTy, C1, A0, B2);
+  auto bfmmla_op_2 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(
+      loc, f32x4_vecTy, C2, A2, B0);
+  auto bfmmla_op_3 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(
+      loc, f32x4_vecTy, C3, A2, B2);
+  bfmmla_op_0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(
+      loc, f32x4_vecTy, bfmmla_op_0, A1, B1);
+  bfmmla_op_1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(
+      loc, f32x4_vecTy, bfmmla_op_1, A1, B3);
+  bfmmla_op_2 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(
+      loc, f32x4_vecTy, bfmmla_op_2, A3, B1);
+  bfmmla_op_3 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(
+      loc, f32x4_vecTy, bfmmla_op_3, A3, B3);
+
+  // Postprocessing C
+  // 4xf32 -> 2xf64
+  auto C0Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, bfmmla_op_0);
+  auto C1Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, bfmmla_op_1);
+  auto C2Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, bfmmla_op_2);
+  auto C3Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, bfmmla_op_3);
+  // UZP1 and UZP2
+  C0UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, C0Bitcast, C1Bitcast, BoolAttr::get(ctx, 1));
+  C1UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, C0Bitcast, C1Bitcast, BoolAttr::get(ctx, 0));
+  C2UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, C2Bitcast, C3Bitcast, BoolAttr::get(ctx, 1));
+  C3UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, C2Bitcast, C3Bitcast, BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  C0Bitcast = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C0UZP);
+  C1Bitcast = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C1UZP);
+  C2Bitcast = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C2UZP);
+  C3Bitcast = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C3UZP);
+
+  SmallVector<int64_t, 2> C_strides = {1};
+  auto res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C0Bitcast, acc, offsets_0, ArrayRef<int64_t>{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(loc, C1Bitcast, res,
+                                                      offsets_1, C_strides);
+  res = rewriter.create<vector::InsertStridedSliceOp>(loc, C2Bitcast, res,
+                                                      offsets_2, C_strides);
+  res = rewriter.create<vector::InsertStridedSliceOp>(loc, C3Bitcast, res,
+                                                      offsets_3, C_strides);
+
+  target->replaceAllUsesWith(res);
+  results.push_back(res.getOperation());
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// DISCLowerVectorContractionToBFMMLA8x8x8
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure DISCLowerVectorContractionToBFMMLA8x8x8::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  vector::ContractionOp vec_contract = dyn_cast<vector::ContractionOp>(target);
+  if (!vec_contract) {
+    return mlir::emitDefiniteFailure(target,
+                                     "apples only to vector.contract op.");
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = vec_contract.getLoc();
+  rewriter.setInsertionPoint(target);
+  auto extf1 =
+      dyn_cast<arith::ExtFOp>(vec_contract.getOperand(0).getDefiningOp());
+  auto extf2 =
+      dyn_cast<arith::ExtFOp>(vec_contract.getOperand(1).getDefiningOp());
+  if (!extf1 || !extf2) {
+    return mlir::emitDefiniteFailure(target, "require extf bf16 to f32.");
+  }
+  int64_t m =
+      vec_contract.getOperand(0).getType().cast<VectorType>().getShape()[0];
+  int64_t k =
+      vec_contract.getOperand(0).getType().cast<VectorType>().getShape()[1];
+  int64_t n =
+      vec_contract.getOperand(1).getType().cast<VectorType>().getShape()[0];
+  if (m != 8 || n != 8 || k != 8) {
+    return mlir::emitDefiniteFailure(target, "m, n, k not satisfied.");
+  }
+  using I64Array = ArrayRef<int64_t>;
+  SmallVector<int64_t, 2> sizes = {1, 8};
+  SmallVector<int64_t, 2> strides = {1, 1};
+
+  auto f64x2_vecTy = VectorType::get({2}, FloatType::getF64(ctx));    // 2xf64
+  auto f32x4_vecTy = VectorType::get({4}, FloatType::getF32(ctx));    // 4xf32
+  auto bf16x8_vecTy = VectorType::get({8}, FloatType::getBF16(ctx));  // 8xbf16
+
+  // Preprocessing B
+  // extract 8xbf16 from 8x8xbf16
+  auto BSliceOp0 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), I64Array{0, 0}, sizes, strides));
+  auto BSliceOp1 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), I64Array{1, 0}, sizes, strides));
+  auto BSliceOp2 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), I64Array{2, 0}, sizes, strides));
+  auto BSliceOp3 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), I64Array{3, 0}, sizes, strides));
+  auto BSliceOp4 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), I64Array{4, 0}, sizes, strides));
+  auto BSliceOp5 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), I64Array{5, 0}, sizes, strides));
+  auto BSliceOp6 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), I64Array{6, 0}, sizes, strides));
+  auto BSliceOp7 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf2.getOperand(), I64Array{7, 0}, sizes, strides));
+  // 8xbf16 -> 2xf64
+  auto BSliceOp0Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp0);
+  auto BSliceOp1Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp1);
+  auto BSliceOp2Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp2);
+  auto BSliceOp3Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp3);
+  auto BSliceOp4Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp4);
+  auto BSliceOp5Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp5);
+  auto BSliceOp6Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp6);
+  auto BSliceOp7Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp7);
+  // UZP1 and UZP2
+  auto BSliceOp0UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp0Bitcast, BSliceOp1Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp1UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp0Bitcast, BSliceOp1Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp2UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp2Bitcast, BSliceOp3Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp3UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp2Bitcast, BSliceOp3Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp4UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp4Bitcast, BSliceOp5Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp5UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp4Bitcast, BSliceOp5Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp6UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp6Bitcast, BSliceOp7Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp7UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp6Bitcast, BSliceOp7Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  auto B0 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp0UZP1);
+  auto B1 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp1UZP2);
+  auto B2 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp2UZP1);
+  auto B3 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp3UZP2);
+  auto B4 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp4UZP1);
+  auto B5 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp5UZP2);
+  auto B6 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp6UZP1);
+  auto B7 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp7UZP2);
+
+  // Preprocessing C
+  Value acc = vec_contract.getOperand(2);  // 8x8xf32
+  SmallVector<int64_t, 2> C_sizes = {1, 4};
+  // extract 16 4xf32 from 8x8xf32
+  auto CSliceOp00 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{0, 0},
+                                                     C_sizes, strides));
+  auto CSliceOp01 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{0, 4},
+                                                     C_sizes, strides));
+  auto CSliceOp02 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{1, 0},
+                                                     C_sizes, strides));
+  auto CSliceOp03 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{1, 4},
+                                                     C_sizes, strides));
+  auto CSliceOp04 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{2, 0},
+                                                     C_sizes, strides));
+  auto CSliceOp05 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{2, 4},
+                                                     C_sizes, strides));
+  auto CSliceOp06 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{3, 0},
+                                                     C_sizes, strides));
+  auto CSliceOp07 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{3, 4},
+                                                     C_sizes, strides));
+  auto CSliceOp08 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{4, 0},
+                                                     C_sizes, strides));
+  auto CSliceOp09 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{4, 4},
+                                                     C_sizes, strides));
+  auto CSliceOp10 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{5, 0},
+                                                     C_sizes, strides));
+  auto CSliceOp11 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{5, 4},
+                                                     C_sizes, strides));
+  auto CSliceOp12 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{6, 0},
+                                                     C_sizes, strides));
+  auto CSliceOp13 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{6, 4},
+                                                     C_sizes, strides));
+  auto CSliceOp14 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{7, 0},
+                                                     C_sizes, strides));
+  auto CSliceOp15 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{7, 4},
+                                                     C_sizes, strides));
+  // 4xf32 -> 2xf64
+  auto CSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp00);
+  auto CSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp01);
+  auto CSliceOp02Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp02);
+  auto CSliceOp03Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp03);
+  auto CSliceOp04Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp04);
+  auto CSliceOp05Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp05);
+  auto CSliceOp06Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp06);
+  auto CSliceOp07Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp07);
+  auto CSliceOp08Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp08);
+  auto CSliceOp09Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp09);
+  auto CSliceOp10Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp10);
+  auto CSliceOp11Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp11);
+  auto CSliceOp12Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp12);
+  auto CSliceOp13Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp13);
+  auto CSliceOp14Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp14);
+  auto CSliceOp15Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp15);
+  // UZP1 and UZP2
+  auto C00UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp02Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C01UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp02Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto C02UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp01Bitcast, CSliceOp03Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C03UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp01Bitcast, CSliceOp03Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto C04UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp04Bitcast, CSliceOp06Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C05UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp04Bitcast, CSliceOp06Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto C06UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp05Bitcast, CSliceOp07Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C07UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp05Bitcast, CSliceOp07Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto C08UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp08Bitcast, CSliceOp10Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C09UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp08Bitcast, CSliceOp10Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto C10UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp09Bitcast, CSliceOp11Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C11UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp09Bitcast, CSliceOp11Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto C12UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp12Bitcast, CSliceOp14Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C13UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp12Bitcast, CSliceOp14Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto C14UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp13Bitcast, CSliceOp15Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C15UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp13Bitcast, CSliceOp15Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  auto C00 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C00UZP);
+  auto C01 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C01UZP);
+  auto C02 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C02UZP);
+  auto C03 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C03UZP);
+  auto C04 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C04UZP);
+  auto C05 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C05UZP);
+  auto C06 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C06UZP);
+  auto C07 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C07UZP);
+  auto C08 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C08UZP);
+  auto C09 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C09UZP);
+  auto C10 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C10UZP);
+  auto C11 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C11UZP);
+  auto C12 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C12UZP);
+  auto C13 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C13UZP);
+  auto C14 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C14UZP);
+  auto C15 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C15UZP);
+
+  // Preprocessing A
+  // extract 8xbf16 from 4x8xbf16
+  auto ASliceOp0 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{0, 0}, sizes, strides));
+  auto ASliceOp1 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{1, 0}, sizes, strides));
+  // 8xbf16 -> 2xf64
+  auto ASliceOp0Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp0);
+  auto ASliceOp1Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp1);
+  // UZP1 and UZP2
+  auto ASlicpOP0UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp0Bitcast, ASliceOp1Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASlicpOP1UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp0Bitcast, ASliceOp1Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  auto A0 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASlicpOP0UZP1);
+  auto A1 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASlicpOP1UZP2);
+
+  // Micro Kernel Computation
+  auto BFMMLA00 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C00, A0, B0);
+  BFMMLA00 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA00, A1, B1);
+  auto BFMMLA01 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C01, A0, B2);
+  BFMMLA01 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA01, A1, B3);
+  auto BFMMLA02 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C02, A0, B4);
+  BFMMLA02 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA02, A1, B5);
+  auto BFMMLA03 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C03, A0, B6);
+  BFMMLA03 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA03, A1, B7);
+
+  // Preprocessing A
+  // extract 8xbf16 from 4x8xbf16
+  auto ASliceOp2 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{2, 0}, sizes, strides));
+  auto ASliceOp3 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{3, 0}, sizes, strides));
+  // 8xbf16 -> 2xf64
+  auto ASliceOp2Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp2);
+  auto ASliceOp3Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp3);
+  // UZP1 and UZP2
+  auto ASlicpOP2UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp2Bitcast, ASliceOp3Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASlicpOP3UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp2Bitcast, ASliceOp3Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  auto A2 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASlicpOP2UZP1);
+  auto A3 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASlicpOP3UZP2);
+
+  // Micro Kernel Computation
+  auto BFMMLA04 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C04, A2, B0);
+  BFMMLA04 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA04, A3, B1);
+  auto BFMMLA05 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C05, A2, B2);
+  BFMMLA05 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA05, A3, B3);
+  auto BFMMLA06 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C06, A2, B4);
+  BFMMLA06 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA06, A3, B5);
+  auto BFMMLA07 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C07, A2, B6);
+  BFMMLA07 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA07, A3, B7);
+
+  // Preprocessing A
+  // extract 8xbf16 from 4x8xbf16
+  auto ASliceOp4 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{4, 0}, sizes, strides));
+  auto ASliceOp5 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{5, 0}, sizes, strides));
+  // 8xbf16 -> 2xf64
+  auto ASliceOp4Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp4);
+  auto ASliceOp5Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp5);
+  // UZP1 and UZP2
+  auto ASliceOp4UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp4Bitcast, ASliceOp5Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASliceOp5UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp4Bitcast, ASliceOp5Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  auto A4 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp4UZP1);
+  auto A5 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp5UZP2);
+
+  // Micro Kernel Computation
+  auto BFMMLA08 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C08, A4, B0);
+  BFMMLA08 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA08, A5, B1);
+  auto BFMMLA09 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C09, A4, B2);
+  BFMMLA09 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA09, A5, B3);
+  auto BFMMLA10 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C10, A4, B4);
+  BFMMLA10 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA10, A5, B5);
+  auto BFMMLA11 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C11, A4, B6);
+  BFMMLA11 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA11, A5, B7);
+
+  // Preprocessing A
+  // extract 8xbf16 from 4x8xbf16
+  auto ASliceOp6 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{6, 0}, sizes, strides));
+  auto ASliceOp7 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, extf1.getOperand(), I64Array{7, 0}, sizes, strides));
+  // 8xbf16 -> 2xf64
+  auto ASliceOp6Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp6);
+  auto ASliceOp7Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp7);
+  // UZP1 and UZP2
+  auto ASliceOp6UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp6Bitcast, ASliceOp7Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASliceOp7UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp6Bitcast, ASliceOp7Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  auto A6 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp6UZP1);
+  auto A7 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp7UZP2);
+
+  // Micro Kernel Computation
+  auto BFMMLA12 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C12, A6, B0);
+  BFMMLA12 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA12, A7, B1);
+  auto BFMMLA13 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C13, A6, B2);
+  BFMMLA13 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA13, A7, B3);
+  auto BFMMLA14 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C14, A6, B4);
+  BFMMLA14 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA14, A7, B5);
+  auto BFMMLA15 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                               C15, A6, B6);
+  BFMMLA15 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                          BFMMLA15, A7, B7);
+
+  // Postprocessing C
+  // 4xf32 -> 2xf64
+  CSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA00);
+  CSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA01);
+  CSliceOp02Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA02);
+  CSliceOp03Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA03);
+  CSliceOp04Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA04);
+  CSliceOp05Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA05);
+  CSliceOp06Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA06);
+  CSliceOp07Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA07);
+  CSliceOp08Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA08);
+  CSliceOp09Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA09);
+  CSliceOp10Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA10);
+  CSliceOp11Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA11);
+  CSliceOp12Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA12);
+  CSliceOp13Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA13);
+  CSliceOp14Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA14);
+  CSliceOp15Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA15);
+  // UZP1 and UZP2
+  C00UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 1));
+  C01UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 0));
+  C02UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp02Bitcast, CSliceOp03Bitcast,
+      BoolAttr::get(ctx, 1));
+  C03UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp02Bitcast, CSliceOp03Bitcast,
+      BoolAttr::get(ctx, 0));
+  C04UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp04Bitcast, CSliceOp05Bitcast,
+      BoolAttr::get(ctx, 1));
+  C05UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp04Bitcast, CSliceOp05Bitcast,
+      BoolAttr::get(ctx, 0));
+  C06UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp06Bitcast, CSliceOp07Bitcast,
+      BoolAttr::get(ctx, 1));
+  C07UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp06Bitcast, CSliceOp07Bitcast,
+      BoolAttr::get(ctx, 0));
+  C08UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp08Bitcast, CSliceOp09Bitcast,
+      BoolAttr::get(ctx, 1));
+  C09UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp08Bitcast, CSliceOp09Bitcast,
+      BoolAttr::get(ctx, 0));
+  C10UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp10Bitcast, CSliceOp11Bitcast,
+      BoolAttr::get(ctx, 1));
+  C11UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp10Bitcast, CSliceOp11Bitcast,
+      BoolAttr::get(ctx, 0));
+  C12UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp12Bitcast, CSliceOp13Bitcast,
+      BoolAttr::get(ctx, 1));
+  C13UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp12Bitcast, CSliceOp13Bitcast,
+      BoolAttr::get(ctx, 0));
+  C14UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp14Bitcast, CSliceOp15Bitcast,
+      BoolAttr::get(ctx, 1));
+  C15UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp14Bitcast, CSliceOp15Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  C00 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C00UZP);
+  C01 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C01UZP);
+  C02 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C02UZP);
+  C03 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C03UZP);
+  C04 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C04UZP);
+  C05 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C05UZP);
+  C06 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C06UZP);
+  C07 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C07UZP);
+  C08 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C08UZP);
+  C09 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C09UZP);
+  C10 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C10UZP);
+  C11 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C11UZP);
+  C12 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C12UZP);
+  C13 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C13UZP);
+  C14 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C14UZP);
+  C15 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C15UZP);
+  // Insert 4xf32 into 8x8xf32
+  vector::InsertStridedSliceOp res;
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C00, acc, I64Array{0, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C02, res, I64Array{0, 4}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C01, res, I64Array{1, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C03, res, I64Array{1, 4}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C04, res, I64Array{2, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C06, res, I64Array{2, 4}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C05, res, I64Array{3, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C07, res, I64Array{3, 4}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C08, res, I64Array{4, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C10, res, I64Array{4, 4}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C09, res, I64Array{5, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C11, res, I64Array{5, 4}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C12, res, I64Array{6, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C14, res, I64Array{6, 4}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C13, res, I64Array{7, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C15, res, I64Array{7, 4}, I64Array{1});
+
+  target->replaceAllUsesWith(res);
+  results.push_back(res.getOperation());
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// DISCLowerVectorContractionToBFMMLA8x4x40
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+DISCLowerVectorContractionToBFMMLA8x4x40::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  vector::ContractionOp vec_contract = dyn_cast<vector::ContractionOp>(target);
+  if (!vec_contract) {
+    return mlir::emitDefiniteFailure(target,
+                                     "apples only to vector.contract op.");
+  }
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = vec_contract.getLoc();
+  rewriter.setInsertionPoint(target);
+  auto extf1 =
+      dyn_cast<arith::ExtFOp>(vec_contract.getOperand(0).getDefiningOp());
+  auto extf2 =
+      dyn_cast<arith::ExtFOp>(vec_contract.getOperand(1).getDefiningOp());
+  if (!extf1 || !extf2) {
+    return mlir::emitDefiniteFailure(target, "require extf bf16 to f32.");
+  }
+  int64_t m =
+      vec_contract.getOperand(0).getType().cast<VectorType>().getShape()[0];
+  int64_t k =
+      vec_contract.getOperand(0).getType().cast<VectorType>().getShape()[1];
+  int64_t n =
+      vec_contract.getOperand(1).getType().cast<VectorType>().getShape()[0];
+  if (m != 8 || n != 4 || k != 40) {
+    return mlir::emitDefiniteFailure(target, "m, n, k not satisfied.");
+  }
+
+  using I64Array = ArrayRef<int64_t>;
+  SmallVector<int64_t, 2> sizes = {1, 8};
+  SmallVector<int64_t, 2> strides = {1, 1};
+  auto f64x2_vecTy = VectorType::get({2}, FloatType::getF64(ctx));    // 2xf64
+  auto f32x4_vecTy = VectorType::get({4}, FloatType::getF32(ctx));    // 4xf32
+  auto bf16x8_vecTy = VectorType::get({8}, FloatType::getBF16(ctx));  // 8xbf16
+
+  Value A = extf1.getOperand(), B = extf2.getOperand();
+  Value acc = vec_contract.getOperand(2);
+  vector::InsertStridedSliceOp res;
+
+  // Preprocessing B
+  // extract 8xbf16 from 4x40xbf16
+  auto BSliceOp00 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{0, 0},
+                                                     sizes, strides));
+  auto BSliceOp01 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{0, 8},
+                                                     sizes, strides));
+  auto BSliceOp02 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{0, 16},
+                                                     sizes, strides));
+  auto BSliceOp03 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{0, 24},
+                                                     sizes, strides));
+  auto BSliceOp04 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{0, 32},
+                                                     sizes, strides));
+  auto BSliceOp05 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{1, 0},
+                                                     sizes, strides));
+  auto BSliceOp06 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{1, 8},
+                                                     sizes, strides));
+  auto BSliceOp07 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{1, 16},
+                                                     sizes, strides));
+  auto BSliceOp08 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{1, 24},
+                                                     sizes, strides));
+  auto BSliceOp09 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{1, 32},
+                                                     sizes, strides));
+
+  auto BSliceOp10 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{2, 0},
+                                                     sizes, strides));
+  auto BSliceOp11 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{2, 8},
+                                                     sizes, strides));
+  auto BSliceOp12 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{2, 16},
+                                                     sizes, strides));
+  auto BSliceOp13 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{2, 24},
+                                                     sizes, strides));
+  auto BSliceOp14 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{2, 32},
+                                                     sizes, strides));
+  auto BSliceOp15 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{3, 0},
+                                                     sizes, strides));
+  auto BSliceOp16 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{3, 8},
+                                                     sizes, strides));
+  auto BSliceOp17 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{3, 16},
+                                                     sizes, strides));
+  auto BSliceOp18 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{3, 24},
+                                                     sizes, strides));
+  auto BSliceOp19 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, B, I64Array{3, 32},
+                                                     sizes, strides));
+  // 8xbf16 -> 2xf64
+  auto BSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp00);
+  auto BSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp01);
+  auto BSliceOp02Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp02);
+  auto BSliceOp03Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp03);
+  auto BSliceOp04Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp04);
+  auto BSliceOp05Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp05);
+  auto BSliceOp06Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp06);
+  auto BSliceOp07Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp07);
+  auto BSliceOp08Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp08);
+  auto BSliceOp09Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp09);
+
+  auto BSliceOp10Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp10);
+  auto BSliceOp11Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp11);
+  auto BSliceOp12Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp12);
+  auto BSliceOp13Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp13);
+  auto BSliceOp14Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp14);
+  auto BSliceOp15Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp15);
+  auto BSliceOp16Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp16);
+  auto BSliceOp17Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp17);
+  auto BSliceOp18Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp18);
+  auto BSliceOp19Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BSliceOp19);
+  // UZP1 and UZP2
+  auto BSliceOp00UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp00Bitcast, BSliceOp05Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp01UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp00Bitcast, BSliceOp05Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp02UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp01Bitcast, BSliceOp06Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp03UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp01Bitcast, BSliceOp06Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp04UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp02Bitcast, BSliceOp07Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp05UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp02Bitcast, BSliceOp07Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp06UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp03Bitcast, BSliceOp08Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp07UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp03Bitcast, BSliceOp08Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp08UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp04Bitcast, BSliceOp09Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp09UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp04Bitcast, BSliceOp09Bitcast,
+      BoolAttr::get(ctx, 0));
+
+  auto BSliceOp10UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp10Bitcast, BSliceOp15Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp11UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp10Bitcast, BSliceOp15Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp12UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp11Bitcast, BSliceOp16Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp13UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp11Bitcast, BSliceOp16Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp14UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp12Bitcast, BSliceOp17Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp15UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp12Bitcast, BSliceOp17Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp16UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp13Bitcast, BSliceOp18Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp17UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp13Bitcast, BSliceOp18Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto BSliceOp18UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp14Bitcast, BSliceOp19Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto BSliceOp19UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, BSliceOp14Bitcast, BSliceOp19Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  auto B00 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp00UZP1);
+  auto B01 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp01UZP2);
+  auto B02 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp02UZP1);
+  auto B03 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp03UZP2);
+  auto B04 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp04UZP1);
+  auto B05 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp05UZP2);
+  auto B06 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp06UZP1);
+  auto B07 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp07UZP2);
+  auto B08 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp08UZP1);
+  auto B09 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp09UZP2);
+
+  auto B10 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp10UZP1);
+  auto B11 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp11UZP2);
+  auto B12 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp12UZP1);
+  auto B13 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp13UZP2);
+  auto B14 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp14UZP1);
+  auto B15 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp15UZP2);
+  auto B16 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp16UZP1);
+  auto B17 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp17UZP2);
+  auto B18 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp18UZP1);
+  auto B19 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, BSliceOp19UZP2);
+
+  // Preprocessing C
+  // extract 4xf32 from 2x4xf32
+  auto CSliceOp00 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{0, 0},
+                                                     I64Array{1, 4}, strides));
+  auto CSliceOp01 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{1, 0},
+                                                     I64Array{1, 4}, strides));
+  // 4xf32 -> 2xf64
+  auto CSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp00);
+  auto CSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp01);
+  // UZP1 and UZP2
+  auto C00UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto C01UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  auto C00 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C00UZP);
+  auto C01 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C01UZP);
+
+  // Preprocessing A
+  // extract 8xbf16 from 2x40xbf16
+  auto ASliceOp00 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{0, 0},
+                                                     sizes, strides));
+  auto ASliceOp01 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{0, 8},
+                                                     sizes, strides));
+  auto ASliceOp02 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{0, 16},
+                                                     sizes, strides));
+  auto ASliceOp03 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{0, 24},
+                                                     sizes, strides));
+  auto ASliceOp04 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{0, 32},
+                                                     sizes, strides));
+  auto ASliceOp05 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{1, 0},
+                                                     sizes, strides));
+  auto ASliceOp06 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{1, 8},
+                                                     sizes, strides));
+  auto ASliceOp07 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{1, 16},
+                                                     sizes, strides));
+  auto ASliceOp08 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{1, 24},
+                                                     sizes, strides));
+  auto ASliceOp09 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{1, 32},
+                                                     sizes, strides));
+  // 8xbf16 -> 2xf64
+  auto ASliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp00);
+  auto ASliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp01);
+  auto ASliceOp02Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp02);
+  auto ASliceOp03Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp03);
+  auto ASliceOp04Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp04);
+  auto ASliceOp05Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp05);
+  auto ASliceOp06Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp06);
+  auto ASliceOp07Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp07);
+  auto ASliceOp08Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp08);
+  auto ASliceOp09Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp09);
+  // UZP1 and UZP2
+  auto ASliceOp00UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp00Bitcast, ASliceOp05Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASliceOp01UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp00Bitcast, ASliceOp05Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto ASliceOp02UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp01Bitcast, ASliceOp06Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASliceOp03UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp01Bitcast, ASliceOp06Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto ASliceOp04UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp02Bitcast, ASliceOp07Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASliceOp05UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp02Bitcast, ASliceOp07Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto ASliceOp06UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp03Bitcast, ASliceOp08Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASliceOp07UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp03Bitcast, ASliceOp08Bitcast,
+      BoolAttr::get(ctx, 0));
+  auto ASliceOp08UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp04Bitcast, ASliceOp09Bitcast,
+      BoolAttr::get(ctx, 1));
+  auto ASliceOp09UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp04Bitcast, ASliceOp09Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  auto A00 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp00UZP1);
+  auto A01 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp01UZP2);
+  auto A02 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp02UZP1);
+  auto A03 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp03UZP2);
+  auto A04 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp04UZP1);
+  auto A05 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp05UZP2);
+  auto A06 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp06UZP1);
+  auto A07 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp07UZP2);
+  auto A08 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp08UZP1);
+  auto A09 =
+      rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp09UZP2);
+
+  // Micro Kernel Computation
+  // (4xf32, 8xbf16, 8xbf16) -> (4xf32)
+  auto BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                              C00, A00, B00);
+  auto BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                              C01, A00, B10);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A01, B01);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A01, B11);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A02, B02);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A02, B12);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A03, B03);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A03, B13);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A04, B04);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A04, B14);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A05, B05);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A05, B15);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A06, B06);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A06, B16);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A07, B07);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A07, B17);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A08, B08);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A08, B18);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A09, B09);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A09, B19);
+
+  // Postprocessing C
+  // 4xf32 -> 2xf64
+  CSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA0);
+  CSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA1);
+  // UZP1 and UZP2
+  C00UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 1));
+  C01UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  C00 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C00UZP);
+  C01 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C01UZP);
+  // Insert 4xf32 into 8x4xf32
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C00, acc, I64Array{0, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C01, res, I64Array{1, 0}, I64Array{1});
+
+  // Preprocessing C
+  // extract 4xf32 from 2x4xf32
+  CSliceOp00 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{2, 0},
+                                                     I64Array{1, 4}, strides));
+  CSliceOp01 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{3, 0},
+                                                     I64Array{1, 4}, strides));
+  // 4xf32 -> 2xf64
+  CSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp00);
+  CSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp01);
+  // UZP1 and UZP2
+  C00UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 1));
+  C01UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  C00 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C00UZP);
+  C01 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C01UZP);
+
+  // Preprocessing A
+  // extract 8xbf16 from 2x40xbf16
+  ASliceOp00 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{2, 0},
+                                                     sizes, strides));
+  ASliceOp01 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{2, 8},
+                                                     sizes, strides));
+  ASliceOp02 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{2, 16},
+                                                     sizes, strides));
+  ASliceOp03 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{2, 24},
+                                                     sizes, strides));
+  ASliceOp04 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{2, 32},
+                                                     sizes, strides));
+  ASliceOp05 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{3, 0},
+                                                     sizes, strides));
+  ASliceOp06 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{3, 8},
+                                                     sizes, strides));
+  ASliceOp07 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{3, 16},
+                                                     sizes, strides));
+  ASliceOp08 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{3, 24},
+                                                     sizes, strides));
+  ASliceOp09 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{3, 32},
+                                                     sizes, strides));
+  // 8xbf16 -> 2xf64
+  ASliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp00);
+  ASliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp01);
+  ASliceOp02Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp02);
+  ASliceOp03Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp03);
+  ASliceOp04Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp04);
+  ASliceOp05Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp05);
+  ASliceOp06Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp06);
+  ASliceOp07Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp07);
+  ASliceOp08Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp08);
+  ASliceOp09Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp09);
+  // UZP1 and UZP2
+  ASliceOp00UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp00Bitcast, ASliceOp05Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp01UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp00Bitcast, ASliceOp05Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp02UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp01Bitcast, ASliceOp06Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp03UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp01Bitcast, ASliceOp06Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp04UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp02Bitcast, ASliceOp07Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp05UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp02Bitcast, ASliceOp07Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp06UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp03Bitcast, ASliceOp08Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp07UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp03Bitcast, ASliceOp08Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp08UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp04Bitcast, ASliceOp09Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp09UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp04Bitcast, ASliceOp09Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  A00 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp00UZP1);
+  A01 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp01UZP2);
+  A02 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp02UZP1);
+  A03 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp03UZP2);
+  A04 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp04UZP1);
+  A05 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp05UZP2);
+  A06 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp06UZP1);
+  A07 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp07UZP2);
+  A08 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp08UZP1);
+  A09 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp09UZP2);
+
+  // Micro Kernel Computation
+  // (4xf32, 8xbf16, 8xbf16) -> (4xf32)
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy, C00,
+                                                         A00, B00);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy, C01,
+                                                         A00, B10);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A01, B01);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A01, B11);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A02, B02);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A02, B12);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A03, B03);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A03, B13);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A04, B04);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A04, B14);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A05, B05);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A05, B15);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A06, B06);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A06, B16);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A07, B07);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A07, B17);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A08, B08);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A08, B18);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A09, B09);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A09, B19);
+
+  // Postprocessing C
+  // 4xf32 -> 2xf64
+  CSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA0);
+  CSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA1);
+  // UZP1 and UZP2
+  C00UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 1));
+  C01UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  C00 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C00UZP);
+  C01 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C01UZP);
+  // Insert 4xf32 into 8x4xf32
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C00, res, I64Array{2, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C01, res, I64Array{3, 0}, I64Array{1});
+
+  // Preprocessing C
+  // extract 4xf32 from 2x4xf32
+  CSliceOp00 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{4, 0},
+                                                     I64Array{1, 4}, strides));
+  CSliceOp01 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{5, 0},
+                                                     I64Array{1, 4}, strides));
+  // 4xf32 -> 2xf64
+  CSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp00);
+  CSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp01);
+  // UZP1 and UZP2
+  C00UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 1));
+  C01UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  C00 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C00UZP);
+  C01 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C01UZP);
+
+  // Preprocessing A
+  // extract 8xbf16 from 2x40xbf16
+  ASliceOp00 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{4, 0},
+                                                     sizes, strides));
+  ASliceOp01 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{4, 8},
+                                                     sizes, strides));
+  ASliceOp02 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{4, 16},
+                                                     sizes, strides));
+  ASliceOp03 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{4, 24},
+                                                     sizes, strides));
+  ASliceOp04 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{4, 32},
+                                                     sizes, strides));
+  ASliceOp05 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{5, 0},
+                                                     sizes, strides));
+  ASliceOp06 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{5, 8},
+                                                     sizes, strides));
+  ASliceOp07 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{5, 16},
+                                                     sizes, strides));
+  ASliceOp08 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{5, 24},
+                                                     sizes, strides));
+  ASliceOp09 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{5, 32},
+                                                     sizes, strides));
+  // 8xbf16 -> 2xf64
+  ASliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp00);
+  ASliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp01);
+  ASliceOp02Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp02);
+  ASliceOp03Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp03);
+  ASliceOp04Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp04);
+  ASliceOp05Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp05);
+  ASliceOp06Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp06);
+  ASliceOp07Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp07);
+  ASliceOp08Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp08);
+  ASliceOp09Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp09);
+  // UZP1 and UZP2
+  ASliceOp00UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp00Bitcast, ASliceOp05Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp01UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp00Bitcast, ASliceOp05Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp02UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp01Bitcast, ASliceOp06Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp03UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp01Bitcast, ASliceOp06Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp04UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp02Bitcast, ASliceOp07Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp05UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp02Bitcast, ASliceOp07Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp06UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp03Bitcast, ASliceOp08Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp07UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp03Bitcast, ASliceOp08Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp08UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp04Bitcast, ASliceOp09Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp09UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp04Bitcast, ASliceOp09Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  A00 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp00UZP1);
+  A01 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp01UZP2);
+  A02 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp02UZP1);
+  A03 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp03UZP2);
+  A04 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp04UZP1);
+  A05 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp05UZP2);
+  A06 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp06UZP1);
+  A07 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp07UZP2);
+  A08 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp08UZP1);
+  A09 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp09UZP2);
+
+  // Micro Kernel Computation
+  // (4xf32, 8xbf16, 8xbf16) -> (4xf32)
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy, C00,
+                                                         A00, B00);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy, C01,
+                                                         A00, B10);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A01, B01);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A01, B11);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A02, B02);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A02, B12);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A03, B03);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A03, B13);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A04, B04);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A04, B14);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A05, B05);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A05, B15);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A06, B06);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A06, B16);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A07, B07);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A07, B17);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A08, B08);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A08, B18);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A09, B09);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A09, B19);
+
+  // Postprocessing C
+  // 4xf32 -> 2xf64
+  CSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA0);
+  CSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA1);
+  // UZP1 and UZP2
+  C00UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 1));
+  C01UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  C00 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C00UZP);
+  C01 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C01UZP);
+  // Insert 4xf32 into 8x4xf32
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C00, res, I64Array{4, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C01, res, I64Array{5, 0}, I64Array{1});
+
+  // Preprocessing C
+  // extract 4xf32 from 2x4xf32
+  CSliceOp00 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{6, 0},
+                                                     I64Array{1, 4}, strides));
+  CSliceOp01 = rewriter.create<vector::ShapeCastOp>(
+      loc, f32x4_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, acc, I64Array{7, 0},
+                                                     I64Array{1, 4}, strides));
+  // 4xf32 -> 2xf64
+  CSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp00);
+  CSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, CSliceOp01);
+  // UZP1 and UZP2
+  C00UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 1));
+  C01UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  C00 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C00UZP);
+  C01 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C01UZP);
+
+  // Preprocessing A
+  // extract 8xbf16 from 2x40xbf16
+  ASliceOp00 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{6, 0},
+                                                     sizes, strides));
+  ASliceOp01 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{6, 8},
+                                                     sizes, strides));
+  ASliceOp02 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{6, 16},
+                                                     sizes, strides));
+  ASliceOp03 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{6, 24},
+                                                     sizes, strides));
+  ASliceOp04 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{6, 32},
+                                                     sizes, strides));
+  ASliceOp05 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{7, 0},
+                                                     sizes, strides));
+  ASliceOp06 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{7, 8},
+                                                     sizes, strides));
+  ASliceOp07 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{7, 16},
+                                                     sizes, strides));
+  ASliceOp08 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{7, 24},
+                                                     sizes, strides));
+  ASliceOp09 = rewriter.create<vector::ShapeCastOp>(
+      loc, bf16x8_vecTy,
+      rewriter.create<vector::ExtractStridedSliceOp>(loc, A, I64Array{7, 32},
+                                                     sizes, strides));
+  // 8xbf16 -> 2xf64
+  ASliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp00);
+  ASliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp01);
+  ASliceOp02Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp02);
+  ASliceOp03Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp03);
+  ASliceOp04Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp04);
+  ASliceOp05Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp05);
+  ASliceOp06Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp06);
+  ASliceOp07Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp07);
+  ASliceOp08Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp08);
+  ASliceOp09Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, ASliceOp09);
+  // UZP1 and UZP2
+  ASliceOp00UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp00Bitcast, ASliceOp05Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp01UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp00Bitcast, ASliceOp05Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp02UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp01Bitcast, ASliceOp06Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp03UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp01Bitcast, ASliceOp06Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp04UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp02Bitcast, ASliceOp07Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp05UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp02Bitcast, ASliceOp07Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp06UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp03Bitcast, ASliceOp08Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp07UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp03Bitcast, ASliceOp08Bitcast,
+      BoolAttr::get(ctx, 0));
+  ASliceOp08UZP1 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp04Bitcast, ASliceOp09Bitcast,
+      BoolAttr::get(ctx, 1));
+  ASliceOp09UZP2 = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, ASliceOp04Bitcast, ASliceOp09Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 8xbf16
+  A00 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp00UZP1);
+  A01 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp01UZP2);
+  A02 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp02UZP1);
+  A03 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp03UZP2);
+  A04 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp04UZP1);
+  A05 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp05UZP2);
+  A06 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp06UZP1);
+  A07 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp07UZP2);
+  A08 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp08UZP1);
+  A09 = rewriter.create<vector::BitCastOp>(loc, bf16x8_vecTy, ASliceOp09UZP2);
+
+  // Micro Kernel Computation
+  // (4xf32, 8xbf16, 8xbf16) -> (4xf32)
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy, C00,
+                                                         A00, B00);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy, C01,
+                                                         A00, B10);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A01, B01);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A01, B11);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A02, B02);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A02, B12);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A03, B03);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A03, B13);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A04, B04);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A04, B14);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A05, B05);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A05, B15);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A06, B06);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A06, B16);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A07, B07);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A07, B17);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A08, B08);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A08, B18);
+  BFMMLA0 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA0, A09, B09);
+  BFMMLA1 = rewriter.create<disc_arm_neon_ext::BFMMLAOp>(loc, f32x4_vecTy,
+                                                         BFMMLA1, A09, B19);
+
+  // Postprocessing C
+  // 4xf32 -> 2xf64
+  CSliceOp00Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA0);
+  CSliceOp01Bitcast =
+      rewriter.create<vector::BitCastOp>(loc, f64x2_vecTy, BFMMLA1);
+  // UZP1 and UZP2
+  C00UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 1));
+  C01UZP = rewriter.create<disc_arm_neon_ext::UZPOp>(
+      loc, f64x2_vecTy, CSliceOp00Bitcast, CSliceOp01Bitcast,
+      BoolAttr::get(ctx, 0));
+  // 2xf64 -> 4xf32
+  C00 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C00UZP);
+  C01 = rewriter.create<vector::BitCastOp>(loc, f32x4_vecTy, C01UZP);
+  // Insert 4xf32 into 8x4xf32
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C00, res, I64Array{6, 0}, I64Array{1});
+  res = rewriter.create<vector::InsertStridedSliceOp>(
+      loc, C01, res, I64Array{7, 0}, I64Array{1});
+
+  target->replaceAllUsesWith(res);
+  results.push_back(res.getOperation());
+  return DiagnosedSilenceableFailure::success();
+}
 }  // namespace transform_dialect
 
 void registerTransformDialectCommonExtension(DialectRegistry& registry) {

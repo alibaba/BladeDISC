@@ -11,7 +11,7 @@
 # limitations under the License.
 set -ex
 
-tensorrt_pkg=TensorRT-8.2.3.0.Linux.x86_64-gnu.cuda-11.4.cudnn8.2.tar.gz
+tensorrt_pkg=TensorRT-8.5.1.7.Linux.x86_64-gnu.cuda-11.8.cudnn8.6.tar.gz
 curl -sL https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/tensorrt/${tensorrt_pkg} -o ${tensorrt_pkg}
 
 tar xvfz $tensorrt_pkg -C /usr/local/ 1>/dev/null 2>&1

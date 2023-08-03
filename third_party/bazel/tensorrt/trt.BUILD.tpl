@@ -191,14 +191,6 @@ cc_import(
     visibility = ["//visibility:private"],
 )
 
-cc_import(
-    name = "proto_static_lib",
-    static_library = select({
-        ":aarch64_linux": "lib/aarch64-linux-gnu/libprotobuf.a",
-        "//conditions:default": "lib/libprotobuf.a",
-    }),
-    visibility = ["//visibility:private"],
-)
 
 cc_library(
     name = "nvonnxparser_headers",
@@ -245,7 +237,6 @@ cc_library(
         "nvonnxparser_headers",
         "nvonnxparser_static_lib",
         "nvonnx_proto_static_lib",
-        "proto_static_lib",
     ],
 )
 

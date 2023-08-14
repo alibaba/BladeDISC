@@ -1,4 +1,4 @@
-name: pytorch1_8_1-cuda11_1
+name: pytorch1_8_1-cuda11_3
 on:
   push:
     branches: [ main ]
@@ -12,10 +12,10 @@ jobs:
   build:
     uses: ./.github/workflows/resuable_gpu_build.yml
     with:
-      cuda_version: cu111
-      remote_runtime_docker: bladedisc:latest-runtime-torch1.8.1-cu111
-      develop_base_image: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
-      runtime_base_image: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
+      cuda_version: cu113
+      remote_runtime_docker: bladedisc:latest-runtime-torch1.8.1-cu113
+      develop_base_image: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+      runtime_base_image: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
       extra_envs: -e TORCH_BLADE_BUILD_TENSORRT_STATIC=ON
           -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cu111
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh

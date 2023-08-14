@@ -34,7 +34,7 @@ on:
       runner_tag:
         required: false
         type: string
-        default: gpu-t4
+        default: gpu-a10
     secrets:
       ALIYUN_DOCKER_USERNAME:
         required: false

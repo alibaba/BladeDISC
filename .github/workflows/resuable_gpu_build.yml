@@ -27,7 +27,7 @@ on:
       develop_base_image:
         required: false
         type: string
-        default: "nvidia/cuda:11.0.3-cudnn8-devel-ubuntu20.04"
+        default: "nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04"
       runtime_base_image:
         required: false
         type: string

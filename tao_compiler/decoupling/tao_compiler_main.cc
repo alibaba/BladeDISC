@@ -92,7 +92,8 @@ Status RealMain(int argc, char** argv) {
                      "this option can be specified zero or more times."),
       llvm::cl::ZeroOrMore, llvm::cl::cat(disc_category)};
 
-  llvm::cl::opt<bool> version("v", llvm::cl::desc("show DIS compiler version."),
+  llvm::cl::opt<bool> version("v",
+                              llvm::cl::desc("show DISC compiler version."),
                               llvm::cl::cat(disc_category));
   llvm::cl::AddExtraVersionPrinter(
       [](llvm::raw_ostream& os) { os << version_info(); });

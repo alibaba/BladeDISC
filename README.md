@@ -176,10 +176,11 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 
 ## Publications
 
-* [AStitch: Enabling a New Multi-dimensional Optimization Space for Memory-Intensive ML Training and Inference on Modern SIMT Architectures](./docs/papers/asplos-22-zhenzheng.pdf)
+* Zhen Zheng, Xuanda Yang, Pengzhan Zhao, Guoping Long, Kai Zhu, Feiwen Zhu, Wenyi Zhao, Xiaoyong Liu, Jun Yang, Jidong Zhai, Shuaiwen Leon Song, Wei Lin. 
+[AStitch: Enabling a New Multi-dimensional Optimization Space for Memory-Intensive ML Training and Inference on Modern SIMT Architectures](./docs/papers/asplos-22-zhenzheng.pdf) (ASPLOS'22)
 
-* [DISC: A Dynamic Shape Compiler for Machine Learning
-  Workloads](https://arxiv.org/pdf/2103.05288.pdf)
+* Kai Zhu, Wenyi Zhao, Zhen Zheng, Tianyou Guo, Pengzhan Zhao, Junjie Bai, Jun Yang, Xiaoyou Liu, Lansong Diao, Wei Lin. 
+[DISC: A Dynamic Shape Compiler for Machine Learning Workloads](https://arxiv.org/pdf/2103.05288.pdf) (EuroMLSys'21)
 
 ## Tutorials and Documents for Developers
 

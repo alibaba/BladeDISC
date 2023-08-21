@@ -4,6 +4,7 @@ transform.sequence failures(propagate) {
   %matmul = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
 
   %0:2 = transform.structured.tile_to_forall_op %matmul num_threads [1, 1]
+    : (!pdl.operation) -> (!pdl.operation, !pdl.operation)
   transform.structured.fuse_into_containing_op %fill into %0#0
     : (!pdl.operation, !pdl.operation) -> (!pdl.operation, !pdl.operation)
 

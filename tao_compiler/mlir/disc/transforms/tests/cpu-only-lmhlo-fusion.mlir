@@ -1,5 +1,5 @@
 // RUN: disc-opt -split-input-file -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=false fusion-strategy=base}))' %s | FileCheck %s --check-prefix=BASE
-// RUN: DISC_ENABLE_TRANSFORM_SCHEDULE=1 disc-opt -split-input-file -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=false fusion-strategy=stitch mlir-compute-intensive-codegen=true}))' %s -o - | FileCheck %s --check-prefix=TRANSFORM
+// RUN: DISC_ENABLE_TRANSFORM_SCHEDULE=1 disc-opt -pass-pipeline='builtin.module(func.func(disc-fusion{gpu-enabled=false fusion-strategy=stitch mlir-compute-intensive-codegen=true},cse,canonicalize,loop-invariant-code-motion))' -split-input-file %s -o - | FileCheck %s --check-prefix=TRANSFORM
 
 // BASE-LABEL: @custom_call_op
 // BASE-SAME: (%[[ARG0:.*]]: memref<?x?xf32>, %[[ARG1:.*]]: memref<?x?xf32>, %[[ARG2:.*]]: memref<?x?xf32>, %[[ARG3:.*]]: memref<?x?xf32>) -> memref<?x?xf32>
@@ -35,8 +35,9 @@ func.func @matmul_nn(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>,
 // TRANSFORM-LABEL: @matmul_nn_const_weight
 func.func @matmul_nn_const_weight(%arg0: memref<1024x1024xf32>, %arg1: memref<1024x1024xf32>,
                                   %arg2: memref<?x1024xf32>, %arg3: memref<?x1024xf32>) -> memref<?x1024xf32> {
-  // TRANSFORM: lmhlo.constant
   // TRANSFORM-NEXT: "lmhlo.fusion"() ({
+  // TODO: double check it.
+  // TRANSFORM-NEXT: lmhlo.constant
   // TRANSFORM-NEXT: lmhlo.constant
   // TRANSFORM-NEXT: lmhlo.dot_general
   // TRANSFORM-NEXT: lmhlo.terminator

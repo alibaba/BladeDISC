@@ -881,13 +881,14 @@ LLVMFuncOp ConvertCpuLaunchOpToDispatchOpPattern::generatePackedKernel(
   Type llvm_ptr_i8ptr_type = LLVM::LLVMPointerType::get(llvm_i8ptr_type);
   Type llvm_int32_type = IntegerType::get(ctx, 32);
   Type llvm_int64_type = IntegerType::get(ctx, 64);
-  Type llvm_int64_pointer_type = LLVM::LLVMPointerType::get(llvm_int64_type);
+  Type llvm_ptr_type = LLVM::LLVMPointerType::get(ctx);
 
   // 1, collects arg types for packed kernel function
   SmallVector<Type> packedKernelArgTypes;
-  // all ivs have index types. We map index type to i64 on CPU.
-  for (int i = 0; i < 3; ++i)
-    packedKernelArgTypes.push_back(llvm_int64_pointer_type);
+  for (int i = 0; i < 3; ++i) {
+    // Note that the typed pointer will be removed from LLVM in the future.
+    packedKernelArgTypes.push_back(llvm_ptr_type);
+  }
   // packedArgs type
   packedKernelArgTypes.push_back(llvm_ptr_i8ptr_type);
 

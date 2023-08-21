@@ -176,6 +176,8 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 
 ## Publications
 
+* [AStitch: Enabling a New Multi-dimensional Optimization Space for Memory-Intensive ML Training and Inference on Modern SIMT Architectures](./docs/papers/asplos-22-zhenzheng.pdf)
+
 * [DISC: A Dynamic Shape Compiler for Machine Learning
   Workloads](https://arxiv.org/pdf/2103.05288.pdf)
 
@@ -203,15 +205,17 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 
 | Framework | Device| Status |
 | -- | -- | -- |
-| PyTorch1.6.0 | CPU | [![pytorch160_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml) |
-| PyTorch1.7.1 | GPU |  [![pytorch171_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml) |
-| PyTorch1.8.1 | CPU | [![pytorch181_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml) |
-| PyTorch1.9.0 | GPU | [![pytorch1.9.0_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch190_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch190_gpu.yml) |
-| PyTorch1.12.0 | GPU | [![pytorch112_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml) |
-| PyTorch1.10.0 | AArch64 |  [![pytorch110_aarch64](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml) |
-| TensorFlow1.15 | CPU| [![tf115_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml) |
-| TensorFlow2.4 | GPU | [![tf24_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf24_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf24_gpu.yml) |
-| TensorFlow2.8 | AArch64 | [![tf280_aarch64](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_aarch64.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_aarch64.yml) |
+| PyTorch1.13.0 | GPU | [![pytorch113_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_gpu.yml) |
+| PyTorch1.13.0 | CPU | [![pytorch113_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_cpu.yml) |
+| PyTorch1.13.0 | Yitian | [![pytorch113_yitian](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_yitian.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_yitian.yml) |
+| PyTorch2.0.0 | GPU | [![pytorch200_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_gpu.yml) |
+| PyTorch2.0.0 | CPU | [![pytorch200_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_cpu.yml) |
+| PyTorch2.0.0 | Yitian | [![pytorch200_yitian](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_yitian.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_yitian.yml) |
+| PyTorch Pre | GPU | [![pytorch_pre_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch_pre_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch_pre_gpu.yml) |
+| PyTorch Pre | CPU | [![pytorch_pre_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch_pre_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch_pre_cpu.yml) |
+| TensorFlow2.5 | GPU | [![tf250_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf250_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf250_gpu.yml) |
+| TensorFlow2.5 | CPU | [![tf250_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf250_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf250_cpu.yml) |
+| TensorFlow2.8 | Yitian | [![tf280_yitian](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_yitian.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_yitian.yml) |
 
 ## FAQ
 

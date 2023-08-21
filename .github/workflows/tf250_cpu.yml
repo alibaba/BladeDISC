@@ -1,4 +1,4 @@
-name: tf1_15-cpu
+name: tf2_5-cpu
 on:
   push:
     branches: [ main ]
@@ -12,11 +12,11 @@ jobs:
   build:
     uses: ./.github/workflows/resuable_cpu_build.yml
     with:
-      remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15-cpu
-      runtime_base_image: tensorflow/tensorflow:1.15.5
-      extra_build_args: --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5"
+      remote_runtime_docker: bladedisc:latest-runtime-tensorflow2.5.0-cpu
+      runtime_base_image: tensorflow/tensorflow:2.5.0
+      extra_build_args: --build-arg DISC_HOST_TF_VERSION="tensorflow==2.5.0"
       exec_command: bash -c \
-        "bash ./scripts/ci/build_and_test.sh --cpu-only && bash ./scripts/ci/test_tensorflow_blade.sh cpu 1.15"
+        "bash ./scripts/ci/build_and_test.sh --cpu-only && bash ./scripts/ci/test_tensorflow_blade.sh cpu 2.5.0"
       deploy_command: bash ./scripts/ci/deploy_tensorflow_blade.sh
     secrets:
       ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}

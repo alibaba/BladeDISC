@@ -8,6 +8,7 @@ parameterized==0.8.1
 cython==0.29.23
 
 # for linting
+click==8.0.4
 black==19.10b0
 flake8==3.9.2
 flake8-isort==4.0.0

@@ -17,13 +17,22 @@ load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_depende
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 
 def _tf_blade_repositories():
+    # maybe_http_archive(
+    #     name = "bazel_skylib",
+    #     sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
+    #     urls = [
+    #         "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/bazel-skylib-1.0.3.tar.gz",
+    #         "https://storage.googleapis.com/mirror.tensorflow.org/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+    #         "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+    #     ],
+    # )
+
     maybe_http_archive(
         name = "bazel_skylib",
-        sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
+        sha256 = "74d544d96f4a5bb630d465ca8bbcfe231e3594e5aae57e1edbf17a6eb3ca2506",
         urls = [
-            "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/bazel-skylib-1.0.3.tar.gz",
-            "https://storage.googleapis.com/mirror.tensorflow.org/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+            "https://storage.googleapis.com/mirror.tensorflow.org/github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
         ],
     )
 
@@ -81,15 +90,22 @@ def _tf_blade_repositories():
         ],
     )
 
+    # maybe_http_archive(
+    #     name = "googletest",
+    #     sha256 = "bc1cc26d1120f5a7e9eb450751c0b24160734e46a02823a573f3c6b6c0a574a7",
+    #     strip_prefix = "googletest-e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b",
+    #     urls = [
+    #         "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/googletest/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
+    #         "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/googletest/archive/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
+    #         "https://github.com/google/googletest/archive/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
+    #     ],
+    # )
+
     maybe_http_archive(
         name = "googletest",
-        sha256 = "bc1cc26d1120f5a7e9eb450751c0b24160734e46a02823a573f3c6b6c0a574a7",
-        strip_prefix = "googletest-e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b",
-        urls = [
-            "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/googletest/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
-            "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/googletest/archive/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
-            "https://github.com/google/googletest/archive/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
-        ],
+        sha256 = "81964fe578e9bd7c94dfdb09c8e4d6e6759e19967e397dbea48d1c10e45d0df2",
+        strip_prefix = "googletest-release-1.12.1",
+        urls = ["https://github.com/google/googletest/archive/refs/tags/release-1.12.1.tar.gz"],
     )
 
     # for aarch64 related acl library

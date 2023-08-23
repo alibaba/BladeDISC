@@ -2682,10 +2682,11 @@ tf_cc_binary(
         "@org_tensorflow//tensorflow/compiler/mlir/tensorflow",
         "@org_tensorflow//tensorflow/compiler/xla:util",
         "@org_tensorflow//tensorflow/compiler/xla/service/gpu/llvm_gpu_backend",
-        # "@org_tensorflow//tensorflow/compiler/xla/stream_executor/lib",
         "@org_tensorflow//tensorflow/compiler/xla/stream_executor",
         "@org_tensorflow//tensorflow/core:lib",
         "@com_google_absl//absl/strings",
+        "@llvm-project//llvm:AArch64AsmParser",  # fixdeps: keep
+        "@llvm-project//llvm:AArch64CodeGen",  # fixdeps: keep
         "@llvm-project//llvm:Analysis",
         "@llvm-project//llvm:ARMCodeGen",  # fixdeps: keep
         "@llvm-project//llvm:CodeGen",

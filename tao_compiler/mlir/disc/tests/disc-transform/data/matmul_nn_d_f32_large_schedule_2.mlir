@@ -10,6 +10,7 @@ transform.sequence failures(propagate) {
 
   // further tile and fuse matmul and fill op.
   %1:3 = transform.structured.fuse %0#1 {tile_sizes = [6, 16, 0], tile_interchange = [0, 1, 2]}
+    : (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operationp)
 
   // gemm reduction axis tiling
   %2:2 = transform.structured.tile %1#0 [0, 0, 1] {interchange=[0, 1, 2]}  : (!pdl.operation) -> (!pdl.operation, !pdl.operation)

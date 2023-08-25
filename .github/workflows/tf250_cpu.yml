@@ -13,9 +13,8 @@ jobs:
     uses: ./.github/workflows/resuable_cpu_build.yml
     with:
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow2.5.0-cpu
-      develop_base_image: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
       runtime_base_image: tensorflow/tensorflow:2.5.0
-      extra_build_args: --build-arg DISC_HOST_TF_VERSION="tensorflow==2.5.0"
+      extra_build_args: --build-arg DISC_HOST_TF_VERSION="tensorflow==2.5.0" --build-arg PYTHON_VERSION=PYTHON3.8
       exec_command: bash -c \
         "bash ./scripts/ci/build_and_test.sh --cpu-only && bash ./scripts/ci/test_tensorflow_blade.sh cpu 2.5.0"
       deploy_command: bash ./scripts/ci/deploy_tensorflow_blade.sh

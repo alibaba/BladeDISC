@@ -20,9 +20,10 @@ func.func @multi_level_pack(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index) 
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %pack_op = transform.structured.match ops{["disc_linalg_ext.multi_level_pack"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+^bb1(%arg1: !transform.any_op):
+  %pack_op = transform.structured.match ops{["disc_linalg_ext.multi_level_pack"]} in %arg1 : (!transform.any_op) -> !transform.any_op
   transform.disc.lower_multi_level_pack_to_loop %pack_op
+    : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -50,9 +51,10 @@ func.func @multi_level_pack_with_pad(%arg0: tensor<?x?xf32>, %arg1: index, %arg2
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %pack_op = transform.structured.match ops{["disc_linalg_ext.multi_level_pack"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+^bb1(%arg1: !transform.any_op):
+  %pack_op = transform.structured.match ops{["disc_linalg_ext.multi_level_pack"]} in %arg1 : (!transform.any_op) -> !transform.any_op
   transform.disc.lower_multi_level_pack_to_loop %pack_op
+    : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -82,7 +84,8 @@ func.func @multi_level_pack_with_pad_2(%arg0: tensor<?x?xf32>, %arg1: index, %ar
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %pack_op = transform.structured.match ops{["disc_linalg_ext.multi_level_pack"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+^bb1(%arg1: !transform.any_op):
+  %pack_op = transform.structured.match ops{["disc_linalg_ext.multi_level_pack"]} in %arg1 : (!transform.any_op) -> !transform.any_op
   transform.disc.lower_multi_level_pack_to_loop %pack_op
+    : (!transform.any_op) -> !transform.any_op
 }

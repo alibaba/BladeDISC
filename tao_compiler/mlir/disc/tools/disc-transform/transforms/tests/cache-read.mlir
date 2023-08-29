@@ -87,9 +87,9 @@ module {
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %matmul = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %foreach_op = transform.structured.match ops{["scf.forall"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %pad_for_weight = get_producer_of_operand %matmul[1] : (!pdl.operation) -> !pdl.operation
-  transform.disc.cache_read {padded} %pad_for_weight at %foreach_op with tile_levels = [1, 1] tile_sizes = [2, 16] permutation = [0, 2, 3, 1]
+^bb1(%arg1: !transform.any_op):
+  %matmul = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %foreach_op = transform.structured.match ops{["scf.forall"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %pad_for_weight = get_producer_of_operand %matmul[1] : (!transform.any_op) -> !transform.any_op
+  transform.disc.cache_read {padded} %pad_for_weight at %foreach_op with tile_levels = [1, 1] tile_sizes = [2, 16] permutation = [0, 2, 3, 1] : (!transform.any_op, !transform.any_op) -> (!transform.any_op)
 }

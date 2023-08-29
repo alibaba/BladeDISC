@@ -32,7 +32,7 @@ func.func @forall_to_gpu_warps(%arg0: memref<2x2xf16>) {
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %foreach = transform.structured.match ops{["scf.forall"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  transform.disc.forall_to_gpu_warps %foreach : (!pdl.operation) -> ()
+^bb1(%arg1: !transform.any_op):
+  %foreach = transform.structured.match ops{["scf.forall"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  transform.disc.forall_to_gpu_warps %foreach : (!transform.any_op) -> ()
 }

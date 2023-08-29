@@ -962,7 +962,7 @@ void ApplyPatternsOp::build(OpBuilder& builder, OperationState& result,
         ApplyPatternsOp::getCanonicalizationAttrName(result.name),
         builder.getUnitAttr());
   }
-  result.addTypes({pdl::OperationType::get(ctx)});
+  result.addTypes({transform::AnyOpType::get(ctx)});
 }
 
 DiagnosedSilenceableFailure ApplyPatternsOp::applyToOne(
@@ -1035,7 +1035,7 @@ void FoldProducerExtractSliceOp::build(OpBuilder& builder,
   result.addAttribute(
       FoldProducerExtractSliceOp::getMaxRepeatNumAttrName(result.name),
       builder.getIntegerAttr(builder.getIntegerType(64), maxRepeatNum));
-  result.addTypes({pdl::OperationType::get(ctx)});
+  result.addTypes({transform::AnyOpType::get(ctx)});
 }
 
 DiagnosedSilenceableFailure FoldProducerExtractSliceOp::applyToOne(
@@ -1237,7 +1237,7 @@ void CacheReadOp::build(OpBuilder& builder, OperationState& result,
         llvm::seq(static_cast<int64_t>(0), expectedResultRank));
     permutation = permutationVec;
   }
-  build(builder, result, pdl::OperationType::get(builder.getContext()), target,
+  build(builder, result, transform::AnyOpType::get(builder.getContext()), target,
         anchor, builder.getI64ArrayAttr(tileLevels),
         builder.getI64ArrayAttr(tileSizes),
         builder.getI64ArrayAttr(permutation));
@@ -1402,7 +1402,7 @@ void LowerMultiLevelPackToLoopOp::build(OpBuilder& builder,
                                         OperationState& result, Value target) {
   MLIRContext* ctx = builder.getContext();
   result.addOperands(target);
-  result.addTypes({pdl::OperationType::get(ctx)});
+  result.addTypes({transform::AnyOpType::get(ctx)});
 }
 
 DiagnosedSilenceableFailure LowerMultiLevelPackToLoopOp::applyToOne(
@@ -2071,7 +2071,7 @@ void LinalgFuseOperandOp::build(OpBuilder& builder, OperationState& result,
   result.addAttribute(
       LinalgFuseOperandOp::getOperandIdxAttrName(result.name),
       builder.getIntegerAttr(builder.getIntegerType(64), operandIdx));
-  result.addTypes({pdl::OperationType::get(ctx)});
+  result.addTypes({transform::AnyOpType::get(ctx)});
 }
 
 DiagnosedSilenceableFailure LinalgFuseOperandOp::applyToOne(
@@ -2195,15 +2195,15 @@ DiagnosedSilenceableFailure LinalgFuseProducersOp::apply(
 // ReplaceConstPaddingValueOp
 //===---------------------------------------------------------------------===//
 
-void ReplaceConstPaddingValueOp::build(OpBuilder& builder,
-                                       OperationState& result, Value target,
-                                       StringRef mode) {
-  MLIRContext* ctx = builder.getContext();
-  result.addOperands(target);
-  result.addAttribute(ReplaceConstPaddingValueOp::getModeAttrName(result.name),
-                      builder.getStringAttr(mode));
-  result.addTypes({pdl::OperationType::get(ctx)});
-}
+// void ReplaceConstPaddingValueOp::build(OpBuilder& builder,
+//                                        OperationState& result, Value target,
+//                                        StringRef mode) {
+//   MLIRContext* ctx = builder.getContext();
+//   result.addOperands(target);
+//   result.addAttribute(ReplaceConstPaddingValueOp::getModeAttrName(result.name),
+//                       builder.getStringAttr(mode));
+//   result.addTypes({transform::AnyOpType::get(ctx)});
+// }
 
 DiagnosedSilenceableFailure ReplaceConstPaddingValueOp::applyToOne(
     Operation* target, transform::ApplyToEachResultList& results,

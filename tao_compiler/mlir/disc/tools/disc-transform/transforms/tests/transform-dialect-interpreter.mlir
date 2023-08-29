@@ -18,9 +18,9 @@ func.func @matmul_nn(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %arg2: tens
 
 
 transform.sequence failures(propagate) {
-  ^bb0(%arg1: !pdl.operation):
-    %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-    %1, %loops:3 = transform.structured.tile %0 [2, 3, 4] : (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation, !pdl.operation)
+  ^bb0(%arg1: !transform.any_op):
+    %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+    %1, %loops:3 = transform.structured.tile %0 [2, 3, 4] : (!transform.any_op) -> (!transform.any_op, !transform.any_op, !transform.any_op, !transform.any_op)
 }
 
 // -----
@@ -44,16 +44,16 @@ func.func @matmul_nn(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %arg2: tens
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %matmul = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+^bb1(%arg1: !transform.any_op):
+  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %matmul = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!transform.any_op) -> !transform.any_op
 
   %0:2 = transform.structured.tile_to_forall_op %matmul tile_sizes [6, 16]
-     : (!pdl.operation) -> (!pdl.operation, !pdl.operation)
+     : (!transform.any_op) -> (!transform.any_op, !transform.any_op)
   transform.structured.fuse_into_containing_op %fill into %0#0
-    : (!pdl.operation, !pdl.operation) -> (!pdl.operation, !pdl.operation)
+    : (!transform.any_op, !transform.any_op) -> (!transform.any_op, !transform.any_op)
 
-  transform.disc.bufferize %arg1
+  transform.disc.bufferize %arg1 : (!transform.any_op) -> !transform.any_op
 }
 
 // -----

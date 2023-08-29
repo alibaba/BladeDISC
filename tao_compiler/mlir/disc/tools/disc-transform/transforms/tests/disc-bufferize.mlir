@@ -10,8 +10,8 @@ func.func @tensor.empty(%arg0 : index) -> tensor<?x?xf32> {
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.bufferize %arg1
+^bb1(%arg1: !transform.any_op):
+  transform.disc.bufferize %arg1 : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -37,8 +37,8 @@ func.func @use_alloca() -> tensor<20x20xf32> {
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.bufferize %arg1
+^bb1(%arg1: !transform.any_op):
+  transform.disc.bufferize %arg1 : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -63,8 +63,8 @@ func.func @not_use_alloca_due_to_too_large() -> tensor<2000x2000xf32> {
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.bufferize %arg1
+^bb1(%arg1: !transform.any_op):
+  transform.disc.bufferize %arg1 : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -89,8 +89,8 @@ func.func @not_use_alloca_due_to_dynamic_shape(%arg0: index) -> tensor<?x?xf32> 
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.bufferize %arg1
+^bb1(%arg1: !transform.any_op):
+  transform.disc.bufferize %arg1 : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -105,8 +105,8 @@ func.func @bufferize_constant_wrapper() -> tensor<512x1024xf32> {
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.bufferize %arg1
+^bb1(%arg1: !transform.any_op):
+  transform.disc.bufferize %arg1 : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -133,6 +133,6 @@ func.func @bufferize_conditional_generic(
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.bufferize %arg1
+^bb1(%arg1: !transform.any_op):
+  transform.disc.bufferize %arg1 : (!transform.any_op) -> !transform.any_op
 }

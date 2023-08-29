@@ -25,7 +25,7 @@ func.func @forall_to_gpu_ctas(%arg0: memref<2x2xf16>) -> memref<2x2xf16> {
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %foreach = transform.structured.match ops{["scf.forall"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %result = transform.disc.forall_to_gpu_ctas %foreach : (!pdl.operation) -> (!pdl.operation)
+^bb1(%arg1: !transform.any_op):
+  %foreach = transform.structured.match ops{["scf.forall"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %result = transform.disc.forall_to_gpu_ctas %foreach : (!transform.any_op) -> (!transform.any_op)
 }

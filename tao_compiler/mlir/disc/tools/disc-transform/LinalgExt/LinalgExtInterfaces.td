@@ -14,6 +14,8 @@
 
 include "external/org_tensorflow/tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtBase.td"
 
+// Mainly copied from IREE project.
+
 // The interface is a subset of LinalgStructuredInterface.
 def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
   let methods = [
@@ -124,11 +126,18 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*defaultImplementation=*/[{
         OpOperandVector result;
         result.reserve(getNumInputs());
+        llvm::errs() << "[ZZ] after reserve\n";
+        llvm::errs() << "[ZZ] operation is: " << *(this->getOperation()) << "\n";
         llvm::copy_if(getInputOperands(),
           std::back_inserter(result),
           [](OpOperand *opOperand) {
+            llvm::errs() << "[ZZ] in inserter\n";
+            // llvm::errs() << "[ZZ] operand is: " << *opOperand << "\n";
+            llvm::errs() << "[ZZ] operand get is: " << opOperand->get() << "\n";
+            llvm::errs() << "[ZZ] type is: " << opOperand->get().getType() << "\n";
             return opOperand->get().getType().template isa<MemRefType>();
           });
+        llvm::errs() << "[ZZ] before return\n";
         return result;
       }]
     >,

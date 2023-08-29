@@ -13,15 +13,17 @@
 #define DISC_TRANSFORM_OPS_EXT
 
 include "mlir/Dialect/GPU/TransformOps/GPUDeviceMappingAttr.td"
-include "mlir/Dialect/PDL/IR/PDLTypes.td"
+// include "mlir/Dialect/PDL/IR/PDLTypes.td"
 include "mlir/Dialect/Transform/IR/TransformAttrs.td"
 include "mlir/Dialect/Transform/IR/TransformDialect.td"
 include "mlir/Dialect/Transform/IR/TransformInterfaces.td"
+include "mlir/Dialect/Transform/IR/TransformTypes.td"
 include "mlir/Dialect/Vector/Transforms/VectorTransformsBase.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+
 
 /// Some of the following ops are borrowed from IREE project.
 
@@ -46,10 +48,10 @@ def DISCBufferizeOp : Op<Transform_Dialect, "disc.bufferize",
     No handles are consumed or produced.
   }];
 
-  let arguments = (ins PDL_Operation:$target, UnitAttr:$target_gpu);
-  let results = (outs PDL_Operation:$result);
+  let arguments = (ins TransformHandleTypeInterface:$target, UnitAttr:$target_gpu);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "attr-dict $target";
+  let assemblyFormat = "attr-dict $target `:` functional-type($target, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
   let builders = [
@@ -90,16 +92,16 @@ def ApplyPatternsOp : Op<Transform_Dialect, "disc.apply_patterns",
     Otherwise the transformation is successful and no result is returned.
   }];
 
-  let arguments = (ins PDL_Operation:$target,
+  let arguments = (ins TransformHandleTypeInterface:$target,
                        UnitAttr:$canonicalization);
-  let results = (outs PDL_Operation:$result);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = "$target attr-dict `:` functional-type(operands, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
   let builders = [
     // TODO: Some bitvector to scale better than n-bools.
-    OpBuilder<(ins "Value":$target, "bool":$canonicalization)>
+    OpBuilder<(ins "Value":$target, CArg<"bool", "false">:$canonicalization)>
   ];
 
   let extraClassDeclaration = [{
@@ -129,11 +131,11 @@ def FoldProducerExtractSliceOp : Op<Transform_Dialect, "disc.fold_producer_extra
     `max_repeat_num` times.
   }];
 
-  let arguments = (ins PDL_Operation:$target,
+  let arguments = (ins TransformHandleTypeInterface:$target,
                        I64Attr:$max_repeat_num);
-  let results = (outs PDL_Operation:$result);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = "$target attr-dict `:` functional-type($target, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
   let builders = [
@@ -217,13 +219,13 @@ def CacheReadOp : Op<Transform_Dialect, "disc.cache_read",
      ```
   }];
 
-  let arguments = (ins PDL_Operation:$target,
-                       PDL_Operation:$anchor,
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       TransformHandleTypeInterface:$anchor,
                        I64ArrayAttr:$tile_levels,
                        I64ArrayAttr:$tile_sizes,
                        I64ArrayAttr:$permutation,
                        UnitAttr:$padded);
-  let results = (outs PDL_Operation:$result);
+  let results = (outs TransformHandleTypeInterface:$result);
 
   let assemblyFormat = [{
     attr-dict
@@ -231,6 +233,7 @@ def CacheReadOp : Op<Transform_Dialect, "disc.cache_read",
     `tile_levels` `=` $tile_levels
     `tile_sizes` `=` $tile_sizes
     `permutation` `=` $permutation
+     `:` functional-type(operands, results)
   }];
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
@@ -254,10 +257,10 @@ def LowerMultiLevelPackToLoopOp : Op<Transform_Dialect, "disc.lower_multi_level_
     Returns a handle to the outter most loop.
   }];
 
-  let arguments = (ins PDL_Operation:$target);
-  let results = (outs PDL_Operation:$result);
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = "$target attr-dict `:` functional-type($target, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
   let builders = [
@@ -311,13 +314,14 @@ def InlineReductionInitializerOp : Op<Transform_Dialect, "disc.inline_reduction_
      ```
   }];
 
-  let arguments = (ins PDL_Operation:$initializer,
-                       PDL_Operation:$loop,
-                       PDL_Operation:$reader);
-  let results = (outs PDL_Operation:$result);
+  let arguments = (ins TransformHandleTypeInterface:$initializer,
+                       TransformHandleTypeInterface:$loop,
+                       TransformHandleTypeInterface:$reader);
+  let results = (outs TransformHandleTypeInterface:$result);
 
   let assemblyFormat = [{
     attr-dict $initializer `for` `reader` $reader  `into` `loop` $loop
+    `:` functional-type(operands, results)
   }];
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
@@ -357,11 +361,11 @@ def DecomposeVectorsOp : Op<Transform_Dialect, "disc.decompose_vectors",
       ```
   }];
 
-  let arguments = (ins PDL_Operation:$target,
+  let arguments = (ins TransformHandleTypeInterface:$target,
                        I64Attr:$vector_size);
-  let results = (outs PDL_Operation:$result);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = "$target attr-dict `:` functional-type(operands, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
   let builders = [
@@ -412,11 +416,11 @@ def LinalgFuseOperandOp : Op<Transform_Dialect, "disc.linalg.fuse_operand",
 
   }];
 
-  let arguments = (ins PDL_Operation:$target,
+  let arguments = (ins TransformHandleTypeInterface:$target,
                        I64Attr:$operand_idx);
-  let results = (outs PDL_Operation:$result);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = "$target attr-dict `:` functional-type($target, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
   let builders = [
@@ -478,14 +482,15 @@ def LinalgFuseProducersOp : Op<Transform_Dialect, "disc.linalg.fuse_producers",
 
   }];
 
-  let arguments = (ins PDL_Operation:$target,
-                       Variadic<PDL_Operation>:$producers);
-  let results = (outs PDL_Operation:$result);
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       Variadic<TransformHandleTypeInterface>:$producers);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  // let assemblyFormat = "$target attr-dict";
   let assemblyFormat = [{
     attr-dict
     $producers `into` $target
+    `:` functional-type(operands, results)
   }];
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
@@ -501,16 +506,16 @@ def ReplaceConstPaddingValueOp : Op<Transform_Dialect, "disc.replace_const_paddi
     Returns the updated tensor.PadOp op.
   }];
 
-  let arguments = (ins PDL_Operation:$target,
+  let arguments = (ins TransformHandleTypeInterface:$target,
                        StrAttr:$mode);
-  let results = (outs PDL_Operation:$result);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict `mode` `(` $mode `)`";
+  let assemblyFormat = "$target attr-dict `mode` `(` $mode `)` `:` functional-type($target, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
-  let builders = [
-    OpBuilder<(ins "Value":$target, "StringRef":$mode)>
-  ];
+  // let builders = [
+  //   OpBuilder<(ins "Value":$target, "StringRef":$mode)>
+  // ];
 
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
@@ -531,10 +536,10 @@ def ConvertPaddingPlaceholderToConstOp : Op<Transform_Dialect, "disc.convert_pad
     Returns the result const op.
   }];
 
-  let arguments = (ins PDL_Operation:$target);
-  let results = (outs PDL_Operation:$result);
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = "$target attr-dict `:` functional-type($target, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
@@ -571,10 +576,10 @@ def LinalgEagerlyBackwardInitTensorOp : Op<Transform_Dialect, "disc.linalg.eager
     Returns the result const op.
   }];
 
-  let arguments = (ins PDL_Operation:$target);
-  let results = (outs PDL_Operation:$result);
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = "$target attr-dict `:` functional-type($target, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
@@ -627,10 +632,10 @@ def DISCFuseIntoContainingOp :
     This operation reads the containing op handle.
   }];
 
-  let arguments = (ins PDL_Operation:$producer_op,
-                       PDL_Operation:$containing_op);
-  let results = (outs PDL_Operation:$fused_op);
-  let assemblyFormat = "$producer_op `into` $containing_op attr-dict";
+  let arguments = (ins TransformHandleTypeInterface:$producer_op,
+                       TransformHandleTypeInterface:$containing_op);
+  let results = (outs TransformHandleTypeInterface:$fused_op);
+  let assemblyFormat = "$producer_op `into` $containing_op attr-dict `:` functional-type(operands, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
 
@@ -683,12 +688,12 @@ def ReductionOutputFuseOp : Op<Transform_Dialect, "disc.reduction_output_fuse",
      ```
   }];
 
-  let arguments = (ins PDL_Operation:$target,
-                       PDL_Operation:$loop);
-  let results = (outs PDL_Operation:$tiled_target, PDL_Operation:$fused_loop);
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       TransformHandleTypeInterface:$loop);
+  let results = (outs TransformHandleTypeInterface:$tiled_target, TransformHandleTypeInterface:$fused_loop);
 
   let assemblyFormat = [{
-    attr-dict $target `into` $loop
+    attr-dict $target `into` $loop `:` functional-type(operands, results)
   }];
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
@@ -729,12 +734,12 @@ def ReductionInputFuseOp : Op<Transform_Dialect, "disc.reduction_input_fuse",
      ```
   }];
 
-  let arguments = (ins PDL_Operation:$target,
-                       PDL_Operation:$loop);
-  let results = (outs PDL_Operation:$tiled_target, PDL_Operation:$fused_loop);
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       TransformHandleTypeInterface:$loop);
+  let results = (outs TransformHandleTypeInterface:$tiled_target, TransformHandleTypeInterface:$fused_loop);
 
   let assemblyFormat = [{
-    attr-dict $target `into` $loop
+    attr-dict $target `into` $loop `:` functional-type(operands, results)
   }];
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
@@ -775,10 +780,10 @@ def VectorizeConditionalGenericOp : Op<Transform_Dialect, "disc.vectorize_condit
 
   }];
 
-  let arguments = (ins PDL_Operation:$target);
-  let results = (outs PDL_Operation:$result);
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = "$target attr-dict `:` functional-type($target, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
   let extraClassDeclaration = [{
@@ -820,10 +825,10 @@ def SplitVectorTransferIntoFullAndPartialOp : Op<Transform_Dialect, "disc.split_
 
   }];
 
-  let arguments = (ins PDL_Operation:$target);
-  let results = (outs PDL_Operation:$result);
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = "$target attr-dict `:` functional-type($target, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
   let extraClassDeclaration = [{
@@ -859,10 +864,10 @@ def LowerConditionalGenericOp : Op<Transform_Dialect, "disc.lower_conditional_ge
     /// ```
   }];
 
-  let arguments = (ins PDL_Operation:$target);
-  let results = (outs PDL_Operation:$result);
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs TransformHandleTypeInterface:$result);
 
-  let assemblyFormat = "$target attr-dict";
+  let assemblyFormat = "$target attr-dict `:` functional-type($target, results)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
   let extraClassDeclaration = [{
@@ -891,7 +896,7 @@ def DISCLowerVectorsOp : Op<Transform_Dialect, "disc.vector.lower_vectors",
   }];
 
   // TODO: evolve this to proper enums.
-  let arguments = (ins PDL_Operation:$target,
+  let arguments = (ins TransformHandleTypeInterface:$target,
      DefaultValuedAttr<VectorContractLoweringAttr,
        "vector::VectorContractLowering::OuterProduct">:$contraction_lowering,
      DefaultValuedAttr<VectorMultiReductionLoweringAttr,
@@ -904,7 +909,7 @@ def DISCLowerVectorsOp : Op<Transform_Dialect, "disc.vector.lower_vectors",
      DefaultValuedAttr<BoolAttr, "false">:$transpose_avx2_lowering,
      DefaultValuedAttr<BoolAttr, "true">:$unroll_vector_transfers
   );
-  let results = (outs PDL_Operation:$results);
+  let results = (outs TransformHandleTypeInterface:$results);
 
   let builders = [
     OpBuilder<(ins "Type":$resultType, "Value":$target,
@@ -927,6 +932,7 @@ def DISCLowerVectorsOp : Op<Transform_Dialect, "disc.vector.lower_vectors",
       | `transpose_lowering` `=` $transpose_lowering
     )
     attr-dict
+    `:` functional-type(operands, results)
   }];
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
@@ -969,8 +975,8 @@ def DISCForallToGPUCTAsOp : Op<Transform_Dialect, "disc.forall_to_gpu_ctas",
     /// ```
   }];
 
-  let arguments = (ins PDL_Operation:$target);
-  let results = (outs PDL_Operation:$parallel_op);
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs TransformHandleTypeInterface:$parallel_op);
 
   let assemblyFormat = [{
     $target
@@ -1015,7 +1021,7 @@ def DISCForallToGPUWarpsOp : Op<Transform_Dialect, "disc.forall_to_gpu_warps",
     /// ```
   }];
 
-  let arguments = (ins PDL_Operation:$target);
+  let arguments = (ins TransformHandleTypeInterface:$target);
   let results = (outs);
 
   let assemblyFormat = [{
@@ -1085,15 +1091,16 @@ def DISCSplitReductionSerialOp :
   }];
 
   // TODO: support mixed static-dynamic (see TileToForallOp).
-  let arguments = (ins PDL_Operation:$target,
+  let arguments = (ins TransformHandleTypeInterface:$target,
                    DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$tile_sizes);
-  let results = (outs PDL_Operation:$for_op,
-                      PDL_Operation:$splitted_op);
+  let results = (outs TransformHandleTypeInterface:$for_op,
+                      TransformHandleTypeInterface:$splitted_op);
 
   let assemblyFormat = [{
     $target
     `by` `tile_sizes` `=` $tile_sizes
     attr-dict
+    `:` functional-type(operands, results)
   }];
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
@@ -1158,11 +1165,11 @@ def DISCPromoteDotOperandsOp :
     fails.
   }];
 
-  let arguments = (ins PDL_Operation:$target,
+  let arguments = (ins TransformHandleTypeInterface:$target,
                    DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$indices);
-  let results = (outs PDL_Operation:$promoted_dot,
-                      PDL_Operation:$lhs_alloc,
-                      PDL_Operation:$rhs_alloc);
+  let results = (outs TransformHandleTypeInterface:$promoted_dot,
+                      TransformHandleTypeInterface:$lhs_alloc,
+                      TransformHandleTypeInterface:$rhs_alloc);
 
   let assemblyFormat = [{
     $target
@@ -1191,7 +1198,7 @@ def DISCLowerGmemToSmemOp : Op<Transform_Dialect, "disc.gmem_to_smem",
     to smem is expressed as an linalg.generic op.
   }];
 
-  let arguments = (ins PDL_Operation:$target);
+  let arguments = (ins TransformHandleTypeInterface:$target);
   let results = (outs);
 
   let assemblyFormat = [{
@@ -1218,7 +1225,7 @@ def DISCEraseDeallocOp : Op<Transform_Dialect, "disc.erase_dealloc",
     Erases dealloc ops, for GPU functions.
   }];
 
-  let arguments = (ins PDL_Operation:$target);
+  let arguments = (ins TransformHandleTypeInterface:$target);
   let results = (outs);
 
   let assemblyFormat = [{
@@ -1267,7 +1274,7 @@ def DISCTransferWriteZeroToSCFOp : Op<Transform_Dialect, "disc.transfer_write_ze
     ```
   }];
 
-  let arguments = (ins PDL_Operation:$target);
+  let arguments = (ins TransformHandleTypeInterface:$target);
   let results = (outs);
 
   let assemblyFormat = [{
@@ -1295,7 +1302,7 @@ def DISCInlineAndConvertGPUIdsOp : Op<Transform_Dialect, "disc.inline_and_conver
     calculations according to the induction of parallel op.
   }];
 
-  let arguments = (ins PDL_Operation:$target);
+  let arguments = (ins TransformHandleTypeInterface:$target);
   let results = (outs);
 
   let assemblyFormat = [{

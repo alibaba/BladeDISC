@@ -18,7 +18,7 @@ func.func @vector_to_mma_conversion(%arg0: memref<16x16xf16, #gpu.address_space<
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %func = transform.structured.match ops{["func.func"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  transform.disc.vector.vector_to_mma_conversion %func : (!pdl.operation) -> ()
+^bb1(%arg1: !transform.any_op):
+  %func = transform.structured.match ops{["func.func"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  transform.disc.vector.vector_to_mma_conversion %func : (!transform.any_op) -> ()
 }

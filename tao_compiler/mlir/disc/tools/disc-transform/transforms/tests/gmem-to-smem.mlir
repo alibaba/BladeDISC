@@ -21,7 +21,7 @@ func.func @gmem_to_smem(%arg0: memref<2x2xf16>, %arg1: memref<2x2xf16, #gpu.addr
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %generic = transform.structured.match ops{["linalg.generic"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  transform.disc.gmem_to_smem %generic : (!pdl.operation) -> ()
+^bb1(%arg1: !transform.any_op):
+  %generic = transform.structured.match ops{["linalg.generic"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  transform.disc.gmem_to_smem %generic : (!transform.any_op) -> ()
 }

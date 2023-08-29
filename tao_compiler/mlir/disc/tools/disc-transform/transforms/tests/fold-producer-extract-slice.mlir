@@ -20,10 +20,11 @@ func.func @fold_extracted_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: ind
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %slice = get_producer_of_operand %fill[1] : (!pdl.operation) -> !pdl.operation
+^bb1(%arg1: !transform.any_op):
+  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %slice = get_producer_of_operand %fill[1] : (!transform.any_op) -> !transform.any_op
   transform.disc.fold_producer_extract_slice %slice {max_repeat_num = 1}
+    : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -50,8 +51,9 @@ func.func @fold_two_extracted_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2:
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %slice = get_producer_of_operand %fill[1] : (!pdl.operation) -> !pdl.operation
+^bb1(%arg1: !transform.any_op):
+  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %slice = get_producer_of_operand %fill[1] : (!transform.any_op) -> !transform.any_op
   transform.disc.fold_producer_extract_slice %slice {max_repeat_num = 2}
+    : (!transform.any_op) -> !transform.any_op
 }

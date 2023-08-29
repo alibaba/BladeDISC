@@ -38,14 +38,16 @@ func.func @elemwise_fuse(%arg0: tensor<?x3072xf32>, %arg1: tensor<2xindex>, %arg
 }
 
 transform.sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
-  %arg1 = transform.disc.apply_patterns %arg0 {canonicalization}
-  %0 = transform.structured.match attributes {disc.transform.name = "dynamic_broadcast_in_dim"} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %1 = transform.structured.match attributes {disc.transform.name = "subtract"} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %2 = transform.structured.match attributes {disc.transform.name = "add"} in %arg1 : (!pdl.operation) -> !pdl.operation
+^bb0(%arg0: !transform.any_op):
+  %arg1 = transform.disc.apply_patterns %arg0 {canonicalization} : (!transform.any_op) -> !transform.any_op
+  %0 = transform.structured.match attributes {disc.transform.name = "dynamic_broadcast_in_dim"} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %1 = transform.structured.match attributes {disc.transform.name = "subtract"} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %2 = transform.structured.match attributes {disc.transform.name = "add"} in %arg1 : (!transform.any_op) -> !transform.any_op
   %3 = transform.disc.linalg.fuse_operand %2 {operand_idx = 0 : i64}
-  %arg2 = transform.disc.apply_patterns %arg1 {canonicalization}
-  %4 = transform.structured.match attributes {disc.transform.name = "add"} in %arg2 : (!pdl.operation) -> !pdl.operation
+    : (!transform.any_op) -> !transform.any_op
+  %arg2 = transform.disc.apply_patterns %arg1 {canonicalization} : (!transform.any_op) -> !transform.any_op
+  %4 = transform.structured.match attributes {disc.transform.name = "add"} in %arg2 : (!transform.any_op) -> !transform.any_op
   %5 = transform.disc.linalg.fuse_operand %4 {operand_idx = 1 : i64}
-  transform.disc.apply_patterns %arg2 {canonicalization}
+    : (!transform.any_op) -> !transform.any_op
+  transform.disc.apply_patterns %arg2 {canonicalization} : (!transform.any_op) -> !transform.any_op
 }

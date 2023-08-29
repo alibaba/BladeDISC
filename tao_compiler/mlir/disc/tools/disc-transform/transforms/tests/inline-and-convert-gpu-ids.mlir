@@ -28,7 +28,7 @@ func.func @forall_to_gpu_warps(%arg0: memref<2x2xf16>) {
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %func = transform.structured.match ops{["func.func"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  transform.disc.inline_and_convert_gpu_ids %func : (!pdl.operation) -> ()
+^bb1(%arg1: !transform.any_op):
+  %func = transform.structured.match ops{["func.func"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  transform.disc.inline_and_convert_gpu_ids %func : (!transform.any_op) -> ()
 }

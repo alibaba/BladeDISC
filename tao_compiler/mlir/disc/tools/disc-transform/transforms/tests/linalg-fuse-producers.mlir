@@ -38,10 +38,11 @@ func.func @elemwise_fuse(%arg0: tensor<?x3072xf32>, %arg1: tensor<2xindex>, %arg
 }
 
 transform.sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {disc.transform.name = "dynamic_broadcast_in_dim"} in %arg0 : (!pdl.operation) -> !pdl.operation
-  %1 = transform.structured.match attributes {disc.transform.name = "subtract"} in %arg0 : (!pdl.operation) -> !pdl.operation
-  %2 = transform.structured.match attributes {disc.transform.name = "add"} in %arg0 : (!pdl.operation) -> !pdl.operation
+^bb0(%arg0: !transform.any_op):
+  %0 = transform.structured.match attributes {disc.transform.name = "dynamic_broadcast_in_dim"} in %arg0 : (!transform.any_op) -> !transform.any_op
+  %1 = transform.structured.match attributes {disc.transform.name = "subtract"} in %arg0 : (!transform.any_op) -> !transform.any_op
+  %2 = transform.structured.match attributes {disc.transform.name = "add"} in %arg0 : (!transform.any_op) -> !transform.any_op
   %3 = transform.disc.linalg.fuse_producers %0, %1 into %2
-  transform.disc.apply_patterns %arg0 {canonicalization}
+    : (!transform.any_op, !transform.any_op, !transform.any_op) -> !transform.any_op
+  transform.disc.apply_patterns %arg0 {canonicalization} : (!transform.any_op) -> !transform.any_op
 }

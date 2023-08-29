@@ -83,8 +83,9 @@ func.func @test_fma_xfer_ops(%arg0: memref<?xf32>, %arg1: memref<?xf32>, %arg2: 
 }
 
 transform.sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
+^bb0(%arg0: !transform.any_op):
   transform.disc.decompose_vectors %arg0 {vector_size = 4}
+    : (!transform.any_op) -> (!transform.any_op)
 }
 
 // -----
@@ -125,8 +126,9 @@ func.func @test_for(%arg0: memref<?xf32>, %arg1: memref<?xf32>) -> memref<?xf32>
 }
 
 transform.sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
+^bb0(%arg0: !transform.any_op):
   transform.disc.decompose_vectors %arg0 {vector_size = 4}
+    : (!transform.any_op) -> (!transform.any_op)
 }
 
 // -----
@@ -160,6 +162,7 @@ func.func @test_if(%arg0: i1, %arg1: vector<8xf32>, %arg2: vector<8xf32>) -> vec
 }
 
 transform.sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
+^bb0(%arg0: !transform.any_op):
   transform.disc.decompose_vectors %arg0 {vector_size = 4}
+    : (!transform.any_op) -> (!transform.any_op)
 }

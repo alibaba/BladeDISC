@@ -42,10 +42,11 @@ func.func @inline_reduction_loop_initializer(%arg0: memref<?x?xf32>, %arg1: memr
 }
 
 transform.sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
-  %fill = transform.structured.match ops{["linalg.fill"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-  %readers = transform.structured.match ops{["vector.transfer_read"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-  %reader_for_output, %reader_for_input = split_handle %readers : (!pdl.operation) -> (!pdl.operation, !pdl.operation)
-  %loop = transform.loop.get_parent_for %reader_for_output {num_loops = 2 : i64} : (!pdl.operation) -> !pdl.operation
+^bb0(%arg0: !transform.any_op):
+  %fill = transform.structured.match ops{["linalg.fill"]} in %arg0 : (!transform.any_op) -> !transform.any_op
+  %readers = transform.structured.match ops{["vector.transfer_read"]} in %arg0 : (!transform.any_op) -> !transform.any_op
+  %reader_for_output, %reader_for_input = split_handle %readers : (!transform.any_op) -> (!transform.any_op, !transform.any_op)
+  %loop = transform.loop.get_parent_for %reader_for_output {num_loops = 2 : i64} : (!transform.any_op) -> !transform.any_op
   transform.disc.inline_reduction_initializer %fill for reader %reader_for_output into loop %loop
+    : (!transform.any_op, !transform.any_op, !transform.any_op) -> (!transform.any_op)
 }

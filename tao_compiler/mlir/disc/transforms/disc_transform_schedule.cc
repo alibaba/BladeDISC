@@ -105,28 +105,28 @@ MatchOp buildMatchOp(OpBuilder& b, Location& loc, Value target,
         b.getNamedAttr(kDISCLinalgTransformName, b.getStringAttr(name)));
   }
 
-  return b.create<MatchOp>(loc, pdl::OperationType::get(b.getContext()), target,
+  return b.create<MatchOp>(loc, transform::AnyOpType::get(b.getContext()), target,
                            opNames, transform::MatchInterfaceEnumAttr{}, attrs,
                            TypeAttr{});
 }
 
 TileToForallOp buildTileToForallOp(OpBuilder& b, Location& loc, Value target,
                                    ArrayRef<int64_t> numThreads) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
   return b.create<TileToForallOp>(loc, target, numThreads,
                                   transform::NumThreadsSpec(), ArrayAttr{});
 }
 
 Value buildFuseIntoContainingOp(OpBuilder& b, Location& loc, Value target,
                                 Value anchor) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
-  return b.create<FuseIntoContainingOp>(loc, pdlType, target, anchor)
+  auto pdlType = transform::AnyOpType::get(b.getContext());
+  SmallVector<Type> resultTypes{pdlType, pdlType};
+  return b.create<FuseIntoContainingOp>(loc, resultTypes, target, anchor)
       .getFusedOp();
 }
 
 FuseOp buildFuseOp(OpBuilder& b, Location& loc, Value target,
                    ArrayRef<int64_t> tileSizes, ArrayRef<int64_t> interchange) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   SmallVector<Type> loopTypes;
   for (int64_t tileSize : tileSizes)
     if (tileSize) loopTypes.push_back(pdlType);
@@ -137,7 +137,7 @@ FuseOp buildFuseOp(OpBuilder& b, Location& loc, Value target,
 
 TileOp buildTileOp(OpBuilder& b, Location& loc, Value target,
                    ArrayRef<int64_t> tileSizes, ArrayRef<int64_t> interchange) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   SmallVector<Type> loopTypes;
   for (int64_t tileSize : tileSizes)
     if (tileSize) loopTypes.push_back(pdlType);
@@ -148,14 +148,15 @@ TileOp buildTileOp(OpBuilder& b, Location& loc, Value target,
 transform_dialect::ApplyPatternsOp buildRunCanonicalizer(OpBuilder& b,
                                                          Location& loc,
                                                          Value target) {
-  return b.create<transform_dialect::ApplyPatternsOp>(loc, target, true);
+  auto pdlType = transform::AnyOpType::get(b.getContext());
+  return b.create<transform_dialect::ApplyPatternsOp>(loc, pdlType, target, true);
 }
 
 transform::GetProducerOfOperand buildGetProducerOfOperand(OpBuilder& b,
                                                           Location& loc,
                                                           Value target,
                                                           int64_t operandIdx) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform::GetProducerOfOperand>(loc, pdlType, target,
                                                    operandIdx);
 }
@@ -170,7 +171,7 @@ transform::PadOp buildPadOp(OpBuilder& b, Location& loc, Value target,
                             ArrayRef<int64_t> paddingDimensions,
                             int64_t numOperands,
                             ArrayRef<Type> paddingTypes = {}) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   // TODO(wyzero): support other types.
   SmallVector<Attribute> paddingAttrs(numOperands,
                                       b.getZeroAttr(b.getF32Type()));
@@ -185,7 +186,7 @@ transform::PadOp buildPadOp(OpBuilder& b, Location& loc, Value target,
 
 transform::GetParentForOp buildGetParentForOp(OpBuilder& b, Location& loc,
                                               Value target, int64_t num_loops) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform::GetParentForOp>(loc, pdlType, target, num_loops);
 }
 
@@ -206,14 +207,14 @@ transform_dialect::LowerMultiLevelPackToLoopOp buildLowerMultiLevelPackToLoop(
 
 VectorizeOp buildVectorize(OpBuilder& b, Location& loc, Value target,
                            bool vectorizePad) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<VectorizeOp>(loc, pdlType, target, vectorizePad);
 }
 
 transform_dialect::DISCBufferizeOp buildDISCBufferize(OpBuilder& b,
                                                       Location& loc,
                                                       Value target) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::DISCBufferizeOp>(loc, pdlType, target);
 }
 
@@ -234,7 +235,7 @@ transform_dialect::DISCLowerVectorsOp buildLowerVectors(
     OpBuilder& b, Location& loc, Value target,
     const vector::LowerVectorsOptions& options =
         getDefaultLowerVectorsOptions()) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::DISCLowerVectorsOp>(loc, pdlType, target,
                                                          options);
 }
@@ -247,28 +248,28 @@ SplitHandleOp buildSplitHandleOp(OpBuilder& b, Location& loc, Value target,
 transform_dialect::InlineReductionInitializerOp
 buildInlineReductionInitializerOp(OpBuilder& b, Location& loc, Value initOp,
                                   Value loopOp, Value readerOp) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::InlineReductionInitializerOp>(
       loc, pdlType, initOp, loopOp, readerOp);
 }
 
 transform_dialect::DecomposeVectorsOp buildDecomposeVectors(
     OpBuilder& b, Location& loc, Value target, int64_t vectorSize) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::DecomposeVectorsOp>(loc, pdlType, target,
                                                          vectorSize);
 }
 
 transform_dialect::LinalgFuseProducersOp buildLinalgFuseProducersOp(
     OpBuilder& b, Location& loc, Value target, ValueRange producers) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::LinalgFuseProducersOp>(loc, pdlType,
                                                             target, producers);
 }
 
 transform_dialect::ReplaceConstPaddingValueOp buildReplaceConstPaddingValueOp(
     OpBuilder& b, Location& loc, Value target, StringRef mode) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::ReplaceConstPaddingValueOp>(loc, pdlType,
                                                                  target, mode);
 }
@@ -276,7 +277,7 @@ transform_dialect::ReplaceConstPaddingValueOp buildReplaceConstPaddingValueOp(
 transform_dialect::ConvertPaddingPlaceholderToConstOp
 buildConvertPaddingPlaceholderToConstOp(OpBuilder& b, Location& loc,
                                         Value target) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::ConvertPaddingPlaceholderToConstOp>(
       loc, pdlType, target);
 }
@@ -284,21 +285,21 @@ buildConvertPaddingPlaceholderToConstOp(OpBuilder& b, Location& loc,
 transform_dialect::LinalgEagerlyBackwardInitTensorOp
 buildLinalgEagerlyBackwardInitTensorOp(OpBuilder& b, Location& loc,
                                        Value target) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::LinalgEagerlyBackwardInitTensorOp>(
       loc, pdlType, target);
 }
 
 transform_dialect::DISCFuseIntoContainingOp buildDISCFuseIntoContainingOp(
     OpBuilder& b, Location& loc, Value target, Value anchor) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::DISCFuseIntoContainingOp>(loc, pdlType,
                                                                target, anchor);
 }
 
 transform_dialect::ReductionOutputFuseOp buildReductionOutputFuseOp(
     OpBuilder& b, Location& loc, Value target, Value loop) {
-  SmallVector<Type> pdlTypes(2, pdl::OperationType::get(b.getContext()));
+  SmallVector<Type> pdlTypes(2, transform::AnyOpType::get(b.getContext()));
   return b.create<transform_dialect::ReductionOutputFuseOp>(loc, pdlTypes,
                                                             target, loop);
 }
@@ -307,14 +308,14 @@ transform_dialect::ReductionInputFuseOp buildReductionInputFuseOp(OpBuilder& b,
                                                                   Location& loc,
                                                                   Value target,
                                                                   Value loop) {
-  SmallVector<Type> pdlTypes(2, pdl::OperationType::get(b.getContext()));
+  SmallVector<Type> pdlTypes(2, transform::AnyOpType::get(b.getContext()));
   return b.create<transform_dialect::ReductionInputFuseOp>(loc, pdlTypes,
                                                            target, loop);
 }
 
 transform_dialect::VectorizeConditionalGenericOp
 buildVectorizeConditionalGenericOp(OpBuilder& b, Location& loc, Value target) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::VectorizeConditionalGenericOp>(
       loc, pdlType, target);
 }
@@ -322,14 +323,14 @@ buildVectorizeConditionalGenericOp(OpBuilder& b, Location& loc, Value target) {
 transform_dialect::SplitVectorTransferIntoFullAndPartialOp
 buildSplitVectorTransferIntoFullAndPartialOp(OpBuilder& b, Location& loc,
                                              Value target) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::SplitVectorTransferIntoFullAndPartialOp>(
       loc, pdlType, target);
 }
 
 transform_dialect::LowerConditionalGenericOp buildLowerConditionalGenericOp(
     OpBuilder& b, Location& loc, Value target) {
-  auto pdlType = pdl::OperationType::get(b.getContext());
+  auto pdlType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::LowerConditionalGenericOp>(loc, pdlType,
                                                                 target);
 }
@@ -387,13 +388,14 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
   MLIRContext* ctx = m->getContext();
-  auto pdlOpType = pdl::OperationType::get(ctx);
+  auto pdlOpType = transform::AnyOpType::get(ctx);
   auto seqOp = b.create<transform::SequenceOp>(
-      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
+      // loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, pdlOpType,
       [&](OpBuilder& b, Location loc, Value variantH) {});
-  seqOp.getBody().push_back(new Block);
+  // seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
+  // bodyBlock.addArgument(transform::AnyOpType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
 
@@ -437,10 +439,16 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
   auto forallOp = buildTileToForallOp(b, loc, matmul, {1, 1});
   Value forallLoop = forallOp->getResult(0);
   Value tiledMatmul = forallOp->getResult(1);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   // transform.structured.fuse_into_containing_op %fill into %0#0
   auto fuseIntoContainingOp =
       buildFuseIntoContainingOp(b, loc, fill, forallLoop);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   // first/second level tile size for dimension m
   int64_t M0 = 288, M1 = 6;
@@ -451,28 +459,52 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
 
   // first level tile and fuse matmul and fill op.
   auto fuseOp0 = buildFuseOp(b, loc, tiledMatmul, {M0, N0, 0}, {0, 1, 2});
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   // second level tile and fuse matmul and fill op.
   auto fuseOp1 =
       buildFuseOp(b, loc, fuseOp0->getResult(0), {M1, N1, 0}, {0, 1, 2});
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   // gemm reduction axis tiling
   auto tileOp =
       buildTileOp(b, loc, fuseOp1->getResult(0), {0, 0, K0}, {0, 1, 2});
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   variant = buildRunCanonicalizer(b, loc, variant);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   // fold two extract_slice ops generated by two-level tiling. It's needed to
   // enable following pad and hosit schedule.
   Value weightInnerSlice =
       buildGetProducerOfOperand(b, loc, tileOp->getResult(0), 1);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
   buildFoldProducerExtractSlice(b, loc, weightInnerSlice, 2);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   // pad to match the requirement of hardware vector/tensor instruction.
   auto padOp = buildPadOp(b, loc, tileOp->getResult(0), {0, 1, 2}, 3);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   Value padForInput = buildGetProducerOfOperand(b, loc, padOp, 0);
   Value padForWeight = buildGetProducerOfOperand(b, loc, padOp, 1);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   // Check if we need to pad dimension `m/n/k` if input or weight is packed
   bool mIsPadded = (M1 != 1) && (M == ShapedType::kDynamic ||
@@ -529,6 +561,9 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
     buildCacheRead(b, loc, padForInput, loopN0, {1, 1}, tileSizes,
                    inputIsPadded, permutation);
   }
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   // Check if we need to pack the weight, one of the following conditions:
   // - if M, N and K are both dynamic, we always pad input a.t.m.
@@ -550,22 +585,43 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
     buildCacheRead(b, loc, padForWeight, forallLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   variant = buildRunCanonicalizer(b, loc, variant);
 
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
   Value multiLevelPackOps =
       buildMatchOp(b, loc, variant, {"disc_linalg_ext.multi_level_pack"});
   buildLowerMultiLevelPackToLoop(b, loc, multiLevelPackOps);
 
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
   variant = buildRunCanonicalizer(b, loc, variant);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   Value func = buildMatchOp(b, loc, variant, {"func.func"});
   buildVectorize(b, loc, func, true);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   variant = buildRunCanonicalizer(b, loc, variant);
   variant = buildDISCBufferize(b, loc, variant);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
 
   variant = buildLowerVectors(b, loc, variant);
+#if 1
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+#endif
   b.create<transform::YieldOp>(loc);
   return success();
 }
@@ -596,13 +652,14 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
   MLIRContext* ctx = m->getContext();
-  auto pdlOpType = pdl::OperationType::get(ctx);
+  auto pdlOpType = transform::AnyOpType::get(ctx);
   auto seqOp = b.create<transform::SequenceOp>(
-      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, pdlOpType,
+      // loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
       [&](OpBuilder& b, Location loc, Value variantH) {});
-  seqOp.getBody().push_back(new Block);
+  // seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
+  // bodyBlock.addArgument(transform::AnyOpType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
 
@@ -879,13 +936,14 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
   MLIRContext* ctx = m->getContext();
-  auto pdlOpType = pdl::OperationType::get(ctx);
+  auto pdlOpType = transform::AnyOpType::get(ctx);
   auto seqOp = b.create<transform::SequenceOp>(
-      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, pdlOpType,
+      // loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
       [&](OpBuilder& b, Location loc, Value variantH) {});
-  seqOp.getBody().push_back(new Block);
+  // seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
+  // bodyBlock.addArgument(transform::AnyOpType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
 
@@ -1099,13 +1157,14 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
   MLIRContext* ctx = m->getContext();
-  auto pdlOpType = pdl::OperationType::get(ctx);
+  auto pdlOpType = transform::AnyOpType::get(ctx);
   auto seqOp = b.create<transform::SequenceOp>(
-      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, pdlOpType,
+      // loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
       [&](OpBuilder& b, Location loc, Value variantH) {});
-  seqOp.getBody().push_back(new Block);
+  // seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  bodyBlock.addArgument(pdl::OperationType::get(ctx), loc);
+  // bodyBlock.addArgument(transform::AnyOpType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
 

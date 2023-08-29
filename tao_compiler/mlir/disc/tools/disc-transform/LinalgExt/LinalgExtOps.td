@@ -123,7 +123,7 @@ def DISCLinalgExt_PaddingValuePlaceholderOp : Op<DISCLinalgExt_Dialect, "padding
 // some tiling ops, to ease rebase effort in the future. Note this is an
 // extension of tensor.pack op.
 def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
-  DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>,
+  DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>
 ]>{
   let summary = "multi-level pack operation";
   let description = [{

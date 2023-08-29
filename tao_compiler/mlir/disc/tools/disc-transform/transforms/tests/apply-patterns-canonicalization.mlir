@@ -15,8 +15,8 @@ func.func @fold_extracted_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: ind
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.apply_patterns %arg1 {canonicalization}
+^bb1(%arg1: !transform.any_op):
+  transform.disc.apply_patterns %arg1 {canonicalization} : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -37,8 +37,8 @@ func.func @full_selected_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: inde
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.apply_patterns %arg1 {canonicalization}
+^bb1(%arg1: !transform.any_op):
+  transform.disc.apply_patterns %arg1 {canonicalization} : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -61,8 +61,8 @@ func.func @self_assigned_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: inde
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.apply_patterns %arg1 {canonicalization}
+^bb1(%arg1: !transform.any_op):
+  transform.disc.apply_patterns %arg1 {canonicalization} : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -81,8 +81,8 @@ func.func @transfer_read_of_fill(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: in
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.apply_patterns %arg1 {canonicalization}
+^bb1(%arg1: !transform.any_op):
+  transform.disc.apply_patterns %arg1 {canonicalization} : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -106,8 +106,8 @@ func.func @transfer_write_of_fill(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: i
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.apply_patterns %arg1 {canonicalization}
+^bb1(%arg1: !transform.any_op):
+  transform.disc.apply_patterns %arg1 {canonicalization} : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -124,8 +124,8 @@ func.func @fold_constant_wrapper_and_multi_level_pack() -> tensor<64x512x1x16xf3
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.apply_patterns %arg1 {canonicalization}
+^bb1(%arg1: !transform.any_op):
+  transform.disc.apply_patterns %arg1 {canonicalization} : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -146,6 +146,6 @@ func.func @FoldXferReadOfXferWriterWithSelectPattern(%pred: i1, %arg0: tensor<?x
 }
 
 transform.sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  transform.disc.apply_patterns %arg1 {canonicalization}
+^bb1(%arg1: !transform.any_op):
+  transform.disc.apply_patterns %arg1 {canonicalization} : (!transform.any_op) -> !transform.any_op
 }

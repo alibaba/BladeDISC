@@ -1,0 +1,22 @@
+diff --git a/lib/Dialect/Triton/IR/Ops.cpp b/lib/Dialect/Triton/IR/Ops.cpp
+index b525524..7996b9a 100644
+--- a/lib/Dialect/Triton/IR/Ops.cpp
++++ b/lib/Dialect/Triton/IR/Ops.cpp
+@@ -313,7 +313,7 @@ bool mlir::triton::ReduceOp::withIndex(mlir::triton::RedOp redOp) {
+ }
+
+ //-- SplatOp --
+-OpFoldResult SplatOp::fold(FoldAdaptor adaptor) {
++OpFoldResult SplatOp::fold(ArrayRef<Attribute> operands) {
+   auto constOperand = getSrc().getDefiningOp<arith::ConstantOp>();
+   if (!constOperand)
+     return {};
+@@ -353,7 +353,7 @@ mlir::LogicalResult mlir::triton::ExpandDimsOp::inferReturnTypes(
+ }
+
+ //-- BroadcastOp --
+-OpFoldResult BroadcastOp::fold(FoldAdaptor adaptor) {
++OpFoldResult BroadcastOp::fold(ArrayRef<Attribute> operands) {
+   auto constOperand = getSrc().getDefiningOp<arith::ConstantOp>();
+   if (!constOperand)
+     return {};

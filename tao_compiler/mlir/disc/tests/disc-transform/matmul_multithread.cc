@@ -27,12 +27,15 @@ static bool init_threads = []() {
   return true;
 }();
 
+// The AArch64 codegen schedules are buggy and temporarily disabled.
+#define ENABLE_AARCH64_SCHEDUELS 0
+
 TEST(SimpleMTTest, MatMulF32_111x131x121_Thread_8) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
        {"kGEMM::" + c_ft_path + "matmul_multithread_nn_d_f32_schedule.mlir",
         false}},
-      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}}};
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_multithread_nn_d_f32.mlir",
@@ -44,11 +47,12 @@ TEST(SimpleMTTest, MatMulF32_111x131x121_Thread_8) {
 }
 
 TEST(SimpleTest, MatMulF32_304x1024x256) {
-  EnvSetting setting = {{"DISC_TRANSFORM_SCHEDULE_FILE",
-                         {"kGEMM::" + c_ft_path +
-                              "matmul_multithread_nn_d_f32_large_schedule.mlir",
-                          false}},
-                        {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}}};
+  EnvSetting setting = {
+      {"DISC_TRANSFORM_SCHEDULE_FILE",
+       {"kGEMM::" + c_ft_path +
+            "matmul_multithread_nn_d_f32_large_schedule.mlir",
+        false}},
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_multithread_nn_d_f32.mlir",

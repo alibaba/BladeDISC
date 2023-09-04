@@ -27,12 +27,15 @@ static bool init_threads = []() {
   return true;
 }();
 
+// The AArch64 codegen schedules are buggy and temporarily disabled.
+#define ENABLE_AARCH64_SCHEDUELS 0
+
 TEST(PackedMatmul, F32_304x1024x512) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
        {"kGEMM::" + c_ft_path + "packed_matmul_nn_p_f32_large_schedule.mlir",
         false}},
-      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
       {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);

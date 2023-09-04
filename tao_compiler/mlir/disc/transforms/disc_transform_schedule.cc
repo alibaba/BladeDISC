@@ -105,9 +105,9 @@ MatchOp buildMatchOp(OpBuilder& b, Location& loc, Value target,
         b.getNamedAttr(kDISCLinalgTransformName, b.getStringAttr(name)));
   }
 
-  return b.create<MatchOp>(loc, transform::AnyOpType::get(b.getContext()), target,
-                           opNames, transform::MatchInterfaceEnumAttr{}, attrs,
-                           TypeAttr{});
+  return b.create<MatchOp>(loc, transform::AnyOpType::get(b.getContext()),
+                           target, opNames, transform::MatchInterfaceEnumAttr{},
+                           attrs, TypeAttr{});
 }
 
 TileToForallOp buildTileToForallOp(OpBuilder& b, Location& loc, Value target,
@@ -149,7 +149,8 @@ transform_dialect::ApplyPatternsOp buildRunCanonicalizer(OpBuilder& b,
                                                          Location& loc,
                                                          Value target) {
   auto pdlType = transform::AnyOpType::get(b.getContext());
-  return b.create<transform_dialect::ApplyPatternsOp>(loc, pdlType, target, true);
+  return b.create<transform_dialect::ApplyPatternsOp>(loc, pdlType, target,
+                                                      true);
 }
 
 transform::GetProducerOfOperand buildGetProducerOfOperand(OpBuilder& b,
@@ -335,6 +336,25 @@ transform_dialect::LowerConditionalGenericOp buildLowerConditionalGenericOp(
                                                                 target);
 }
 
+transform_dialect::ApplyCommonSubexpressionEliminationOp buildCSEOp(
+    OpBuilder& b, Location& loc, Value target) {
+  return b.create<transform_dialect::ApplyCommonSubexpressionEliminationOp>(
+      loc, target);
+}
+
+transform_dialect::ApplyDeadCodeEliminationOp buildDCEOp(OpBuilder& b,
+                                                         Location& loc,
+                                                         Value target) {
+  return b.create<transform_dialect::ApplyDeadCodeEliminationOp>(loc, target);
+}
+
+transform_dialect::ApplyLoopIndependentCodeMotionOp buildLICMOp(OpBuilder& b,
+                                                                Location& loc,
+                                                                Value target) {
+  return b.create<transform_dialect::ApplyLoopIndependentCodeMotionOp>(loc,
+                                                                       target);
+}
+
 class ParsedFromFileScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
   explicit ParsedFromFileScheduleFactory(int64_t id, PatternKind kind,
@@ -362,6 +382,13 @@ LogicalResult ParsedFromFileScheduleFactory::assignSchedule(
   return success();
 }
 
+// The following AArch64 codegen schedules are buggy and temporarily disabled.
+// The problem of these schedules is that many customized Transform-dialect ops
+// for these schedules rely on passes like Canonicalization, LICM, DCE, and CSE
+// to generate the correct code, which is not the prefered way of IR building
+// and lowering.
+#define ENABLE_AARCH64_SCHEDUELS 0
+#if ENABLE_AARCH64_SCHEDUELS
 class Aarch64GEMMDefaultScheduleFactory : public ScheduleFactoryWithNoGuard {
  public:
   using ScheduleFactoryWithNoGuard::ScheduleFactoryWithNoGuard;
@@ -390,12 +417,9 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
   MLIRContext* ctx = m->getContext();
   auto pdlOpType = transform::AnyOpType::get(ctx);
   auto seqOp = b.create<transform::SequenceOp>(
-      // loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
       loc, TypeRange{}, transform::FailurePropagationMode::Propagate, pdlOpType,
       [&](OpBuilder& b, Location loc, Value variantH) {});
-  // seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  // bodyBlock.addArgument(transform::AnyOpType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
 
@@ -439,16 +463,10 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
   auto forallOp = buildTileToForallOp(b, loc, matmul, {1, 1});
   Value forallLoop = forallOp->getResult(0);
   Value tiledMatmul = forallOp->getResult(1);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // transform.structured.fuse_into_containing_op %fill into %0#0
   auto fuseIntoContainingOp =
       buildFuseIntoContainingOp(b, loc, fill, forallLoop);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // first/second level tile size for dimension m
   int64_t M0 = 288, M1 = 6;
@@ -459,52 +477,28 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
 
   // first level tile and fuse matmul and fill op.
   auto fuseOp0 = buildFuseOp(b, loc, tiledMatmul, {M0, N0, 0}, {0, 1, 2});
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // second level tile and fuse matmul and fill op.
   auto fuseOp1 =
       buildFuseOp(b, loc, fuseOp0->getResult(0), {M1, N1, 0}, {0, 1, 2});
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // gemm reduction axis tiling
   auto tileOp =
       buildTileOp(b, loc, fuseOp1->getResult(0), {0, 0, K0}, {0, 1, 2});
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   variant = buildRunCanonicalizer(b, loc, variant);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // fold two extract_slice ops generated by two-level tiling. It's needed to
   // enable following pad and hosit schedule.
   Value weightInnerSlice =
       buildGetProducerOfOperand(b, loc, tileOp->getResult(0), 1);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
   buildFoldProducerExtractSlice(b, loc, weightInnerSlice, 2);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // pad to match the requirement of hardware vector/tensor instruction.
   auto padOp = buildPadOp(b, loc, tileOp->getResult(0), {0, 1, 2}, 3);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   Value padForInput = buildGetProducerOfOperand(b, loc, padOp, 0);
   Value padForWeight = buildGetProducerOfOperand(b, loc, padOp, 1);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // Check if we need to pad dimension `m/n/k` if input or weight is packed
   bool mIsPadded = (M1 != 1) && (M == ShapedType::kDynamic ||
@@ -561,9 +555,6 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
     buildCacheRead(b, loc, padForInput, loopN0, {1, 1}, tileSizes,
                    inputIsPadded, permutation);
   }
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // Check if we need to pack the weight, one of the following conditions:
   // - if M, N and K are both dynamic, we always pad input a.t.m.
@@ -585,43 +576,22 @@ LogicalResult Aarch64GEMMDefaultScheduleFactory::assignSchedule(
     buildCacheRead(b, loc, padForWeight, forallLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   variant = buildRunCanonicalizer(b, loc, variant);
 
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
   Value multiLevelPackOps =
       buildMatchOp(b, loc, variant, {"disc_linalg_ext.multi_level_pack"});
   buildLowerMultiLevelPackToLoop(b, loc, multiLevelPackOps);
 
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
   variant = buildRunCanonicalizer(b, loc, variant);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   Value func = buildMatchOp(b, loc, variant, {"func.func"});
   buildVectorize(b, loc, func, true);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   variant = buildRunCanonicalizer(b, loc, variant);
   variant = buildDISCBufferize(b, loc, variant);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   variant = buildLowerVectors(b, loc, variant);
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
   b.create<transform::YieldOp>(loc);
   return success();
 }
@@ -655,11 +625,8 @@ LogicalResult Aarch64GEMMDefaultScheduleWithEpilogueFactory::assignSchedule(
   auto pdlOpType = transform::AnyOpType::get(ctx);
   auto seqOp = b.create<transform::SequenceOp>(
       loc, TypeRange{}, transform::FailurePropagationMode::Propagate, pdlOpType,
-      // loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
       [&](OpBuilder& b, Location loc, Value variantH) {});
-  // seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  // bodyBlock.addArgument(transform::AnyOpType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
 
@@ -939,11 +906,8 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
   auto pdlOpType = transform::AnyOpType::get(ctx);
   auto seqOp = b.create<transform::SequenceOp>(
       loc, TypeRange{}, transform::FailurePropagationMode::Propagate, pdlOpType,
-      // loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
       [&](OpBuilder& b, Location loc, Value variantH) {});
-  // seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  // bodyBlock.addArgument(transform::AnyOpType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
 
@@ -988,6 +952,10 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
   Value forallLoop = forallOp->getResult(0);
   Value tiledMatmul = forallOp->getResult(1);
 
+  buildLICMOp(b, loc, variant);
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
+
   // transform.structured.fuse_into_containing_op %fill into %0#0
   auto fuseIntoContainingOp =
       buildFuseIntoContainingOp(b, loc, fill, forallLoop);
@@ -1005,6 +973,10 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
   auto tileOp1 =
       buildTileOp(b, loc, tileOp0->getResult(0), {M1, N1, K1}, {0, 1, 2});
 
+  buildLICMOp(b, loc, variant);
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
+
   // fold extract_slice ops generated by two-level tiling. It's needed to
   // enable following pad and cache_read schedule.
   Value weightInnerSlice =
@@ -1013,6 +985,10 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
 
   // pad to match the requirement of hardware vector/tensor instruction.
   auto padOp = buildPadOp(b, loc, tileOp1->getResult(0), {0, 1, 2}, 3);
+
+  buildLICMOp(b, loc, variant);
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
 
   Value padForInput = buildGetProducerOfOperand(b, loc, padOp, 0);
   Value padForWeight = buildGetProducerOfOperand(b, loc, padOp, 1);
@@ -1078,6 +1054,10 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
                    inputIsPadded, permutation);
   }
 
+  buildLICMOp(b, loc, variant);
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
+
   // Check if we need to pack the weight, one of the following conditions:
   // - if M, N and K are both dynamic, we always pad input a.t.m.
   // - if N is known and N >= N0 && N0 > N1
@@ -1098,6 +1078,10 @@ LogicalResult Aarch64GEMMLargeKScheduleFactory::assignSchedule(
     buildCacheRead(b, loc, padForWeight, forallLoop, {1, 1}, tileSizes,
                    weightIsPadded, permutation);
   }
+
+  buildLICMOp(b, loc, variant);
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
 
   variant = buildRunCanonicalizer(b, loc, variant);
 
@@ -1160,11 +1144,8 @@ LogicalResult Aarch64GEMMLargeKScheduleWithEpilogueFactory::assignSchedule(
   auto pdlOpType = transform::AnyOpType::get(ctx);
   auto seqOp = b.create<transform::SequenceOp>(
       loc, TypeRange{}, transform::FailurePropagationMode::Propagate, pdlOpType,
-      // loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{},
       [&](OpBuilder& b, Location loc, Value variantH) {});
-  // seqOp.getBody().push_back(new Block);
   auto& bodyBlock = seqOp.getBody().front();
-  // bodyBlock.addArgument(transform::AnyOpType::get(ctx), loc);
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
 
@@ -1430,6 +1411,7 @@ DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 100,
 DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 110,
                         Aarch64GEMMLargeKScheduleWithEpilogueFactory,
                         ArrayRef<StringRef>{"large_k_epilogue"});
+#endif  // ENABLE_AARCH64_SCHEDUELS
 
 }  // namespace
 

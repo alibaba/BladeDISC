@@ -50,6 +50,8 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/MathExtras.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
+#include "mlir/Transforms/Passes.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/utils.h"
 #include "mlir/disc/transforms/codegen_utils.h"
@@ -693,6 +695,7 @@ Operation* getAutomaticAllocationScope(Operation* op) {
   return scope;
 }
 
+// Copied from LLVM project.
 /// Given two MemRefTypes `aT` and `bT`, return a MemRefType to which both can
 /// be cast. If the MemRefTypes don't have the same rank or are not strided,
 /// return null; otherwise:
@@ -1237,8 +1240,8 @@ void CacheReadOp::build(OpBuilder& builder, OperationState& result,
         llvm::seq(static_cast<int64_t>(0), expectedResultRank));
     permutation = permutationVec;
   }
-  build(builder, result, transform::AnyOpType::get(builder.getContext()), target,
-        anchor, builder.getI64ArrayAttr(tileLevels),
+  build(builder, result, transform::AnyOpType::get(builder.getContext()),
+        target, anchor, builder.getI64ArrayAttr(tileLevels),
         builder.getI64ArrayAttr(tileSizes),
         builder.getI64ArrayAttr(permutation));
   if (padded) {
@@ -3867,6 +3870,154 @@ transform_dialect::DISCInlineAndConvertGPUIdsOp::applyToOne(
   }
 
   return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// ApplyCommonSubexpressionEliminationOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::ApplyCommonSubexpressionEliminationOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  if (!isa<ModuleOp>(target)) {
+    return mlir::emitDefiniteFailure(
+        state.getTopLevel(), "requires exactly a single ModuleOp target op.");
+  }
+
+  auto moduleOp = dyn_cast<ModuleOp>(target);
+  PassManager pm(getContext());
+  pm.addPass(mlir::createCSEPass());
+
+  if (failed(pm.run(moduleOp))) {
+    return DiagnosedSilenceableFailure::definiteFailure();
+  }
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+void transform_dialect::ApplyCommonSubexpressionEliminationOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::onlyReadsHandle(getTarget(), effects);
+  transform::modifiesPayload(effects);
+}
+
+//===----------------------------------------------------------------------===//
+// ApplyDeadCodeEliminationOp
+//===----------------------------------------------------------------------===//
+
+// Partially copied from LLVM project. Will remove in the next rebase.
+
+namespace {
+/// Helper function to check if the given transform op is contained in (or
+/// equal to) the given payload target op. In that case, an error is returned.
+/// Transforming transform IR that is currently executing is generally unsafe.
+static DiagnosedSilenceableFailure ensurePayloadIsSeparateFromTransform(
+    transform::TransformOpInterface transform, Operation* payload) {
+  Operation* transformAncestor = transform.getOperation();
+  while (transformAncestor) {
+    if (transformAncestor == payload) {
+      DiagnosedDefiniteFailure diag =
+          transform.emitDefiniteFailure()
+          << "cannot apply transform to itself (or one of its ancestors)";
+      diag.attachNote(payload->getLoc()) << "target payload op";
+      return diag;
+    }
+    transformAncestor = transformAncestor->getParentOp();
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+}  // namespace
+
+DiagnosedSilenceableFailure
+transform_dialect::ApplyDeadCodeEliminationOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  // Make sure that this transform is not applied to itself. Modifying the
+  // transform IR while it is being interpreted is generally dangerous.
+  DiagnosedSilenceableFailure payloadCheck =
+      ensurePayloadIsSeparateFromTransform(*this, target);
+  if (!payloadCheck.succeeded()) return payloadCheck;
+
+  SimplePatternRewriter rewriter(target->getContext());
+
+  // Maintain a worklist of potentially dead ops.
+  SetVector<Operation*> worklist;
+
+  // Helper function that adds all defining ops of used values (operands and
+  // operands of nested ops).
+  auto addDefiningOpsToWorklist = [&](Operation* op) {
+    op->walk([&](Operation* op) {
+      for (Value v : op->getOperands())
+        if (Operation* defOp = v.getDefiningOp())
+          if (target->isProperAncestor(defOp)) worklist.insert(defOp);
+    });
+  };
+
+  // Helper function that erases an op.
+  auto eraseOp = [&](Operation* op) {
+    // Remove op and nested ops from the worklist.
+    op->walk([&](Operation* op) {
+      auto it = llvm::find(worklist, op);
+      if (it != worklist.end()) worklist.erase(it);
+    });
+    rewriter.eraseOp(op);
+  };
+
+  // Initial walk over the IR.
+  target->walk<WalkOrder::PostOrder>([&](Operation* op) {
+    if (op != target && isOpTriviallyDead(op)) {
+      addDefiningOpsToWorklist(op);
+      eraseOp(op);
+    }
+  });
+
+  // Erase all ops that have become dead.
+  while (!worklist.empty()) {
+    Operation* op = worklist.pop_back_val();
+    if (!isOpTriviallyDead(op)) continue;
+    addDefiningOpsToWorklist(op);
+    eraseOp(op);
+  }
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+void transform_dialect::ApplyDeadCodeEliminationOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::onlyReadsHandle(getTarget(), effects);
+  transform::modifiesPayload(effects);
+}
+
+//===---------------------------------------------------------------------===//
+// ApplyLoopIndependentCodeMotionOp
+//===---------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::ApplyLoopIndependentCodeMotionOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  SimplePatternRewriter rewriter(target->getContext());
+  target->walk([&](func::FuncOp funcOp) {
+    // This assumes LICM never removes operations so we don't need tracking.
+    // TODO: confirm / revisit this assumption and plumb a rewriter through
+    // upstream moveLoopInvariantCode if necessary.
+    funcOp->walk([](LoopLikeOpInterface loopLike) {
+      // Do not hoist from scf.forall ops. These capture isolated computations
+      // that will be mapped to a certain level in the GPU hierarchy (e.g.,
+      // GPU blocks), so hoisting is not desired.
+      if (!isa<scf::ForallOp>(loopLike.getOperation()))
+        moveLoopInvariantCode(loopLike);
+    });
+  });
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+void transform_dialect::ApplyLoopIndependentCodeMotionOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::onlyReadsHandle(getTarget(), effects);
+  transform::modifiesPayload(effects);
 }
 
 }  // namespace transform_dialect

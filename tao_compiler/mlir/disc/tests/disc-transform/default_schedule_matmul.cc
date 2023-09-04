@@ -27,10 +27,14 @@ static bool init_threads = []() {
   return true;
 }();
 
+// The AArch64 codegen schedules are buggy and temporarily disabled.
+#define ENABLE_AARCH64_SCHEDUELS 0
+
 TEST(DynamicShapeMatmul, F32_24x24x64_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "default_schedule_matmul_nn_d_f32.mlir",
@@ -45,9 +49,10 @@ TEST(DynamicShapeMatmul, F32_24x24x64_Using_Default_Schedule) {
 }
 
 TEST(DynamicShapeMatmul, F32_24x768x768_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "default_schedule_matmul_nn_d_f32.mlir",
@@ -62,9 +67,10 @@ TEST(DynamicShapeMatmul, F32_24x768x768_Using_Default_Schedule) {
 }
 
 TEST(DynamicShapeMatmul, F32_24x3072x768_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "default_schedule_matmul_nn_d_f32.mlir",
@@ -79,9 +85,10 @@ TEST(DynamicShapeMatmul, F32_24x3072x768_Using_Default_Schedule) {
 }
 
 TEST(DynamicShapeMatmul, F32_24x768x3072_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "default_schedule_matmul_nn_d_f32.mlir",
@@ -96,9 +103,10 @@ TEST(DynamicShapeMatmul, F32_24x768x3072_Using_Default_Schedule) {
 }
 
 TEST(DynamicShapeMatmul_nt, F32_304x1024x512_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "default_schedule_matmul_nt_d_f32.mlir",
@@ -113,9 +121,10 @@ TEST(DynamicShapeMatmul_nt, F32_304x1024x512_Using_Default_Schedule) {
 }
 
 TEST(DynamicShapeMatmul_tn, F32_304x1024x512_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "default_schedule_matmul_tn_d_f32.mlir",
@@ -130,9 +139,10 @@ TEST(DynamicShapeMatmul_tn, F32_304x1024x512_Using_Default_Schedule) {
 }
 
 TEST(DynamicShapeMatmul_tt, F32_304x1024x512_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "default_schedule_matmul_tt_d_f32.mlir",
@@ -147,9 +157,10 @@ TEST(DynamicShapeMatmul_tt, F32_304x1024x512_Using_Default_Schedule) {
 }
 
 TEST(StaticShapeMatmul, F32_24x24x64_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
@@ -165,9 +176,10 @@ TEST(StaticShapeMatmul, F32_24x24x64_Using_Default_Schedule) {
 }
 
 TEST(StaticShapeMatmul, F32_24x64x24_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
@@ -183,9 +195,10 @@ TEST(StaticShapeMatmul, F32_24x64x24_Using_Default_Schedule) {
 }
 
 TEST(PackedMatmul, F32_304x1024x512_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
@@ -201,9 +214,10 @@ TEST(PackedMatmul, F32_304x1024x512_Using_Default_Schedule) {
 }
 
 TEST(PackedMatmul, F32_2x768_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
@@ -219,9 +233,10 @@ TEST(PackedMatmul, F32_2x768_Using_Default_Schedule) {
 }
 
 TEST(PackedMatmul, F32_768x2_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
@@ -237,9 +252,10 @@ TEST(PackedMatmul, F32_768x2_Using_Default_Schedule) {
 }
 
 TEST(PackedMatmul, F32_768x3072_Using_Default_Schedule) {
-  EnvSetting setting = {{"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-                        {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-                        {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
+  EnvSetting setting = {
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
   EnvSettingContext ctx(setting);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +

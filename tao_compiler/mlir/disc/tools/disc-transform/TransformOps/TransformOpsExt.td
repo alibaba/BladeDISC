@@ -14,16 +14,17 @@
 
 include "mlir/Dialect/GPU/TransformOps/GPUDeviceMappingAttr.td"
 // include "mlir/Dialect/PDL/IR/PDLTypes.td"
+include "mlir/Dialect/SCF/IR/DeviceMappingInterface.td"
 include "mlir/Dialect/Transform/IR/TransformAttrs.td"
 include "mlir/Dialect/Transform/IR/TransformDialect.td"
 include "mlir/Dialect/Transform/IR/TransformInterfaces.td"
 include "mlir/Dialect/Transform/IR/TransformTypes.td"
 include "mlir/Dialect/Vector/Transforms/VectorTransformsBase.td"
+include "mlir/IR/EnumAttr.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
-
 
 /// Some of the following ops are borrowed from IREE project.
 
@@ -150,6 +151,11 @@ def FoldProducerExtractSliceOp : Op<Transform_Dialect, "disc.fold_producer_extra
   }];
 }
 
+// Deprecated. This op does not make sure the dominance of the newly created ops
+// and the operand of this op. In the previous usage, it relies on some implicit
+// passes like LICM to work. But the new transform.sequence op do not have the
+// implicit LICM anymore, and this op causes many bugs. This complex op can be
+// replaced by several basic transform ops. It will be removed in the future.
 def CacheReadOp : Op<Transform_Dialect, "disc.cache_read",
     [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
      DeclareOpInterfaceMethods<TransformOpInterface>]> {
@@ -1310,6 +1316,95 @@ def DISCInlineAndConvertGPUIdsOp : Op<Transform_Dialect, "disc.inline_and_conver
     attr-dict
     `:` functional-type(operands, results)
   }];
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+// The `transform.disc.apply_cse` will be replaced with `transform.apply_cse` in
+// the next rebase.
+def ApplyCommonSubexpressionEliminationOp : Op<Transform_Dialect, "disc.apply_cse",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Apply common subexpression elimination. This transform is applied to all
+    ops within the target that are isolated from above.
+
+    #### Return modes
+
+    This operation does not consume the target handle and does not produce any
+    handle.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs);
+  let assemblyFormat = "$target attr-dict `:` type($target)";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+// The `transform.disc.apply_dce` will be replaced with `transform.apply_dce`
+// in the next rebase.
+def ApplyDeadCodeEliminationOp : TransformDialectOp<"disc.apply_dce",
+    [TransformOpInterface, TransformEachOpTrait,
+     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
+  let summary = "Eliminate dead operations in the body of the target op";
+  let description = [{
+    This transform applies dead code elimination (DCE) to the body of the
+    targeted op.
+
+    Note: "transform.apply_patterns" with an empty region can also be used to
+    remove dead ops. However, that op applies additional simplifications such as
+    op folding and region simplification.
+
+    This transform reads the target handle and modifies the payload. Note that
+    this transform may silently remove payload ops from handles.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs);
+  let assemblyFormat = "$target attr-dict `:` type($target)";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+      ::mlir::Operation *target,
+      ::mlir::transform::ApplyToEachResultList &results,
+      ::mlir::transform::TransformState &state);
+  }];
+}
+
+// The `transform.disc.apply_licm` will be replaced with `transform.apply_licm`
+// in the next rebase.
+def ApplyLoopIndependentCodeMotionOp : Op<Transform_Dialect, "disc.apply_licm",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Apply loop-independent code motion and single iteration loop promotion.
+    This transform is applied to all FuncOps within the target.
+
+    #### Return modes
+
+    This operation does not consume the target handle and does not produce any
+    handle.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs);
+  let assemblyFormat = "$target attr-dict `:` type($target)";
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 
   let extraClassDeclaration = [{

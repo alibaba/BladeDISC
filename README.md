@@ -73,7 +73,7 @@ training workloads.
 |  X86       |    Yes        |
 | AArch64    |    Yes        |
 
-[1] Support for CUDA below 11.0 have been deprecated officially since Aug, 2022.
+[1] Support for CUDA below 11.0 has been deprecated officially since Aug, 2022.
 
 #### Deployment Solutions
 
@@ -89,26 +89,23 @@ training workloads.
 ### Numbers of Typical Workloads
 
 By evaluating BladeDISC using a set of typical machine learning workloads for
-production purpose, BladeDISC shows up to 8.66x speedup compared with
-TensorFlow/PyTorch. Moreover, compared to static optimizing compilers (i.e.,
+production purpose, BladeDISC shows up to 6.95x speedup compared with
+PyTorch. Moreover, compared to static optimizing compilers (i.e.,
 XLA and TensorRT), DISC shows comparable or even better performance.
 
 <figure align="center">
-<img src="./docs/pics/numbers.png" style="width:60%">
+<img src="./docs/pics/numbers.png" style="width:80%">
 <figcaption align = "center">
 <b>
-Fig.1 Performance speedup over framework.
-<i>Framework</i> means either TensorFlow or PyTorch.
-<i>FastSpeech2</i> is TensorFlow model and others are PyTorch models.
-The <i>static compiler</i> for TensorFlow is XLA and that for PyTorch is TensorRT.
-Note that <i>S2T</i> and <i>T5</i> have no TensorRT performance due to wrong result.
+Fig.1 End-to-end Performance of BladeDISC and baselines.
+Note that some baselines fail to optimize ViT model.
 </b>
 </figcaption>
 </figure>
 
 #### Advantage in Dynamic Shape Workloads
 
-Specifically, for the BERT large inference on T4 we provide in the
+Specifically, for the BERT large inference on T4 GPU we provide in the
 [examples](./docs/tutorials/tensorflow_inference_and_training.md), static compiler
 optimization (XLA) shows severe performance degradation due to its compilation
 overhead, while DISC shows a 1.75x speedup.
@@ -176,11 +173,12 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 
 ## Publications
 
-* Zhen Zheng, Xuanda Yang, Pengzhan Zhao, Guoping Long, Kai Zhu, Feiwen Zhu, Wenyi Zhao, Xiaoyong Liu, Jun Yang, Jidong Zhai, Shuaiwen Leon Song, Wei Lin. 
-[AStitch: Enabling a New Multi-dimensional Optimization Space for Memory-Intensive ML Training and Inference on Modern SIMT Architectures](./docs/papers/asplos-22-zhenzheng.pdf) (ASPLOS'22)
+* Zhen Zheng, Zaifeng Pan, Dalin Wang, Kai Zhu, Wenyi Zhao, Tianyou Guo, Xiafei Qiu, Minmin Sun, Junjie Bai, Feng Zhang, Xiaoyong Du, Jidong Zhai, Wei Lin.
+BladeDISC: Optimizing Dynamic Shape Machine Learning Workloads via Compiler Approach. (SIGMOD'24)
 
-* Kai Zhu, Wenyi Zhao, Zhen Zheng, Tianyou Guo, Pengzhan Zhao, Junjie Bai, Jun Yang, Xiaoyou Liu, Lansong Diao, Wei Lin. 
-[DISC: A Dynamic Shape Compiler for Machine Learning Workloads](https://arxiv.org/pdf/2103.05288.pdf) (EuroMLSys'21)
+* Zhen Zheng, Xuanda Yang, Pengzhan Zhao, Guoping Long, Kai Zhu, Feiwen Zhu, Wenyi Zhao, Xiaoyong Liu, Jun Yang, Jidong Zhai, Shuaiwen Leon Song, Wei Lin. 
+[AStitch: Enabling a New Multi-dimensional Optimization Space for Memory-Intensive ML Training and Inference on Modern SIMT Architectures](./docs/papers/asplos-22-zhenzheng.pdf). (ASPLOS'22)
+
 
 ## Tutorials and Documents for Developers
 

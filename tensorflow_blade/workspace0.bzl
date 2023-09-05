@@ -9,24 +9,15 @@ load("@org_third_party//bazel/tf_protobuf:tf_protobuf_configure.bzl", "tf_protob
 load("@org_third_party//bazel/cuda_supplement:cuda_supplement_configure.bzl", "cuda_supplement_configure")
 
 load("@org_tensorflow//third_party/gpus:cuda_configure.bzl", "cuda_configure")
+load("@org_tensorflow//third_party/py:python_configure.bzl", "python_configure")
 load("@org_tensorflow//third_party:repo.bzl", "tf_http_archive", "tf_mirror_urls")
 
 # Import external repository rules.
-load("@pybind11_bazel//:python_configure.bzl", "python_configure")
+# load("@pybind11_bazel//:python_configure.bzl", "python_configure")
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 
 def _tf_blade_repositories():
-    # maybe_http_archive(
-    #     name = "bazel_skylib",
-    #     sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
-    #     urls = [
-    #         "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/bazel-skylib-1.0.3.tar.gz",
-    #         "https://storage.googleapis.com/mirror.tensorflow.org/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-    #         "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-    #     ],
-    # )
-
     maybe_http_archive(
         name = "bazel_skylib",
         sha256 = "74d544d96f4a5bb630d465ca8bbcfe231e3594e5aae57e1edbf17a6eb3ca2506",
@@ -89,17 +80,6 @@ def _tf_blade_repositories():
             "https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/mkl/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2",
         ],
     )
-
-    # maybe_http_archive(
-    #     name = "googletest",
-    #     sha256 = "bc1cc26d1120f5a7e9eb450751c0b24160734e46a02823a573f3c6b6c0a574a7",
-    #     strip_prefix = "googletest-e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b",
-    #     urls = [
-    #         "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/googletest/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
-    #         "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/googletest/archive/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
-    #         "https://github.com/google/googletest/archive/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
-    #     ],
-    # )
 
     maybe_http_archive(
         name = "googletest",

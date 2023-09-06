@@ -75,7 +75,7 @@ tensorflow::Status RealMain(int argc, char** argv) {
 int main(int argc, char** argv) {
   auto s = RealMain(argc, argv);
   if (!s.ok()) {
-    VLOG(0) << "replay failed " << s.error_message();
+    VLOG(0) << "replay failed " << s.ToString();
     return 1;
   }
   return 0;

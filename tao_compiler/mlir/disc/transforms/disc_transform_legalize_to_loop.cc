@@ -265,7 +265,7 @@ LogicalResult DiscTransformLegalizeToLoopPass::injectScheduleSelectionIR(
                                                  pred)))
       return cloned->emitError() << "faield to build guard IR\n";
 
-    auto ifOp = b.create<scf::IfOp>(cloned->getLoc(), llvm::None, pred, true);
+    auto ifOp = b.create<scf::IfOp>(cloned->getLoc(), TypeRange{}, pred, true);
     cloned->moveBefore(ifOp.thenBlock(), ifOp.thenBlock()->begin());
     fusionOp->moveBefore(ifOp.elseBlock(), ifOp.elseBlock()->begin());
     clonedOps.push_back(cloned);

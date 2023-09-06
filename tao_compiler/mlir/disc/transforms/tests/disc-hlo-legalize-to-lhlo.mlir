@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-hlo-legalize-to-lhlo -hlo-legalize-to-lhlo \
+// RUN: disc-opt -split-input-file -disc-hlo-legalize-to-lhlo -hlo-legalize-to-lhlo \
 // RUN:  -canonicalize -split-input-file %s -o - | FileCheck %s
 
 // CHECK-LABEL: test_disc_mhlo_only_static_shape

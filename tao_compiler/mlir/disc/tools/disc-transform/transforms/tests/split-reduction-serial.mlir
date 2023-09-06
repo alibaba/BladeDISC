@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s
 
 
 // CHECK-LABEL: @split_reduction_serial
@@ -21,8 +21,9 @@ func.func @split_reduction_serial(%A: tensor<256x128xf16>, %B: tensor<128x256xf1
   return %0 : tensor<256x256xf16>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %matmul_op = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+transform.sequence failures(propagate) {
+^bb1(%arg1: !transform.any_op):
+  %matmul_op = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!transform.any_op) -> !transform.any_op
   %matmul_split, %foreach_split = transform.disc.split_reduction_serial %matmul_op by tile_sizes = [32]
+    : (!transform.any_op) -> (!transform.any_op, !transform.any_op)
 }

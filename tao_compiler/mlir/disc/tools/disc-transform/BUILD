@@ -399,8 +399,8 @@ cc_library(
 )
 
 cc_library(
-    name = "convert-foreach-thread-op-to-parallel-op",
-    srcs = ["transforms/convert_foreach_thread_op_to_parallel_op.cc"],
+    name = "convert-forall-op-to-parallel-op",
+    srcs = ["transforms/convert_forall_op_to_parallel_op.cc"],
     deps = [
         ":pass_details",
         "@llvm-project//llvm:Support",
@@ -423,7 +423,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":convert-foreach-thread-op-to-parallel-op",
+        ":convert-forall-op-to-parallel-op",
         ":legalize_lmhlo_fusion_to_linalg",
         ":memref_copy_to_linalg",
         ":rewrite-payload-ir-for-ral",

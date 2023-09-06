@@ -122,7 +122,7 @@ struct DynamicReshapeOpPartialShapeInference
     auto result_type = op.getResult().getType().cast<RankedTensorType>();
     SmallVector<int64_t, 4> result_dims(result_type.getRank());
     bool has_uninfered_static_dim = false;
-    for (auto element : llvm::enumerate(output_shape.getElements())) {
+    for (const auto& element : llvm::enumerate(output_shape.getElements())) {
       int64_t new_value = -1;
       if (result_type.isDynamicDim(element.index())) {
         if (arith::ConstantIntOp constant_op =
@@ -242,8 +242,10 @@ class DynamicBroadcastInDimOpSimplifier
     }
 
     auto bcastTy = op.getResult().getType().dyn_cast<RankedTensorType>();
-    Value reshapeResult = dynReshapeOp != nullptr ? dynReshapeOp.getResult()
-                                                  : staticReshapeOp.getResult();
+    Value reshapeResult =
+        dynReshapeOp != nullptr
+            ? cast<TypedValue<TensorType>>(dynReshapeOp.getResult())
+            : cast<TypedValue<TensorType>>(staticReshapeOp.getResult());
     auto reshapeTy = reshapeResult.getType().dyn_cast<RankedTensorType>();
     Value input = dynReshapeOp != nullptr ? dynReshapeOp->getOperand(0)
                                           : staticReshapeOp.getOperand();

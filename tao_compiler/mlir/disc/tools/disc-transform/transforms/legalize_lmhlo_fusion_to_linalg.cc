@@ -231,7 +231,7 @@ LogicalResult emitBcastOp(Operation* op, OpBuilder& b, IRMapping& mapping,
   if (inType.getRank() != dimensions.size())
     return op->emitError()
            << "size of broadcast_dimensions not equal rank of input\n";
-  for (auto [inDimIdx, inDimSize] : llvm::enumerate(inType.getShape())) {
+  for (const auto& [inDimIdx, inDimSize] : llvm::enumerate(inType.getShape())) {
     int64_t outDimIdx = dimensions[inDimIdx];
     int64_t outDimSize = outType.getShape()[outDimIdx];
     bool isExpanding = (inDimSize == 1 && outDimSize != 1);

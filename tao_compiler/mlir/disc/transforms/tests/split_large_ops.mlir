@@ -1,4 +1,4 @@
-// RUN: disc-opt -split-large-ops=max-num-operands-per-op=2 %s | FileCheck %s
+// RUN: disc-opt -split-input-file -split-large-ops=max-num-operands-per-op=2 %s | FileCheck %s
 
 // CHECK-LABEL: func.func @test
 func.func @test(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %arg2: tensor<?x?xf32>, %arg3: tensor<?x?xf32>) -> (tensor<?x?xf32>) {

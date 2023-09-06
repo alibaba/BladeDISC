@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s
 
 
 // CHECK-LABEL: @gmem_to_smem
@@ -20,8 +20,8 @@ func.func @gmem_to_smem(%arg0: memref<2x2xf16>, %arg1: memref<2x2xf16, #gpu.addr
   return
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %generic = transform.structured.match ops{["linalg.generic"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  transform.disc.gmem_to_smem %generic : (!pdl.operation) -> ()
+transform.sequence failures(propagate) {
+^bb1(%arg1: !transform.any_op):
+  %generic = transform.structured.match ops{["linalg.generic"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  transform.disc.gmem_to_smem %generic : (!transform.any_op) -> ()
 }

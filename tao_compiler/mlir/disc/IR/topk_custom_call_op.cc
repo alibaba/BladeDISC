@@ -95,7 +95,7 @@ LogicalResult reifyReturnTypeShapesImpl<TopKBackendConfig>(
   k_value = disc_ral::mayConvertToIndexType(k_value, &builder, loc);
   SmallVector<Value> shape_values;
   shape_values.reserve(rank);
-  for (auto element : llvm::enumerate(operand_type.getShape())) {
+  for (const auto& element : llvm::enumerate(operand_type.getShape())) {
     int64_t idx = element.index();
     if (idx == dimension) {
       auto neg_one = builder.create<arith::ConstantIndexOp>(loc, -1);
@@ -146,7 +146,7 @@ LogicalResult lowerToLibraryCallImpl<TopKBackendConfig>(
       rewriter.create<arith::ConstantIntOp>(op.getLoc(), 0, 1));
   on_gpu = placement_utils::isGpuMemRef(op->getOperand(3));
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
-      op, llvm::None, ctx, newOperands, "ral_dsort",
+      op, TypeRange{}, ctx, newOperands, "ral_dsort",
       /*has_side_effect*/ false,
       /*backend_config*/ on_gpu ? "gpu" : "cpu");
   return success();

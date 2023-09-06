@@ -30,7 +30,9 @@
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
+#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/Dialect/X86Vector/Transforms.h"
 #include "mlir/Dialect/X86Vector/X86VectorDialect.h"
@@ -38,6 +40,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/disc/IR/disc_ral_ops.h"
@@ -69,9 +72,9 @@ constexpr const char* kRalCompIntensFusion = "ral_comp_intens_fusion";
 
 // Encodes a mlir type and appends the encoding to the string buffer `out`.
 LogicalResult getTypeEncoding(MLIRContext* ctx, Type t, StrT& out) {
-  Type llvm_pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
-  Type llvm_pointer_pointer_type =
-      LLVM::LLVMPointerType::get(llvm_pointer_type);
+  Type llvm_ptr_type = LLVM::LLVMPointerType::get(ctx);
+  Type llvm_i8ptr_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
+  Type llvm_ptr_i8ptr_type = LLVM::LLVMPointerType::get(llvm_i8ptr_type);
   Type index_type = IndexType::get(ctx);
   if (auto memref_type = t.dyn_cast<MemRefType>()) {
     out.append(
@@ -86,9 +89,9 @@ LogicalResult getTypeEncoding(MLIRContext* ctx, Type t, StrT& out) {
   } else if (auto fp_type = t.dyn_cast<FloatType>()) {
     out.append(Twine("f").concat(Twine(fp_type.getWidth())).str());
   } else if (auto ctx_type = t.dyn_cast<RalExecutionContextType>() ||
-                             t == llvm_pointer_type) {
+                             t == llvm_i8ptr_type || t == llvm_ptr_type) {
     out.append("pvoid");
-  } else if (t == llvm_pointer_pointer_type) {
+  } else if (t == llvm_ptr_i8ptr_type) {
     out.append("ppvoid");
   } else if (t.isIndex()) {
     // index is mapping to int64_t a.t.m. Re-visit this in case necessary.
@@ -131,7 +134,7 @@ LogicalResult getDispatchOpSignatureEncoding(DispatchOp dispatch_op,
 
   // encode input types
   Operation* op = dispatch_op.getOperation();
-  for (auto& en : llvm::enumerate(op->getOperandTypes())) {
+  for (const auto& en : llvm::enumerate(op->getOperandTypes())) {
     if (en.index() != 0) out.append("_");
     if (failed(getTypeEncoding(op->getContext(), en.value(), out)))
       return failure();
@@ -144,7 +147,7 @@ LogicalResult getDispatchOpSignatureEncoding(DispatchOp dispatch_op,
   out.append(separator);
 
   // encode output types
-  for (auto& en : llvm::enumerate(op->getResultTypes())) {
+  for (const auto& en : llvm::enumerate(op->getResultTypes())) {
     if (en.index() != 0) out.append("_");
     if (failed(getTypeEncoding(op->getContext(), en.value(), out)))
       return failure();
@@ -169,10 +172,10 @@ Value loadGlobalString(OpBuilder& builder, const Location& loc,
 
 // Returns true if the globalOp has the same value as `value`.
 bool checkGlobalOpContent(GlobalOp globalOp, StringRef value) {
-  Optional<Attribute> optValue = globalOp.getValue();
+  Attribute optValue = globalOp.getValueOrNull();
   if (!optValue) return false;
 
-  StringAttr attr = (*optValue).cast<StringAttr>();
+  StringAttr attr = cast<StringAttr>(optValue);
   if (!attr) return false;
 
   return attr.getValue() == value;
@@ -213,6 +216,7 @@ struct DispatchOpToLLVMPattern : public ConvertOpToLLVMPattern<DispatchOp> {
   DispatchOpToLLVMPattern(LLVMTypeConverter& type_converter,
                           SymbolTable& symbol_table)
       : ConvertOpToLLVMPattern<DispatchOp>(type_converter),
+        type_converter_(type_converter),
         symbol_table_(symbol_table) {}
 
   // Returns the ral dispatch function and inserts the declaration if not found.
@@ -232,6 +236,7 @@ struct DispatchOpToLLVMPattern : public ConvertOpToLLVMPattern<DispatchOp> {
 
  private:
   SymbolTable& symbol_table_;
+  LLVMTypeConverter& type_converter_;
 };
 
 // Returns the llvm function definition of ral dispatch op and creates it first
@@ -247,18 +252,17 @@ LLVMFuncOp DispatchOpToLLVMPattern::getOrInsertDispatchFunction(
   OpBuilder::InsertionGuard guard(rewriter);
   OpBuilder::InsertPoint ip = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(module.getBody());
-  Type llvm_pointer_type =
+  Type llvm_i8ptr_type =
       LLVM::LLVMPointerType::get(IntegerType::get(op->getContext(), 8));
-  Type llvm_pointer_pointer_type =
-      LLVM::LLVMPointerType::get(llvm_pointer_type);
+  Type llvm_ptr_i8ptr_type = LLVM::LLVMPointerType::get(llvm_i8ptr_type);
   func = rewriter.create<LLVMFuncOp>(
       op->getLoc(), kRalDispatchFunctionName,
       LLVM::LLVMFunctionType::get(
           getVoidType(),
           {
-              llvm_pointer_type,        /* ral_context_t */
-              llvm_pointer_type,        /* void* call_target_name */
-              llvm_pointer_pointer_type /* void** args */
+              llvm_i8ptr_type,    /* ral_context_t */
+              llvm_i8ptr_type,    /* void* call_target_name */
+              llvm_ptr_i8ptr_type /* void** args */
           },
           /*isVarArg=*/false));
 
@@ -291,9 +295,8 @@ Value DispatchOpToLLVMPattern::rewriteInsOutsOfDispatchOp(
   MLIRContext* ctx = rewriter.getContext();
   Location loc = dispatch_op.getLoc();
 
-  Type llvm_pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
-  Type llvm_pointer_pointer_type =
-      LLVM::LLVMPointerType::get(llvm_pointer_type);
+  Type llvm_i8ptr_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
+  Type llvm_ptr_i8ptr_type = LLVM::LLVMPointerType::get(llvm_i8ptr_type);
   Type llvm_int32_type = IntegerType::get(ctx, 32);
 
   Value zero = rewriter.create<LLVM::ConstantOp>(loc, llvm_int32_type,
@@ -301,7 +304,7 @@ Value DispatchOpToLLVMPattern::rewriteInsOutsOfDispatchOp(
   Value one = rewriter.create<LLVM::ConstantOp>(loc, llvm_int32_type,
                                                 rewriter.getI32IntegerAttr(1));
 
-  SmallVector<Value, 4> arguments = getTypeConverter()->promoteOperands(
+  SmallVector<Value, 4> arguments = type_converter_.promoteOperands(
       loc, dispatch_op.getOperands(), operands, rewriter);
   if (!dispatch_op.getBackendConfig().empty()) {
     StrT name, value;
@@ -317,7 +320,7 @@ Value DispatchOpToLLVMPattern::rewriteInsOutsOfDispatchOp(
   SmallVector<Type, 4> argument_types;
   for (auto argument : arguments) argument_types.push_back(argument.getType());
   for (auto resultType : dispatch_op.getResultTypes())
-    argument_types.push_back(getTypeConverter()->convertType(resultType));
+    argument_types.push_back(type_converter_.convertType(resultType));
 
   auto struct_type =
       LLVM::LLVMStructType::getNewIdentified(ctx, StringRef(), argument_types);
@@ -326,9 +329,9 @@ Value DispatchOpToLLVMPattern::rewriteInsOutsOfDispatchOp(
   Value array_size = rewriter.create<LLVM::ConstantOp>(
       loc, llvm_int32_type, rewriter.getI32IntegerAttr(argument_types.size()));
   Value array_ptr = rewriter.create<LLVM::AllocaOp>(
-      loc, llvm_pointer_pointer_type, array_size, /*alignment=*/0);
+      loc, llvm_ptr_i8ptr_type, array_size, /*alignment=*/0);
 
-  for (auto en : llvm::enumerate(argument_types)) {
+  for (const auto& en : llvm::enumerate(argument_types)) {
     Value index = rewriter.create<LLVM::ConstantOp>(
         loc, llvm_int32_type, rewriter.getI32IntegerAttr(en.index()));
     Value field_ptr = rewriter.create<LLVM::GEPOp>(
@@ -340,10 +343,10 @@ Value DispatchOpToLLVMPattern::rewriteInsOutsOfDispatchOp(
       resultPtrs.push_back(field_ptr);
     }
 
-    Value element_ptr = rewriter.create<LLVM::GEPOp>(
-        loc, llvm_pointer_pointer_type, array_ptr, index);
+    Value element_ptr = rewriter.create<LLVM::GEPOp>(loc, llvm_ptr_i8ptr_type,
+                                                     array_ptr, index);
     Value casted =
-        rewriter.create<LLVM::BitcastOp>(loc, llvm_pointer_type, field_ptr);
+        rewriter.create<LLVM::BitcastOp>(loc, llvm_i8ptr_type, field_ptr);
     rewriter.create<LLVM::StoreOp>(loc, casted, element_ptr);
   }
 
@@ -380,8 +383,9 @@ LogicalResult DispatchOpToLLVMPattern::matchAndRewrite(
   // the third argument is the args for target function
   callOpOperands.push_back(packedArgs);
 
-  rewriter.create<LLVM::CallOp>(
-      loc, llvm::None, mlir::SymbolRefAttr::get(dispatch_func), callOpOperands);
+  rewriter.create<LLVM::CallOp>(loc, TypeRange{},
+                                mlir::SymbolRefAttr::get(dispatch_func),
+                                callOpOperands);
 
   SmallVector<Value, 1> results;
   llvm::transform(resultPtrs, std::back_inserter(results), [&](Value v) {
@@ -401,6 +405,7 @@ class ConvertLaunchFuncOpToRalCallPattern
   ConvertLaunchFuncOpToRalCallPattern(LLVMTypeConverter& type_converter,
                                       SymbolTable& symbol_table)
       : ConvertOpToLLVMPattern<gpu::LaunchFuncOp>(type_converter),
+        type_converter_(type_converter),
         symbol_table_(symbol_table) {}
 
  private:
@@ -414,6 +419,7 @@ class ConvertLaunchFuncOpToRalCallPattern
       ConversionPatternRewriter& rewriter) const override;
 
   SymbolTable& symbol_table_;
+  LLVMTypeConverter& type_converter_;
 };
 
 // Creates a struct containing all kernel parameters on the stack and returns
@@ -433,14 +439,13 @@ Value ConvertLaunchFuncOpToRalCallPattern::generateParamsArray(
     gpu::LaunchFuncOp launch_op, ValueRange operands, OpBuilder& builder,
     int& num_arguments) const {
   MLIRContext* ctx = builder.getContext();
-  Type llvm_pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
-  Type llvm_pointer_pointer_type =
-      LLVM::LLVMPointerType::get(llvm_pointer_type);
+  Type llvm_i8ptr_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
+  Type llvm_ptr_i8ptr_type = LLVM::LLVMPointerType::get(llvm_i8ptr_type);
   Type llvm_int32_type = IntegerType::get(ctx, 32);
 
   Location loc = launch_op.getLoc();
   int num_kernel_operands = launch_op.getNumKernelOperands();
-  auto arguments = getTypeConverter()->promoteOperands(
+  auto arguments = type_converter_.promoteOperands(
       loc, launch_op.getOperands().take_back(num_kernel_operands),
       operands.take_back(num_kernel_operands), builder);
   if (isMemIntensiveOptExperimentalEnabled()) {
@@ -468,7 +473,7 @@ Value ConvertLaunchFuncOpToRalCallPattern::generateParamsArray(
       }
     }
     SmallVector<Value, 4> new_arguments;
-    for (auto en : llvm::enumerate(arguments)) {
+    for (const auto& en : llvm::enumerate(arguments)) {
       if (!llvm::is_contained(args_to_elim, en.index())) {
         new_arguments.push_back(en.value());
       }
@@ -487,21 +492,21 @@ Value ConvertLaunchFuncOpToRalCallPattern::generateParamsArray(
       loc, LLVM::LLVMPointerType::get(struct_type), one, /*alignment=*/0);
   Value array_size = builder.create<LLVM::ConstantOp>(
       loc, llvm_int32_type, builder.getI32IntegerAttr(num_arguments));
-  Value array_ptr = builder.create<LLVM::AllocaOp>(
-      loc, llvm_pointer_pointer_type, array_size, /*alignment=*/0);
+  Value array_ptr = builder.create<LLVM::AllocaOp>(loc, llvm_ptr_i8ptr_type,
+                                                   array_size, /*alignment=*/0);
   Value zero = builder.create<LLVM::ConstantOp>(loc, llvm_int32_type,
                                                 builder.getI32IntegerAttr(0));
-  for (auto en : llvm::enumerate(arguments)) {
+  for (const auto& en : llvm::enumerate(arguments)) {
     Value index = builder.create<LLVM::ConstantOp>(
         loc, llvm_int32_type, builder.getI32IntegerAttr(en.index()));
     Value field_ptr = builder.create<LLVM::GEPOp>(
         loc, LLVM::LLVMPointerType::get(argument_types[en.index()]), struct_ptr,
         ArrayRef<Value>{zero, index});
     builder.create<LLVM::StoreOp>(loc, en.value(), field_ptr);
-    Value element_ptr = builder.create<LLVM::GEPOp>(
-        loc, llvm_pointer_pointer_type, array_ptr, index);
+    Value element_ptr =
+        builder.create<LLVM::GEPOp>(loc, llvm_ptr_i8ptr_type, array_ptr, index);
     Value casted =
-        builder.create<LLVM::BitcastOp>(loc, llvm_pointer_type, field_ptr);
+        builder.create<LLVM::BitcastOp>(loc, llvm_i8ptr_type, field_ptr);
     builder.create<LLVM::StoreOp>(loc, casted, element_ptr);
   }
   return array_ptr;
@@ -565,20 +570,19 @@ LogicalResult ConvertLaunchFuncOpToRalCallPattern::matchAndRewrite(
   }
 
   Type llvm_int32_type = IntegerType::get(rewriter.getContext(), 32);
-  Type llvm_pointer_type =
+  Type llvm_i8ptr_type =
       LLVM::LLVMPointerType::get(IntegerType::get(op->getContext(), 8));
-  Type llvm_pointer_pointer_type =
-      LLVM::LLVMPointerType::get(llvm_pointer_type);
+  Type llvm_ptr_i8ptr_type = LLVM::LLVMPointerType::get(llvm_i8ptr_type);
   size_t blobs_size = module_blobs.size();
   Value module_blobs_size = rewriter.create<LLVM::ConstantOp>(
       loc, llvm_int32_type, rewriter.getI32IntegerAttr(blobs_size));
   Value module_blobs_array_ptr = rewriter.create<LLVM::AllocaOp>(
-      loc, llvm_pointer_pointer_type, module_blobs_size, /*alignment=*/0);
-  for (auto en : llvm::enumerate(module_blobs)) {
+      loc, llvm_ptr_i8ptr_type, module_blobs_size, /*alignment=*/0);
+  for (const auto& en : llvm::enumerate(module_blobs)) {
     Value index = rewriter.create<LLVM::ConstantOp>(
         loc, llvm_int32_type, rewriter.getI32IntegerAttr(en.index()));
     Value element_ptr = rewriter.create<LLVM::GEPOp>(
-        loc, llvm_pointer_pointer_type, module_blobs_array_ptr, index);
+        loc, llvm_ptr_i8ptr_type, module_blobs_array_ptr, index);
     rewriter.create<LLVM::StoreOp>(loc, en.value(), element_ptr);
   }
   Value num_blobs = rewriter.create<LLVM::ConstantOp>(
@@ -633,7 +637,7 @@ LogicalResult ConvertLaunchFuncOpToRalCallPattern::matchAndRewrite(
   // clang-format on
 
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
-      launch_op, llvm::None, context_arg, newOperands, kRalGpuLaunch, false,
+      launch_op, TypeRange{}, context_arg, newOperands, kRalGpuLaunch, false,
       "gpu");
 
   return success();
@@ -642,7 +646,8 @@ LogicalResult ConvertLaunchFuncOpToRalCallPattern::matchAndRewrite(
 // A rewrite pattern to convert memref.alloc operations into corresponding
 // runtime wrapper calls (modeled by ral.dispatch ops)
 // Converting:
-//   %output = memref.alloc(%0, %1) : memref<?x?xf32, "gpu">
+//   %output = memref.alloc(%0, %1) : memref<?x?xf32,
+//   #gpu.address_space<global>>
 //     to
 //   "disc_ral.dispatch"(%ctx, %3) {device = "gpu", call_target_name =
 //   "alloc", has_side_effect = false} : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
@@ -738,7 +743,7 @@ LogicalResult ConvertMemRefAllocOpToDispatchOpPattern::matchAndRewrite(
 // A rewrite pattern to convert memref.dealloc operations into corresponding
 // runtime wrapper calls (modeled by ral.dispatch ops)
 // Converting:
-//   memref.dealloc %0 : memref<?x?xf32, "gpu">
+//   memref.dealloc %0 : memref<?x?xf32, #gpu.address_space<global>>
 //     to
 //   "disc_ral.dispatch"(%ctx, %1) {device = "gpu", call_target_name
 //   = "free", has_side_effect = false} : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
@@ -780,7 +785,7 @@ LogicalResult ConvertMemRefDeallocOpToDispatchOpPattern::matchAndRewrite(
 
   ModuleOp module = op->getParentOfType<ModuleOp>();
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
-      op, llvm::None, context_arg, allocated_bytes_ptr, kFree, false, device);
+      op, TypeRange{}, context_arg, allocated_bytes_ptr, kFree, false, device);
   return success();
 }
 
@@ -790,6 +795,7 @@ class ConvertCpuLaunchOpToDispatchOpPattern
   ConvertCpuLaunchOpToDispatchOpPattern(LLVMTypeConverter& type_converter,
                                         SymbolTable& symbol_table)
       : ConvertOpToLLVMPattern<disc_ral::CpuLaunchOp>(type_converter),
+        type_converter_(type_converter),
         symbol_table_(symbol_table) {}
 
  private:
@@ -802,6 +808,7 @@ class ConvertCpuLaunchOpToDispatchOpPattern
                                   ArrayRef<Value> arguments,
                                   ConversionPatternRewriter& rewriter) const;
   SymbolTable& symbol_table_;
+  LLVMTypeConverter& type_converter_;
 };
 
 // Packs the original inputs and outputs of the ral dispatch op to a uniform
@@ -820,9 +827,8 @@ Value ConvertCpuLaunchOpToDispatchOpPattern::packArgs(
     Location& loc) const {
   MLIRContext* ctx = rewriter.getContext();
 
-  Type llvm_pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
-  Type llvm_pointer_pointer_type =
-      LLVM::LLVMPointerType::get(llvm_pointer_type);
+  Type llvm_i8ptr_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
+  Type llvm_ptr_i8ptr_type = LLVM::LLVMPointerType::get(llvm_i8ptr_type);
   Type llvm_int32_type = IntegerType::get(ctx, 32);
 
   Value zero = rewriter.create<LLVM::ConstantOp>(loc, llvm_int32_type,
@@ -840,9 +846,9 @@ Value ConvertCpuLaunchOpToDispatchOpPattern::packArgs(
   Value array_size = rewriter.create<LLVM::ConstantOp>(
       loc, llvm_int32_type, rewriter.getI32IntegerAttr(argument_types.size()));
   Value array_ptr = rewriter.create<LLVM::AllocaOp>(
-      loc, llvm_pointer_pointer_type, array_size, /*alignment=*/0);
+      loc, llvm_ptr_i8ptr_type, array_size, /*alignment=*/0);
 
-  for (auto en : llvm::enumerate(argument_types)) {
+  for (const auto& en : llvm::enumerate(argument_types)) {
     Value index = rewriter.create<LLVM::ConstantOp>(
         loc, llvm_int32_type, rewriter.getI32IntegerAttr(en.index()));
     Value field_ptr = rewriter.create<LLVM::GEPOp>(
@@ -850,10 +856,10 @@ Value ConvertCpuLaunchOpToDispatchOpPattern::packArgs(
         ArrayRef<Value>{zero, index});
     rewriter.create<LLVM::StoreOp>(loc, arguments[en.index()], field_ptr);
 
-    Value element_ptr = rewriter.create<LLVM::GEPOp>(
-        loc, llvm_pointer_pointer_type, array_ptr, index);
+    Value element_ptr = rewriter.create<LLVM::GEPOp>(loc, llvm_ptr_i8ptr_type,
+                                                     array_ptr, index);
     Value casted =
-        rewriter.create<LLVM::BitcastOp>(loc, llvm_pointer_type, field_ptr);
+        rewriter.create<LLVM::BitcastOp>(loc, llvm_i8ptr_type, field_ptr);
     rewriter.create<LLVM::StoreOp>(loc, casted, element_ptr);
   }
 
@@ -871,20 +877,20 @@ LLVMFuncOp ConvertCpuLaunchOpToDispatchOpPattern::generatePackedKernel(
   int numIvs =
       launchOp->getOperand(1).getType().cast<RankedTensorType>().getDimSize(0);
 
-  Type llvm_pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
-  Type llvm_pointer_pointer_type =
-      LLVM::LLVMPointerType::get(llvm_pointer_type);
+  Type llvm_i8ptr_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
+  Type llvm_ptr_i8ptr_type = LLVM::LLVMPointerType::get(llvm_i8ptr_type);
   Type llvm_int32_type = IntegerType::get(ctx, 32);
   Type llvm_int64_type = IntegerType::get(ctx, 64);
-  Type llvm_int64_pointer_type = LLVM::LLVMPointerType::get(llvm_int64_type);
+  Type llvm_ptr_type = LLVM::LLVMPointerType::get(ctx);
 
   // 1, collects arg types for packed kernel function
   SmallVector<Type> packedKernelArgTypes;
-  // all ivs have index types. We map index type to i64 on CPU.
-  for (int i = 0; i < 3; ++i)
-    packedKernelArgTypes.push_back(llvm_int64_pointer_type);
+  for (int i = 0; i < 3; ++i) {
+    // Note that the typed pointer will be removed from LLVM in the future.
+    packedKernelArgTypes.push_back(llvm_ptr_type);
+  }
   // packedArgs type
-  packedKernelArgTypes.push_back(llvm_pointer_pointer_type);
+  packedKernelArgTypes.push_back(llvm_ptr_i8ptr_type);
 
   // 2, lock before creating the packed kernel function.
   OpBuilder::InsertionGuard guard(rewriter);
@@ -930,11 +936,11 @@ LLVMFuncOp ConvertCpuLaunchOpToDispatchOpPattern::generatePackedKernel(
   unpackedArgs[14] = numIvsValue;
   unpackedArgs[15] = one;
   Value packedArgs = packedKernel.getArgument(3);
-  for (auto& en : llvm::enumerate(arguments)) {
+  for (const auto& en : llvm::enumerate(arguments)) {
     Value index = rewriter.create<LLVM::ConstantOp>(
         loc, llvm_int32_type, rewriter.getI32IntegerAttr(en.index()));
-    Value element_ptr = rewriter.create<LLVM::GEPOp>(
-        loc, llvm_pointer_pointer_type, packedArgs, index);
+    Value element_ptr = rewriter.create<LLVM::GEPOp>(loc, llvm_ptr_i8ptr_type,
+                                                     packedArgs, index);
     Value untyped_arg_ptr = rewriter.create<LLVM::LoadOp>(loc, element_ptr);
     auto arg_ptr_type = LLVM::LLVMPointerType::get(en.value().getType());
     Value typed_arg_ptr =
@@ -944,9 +950,9 @@ LLVMFuncOp ConvertCpuLaunchOpToDispatchOpPattern::generatePackedKernel(
     unpackedArgs[argIdx] = arg;
   }
   rewriter.create<LLVM::CallOp>(
-      loc, llvm::None, SymbolRefAttr::get(rewriter.getContext(), kernelName),
+      loc, TypeRange{}, SymbolRefAttr::get(rewriter.getContext(), kernelName),
       unpackedArgs);
-  rewriter.create<LLVM::ReturnOp>(loc, llvm::None);
+  rewriter.create<LLVM::ReturnOp>(loc, ValueRange{});
   rewriter.restoreInsertionPoint(ip);
   return packedKernel;
 }
@@ -964,7 +970,7 @@ LogicalResult ConvertCpuLaunchOpToDispatchOpPattern::matchAndRewrite(
   if (!parentFunc) return failure();
   Value ralContext = parentFunc.getArgument(0);
 
-  SmallVector<Value, 4> arguments = getTypeConverter()->promoteOperands(
+  SmallVector<Value, 4> arguments = type_converter_.promoteOperands(
       loc, launchOp.getOperands(), adaptor.getOperands(), rewriter);
   ArrayRef<Value> newOperands = arguments;
 
@@ -1030,7 +1036,7 @@ LogicalResult ConvertCpuLaunchOpToDispatchOpPattern::matchAndRewrite(
   ralDispatchOpArgs.push_back(packedArgs);
 
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
-      launchOp, llvm::None, adaptor.getCtx(), ralDispatchOpArgs, kRalCpuLaunch,
+      launchOp, TypeRange{}, adaptor.getCtx(), ralDispatchOpArgs, kRalCpuLaunch,
       false, "cpu");
 
   return success();
@@ -1042,6 +1048,7 @@ class ConvertSourceCodeOpToDispatchOpPattern
   ConvertSourceCodeOpToDispatchOpPattern(LLVMTypeConverter& type_converter,
                                          SymbolTable& symbol_table)
       : ConvertOpToLLVMPattern<lmhlo_disc::SourceCodeOp>(type_converter),
+        type_converter_(type_converter),
         symbol_table_(symbol_table) {}
 
  private:
@@ -1052,6 +1059,7 @@ class ConvertSourceCodeOpToDispatchOpPattern
                             ValueRange operands, OpBuilder& builder,
                             int& num_arguments) const;
   SymbolTable& symbol_table_;
+  LLVMTypeConverter& type_converter_;
 };
 
 Value ConvertSourceCodeOpToDispatchOpPattern::generateParamsArray(
@@ -1059,13 +1067,12 @@ Value ConvertSourceCodeOpToDispatchOpPattern::generateParamsArray(
     OpBuilder& builder, int& num_arguments) const {
   MLIRContext* ctx = builder.getContext();
 
-  Type llvm_pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
-  Type llvm_pointer_pointer_type =
-      LLVM::LLVMPointerType::get(llvm_pointer_type);
+  Type llvm_i8ptr_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
+  Type llvm_ptr_i8ptr_type = LLVM::LLVMPointerType::get(llvm_i8ptr_type);
   Type llvm_int32_type = IntegerType::get(ctx, 32);
 
   Location loc = source_code_op.getLoc();
-  auto arguments = getTypeConverter()->promoteOperands(
+  auto arguments = type_converter_.promoteOperands(
       loc, source_code_op.getOperands(), operands, builder);
 
   num_arguments = static_cast<int>(arguments.size());
@@ -1082,21 +1089,21 @@ Value ConvertSourceCodeOpToDispatchOpPattern::generateParamsArray(
       loc, LLVM::LLVMPointerType::get(struct_type), one, /*alignment=*/0);
   Value array_size = builder.create<LLVM::ConstantOp>(
       loc, llvm_int32_type, builder.getI32IntegerAttr(num_arguments));
-  Value array_ptr = builder.create<LLVM::AllocaOp>(
-      loc, llvm_pointer_pointer_type, array_size, /*alignment=*/0);
+  Value array_ptr = builder.create<LLVM::AllocaOp>(loc, llvm_ptr_i8ptr_type,
+                                                   array_size, /*alignment=*/0);
   Value zero = builder.create<LLVM::ConstantOp>(loc, llvm_int32_type,
                                                 builder.getI32IntegerAttr(0));
-  for (auto en : llvm::enumerate(arguments)) {
+  for (const auto& en : llvm::enumerate(arguments)) {
     Value index = builder.create<LLVM::ConstantOp>(
         loc, llvm_int32_type, builder.getI32IntegerAttr(en.index()));
     Value field_ptr = builder.create<LLVM::GEPOp>(
         loc, LLVM::LLVMPointerType::get(argument_types[en.index()]), struct_ptr,
         ArrayRef<Value>{zero, index});
     builder.create<LLVM::StoreOp>(loc, en.value(), field_ptr);
-    Value element_ptr = builder.create<LLVM::GEPOp>(
-        loc, llvm_pointer_pointer_type, array_ptr, index);
+    Value element_ptr =
+        builder.create<LLVM::GEPOp>(loc, llvm_ptr_i8ptr_type, array_ptr, index);
     Value casted =
-        builder.create<LLVM::BitcastOp>(loc, llvm_pointer_type, field_ptr);
+        builder.create<LLVM::BitcastOp>(loc, llvm_i8ptr_type, field_ptr);
     builder.create<LLVM::StoreOp>(loc, casted, element_ptr);
   }
   return array_ptr;
@@ -1161,7 +1168,7 @@ LogicalResult ConvertSourceCodeOpToDispatchOpPattern::matchAndRewrite(
       source_code_op->getParentOfType<LLVM::LLVMFuncOp>().getArgument(0);
 
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
-      source_code_op, llvm::None, context_arg, newOperands,
+      source_code_op, TypeRange{}, context_arg, newOperands,
       kRalCompIntensFusion, false, "gpu");
 
   return success();
@@ -1169,7 +1176,7 @@ LogicalResult ConvertSourceCodeOpToDispatchOpPattern::matchAndRewrite(
 
 class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
   void getDependentDialects(DialectRegistry& registry) const override {
-    registry.insert<LLVM::LLVMDialect>();
+    registerLLVMDialectTranslation(registry);
   }
 
  public:
@@ -1184,15 +1191,28 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
       return LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
     });
 
+    // Remove GPU address space attribute by setting to zero.
+    type_converter.addTypeAttributeConversion(
+        [&](BaseMemRefType type, gpu::AddressSpaceAttr addr_attr) {
+          auto space = addr_attr.getValue();
+          return IntegerAttr::get(IntegerType::get(m.getContext(), 64), 0);
+        });
+
     // Run Vector -> Vector transformations ahead of conversion to LLVM.
     {
       RewritePatternSet patterns(&getContext());
       vector::populateVectorToVectorCanonicalizationPatterns(patterns);
       vector::populateVectorBroadcastLoweringPatterns(patterns);
-      vector::populateVectorContractLoweringPatterns(patterns);
+      // The todo from LLVM community: doubtful that the "default" does what one
+      // want here, it is likely better to use shuffle.
+      vector::populateVectorContractLoweringPatterns(
+          patterns, vector::VectorTransformsOptions());
       vector::populateVectorMaskOpLoweringPatterns(patterns);
       vector::populateVectorShapeCastLoweringPatterns(patterns);
-      vector::populateVectorTransposeLoweringPatterns(patterns);
+      // The todo from LLVM community: doubtful that the "default" does what one
+      // want here, it is likely better to use shuffle.
+      vector::populateVectorTransposeLoweringPatterns(
+          patterns, vector::VectorTransformsOptions());
       if (failed(applyPatternsAndFoldGreedily(getOperation(),
                                               std::move(patterns)))) {
         return signalPassFailure();
@@ -1309,7 +1329,7 @@ struct PrintfToLLVMPattern : public ConvertOpToLLVMPattern<PrintfOp> {
 //  buffer_args.push_back(var_idx0);
 //  buffer_args.push_back(var_idx1);
 //  buffer_args.push_back(var_idx2);
-//  auto lhloOp = b.create<lmhlo_disc::PrintfOp>(loc, llvm::None, buffer_args);
+//  auto lhloOp = b.create<lmhlo_disc::PrintfOp>(loc, TypeRange{}, buffer_args);
 //  lhloOp->setAttr("format",
 //                  b.getStringAttr("Debug idx0 %d idx1 %d "
 //                                  "idx2 %d\n"));

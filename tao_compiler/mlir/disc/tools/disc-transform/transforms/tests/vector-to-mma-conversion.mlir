@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s
 
 
 // CHECK-LABEL: @vector_to_mma_conversion
@@ -17,8 +17,8 @@ func.func @vector_to_mma_conversion(%arg0: memref<16x16xf16, #gpu.address_space<
   return
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %func = transform.structured.match ops{["func.func"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  transform.disc.vector.vector_to_mma_conversion %func : (!pdl.operation) -> ()
+transform.sequence failures(propagate) {
+^bb1(%arg1: !transform.any_op):
+  %func = transform.structured.match ops{["func.func"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  transform.disc.vector.vector_to_mma_conversion %func : (!transform.any_op) -> ()
 }

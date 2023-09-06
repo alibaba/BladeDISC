@@ -1,15 +1,15 @@
-// RUN: disc-opt %s -disc-memref-cse | FileCheck %s
+// RUN: disc-opt -split-input-file %s -disc-memref-cse | FileCheck %s
 
 // CHECK-LABEL: @cse_in_the_same_block
 func.func @cse_in_the_same_block() -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
-  %memref = memref.alloc(%c1, %c2) : memref<?x?xf32, "gpu">
+  %memref = memref.alloc(%c1, %c2) : memref<?x?xf32, #gpu.address_space<global>>
   // CHECK: memref.load
   // CHECK-NOT: memref.load
-  %a = memref.load %memref[%c0, %c1] : memref<?x?xf32, "gpu">
-  %b = memref.load %memref[%c0, %c1] : memref<?x?xf32, "gpu">
+  %a = memref.load %memref[%c0, %c1] : memref<?x?xf32, #gpu.address_space<global>>
+  %b = memref.load %memref[%c0, %c1] : memref<?x?xf32, #gpu.address_space<global>>
   return %a, %b : f32, f32
 }
 
@@ -18,13 +18,13 @@ func.func @cse_in_the_dominant_block(%pred : i1) -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
-  %memref = memref.alloc(%c1, %c2) : memref<?x?xf32, "gpu">
+  %memref = memref.alloc(%c1, %c2) : memref<?x?xf32, #gpu.address_space<global>>
   // CHECK: memref.load
-  %a = memref.load %memref[%c0, %c1] : memref<?x?xf32, "gpu">
+  %a = memref.load %memref[%c0, %c1] : memref<?x?xf32, #gpu.address_space<global>>
   // CHECK: scf.if
   %result = scf.if %pred -> (f32) {
     // CHECK-NOT: memref.load
-    %b = memref.load %memref[%c0, %c1] : memref<?x?xf32, "gpu">
+    %b = memref.load %memref[%c0, %c1] : memref<?x?xf32, #gpu.address_space<global>>
     scf.yield %b : f32 
   } else {
     %f0 = arith.constant 0.0 : f32
@@ -38,13 +38,13 @@ func.func @should_not_cse_0(%pred : i1) -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
-  %memref = memref.alloc(%c1, %c2) : memref<?x?xf32, "gpu">
+  %memref = memref.alloc(%c1, %c2) : memref<?x?xf32, #gpu.address_space<global>>
   // CHECK: memref.load
-  %a = memref.load %memref[%c0, %c1] : memref<?x?xf32, "gpu">
+  %a = memref.load %memref[%c0, %c1] : memref<?x?xf32, #gpu.address_space<global>>
   // CHECK: scf.if
   %result = scf.if %pred -> (f32) {
     // CHECK: memref.load
-    %b = memref.load %memref[%c1, %c0] : memref<?x?xf32, "gpu">
+    %b = memref.load %memref[%c1, %c0] : memref<?x?xf32, #gpu.address_space<global>>
     scf.yield %b : f32
   } else {
     %f0 = arith.constant 0.0 : f32
@@ -58,14 +58,14 @@ func.func @should_not_cse_1(%pred : i1) -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
-  %memref1 = memref.alloc(%c1, %c2) : memref<?x?xf32, "gpu">
-  %memref2 = memref.alloc(%c1, %c2) : memref<?x?xf32, "gpu">
+  %memref1 = memref.alloc(%c1, %c2) : memref<?x?xf32, #gpu.address_space<global>>
+  %memref2 = memref.alloc(%c1, %c2) : memref<?x?xf32, #gpu.address_space<global>>
   // CHECK: memref.load
-  %a = memref.load %memref1[%c0, %c1] : memref<?x?xf32, "gpu">
+  %a = memref.load %memref1[%c0, %c1] : memref<?x?xf32, #gpu.address_space<global>>
   // CHECK: scf.if
   %result = scf.if %pred -> (f32) {
     // CHECK: memref.load
-    %b = memref.load %memref2[%c0, %c1] : memref<?x?xf32, "gpu">
+    %b = memref.load %memref2[%c0, %c1] : memref<?x?xf32, #gpu.address_space<global>>
     scf.yield %b : f32
   } else {
     %f0 = arith.constant 0.0 : f32
@@ -79,18 +79,18 @@ func.func @should_not_cse_2(%pred : i1) -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
-  %memref = memref.alloc(%c1, %c2) : memref<?x?xf32, "gpu">
+  %memref = memref.alloc(%c1, %c2) : memref<?x?xf32, #gpu.address_space<global>>
   // CHECK: scf.if
   %result = scf.if %pred -> (f32) {
     // CHECK: memref.load
-    %b = memref.load %memref[%c0, %c1] : memref<?x?xf32, "gpu">
+    %b = memref.load %memref[%c0, %c1] : memref<?x?xf32, #gpu.address_space<global>>
     scf.yield %b : f32
   } else {
     %f0 = arith.constant 0.0 : f32
     scf.yield %f0 : f32
   }
   // CHECK: memref.load
-  %a = memref.load %memref[%c0, %c1] : memref<?x?xf32, "gpu">
+  %a = memref.load %memref[%c0, %c1] : memref<?x?xf32, #gpu.address_space<global>>
   return %a, %result : f32, f32
 }
 
@@ -99,13 +99,13 @@ func.func @cse_iteratively(%i : index, %j : index) -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
-  %memref = memref.alloc(%c1, %c2) : memref<?x?xf32, "gpu">
+  %memref = memref.alloc(%c1, %c2) : memref<?x?xf32, #gpu.address_space<global>>
   // CHECK: memref.load
   // CHECK-NOT: memref.load
   %m = "arith.addi"(%j, %i) : (index, index) -> index
   %n = "arith.addi"(%j, %i) : (index, index) -> index
-  %a = memref.load %memref[%c0, %m] : memref<?x?xf32, "gpu">
-  %b = memref.load %memref[%c0, %n] : memref<?x?xf32, "gpu">
+  %a = memref.load %memref[%c0, %m] : memref<?x?xf32, #gpu.address_space<global>>
+  %b = memref.load %memref[%c0, %n] : memref<?x?xf32, #gpu.address_space<global>>
   return %a, %b : f32, f32
 }
 

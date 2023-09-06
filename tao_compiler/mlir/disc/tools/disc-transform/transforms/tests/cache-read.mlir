@@ -25,7 +25,7 @@ module {
     // CHECK: %[[PACKED:.*]] = disc_linalg_ext.multi_level_pack %[[ARG1]]
     // CHECK-SAME: tile_levels = [1, 1] tile_sizes = [2, 16] permutation = [0, 2, 3, 1]
     // CHECK-SAME: (tensor<?x?xf32> tensor<?x?x16x2xf32>) -> tensor<?x?x16x2xf32>
-    // CHECK: %[[RES:.*]] = scf.foreach_thread
+    // CHECK: %[[RES:.*]] = scf.forall
     // CHECK: scf.for
     // CHECK: scf.for
     // CHECK: scf.for
@@ -34,7 +34,7 @@ module {
     // CHECK-SAME: %[[SLICE_FROM_PACKED]]
     // CHECK: linalg.matmul
     // CHECK-SAME: %[[TRANSPOSE]]
-    %0 = scf.foreach_thread (%arg3, %arg4) in (%c1, %c1) shared_outs(%arg5 = %arg2) -> (tensor<?x?xf32>) {
+    %0 = scf.forall (%arg3, %arg4) in (%c1, %c1) shared_outs(%arg5 = %arg2) -> (tensor<?x?xf32>) {
       %1 = affine.max #map()[%dim]
       %2 = affine.max #map()[%dim_1]
       %3 = affine.apply #map1(%arg3)[%dim]
@@ -78,7 +78,7 @@ module {
         }
         scf.yield %8 : tensor<?x?xf32>
       }
-      scf.foreach_thread.perform_concurrently {
+      scf.forall.in_parallel {
         tensor.parallel_insert_slice %5 into %arg5[%3, %4] [%1, %2] [1, 1] : tensor<?x?xf32> into tensor<?x?xf32>
       }
     } {thread_dim_mapping = []}
@@ -86,10 +86,10 @@ module {
   }
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %matmul = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %foreach_op = transform.structured.match ops{["scf.foreach_thread"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %pad_for_weight = get_producer_of_operand %matmul[1] : (!pdl.operation) -> !pdl.operation
-  transform.disc.cache_read {padded} %pad_for_weight at %foreach_op with tile_levels = [1, 1] tile_sizes = [2, 16] permutation = [0, 2, 3, 1]
+transform.sequence failures(propagate) {
+^bb1(%arg1: !transform.any_op):
+  %matmul = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %foreach_op = transform.structured.match ops{["scf.forall"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %pad_for_weight = get_producer_of_operand %matmul[1] : (!transform.any_op) -> !transform.any_op
+  transform.disc.cache_read {padded} %pad_for_weight at %foreach_op with tile_levels = [1, 1] tile_sizes = [2, 16] permutation = [0, 2, 3, 1] : (!transform.any_op, !transform.any_op) -> (!transform.any_op)
 }

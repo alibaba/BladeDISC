@@ -16,8 +16,8 @@ func.func @promote_dot_operands(%A: tensor<256x128xf16>, %B: tensor<128x256xf16>
   return %0 : tensor<256x256xf16>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %matmul_op = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %matmul_promote, %lhs, %rhs = transform.disc.promote_dot_operands %matmul_op [0, 1] : (!pdl.operation) -> (!pdl.operation, !pdl.operation,!pdl.operation)
+transform.sequence failures(propagate) {
+^bb1(%arg1: !transform.any_op):
+  %matmul_op = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %matmul_promote, %lhs, %rhs = transform.disc.promote_dot_operands %matmul_op [0, 1] : (!transform.any_op) -> (!transform.any_op, !transform.any_op,!transform.any_op)
 }

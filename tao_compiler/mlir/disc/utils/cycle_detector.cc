@@ -270,7 +270,7 @@ bool GraphCycles::IsReachable(int32_t x, int32_t y) {
   return reachable;
 }
 
-llvm::Optional<int32_t> GraphCycles::ContractEdge(int32_t a, int32_t b) {
+std::optional<int32_t> GraphCycles::ContractEdge(int32_t a, int32_t b) {
   assert(HasEdge(a, b));
   RemoveEdge(a, b);
 

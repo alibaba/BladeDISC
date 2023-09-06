@@ -63,7 +63,7 @@ bool isSupportedBcast(Operation* op, ShapeAnalysis& shapeAnalysisBase) {
   auto inType = in.getType().cast<MemRefType>();
   auto out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
   if (inType.getRank() != dimensions.size()) return false;
-  for (auto [inDimIdx, inDimSize] : llvm::enumerate(inType.getShape())) {
+  for (const auto& [inDimIdx, inDimSize] : llvm::enumerate(inType.getShape())) {
     int64_t outDimIdx = dimensions[inDimIdx];
     if (inDimSize != ShapedType::kDynamic) continue;
     // linalg generic op does not support "runtime broadcast semantic", thus we

@@ -74,8 +74,6 @@ void cleanUnusedLhloOps(Block* parent, PatternRewriter* rewriter = nullptr);
 // like `op`.
 DenseSet<Operation*> getValueUsersInFusionLike(Value memref, Operation* op);
 
-bool isOnGpu(Operation* op);
-
 bool isInplaceOperator(Operation* op);
 
 // Attributes used to annotate the fusion type, fusion name and tags.

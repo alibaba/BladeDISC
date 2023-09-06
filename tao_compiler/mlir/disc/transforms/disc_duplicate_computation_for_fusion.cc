@@ -316,7 +316,10 @@ DiscDuplicateComputationForFusionPass::duplicateConstWeightForDotOp(
     FuncOp func, FusionStrategy& strategy) {
   SmallVector<lmhlo::DotGeneralOp> dotOps;
   func->walk([&](lmhlo::DotGeneralOp op) {
-    if (strategy.isFusible(op.getOperation())) dotOps.emplace_back(op);
+    if (strategy.isFusible(op.getOperation())) {
+      dotOps.emplace_back(op);
+    } else {
+    }
   });
   for (lmhlo::DotGeneralOp dotOp : dotOps) {
     Value weight = dotOp.getRhs();

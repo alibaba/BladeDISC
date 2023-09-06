@@ -21,7 +21,7 @@ class FuncOp;
 }  // namespace func
 
 namespace scf {
-class ForeachThreadOp;
+class ForallOp;
 }  // namespace scf
 
 namespace disc_ral {

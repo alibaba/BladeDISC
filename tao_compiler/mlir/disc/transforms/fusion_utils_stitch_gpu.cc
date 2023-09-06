@@ -110,7 +110,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
     auto dimensions = dimAttr.getValues<int64_t>();
     DenseSet<int64_t> dim_set(dimensions.begin(), dimensions.end());
     DenseMap<int64_t, int64_t> broadcast_dim_o2i;
-    for (auto en : llvm::enumerate(dimensions)) {
+    for (const auto& en : llvm::enumerate(dimensions)) {
       broadcast_dim_o2i[en.value()] = en.index();
     }
     int64_t rank = out_value.getType().cast<MemRefType>().getRank();
@@ -276,7 +276,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
     SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> dim_eq;
     // Non-collapsed dims.
     auto offset_dims = dimension_numbers.getOffsetDims();
-    for (auto offset : llvm::enumerate(offset_dims)) {
+    for (const auto& offset : llvm::enumerate(offset_dims)) {
       dim_eq.emplace_back(SmallVector<int64_t>({offset.index()}),
                           SmallVector<int64_t>({offset.value()}));
     }
@@ -509,7 +509,7 @@ bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
     auto& in = tile_plan[op->getOperand(0)];
     auto reduce = cast<lmhlo::ReduceOp>(op);
     auto dimensions = reduce.getDimensions().getValues<int64_t>();
-    for (auto& en : llvm::enumerate(dimensions)) {
+    for (const auto& en : llvm::enumerate(dimensions)) {
       in.tileSizes[en.value()] = ShapedType::kDynamic;
     }
     // No tile dimention for output.

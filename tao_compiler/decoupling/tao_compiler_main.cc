@@ -92,7 +92,8 @@ Status RealMain(int argc, char** argv) {
                      "this option can be specified zero or more times."),
       llvm::cl::ZeroOrMore, llvm::cl::cat(disc_category)};
 
-  llvm::cl::opt<bool> version("v", llvm::cl::desc("show DIS compiler version."),
+  llvm::cl::opt<bool> version("v",
+                              llvm::cl::desc("show DISC compiler version."),
                               llvm::cl::cat(disc_category));
   llvm::cl::AddExtraVersionPrinter(
       [](llvm::raw_ostream& os) { os << version_info(); });
@@ -163,12 +164,12 @@ int main(int argc, char** argv) {
     VLOG(0) << "Success!";
     return 0;
   } else {
-    std::string err_msg = status.error_message();
-    tensorflow::error::Code code = status.code();
+    std::string err_msg = status.ToString();
+    absl::StatusCode code = status.code();
     VLOG(0) << "Failed! " << err_msg << " code " << code;
-    if (code == tensorflow::error::RESOURCE_EXHAUSTED) {
+    if (code == absl::StatusCode::kResourceExhausted) {
       return 2;
-    } else if (code == tensorflow::error::DEADLINE_EXCEEDED) {
+    } else if (code == absl::StatusCode::kDeadlineExceeded) {
       return 3;
     }
     return 1;

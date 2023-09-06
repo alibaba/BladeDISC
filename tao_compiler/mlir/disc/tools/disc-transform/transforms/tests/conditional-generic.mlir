@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s --dump-input=always
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s --dump-input=always
 
 #map0 = affine_map<(d0, d1) -> ()>
 #map1 = affine_map<(d0, d1) -> (d0, d1)>
@@ -20,10 +20,10 @@ func.func @tile_conditional_generic(%pred : i1, %arg0: tensor<?x?xf32>) -> tenso
   return %out : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-  %1, %loops:2 = transform.structured.tile %0 [288, 512] : (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation)
+transform.sequence failures(propagate) {
+^bb0(%arg0: !transform.any_op):
+  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!transform.any_op) -> !transform.any_op
+  %1, %loops:2 = transform.structured.tile %0 [288, 512] : (!transform.any_op) -> (!transform.any_op, !transform.any_op, !transform.any_op)
 }
 
 // -----
@@ -42,21 +42,26 @@ func.func @fuse_into_containing_op_conditional_generic(
   ^bb0(%arg4: i1, %arg3: f32):
     disc_linalg_ext.yield %cst : f32
   } -> tensor<?x?xf32>
+  // TODO: the following is the result of the newest LLVM fusing function, which
+  // is not the most efficient result. The most efficient one is to fuse into
+  // only the outer loop, rather than to the inner loop nearist to its usage. We
+  // only check the effectiveness of the fusing rather than the efficiency here.
   // CHECK: scf.for
-  // CHECK:   %[[T0:.*]] = disc_linalg_ext.conditional_generic
   // CHECK:   scf.for
+  // CHECK:     %[[T0:.*]] = disc_linalg_ext.conditional_generic
   // CHECK:     linalg.matmul
   // CHECK-SAME:  %[[T0]]
   %1 = linalg.matmul ins(%0, %arg1 : tensor<?x?xf32>, tensor<?x?xf32>) outs(%arg2 : tensor<?x?xf32>) -> tensor<?x?xf32>
   return %1 : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-  ^bb0(%arg0: !pdl.operation):
-    %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-    %1 = transform.structured.match ops{["linalg.matmul"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-    %2, %loops:2 = transform.structured.tile %1 [2, 3] : (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation)
+transform.sequence failures(propagate) {
+  ^bb0(%arg0: !transform.any_op):
+    %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!transform.any_op) -> !transform.any_op
+    %1 = transform.structured.match ops{["linalg.matmul"]} in %arg0 : (!transform.any_op) -> !transform.any_op
+    %2, %loops:2 = transform.structured.tile %1 [2, 3] : (!transform.any_op) -> (!transform.any_op, !transform.any_op, !transform.any_op)
     transform.structured.fuse_into_containing_op %0 into %loops#0
+      : (!transform.any_op, !transform.any_op) -> (!transform.any_op, !transform.any_op)
 }
 
 // -----
@@ -87,9 +92,9 @@ func.func @pad_conditional_generic(%pred : i1, %arg1 : index, %arg2 : index, %ar
   return %out : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+transform.sequence failures(propagate) {
+^bb0(%arg0: !transform.any_op):
+  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!transform.any_op) -> !transform.any_op
   %1 = transform.structured.pad %0 {padding_dimensions = [0, 1], padding_values = [0 : i1, 0.000000e+00 : f32]}
+     : (!transform.any_op) -> !transform.any_op
 }
-

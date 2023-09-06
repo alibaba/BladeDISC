@@ -7,7 +7,9 @@
 // CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK:         %[[T1:.*]] = chlo.broadcast_multiply %[[ARG0]], %[[ARG1]] : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
-// CHECK:         %[[T2:.*]] = mhlo.reduce(%[[T1]] init: %[[T0]]) applies mhlo.add across dimensions = [1] : (tensor<?x?xf32>, tensor<f32>) -> tensor<?xf32>
+// CHECK:         %[[T2:.*]] = mhlo.reduce(%[[T1]] init: %[[T0]]) across dimensions = [1] : (tensor<?x?xf32>, tensor<f32>) -> tensor<?xf32>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         %[[T3:.*]] = tensor.dim %[[T1]], %[[C0]] : tensor<?x?xf32>
 // CHECK:         %[[T4:.*]] = arith.index_cast %[[T3]] : index to i32
 // CHECK:         %[[T5:.*]] = tensor.from_elements %[[T4]], %[[C1_I32]] : tensor<2xi32>
@@ -44,7 +46,9 @@ func.func @torch.aten._softmax_backward_data(%arg0 : !torch.vtensor<[?,?],f32>, 
 // CHECK:         %[[T6:.*]] = mhlo.dynamic_reshape %[[T4]], %[[T5]] : (tensor<?xf32>, tensor<2xi32>) -> tensor<?x1xf32>
 // CHECK:         %[[T7:.*]] = chlo.broadcast_subtract %[[ARG0]], %[[T6]] : (tensor<?x?xf32>, tensor<?x1xf32>) -> tensor<?x?xf32>
 // CHECK:         %[[T8:.*]] = mhlo.exponential %[[T7]] : tensor<?x?xf32>
-// CHECK:         %[[T9:.*]] = mhlo.reduce(%[[T8]] init: %[[T0]]) applies mhlo.add across dimensions = [1] : (tensor<?x?xf32>, tensor<f32>) -> tensor<?xf32>
+// CHECK:         %[[T9:.*]] = mhlo.reduce(%[[T8]] init: %[[T0]]) across dimensions = [1] : (tensor<?x?xf32>, tensor<f32>) -> tensor<?xf32>
+// CHECK-NEXT:    reducer
+// CHECK-NEXT:    mhlo.add
 // CHECK:         %[[T10:.*]] = tensor.dim %[[T8]], %[[C0]] : tensor<?x?xf32>
 // CHECK:         %[[T11:.*]] = arith.index_cast %[[T10]] : index to i32
 // CHECK:         %[[T12:.*]] = tensor.from_elements %[[T11]], %[[C1_I32]] : tensor<2xi32>

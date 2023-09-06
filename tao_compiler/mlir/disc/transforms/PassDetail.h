@@ -22,7 +22,7 @@ limitations under the License.
 #include "mlir/disc/IR/disc_shape_ops.h"
 
 namespace mlir {
-class AffineDialect;
+
 namespace NVVM {
 class NVVMDialect;
 }
@@ -64,6 +64,10 @@ class VectorDialect;
 
 namespace tensor {
 class TensorDialect;
+}
+
+namespace affine {
+class AffineDialect;
 }
 
 namespace disc_ral {

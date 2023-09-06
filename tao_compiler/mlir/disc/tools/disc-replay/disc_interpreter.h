@@ -23,10 +23,6 @@
 #include "mlir/ral/context/base/cpu/cpu_context_impl.h"
 #endif
 
-namespace tensorflow {
-class Status;
-}  // namespace tensorflow
-
 namespace replay {
 // function type for compilation executable file
 using func_t = void (*)(void**);

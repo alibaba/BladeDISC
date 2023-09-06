@@ -37,7 +37,7 @@ static inline bool isNonBatchingTransposeTensorValue(
   }
   permutation.clear();
   if (auto transpose = dyn_cast<mhlo::TransposeOp>(val.getDefiningOp())) {
-    for (auto& en :
+    for (const auto& en :
          llvm::enumerate(transpose.getPermutation().getValues<int64_t>())) {
       if (en.index() != en.value()) {
         if (batching_dims.find(en.index()) != batching_dims.end()) {
@@ -148,7 +148,7 @@ struct QuantDotTransposeConvert
 
     std::vector<int64_t> lhs_contracting_dims;
     if (tp_lhs) {
-      for (auto& en :
+      for (const auto& en :
            llvm::enumerate(dim_numbers.getLhsContractingDimensions())) {
         lhs_contracting_dims.push_back(lhs_perm[en.value()]);
       }
@@ -158,7 +158,7 @@ struct QuantDotTransposeConvert
 
     std::vector<int64_t> rhs_contracting_dims;
     if (tp_rhs) {
-      for (auto& en :
+      for (const auto& en :
            llvm::enumerate(dim_numbers.getRhsContractingDimensions())) {
         rhs_contracting_dims.push_back(rhs_perm[en.value()]);
       }

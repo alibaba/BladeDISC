@@ -194,9 +194,8 @@ Value GetConvMetadata(Operation* op, PatternRewriter& rewriter, int rank) {
   int num_spatial_dims = rank - 2;
   int num_metadata_fields = rank * 3 + (rank - 2) * 2 + 1;
   Value metadata_value = rewriter.create<memref::AllocaOp>(
-      loc, MemRefType::get(
-               {num_metadata_fields}, field_type, MemRefLayoutAttrInterface(),
-               StringAttr::get(op->getContext(), placement_utils::kCpu)));
+      loc, MemRefType::get({num_metadata_fields}, field_type,
+                           MemRefLayoutAttrInterface()));
   std::vector<int64_t> fields;
   auto config = op->getAttrOfType<DictionaryAttr>("backend_config");
   auto dimension_numbers =
@@ -232,7 +231,7 @@ Value GetConvMetadata(Operation* op, PatternRewriter& rewriter, int rank) {
   fields.insert(fields.end(), rhs_dilation.begin(), rhs_dilation.end());
   fields.push_back(disc_ral::isConstantMemRef(op->getOperand(1)));
 
-  for (auto&& en : llvm::enumerate(fields)) {
+  for (const auto&& en : llvm::enumerate(fields)) {
     Value value =
         rewriter.create<arith::ConstantIntOp>(loc, en.value(), field_type);
     Value offset = rewriter.create<arith::ConstantIndexOp>(loc, en.index());
@@ -271,7 +270,7 @@ LogicalResult lowerToLibraryCallDconvI8I8I8Impl(CustomCallOp op,
 
   bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(2));
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
-      op, llvm::None, ctx, newOperands, "ral_qconv_s8_s8_s8", false,
+      op, TypeRange{}, ctx, newOperands, "ral_qconv_s8_s8_s8", false,
       on_gpu ? "gpu" : "cpu");
   return success();
 }

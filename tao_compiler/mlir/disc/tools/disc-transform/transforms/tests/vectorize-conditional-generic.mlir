@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s --dump-input=always
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s --dump-input=always
 
 #map0 = affine_map<(d0, d1) -> ()>
 #map1 = affine_map<(d0, d1) -> (d1)>
@@ -30,8 +30,9 @@ func.func @vectorize_conditional_generic(
   return %out : tensor<8x12xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+transform.sequence failures(propagate) {
+^bb0(%arg0: !transform.any_op):
+  %0 = transform.structured.match ops{["disc_linalg_ext.conditional_generic"]} in %arg0 : (!transform.any_op) -> !transform.any_op
   transform.disc.vectorize_conditional_generic %0
+    : (!transform.any_op) -> !transform.any_op
 }

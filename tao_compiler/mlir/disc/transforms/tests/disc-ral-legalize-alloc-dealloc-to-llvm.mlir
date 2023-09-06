@@ -12,8 +12,8 @@ module @main attributes {gpu.container_module}  {
     %c1 = arith.constant 1024 : index
     %c2 = arith.constant 1024 : index
     %c3 = arith.constant 1024 : index
-    %arg1 = memref.alloc(%c2, %c3) : memref<?x?xf32, "gpu">
-    memref.dealloc %arg1 : memref<?x?xf32, "gpu">
+    %arg1 = memref.alloc(%c2, %c3) : memref<?x?xf32, #gpu.address_space<global>>
+    memref.dealloc %arg1 : memref<?x?xf32, #gpu.address_space<global>>
     return
   }
 }
@@ -31,8 +31,8 @@ module @main attributes {gpu.container_module}  {
     // CHECK-NOT: llvm.call @free
     %c2 = arith.constant 1024 : index
     %c3 = arith.constant 1024 : index
-    %arg1 = memref.alloc(%c2, %c3) : memref<?x?xf32, "cpu">
-    memref.dealloc %arg1 : memref<?x?xf32, "cpu">
+    %arg1 = memref.alloc(%c2, %c3) : memref<?x?xf32>
+    memref.dealloc %arg1 : memref<?x?xf32>
     return
   }
 }

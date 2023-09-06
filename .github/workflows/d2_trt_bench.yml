@@ -15,7 +15,7 @@ jobs:
     with:
       name: torch-trt-and-d2-benchmark
       base_image: nvcr.io/nvidia/pytorch:22.01-py3
-      device: gpu-t4
+      device: gpu-a10
       dockerfile: docker/cronjobs/Dockerfile.torch.ngc
       extra_run_args: --gpus all
       exec_command: bash -c "cd pytorch_blade && bash ./benchmark/run_benchmark.sh"

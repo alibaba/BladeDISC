@@ -16,12 +16,19 @@
 namespace tensorflow {
 namespace tao {
 
-#define RETURN_ON_CUDA_ERROR(expr, msg) \
-  {                                     \
-    auto _cuda_error = (expr);          \
-    if (_cuda_error != CUDA_SUCCESS) {  \
-      return errors::Internal(msg);     \
-    }                                   \
+#define RETURN_ON_CUDA_ERROR(expr, msg)                      \
+  {                                                          \
+    auto _cuda_error = (expr);                               \
+    if (_cuda_error != CUDA_SUCCESS) {                       \
+      const char* error_name;                                \
+      const char* error_string;                              \
+      cuGetErrorName(_cuda_error, &error_name);              \
+      cuGetErrorString(_cuda_error, &error_string);          \
+      std::string fullmsg = std::string(msg) + ". " +        \
+                            std::string(error_name) + ": " + \
+                            std::string(error_string);       \
+      return errors::Internal(fullmsg);                      \
+    }                                                        \
   }
 
 struct CompilerMLIR_GPU::Impl {

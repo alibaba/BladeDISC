@@ -26,8 +26,9 @@ func.func @main(%arg0: tensor<?x3072xf32>, %arg4: tensor<?x768xf32>, %arg6: tens
   return %4 : tensor<?x768xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {disc.transform.name = "subtract"} in %arg0 : (!pdl.operation) -> !pdl.operation
+transform.sequence failures(propagate) {
+^bb0(%arg0: !transform.any_op):
+  %0 = transform.structured.match attributes {disc.transform.name = "subtract"} in %arg0 : (!transform.any_op) -> !transform.any_op
   %1 = transform.disc.linalg.eagerly_backward_init_tensor %0
+    : (!transform.any_op) -> !transform.any_op
 }

@@ -125,7 +125,7 @@ Status ConvertInputInfo(const TaoCompilerInput& input, Graph* graph,
       }
     }
   }
-  std::vector<llvm::Optional<std::vector<int>>> optional_shapes;
+  std::vector<std::optional<std::vector<int>>> optional_shapes;
   for (auto& shape : shapes) optional_shapes.emplace_back(shape);
   return ParseInputArrayInfo(array_names, data_types, optional_shapes,
                              &specs->inputs);

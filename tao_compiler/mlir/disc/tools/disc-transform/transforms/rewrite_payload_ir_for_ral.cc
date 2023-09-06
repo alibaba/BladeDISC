@@ -12,6 +12,7 @@
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/IRMapping.h"
@@ -32,8 +33,7 @@ namespace disc_ral {
 namespace {
 
 using func::FuncOp;
-using placement_utils::copyWithMemorySpace;
-using scf::ForeachThreadOp;
+using scf::ForallOp;
 using scf::ParallelOp;
 
 struct DiscRewritePayloadIRForRALPass
@@ -46,8 +46,7 @@ struct DiscRewritePayloadIRForRALPass
   }
   void runOnOperation() override;
 
-  // assign placement info for each memref value, e.g. memref<f32> ->
-  // memref<f32, "cpu">
+  // assign placement info for each memref value.
   LogicalResult assignPlacement();
   LogicalResult assignPlacementForFuncOp(FuncOp funcOp);
 };
@@ -57,9 +56,14 @@ LogicalResult DiscRewritePayloadIRForRALPass::assignPlacementForFuncOp(
   auto maybeConvertType = [&](Type ty) -> Type {
     auto memrefTy = ty.dyn_cast<MemRefType>();
     if (!memrefTy || memrefTy.getMemorySpace()) return ty;
-    return copyWithMemorySpace(
-        memrefTy.getContext(), memrefTy,
-        this->gpuEnabled_ ? placement_utils::kGpu : placement_utils::kCpu);
+    Attribute address_space =
+        IntegerAttr::get(IntegerType::get(memrefTy.getContext(), 64), 0);
+    if (this->gpuEnabled_) {
+      address_space = dyn_cast<Attribute>(gpu::AddressSpaceAttr::get(
+          memrefTy.getContext(), gpu::AddressSpace::Global));
+    }
+    return placement_utils::copyWithMemorySpace(memrefTy.getContext(), memrefTy,
+                                                address_space);
   };
 
   auto convertValue = [&](Value v) {

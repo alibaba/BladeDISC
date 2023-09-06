@@ -216,7 +216,7 @@ std::string MLIRType2CUDATypeStr(Type type) {
   return "";
 }
 
-llvm::Optional<Operation*> findLastWriterInBlock(Value value, Block* block) {
+std::optional<Operation*> findLastWriterInBlock(Value value, Block* block) {
   DenseMap<Value, Operation*> last_writer;
   for (Operation& op : block->getOperations()) {
     int num_input_operand = op.getNumOperands() - getNumResultOperands(&op);
@@ -230,7 +230,7 @@ llvm::Optional<Operation*> findLastWriterInBlock(Value value, Block* block) {
   if (it != last_writer.end()) {
     return it->second;
   } else {
-    return llvm::None;
+    return std::nullopt;
   }
 }
 
@@ -241,11 +241,11 @@ llvm::Optional<Operation*> findLastWriterInBlock(Value value, Block* block) {
 // template<lmhlo::LogisticOp>
 
 // Rely on nvcc compiler to use fast-math.
-llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseUnaryOp(
+std::optional<std::string> SourceEmitterCUDA::EmitElemWiseUnaryOp(
     Operation* op, ValueNameBinding& binding) {
   auto input = op->getOperand(0);
   if (binding.count(input) == 0) {
-    return llvm::None;
+    return std::nullopt;
   }
   std::string input_str = binding[input];
 
@@ -323,12 +323,12 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseUnaryOp(
   return type_str + " " + result_name + " = " + expression;
 }
 
-llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseBinaryOp(
+std::optional<std::string> SourceEmitterCUDA::EmitElemWiseBinaryOp(
     Operation* op, ValueNameBinding& binding) {
   auto lhs = op->getOperand(0);
   auto rhs = op->getOperand(1);
   if (binding.count(lhs) == 0 || binding.count(rhs) == 0) {
-    return llvm::None;
+    return std::nullopt;
   }
   std::string lhs_str = binding[lhs];
   std::string rhs_str = binding[rhs];
@@ -401,14 +401,14 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseBinaryOp(
   return type_str + " " + result_name + " = " + expression;
 }
 
-llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseTernaryOp(
+std::optional<std::string> SourceEmitterCUDA::EmitElemWiseTernaryOp(
     Operation* op, ValueNameBinding& binding) {
   auto input0 = op->getOperand(0);
   auto input1 = op->getOperand(1);
   auto input2 = op->getOperand(2);
   if (binding.count(input0) == 0 || binding.count(input1) == 0 ||
       binding.count(input2) == 0) {
-    return llvm::None;
+    return std::nullopt;
   }
   std::string input0_str = binding[input0];
   std::string input1_str = binding[input1];
@@ -437,13 +437,13 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseTernaryOp(
 }
 
 // Only supports scalar and splat constant op.
-llvm::Optional<std::string>
+std::optional<std::string>
 SourceEmitterCUDA::EmitScalarOrSplatConstantExpression(
     lmhlo::ConstantOp constant) {
   MemRefType memref_type = constant.getOutput().getType().cast<MemRefType>();
   bool is_splat = constant.getValue().isSplat();
   if (memref_type.getRank() != 0 && !is_splat) {
-    return llvm::None;
+    return std::nullopt;
   }
 
   auto elem_ty = memref_type.getElementType();
@@ -460,23 +460,23 @@ SourceEmitterCUDA::EmitScalarOrSplatConstantExpression(
             : constant.getValue().getValues<APFloat>()[{}].convertToDouble();
     expression = to_string(val);
   } else {
-    return llvm::None;
+    return std::nullopt;
   }
 
   return expression;
 }
 
-llvm::Optional<std::string> SourceEmitterCUDA::EmitScalarOrSplatConstantOp(
+std::optional<std::string> SourceEmitterCUDA::EmitScalarOrSplatConstantOp(
     Operation* op, ValueNameBinding& binding) {
   lmhlo::ConstantOp constant = dyn_cast_or_null<lmhlo::ConstantOp>(op);
   if (!constant) {
-    return llvm::None;
+    return std::nullopt;
   }
   MemRefType memref_type = constant.getOutput().getType().cast<MemRefType>();
 
   auto expression = EmitScalarOrSplatConstantExpression(constant);
   if (!expression.has_value()) {
-    return llvm::None;
+    return std::nullopt;
   }
 
   Type result_type = memref_type.getElementType();
@@ -490,13 +490,13 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitScalarOrSplatConstantOp(
   return type_str + " " + result_name + " = " + expression.value();
 }
 
-llvm::Optional<std::string>
+std::optional<std::string>
 SourceEmitterCUDA::EmitBroadcastOfScalarOrSplatConstantOp(
     Operation* op, ValueNameBinding& binding) {
   lmhlo::DynamicBroadcastInDimOp bcast =
       dyn_cast_or_null<lmhlo::DynamicBroadcastInDimOp>(op);
   if (!bcast) {
-    return llvm::None;
+    return std::nullopt;
   }
 
   // Only deal with the case that the last rewriter in the same block is the
@@ -504,17 +504,17 @@ SourceEmitterCUDA::EmitBroadcastOfScalarOrSplatConstantOp(
   auto input_value = op->getOperand(0);
   auto input_op = findLastWriterInBlock(input_value, op->getBlock());
   if (!input_op.has_value()) {
-    return llvm::None;
+    return std::nullopt;
   }
 
   lmhlo::ConstantOp constant =
       dyn_cast_or_null<lmhlo::ConstantOp>(input_op.value());
   if (!input_op) {
-    return llvm::None;
+    return std::nullopt;
   }
 
   if (binding.count(input_value) == 0) {
-    return llvm::None;
+    return std::nullopt;
   }
   std::string expression = binding[input_value];
 
@@ -531,17 +531,17 @@ SourceEmitterCUDA::EmitBroadcastOfScalarOrSplatConstantOp(
   return type_str + " " + result_name + " = " + expression;
 }
 
-llvm::Optional<std::string> SourceEmitterCUDA::EmitDynamicReshapeOp(
+std::optional<std::string> SourceEmitterCUDA::EmitDynamicReshapeOp(
     Operation* op, ValueNameBinding& binding) {
   lmhlo::DynamicReshapeOp reshape =
       dyn_cast_or_null<lmhlo::DynamicReshapeOp>(op);
   if (!reshape) {
-    return llvm::None;
+    return std::nullopt;
   }
 
   Value input_value = op->getOperand(0);
   if (binding.count(input_value) == 0) {
-    return llvm::None;
+    return std::nullopt;
   }
   std::string expression = binding[input_value];
 
@@ -558,16 +558,16 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitDynamicReshapeOp(
   return type_str + " " + result_name + " = " + expression;
 }
 
-llvm::Optional<std::string> SourceEmitterCUDA::EmitTransposeOp(
+std::optional<std::string> SourceEmitterCUDA::EmitTransposeOp(
     Operation* op, ValueNameBinding& binding) {
   lmhlo::TransposeOp transpose = dyn_cast_or_null<lmhlo::TransposeOp>(op);
   if (!transpose) {
-    return llvm::None;
+    return std::nullopt;
   }
 
   Value input_value = op->getOperand(0);
   if (binding.count(input_value) == 0) {
-    return llvm::None;
+    return std::nullopt;
   }
   std::string expression = binding[input_value];
 
@@ -584,7 +584,7 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitTransposeOp(
   return type_str + " " + result_name + " = " + expression;
 }
 
-llvm::Optional<std::string> SourceEmitterCUDA::EmitOp(
+std::optional<std::string> SourceEmitterCUDA::EmitOp(
     Operation* op, ValueNameBinding& binding) {
   if (isa<lmhlo::AbsOp, lmhlo::CeilOp, lmhlo::ConvertOp, lmhlo::CosineOp,
           lmhlo::ExpOp, lmhlo::FloorOp, lmhlo::IsFiniteOp, lmhlo::LogOp,
@@ -606,7 +606,7 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitOp(
   } else if (isa<lmhlo::TransposeOp>(op)) {
     return EmitTransposeOp(op, binding);
   } else {
-    return llvm::None;
+    return std::nullopt;
   }
 }
 

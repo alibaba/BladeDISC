@@ -37,12 +37,14 @@ func.func @main(%arg0: tensor<?x3072xf32>, %arg1: tensor<?x768xf32>) -> tensor<?
   }
   return %4 : tensor<?x768xf32>
 }
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["scf.for"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-  %1 = transform.structured.match ops{["linalg.matmul"]}  in %arg0 : (!pdl.operation) -> !pdl.operation
-  %2 = transform.structured.match ops{["linalg.fill"]}  in %arg0 : (!pdl.operation) -> !pdl.operation
+transform.sequence failures(propagate) {
+^bb0(%arg0: !transform.any_op):
+  %0 = transform.structured.match ops{["scf.for"]} in %arg0 : (!transform.any_op) -> !transform.any_op
+  %1 = transform.structured.match ops{["linalg.matmul"]}  in %arg0 : (!transform.any_op) -> !transform.any_op
+  %2 = transform.structured.match ops{["linalg.fill"]}  in %arg0 : (!transform.any_op) -> !transform.any_op
   %3 = transform.disc.fuse_into_containing_op %1 into %0
+    : (!transform.any_op, !transform.any_op) -> !transform.any_op
   %4 = transform.disc.fuse_into_containing_op %2 into %0
-  %5 = transform.disc.apply_patterns %arg0 {canonicalization}
+    : (!transform.any_op, !transform.any_op) -> !transform.any_op
+  %5 = transform.disc.apply_patterns %arg0 {canonicalization} : (!transform.any_op) -> !transform.any_op
 }

@@ -29,7 +29,6 @@ include "mlir/disc/IR/lhlo_disc_enums.td"
 def LHLODISC_Dialect : Dialect {
   let name = "lmhlo_disc";
   let cppNamespace = "::mlir::lmhlo_disc";
-  let useFoldAPI = kEmitFoldAdaptorFolder;
 }
 
 def LHLO_I32Tensor : MemRefOf<[SignlessIntOfWidths<[32]>]>;

@@ -1,4 +1,4 @@
-// RUN: disc-opt %s -disc-input-inline-fusion | FileCheck %s
+// RUN: disc-opt -split-input-file %s -disc-input-inline-fusion | FileCheck %s
 
 // CHECK-LABEL: @should_not_reuse_val_cache
 func.func @should_not_reuse_val_cache(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %arg2: memref<?x?x?xf32>, %arg3: memref<?x?x?xf32>, %arg4: memref<?x?x?xf32>, %arg5: memref<?x?x?xf32>, %arg6: memref<?x?x?xf32>, %arg7: memref<?x?x?xf32>) -> (memref<?x?x?xf32>, memref<?x?x?xf32>) {

@@ -1,9 +1,9 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s
 
 
-// CHECK-LABEL: @foreach_thread_to_gpu_warps
+// CHECK-LABEL: @forall_to_gpu_warps
 // CHECK-SAME: (%[[arg0:.*]]: memref<2x2xf16>)
-func.func @foreach_thread_to_gpu_warps(%arg0: memref<2x2xf16>) {
+func.func @forall_to_gpu_warps(%arg0: memref<2x2xf16>) {
   // CHECK-DAG: %[[cst:.*]] = arith.constant 0
   // CHECK-DAG: %[[c32:.*]] = arith.constant 32 : index
   // CHECK-DAG: %[[c0:.*]] = arith.constant 0 : index
@@ -27,8 +27,8 @@ func.func @foreach_thread_to_gpu_warps(%arg0: memref<2x2xf16>) {
   return
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %func = transform.structured.match ops{["func.func"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  transform.disc.inline_and_convert_gpu_ids %func : (!pdl.operation) -> ()
+transform.sequence failures(propagate) {
+^bb1(%arg1: !transform.any_op):
+  %func = transform.structured.match ops{["func.func"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  transform.disc.inline_and_convert_gpu_ids %func : (!transform.any_op) -> ()
 }

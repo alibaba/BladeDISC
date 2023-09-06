@@ -22,9 +22,7 @@
 
 namespace mlir {
 
-using placement_utils::kCpu;
 using placement_utils::kDiscShapeCalcAttr;
-using placement_utils::kGpu;
 using placement_utils::PlacementType;
 
 namespace disc_ral {

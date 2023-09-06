@@ -202,7 +202,7 @@ void OpsPlacer::markI64ReturnedCpuScalarOps(
   const auto& output_placements = getOutputPlacements();
   auto returned_ops = return_op->getOperands();
   assert(returned_ops.size() == output_placements.size());
-  for (auto output : llvm::enumerate(returned_ops)) {
+  for (const auto& output : llvm::enumerate(returned_ops)) {
     auto idx = output.index();
     auto op = output.value().getDefiningOp();
     if (!op) continue;
@@ -347,7 +347,7 @@ void OpsPlacer::insertMemcpyNodes() {
         (isa<mhlo::GetTupleElementOp, mhlo::ReturnOp>(dst)))
       return;
 
-    for (auto indexed_operand : llvm::enumerate(dst->getOperands())) {
+    for (const auto& indexed_operand : llvm::enumerate(dst->getOperands())) {
       int index = indexed_operand.index();
       Value operand = indexed_operand.value();
       Operation* operand_op = operand.getDefiningOp();

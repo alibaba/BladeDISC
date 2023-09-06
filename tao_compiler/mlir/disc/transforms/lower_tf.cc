@@ -43,7 +43,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_types.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/convert_tensor.h"
-#include "tensorflow/compiler/mlir/xla/transforms/utils.h"
+#include "tensorflow/compiler/mlir/tf2xla/transforms/utils.h"
 #include "tensorflow/core/framework/kernel_shape_util.h"
 #include "tensorflow/core/util/padding.h"
 #include "tensorflow/core/util/tensor_format.h"
@@ -1202,9 +1202,9 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
     Value input = op.getInput();
-    auto input_type = input.getType().dyn_cast<RankedTensorType>();
+    RankedTensorType input_type = input.getType().dyn_cast<RankedTensorType>();
     // attr: boundaries, type is float according op definition
-    auto boundaries =
+    Value boundaries =
         rewriter
             .create<mhlo::ConstantOp>(
                 loc, GetF32ElementsAttr(op.getBoundaries(), &rewriter))

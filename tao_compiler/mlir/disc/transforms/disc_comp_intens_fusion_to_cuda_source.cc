@@ -572,7 +572,7 @@ bool DiscCompIntensFusionToCUDASourcePass::
   getEffectiveOperands(func, operands);
 
   int param_permute[3];
-  for (auto operand : llvm::enumerate(operands)) {
+  for (const auto& operand : llvm::enumerate(operands)) {
     if (A == operand.value()) {
       param_permute[0] = operand.index();
     } else if (B == operand.value()) {
@@ -618,7 +618,7 @@ bool DiscCompIntensFusionToCUDASourcePass::
   // Replace fun and it's calls with `SourceCodeOp`.
   SmallVector<int32_t> effective_operand_pos(operands.size());
   SmallVector<int32_t> effective_result_pos(results.size());
-  for (auto argument : llvm::enumerate(func.getArguments())) {
+  for (const auto& argument : llvm::enumerate(func.getArguments())) {
     auto operand_it = llvm::find(operands, argument.value());
     if (operand_it != operands.end()) {
       effective_operand_pos[operand_it - operands.begin()] = argument.index();
@@ -630,7 +630,8 @@ bool DiscCompIntensFusionToCUDASourcePass::
   }
 
   auto module_op = func->getParentOfType<ModuleOp>();
-  Optional<SymbolTable::UseRange> symbol_uses = func.getSymbolUses(module_op);
+  std::optional<SymbolTable::UseRange> symbol_uses =
+      func.getSymbolUses(module_op);
   for (SymbolTable::SymbolUse symbol_use : *symbol_uses) {
     Operation* user = symbol_use.getUser();
     auto call = dyn_cast<func::CallOp>(user);
@@ -647,7 +648,7 @@ bool DiscCompIntensFusionToCUDASourcePass::
     }
     OpBuilder builder_call(user);
     auto source_code_op = builder_call.create<lmhlo_disc::SourceCodeOp>(
-        call->getLoc(), llvm::None, operands, results, cuda_code,
+        call->getLoc(), TypeRange{}, operands, results, cuda_code,
         gemm_fusion_func_name);
 
     assert(user->getUsers().empty() &&

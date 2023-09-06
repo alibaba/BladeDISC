@@ -184,8 +184,8 @@ struct DimOfShapedTypeOpInterface : public OpRewritePattern<OpTy> {
         dyn_cast<InferShapedTypeOpInterface>(dimValue.getOwner());
     if (!shapedTypeOp) return failure();
 
-    Optional<int64_t> dimIndex = dimOp.getConstantIndex();
-    if (!dimIndex) return failure();
+    std::optional<int64_t> dimIndex = dimOp.getConstantIndex();
+    if (!dimIndex.has_value()) return failure();
 
     SmallVector<Value> reifiedResultShapes;
     if (failed(shapedTypeOp.reifyReturnTypeShapes(
@@ -291,8 +291,8 @@ struct DimOfTieShapeOpCanonicalizationPattern
                                 PatternRewriter& rewriter) const override {
     auto tieShapeOp = op.getSource().getDefiningOp<disc_shape::TieShapeOp>();
     if (!tieShapeOp) return failure();
-    Optional<int64_t> dimIndex = op.getConstantIndex();
-    if (!dimIndex) return failure();
+    std::optional<int64_t> dimIndex = op.getConstantIndex();
+    if (!dimIndex.has_value()) return failure();
     rewriter.replaceOp(op, tieShapeOp->getOperand(1 + *dimIndex));
     return success();
   }
@@ -692,7 +692,7 @@ class ShapeComputationIRAnalysis {
 
   SymbolicDimOp value2SymbolicDimOp(Value value);
 
-  llvm::Optional<SmallVector<SymbolicDimOp>> rankedTensor2SymDims(Value value);
+  std::optional<SmallVector<SymbolicDimOp>> rankedTensor2SymDims(Value value);
 
  private:
   LogicalResult runOnRegion(Region* region);
@@ -867,8 +867,8 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
       return op->emitError() << "fail to merge dim\n";
     value2DefiningExpr_[out] = value2DefiningExpr_[in];
   } else if (auto dimOp = dyn_cast<tensor::DimOp>(op)) {
-    Optional<int64_t> dimIndex = dimOp.getConstantIndex();
-    if (!dimIndex) return success();
+    std::optional<int64_t> dimIndex = dimOp.getConstantIndex();
+    if (!dimIndex.has_value()) return success();
     value2SymDim_[op->getResult(0)].updateKnownNonNegative(true);
     if (failed(mgr_.mapSymbolicDimEqual(
             value2SymDim_[op->getResult(0)],
@@ -1425,7 +1425,8 @@ ShapeComputationIRAnalysis::getSymbolicDimSSAValueInstance() {
   funcOp_.walk([&](disc_shape::TieShapeOp tieShapeOp) {
     Value rankedValue = tieShapeOp->getOperand(0);
     auto& symbolicDims = rankedTensor2SymDims_[rankedValue];
-    for (auto& en : llvm::enumerate(tieShapeOp->getOperands().drop_front())) {
+    for (const auto& en :
+         llvm::enumerate(tieShapeOp->getOperands().drop_front())) {
       SymbolicDimOp root = mgr_.getRootSymbolicDim(symbolicDims[en.index()]);
       instanceMap[root].push_back(en.value());
     }
@@ -1466,10 +1467,10 @@ SymbolicDimOp ShapeComputationIRAnalysis::value2SymbolicDimOp(Value value) {
   return mgr_.getRootSymbolicDim(it->second);
 }
 
-llvm::Optional<SmallVector<SymbolicDimOp>>
+std::optional<SmallVector<SymbolicDimOp>>
 ShapeComputationIRAnalysis::rankedTensor2SymDims(Value value) {
   auto it = rankedTensor2SymDims_.find(value);
-  if (it == rankedTensor2SymDims_.end()) return llvm::None;
+  if (it == rankedTensor2SymDims_.end()) return std::nullopt;
   SmallVector<SymbolicDimOp> dims;
   for (SymbolicDimOp dim : it->second)
     dims.push_back(mgr_.getRootSymbolicDim(dim));
@@ -1634,9 +1635,9 @@ LogicalResult simplifyAccordingToShapeConstraintInfo(
   return success();
 }
 
-llvm::Optional<SmallVector<llvm::Optional<int64_t>>>
+std::optional<SmallVector<std::optional<int64_t>>>
 getConstantElementsOfShapeTensor(Value v) {
-  SmallVector<llvm::Optional<int64_t>> results;
+  SmallVector<std::optional<int64_t>> results;
 
   // skip TieShapeOp if necessary.
   while (auto definingOp = v.getDefiningOp<disc_shape::TieShapeOp>()) {
@@ -1653,12 +1654,12 @@ getConstantElementsOfShapeTensor(Value v) {
 
   // Not known source of shape tensor
   Operation* definingOp = v.getDefiningOp<tensor::FromElementsOp>();
-  if (!definingOp) return llvm::None;
+  if (!definingOp) return std::nullopt;
 
   for (Value v : definingOp->getOperands()) {
     auto indexOp = v.getDefiningOp<arith::ConstantOp>();
     if (!indexOp) {
-      results.emplace_back(llvm::None);
+      results.emplace_back(std::nullopt);
     } else {
       results.emplace_back(indexOp.getValue().cast<IntegerAttr>().getInt());
     }
@@ -1679,9 +1680,9 @@ LogicalResult injectStaticKnownInfo(ShapeComputationIRAnalysis& analysis,
   auto tryUpdateStaticKnownInfo =
       [&](Value v, std::function<LogicalResult(int, int64_t)> action) {
         auto values = getConstantElementsOfShapeTensor(v);
-        if (!values) return success();
+        if (!values.has_value()) return success();
         for (const auto& en : llvm::enumerate(*values)) {
-          if (!en.value()) continue;
+          if (!en.value().has_value()) continue;
           if (failed(action(en.index(), *en.value()))) return failure();
         }
         return success();
@@ -1695,7 +1696,7 @@ LogicalResult injectStaticKnownInfo(ShapeComputationIRAnalysis& analysis,
     // Check if some axes of the slice are acutally fully selected
     auto inDims = analysis.rankedTensor2SymDims(in);
     auto outDims = analysis.rankedTensor2SymDims(out);
-    if (inDims && outDims) {
+    if (inDims.has_value() && outDims.has_value()) {
       for (const auto& en : llvm::enumerate(llvm::zip(*inDims, *outDims))) {
         if (std::get<0>(en.value()) == std::get<1>(en.value()))
           if (failed(helper.markAsFullySlicedAxis(en.index())))

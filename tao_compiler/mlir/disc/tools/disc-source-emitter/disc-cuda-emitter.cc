@@ -55,7 +55,7 @@ static LogicalResult emitCUDASourceAndAttach(func::FuncOp func) {
 
   mlir::disc_ral::SourceEmitterCUDA source_emitter;
   mlir::disc_ral::SourceEmitterCUDA::ValueNameBinding binding;
-  for (auto argument : llvm::enumerate(func.getArguments())) {
+  for (const auto& argument : llvm::enumerate(func.getArguments())) {
     source_emitter.bindValueNames(
         SmallVector<Value>({argument.value()}),
         SmallVector<std::string>({"arg" + std::to_string(argument.index())}),

@@ -20,57 +20,55 @@
 #include "mlir/Transforms/Passes.h"
 #include "mlir/disc/tools/disc-transform/transforms/PassDetail.h"
 
-#define DEBUG_TYPE "disc-convert-foreach-thread-op-to-parallel-op"
+#define DEBUG_TYPE "disc-convert-forall-op-to-parallel-op"
 
-// This file implements the logic to convert scf.foreach_thread to scf.parallel
+// This file implements the logic to convert scf.forall to scf.parallel
 
 namespace mlir {
 namespace disc_ral {
 namespace {
 
 using func::FuncOp;
-using scf::ForeachThreadOp;
+using scf::ForallOp;
 using scf::ParallelOp;
 
-struct ForeachThreadToParallel : public OpRewritePattern<ForeachThreadOp> {
-  using OpRewritePattern<ForeachThreadOp>::OpRewritePattern;
+struct ForallToParallel : public OpRewritePattern<ForallOp> {
+  using OpRewritePattern<ForallOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ForeachThreadOp foreachThreadOp,
+  LogicalResult matchAndRewrite(ForallOp forallOp,
                                 PatternRewriter& rewriter) const override {
-    if (foreachThreadOp->getNumResults() != 0) return failure();
-    Location loc = foreachThreadOp.getLoc();
-    int64_t rank = foreachThreadOp.getRank();
-    Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
-    Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
-    SmallVector<Value> lowerBounds(rank, zero);
-    SmallVector<Value> upperBounds = foreachThreadOp.getNumThreads();
-    SmallVector<Value> steps(rank, one);
+    if (forallOp->getNumResults() != 0) return failure();
+    Location loc = forallOp.getLoc();
+    int64_t rank = forallOp.getRank();
+    SmallVector<Value> lowerBounds = forallOp.getLowerBound(rewriter);
+    SmallVector<Value> upperBounds = forallOp.getUpperBound(rewriter);
+    SmallVector<Value> steps = forallOp.getStep(rewriter);
 
     auto parallelOp =
         rewriter.create<scf::ParallelOp>(loc, lowerBounds, upperBounds, steps);
     IRMapping mapping;
-    for (const auto& z : llvm::zip(foreachThreadOp.getThreadIndices(),
-                                   parallelOp.getInductionVars()))
+    for (const auto& z :
+         llvm::zip(forallOp.getInductionVars(), parallelOp.getInductionVars()))
       mapping.map(std::get<0>(z), std::get<1>(z));
     rewriter.setInsertionPointToStart(parallelOp.getBody());
-    for (auto& nestedOp : foreachThreadOp.getBody()->without_terminator()) {
+    for (auto& nestedOp : forallOp.getBody()->without_terminator()) {
       rewriter.clone(nestedOp, mapping);
     }
-    rewriter.replaceOp(foreachThreadOp, parallelOp->getResults());
+    rewriter.replaceOp(forallOp, parallelOp->getResults());
     return success();
   }
 };
 
-struct DiscConvertForeachThreadOpToParallelOpPass
-    : public DiscConvertForeachThreadOpToParallelOpPassBase<
-          DiscConvertForeachThreadOpToParallelOpPass> {
+struct DiscConvertForallOpToParallelOpPass
+    : public DiscConvertForallOpToParallelOpPassBase<
+          DiscConvertForallOpToParallelOpPass> {
   void runOnOperation() override;
 };
 
-void DiscConvertForeachThreadOpToParallelOpPass::runOnOperation() {
+void DiscConvertForallOpToParallelOpPass::runOnOperation() {
   MLIRContext* context = &getContext();
   RewritePatternSet patterns(&getContext());
-  patterns.insert<ForeachThreadToParallel>(context);
+  patterns.insert<ForallToParallel>(context);
   if (failed(
           applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
     return signalPassFailure();
@@ -80,8 +78,8 @@ void DiscConvertForeachThreadOpToParallelOpPass::runOnOperation() {
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createDiscConvertForeachThreadOpToParallelOpPass() {
-  return std::make_unique<DiscConvertForeachThreadOpToParallelOpPass>();
+createDiscConvertForallOpToParallelOpPass() {
+  return std::make_unique<DiscConvertForallOpToParallelOpPass>();
 }
 
 }  // namespace disc_ral

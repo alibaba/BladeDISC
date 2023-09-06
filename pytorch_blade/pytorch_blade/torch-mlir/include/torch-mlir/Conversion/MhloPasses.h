@@ -31,6 +31,10 @@
 namespace mlir {
 class ModuleOp;
 
+namespace stablehlo {
+class StablehloDialect;
+}
+
 namespace torch {
 namespace TorchConversion {
 #define GEN_PASS_CLASSES

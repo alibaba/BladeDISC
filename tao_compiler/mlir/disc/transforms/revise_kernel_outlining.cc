@@ -323,7 +323,7 @@ gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
   IRMapping map;
   Region& new_gpu_func_body = new_gpu_func_op.getBody();
   Block& new_gpu_func_entry_block = new_gpu_func_body.front();
-  for (auto operand :
+  for (const auto& operand :
        llvm::enumerate(gpu_func_op.getBody().front().getArguments())) {
     if (operand.index() == memref_idx) {
       continue;
@@ -391,7 +391,7 @@ class ReviseGpuKernelOutliningPass
       auto gpu_func_op = gpu_module.lookupSymbol<gpu::GPUFuncOp>(
           launch_func_op.getKernelName());
       assert(gpu_func_op && "gpu_func_op is empty");
-      for (auto memref : llvm::enumerate(launch_func_op.getOperands())) {
+      for (const auto& memref : llvm::enumerate(launch_func_op.getOperands())) {
         // the associate arg in gpu.FuncOp
         if (memref.index() < gpu::LaunchOp::kNumConfigOperands) {
           continue;

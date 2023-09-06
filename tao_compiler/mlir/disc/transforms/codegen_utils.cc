@@ -287,8 +287,8 @@ std::pair<ParallelOp, ParallelOp> tileParallelLoop(ParallelOp op,
     // Otherwise, we dynamically compute the bound for
     // each iteration of the outer loop.
     newBounds.push_back(
-        b.create<AffineMinOp>(op.getLoc(), b.getIndexType(), minMap,
-                              ValueRange{newStep, upperBound, iv}));
+        b.create<affine::AffineMinOp>(op.getLoc(), b.getIndexType(), minMap,
+                                      ValueRange{newStep, upperBound, iv}));
   }
   auto innerLoop = b.create<ParallelOp>(
       op.getLoc(), SmallVector<Value, 2>(newBounds.size(), zero), newBounds,
@@ -319,8 +319,8 @@ std::pair<ParallelOp, ParallelOp> tileParallelLoop(ParallelOp op,
     ifInbound.getThenRegion().takeBody(op.getLoopBody());
     Block& thenBlock = ifInbound.getThenRegion().front();
     b.setInsertionPointToStart(innerLoop.getBody());
-    for (auto ivs : llvm::enumerate(llvm::zip(innerLoop.getInductionVars(),
-                                              outerLoop.getInductionVars()))) {
+    for (const auto& ivs : llvm::enumerate(llvm::zip(
+             innerLoop.getInductionVars(), outerLoop.getInductionVars()))) {
       arith::AddIOp newIndex = b.create<arith::AddIOp>(
           op.getLoc(), std::get<0>(ivs.value()), std::get<1>(ivs.value()));
       thenBlock.getArgument(ivs.index())

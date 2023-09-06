@@ -10,9 +10,10 @@
 // limitations under the License.
 
 #include "torch-mlir/Conversion/MhloPasses.h"
+#include "mhlo/transforms/passes.h" // from @mlir-hlo
 #include "torch-mlir/Conversion/TorchToArith/TorchToArith.h"
-#include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Conversion/TorchToSCF/TorchToSCF.h"
+#include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 #include "utils/env.h"
@@ -74,9 +75,12 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
 
   // Do mhlo lowering
   pm.addNestedPass<func::FuncOp>(createDiscConvertTorchToMhloPass());
-  pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass(
+  pm.addNestedPass<func::FuncOp>(createConvertTorchToStablehloPass(
       /*enableStaticShape*/ false, /*enableI32Index*/ true));
   pm.addNestedPass<func::FuncOp>(createDiscConvertTorchToDiscMhlo());
+  // Convert back to mhlo. Will remove after migrating mhlo to stablehlo in DISC
+  // backend.
+  pm.addPass(mhlo::createStablehloLegalizeToHloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToArithPass());
 
@@ -95,7 +99,8 @@ void mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(
     OpPassManager& pm,
     const TorchLoweringPipelineOptions& options) {
   // Reduce variants of ops to a smaller set of primitives.
-  pm.addNestedPass<func::FuncOp>(createReduceOpVariantsPass());
+  pm.addNestedPass<func::FuncOp>(
+      createReduceOpVariantsPass(options.extraLibrary));
 
   //===--------------------------------------------------------------------===//
   // Lowering to ranked !torch.vtensors of known dtype.

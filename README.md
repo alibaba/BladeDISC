@@ -24,7 +24,7 @@
 
 ## What's New
 
-+ [🔥 2023.03.17] BladeDISC v0.4.0: [Messive performance and feature updates](https://github.com/alibaba/BladeDISC/releases/tag/v0.4.0)
++ [🔥 2023.03.17] BladeDISC v0.4.0: [Massive performance and feature updates](https://github.com/alibaba/BladeDISC/releases/tag/v0.4.0)
 + [2022.12.08] BladeDISC v0.3.0:
  [Announce PyTorch 2.0 Compilation Support](https://github.com/alibaba/BladeDISC/releases/tag/v0.3.0)
 
@@ -33,13 +33,13 @@
 BladeDISC is an end-to-end **DynamIc Shape Compiler** project for machine
 learning workloads, which is one of the key components of Alibaba's
 [PAI-Blade](https://www.aliyun.com/activity/bigdata/blade). BladeDISC provides
-general, transparent, and ease of use performance optimization for
+general, transparent, and ease-of-use performance optimization for
 TensorFlow/PyTorch workloads on GPGPU and CPU backends. The architecture
 natively supports dynamic shape workloads, with many considerations in the
 performance of both static and dynamic shape scenarios. It also supports
 multiple and flexible deployment solutions, including both Plugin Mode inside
 TensorFlow/PyTorch runtime, and Standalone Mode for AOT standalone execution.
-The project is based on [MLIR](https://mlir.llvm.org/) and highly related with
+The project is based on [MLIR](https://mlir.llvm.org/) and highly related to
 [mlir-hlo](https://github.com/tensorflow/mlir-hlo) project.
 
 Refer to [our website](https://alibaba.github.io/BladeDISC/) for more
@@ -56,7 +56,7 @@ documents for developers.
 |  Training |    Yes [3]     |  Ongoing     |
 
 [1] TensorFlow 1.12, 1.15, 2.4 & 2.5 are supported and fully verified. For other
-versions some slight works on adaptation might be needed.
+versions, some slight work on adaptation might be needed.
 
 [2] PyTorch version >= 1.6.0 has been fully verified.
 
@@ -73,7 +73,7 @@ training workloads.
 |  X86       |    Yes        |
 | AArch64    |    Yes        |
 
-[1] Support for CUDA below 11.0 have been deprecated officially since Aug, 2022.
+[1] Support for CUDA below 11.0 has been deprecated officially since Aug 2022.
 
 #### Deployment Solutions
 
@@ -83,46 +83,43 @@ training workloads.
   to most of the users for its transparency and ease of use.
 
 * Standalone Mode - In Standalone mode, the input workload will be compiled into
-  a binary that can be executed by it self, aka, does not rely on a TensorFlow
-  or PyTorch runtime. In this mode all ops must be supported.
+  a binary that can be executed by itself, aka, does not rely on a TensorFlow
+  or PyTorch runtime. In this mode, all ops must be supported.
 
 ### Numbers of Typical Workloads
 
 By evaluating BladeDISC using a set of typical machine learning workloads for
-production purpose, BladeDISC shows up to 8.66x speedup compared with
-TensorFlow/PyTorch. Moreover, compared to static optimizing compilers (i.e.,
-XLA and TensorRT), DISC shows comparable or even better performance.
+production purposes, BladeDISC shows up to 6.95x speedup compared with
+PyTorch. Moreover, compared to static optimizing compilers (i.e.,
+XLA and TensorRT), BladeDISC shows comparable or even better performance.
 
 <figure align="center">
-<img src="./docs/pics/numbers.png" style="width:60%">
+<img src="./docs/pics/numbers.png" style="width:80%">
 <figcaption align = "center">
 <b>
-Fig.1 Performance speedup over framework.
-<i>Framework</i> means either TensorFlow or PyTorch.
-<i>FastSpeech2</i> is TensorFlow model and others are PyTorch models.
-The <i>static compiler</i> for TensorFlow is XLA and that for PyTorch is TensorRT.
-Note that <i>S2T</i> and <i>T5</i> have no TensorRT performance due to wrong result.
+Fig.1 End-to-end Performance of BladeDISC and baselines.
+Note that some baselines fail to optimize ViT model.
 </b>
 </figcaption>
 </figure>
 
 #### Advantage in Dynamic Shape Workloads
 
-Specifically, for the BERT large inference on T4 we provide in the
+Specifically, for the BERT large inference on T4 GPU, we provide in the
 [examples](./docs/tutorials/tensorflow_inference_and_training.md), static compiler
 optimization (XLA) shows severe performance degradation due to its compilation
-overhead, while DISC shows a 1.75x speedup.
+overhead, while BladeDISC shows a 1.75x speedup.
 
-| TensorFlow  |    XLA    |    DISC    |
-|-------------|-----------|------------|
-|   1.78 s    |   41.69s  |    1.02s   |
-|   1X        |           |    1.75X   |
+| TensorFlow  |    XLA    |  BladeDISC  |
+|-------------|-----------|-------------|
+|   1.78 s    |   41.69s  |    1.02s    |
+|   1X        |           |    1.75X    |
 
 ## API QuickView
 
 ### For TensorFlow Users
 
-Only two lines of code are needed on native Tensorflow program as the following:
+Only two lines of code are needed on native TensorFlow program as the following:
 
 ``` python
 import numpy as np
@@ -176,13 +173,17 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 
 ## Publications
 
-* [DISC: A Dynamic Shape Compiler for Machine Learning
-  Workloads](https://arxiv.org/pdf/2103.05288.pdf)
+* Zhen Zheng, Zaifeng Pan, Dalin Wang, Kai Zhu, Wenyi Zhao, Tianyou Guo, Xiafei Qiu, Minmin Sun, Junjie Bai, Feng Zhang, Xiaoyong Du, Jidong Zhai, Wei Lin.
+BladeDISC: Optimizing Dynamic Shape Machine Learning Workloads via Compiler Approach. (SIGMOD'24)
+
+* Zhen Zheng, Xuanda Yang, Pengzhan Zhao, Guoping Long, Kai Zhu, Feiwen Zhu, Wenyi Zhao, Xiaoyong Liu, Jun Yang, Jidong Zhai, Shuaiwen Leon Song, Wei Lin. 
+[AStitch: Enabling a New Multi-dimensional Optimization Space for Memory-Intensive ML Training and Inference on Modern SIMT Architectures](./docs/papers/asplos-22-zhenzheng.pdf). (ASPLOS'22)
+
 
 ## Tutorials and Documents for Developers
 
-* [Tutorial: A Walkthough of the BladeDISC Pass Pipeline](./docs/developers/pass_pipeline.md)
-* [Introduction on Runtime Abstraction Layer](./docs/developers/runtime_abstraction_layer.md)
+* [Tutorial: A Walkthrough of the BladeDISC Pass Pipeline](./docs/developers/pass_pipeline.md)
+* [Introduction to Runtime Abstraction Layer](./docs/developers/runtime_abstraction_layer.md)
 * [TorchBlade Overview](./docs/developers/bladedisc_torch_overview.md)
 * [Tutorial: How to Add a New Torch Operator](./docs/developers/torch_add_a_new_operator.md)
 
@@ -203,15 +204,17 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 
 | Framework | Device| Status |
 | -- | -- | -- |
-| PyTorch1.6.0 | CPU | [![pytorch160_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml) |
-| PyTorch1.7.1 | GPU |  [![pytorch171_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml) |
-| PyTorch1.8.1 | CPU | [![pytorch181_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml) |
-| PyTorch1.9.0 | GPU | [![pytorch1.9.0_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch190_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch190_gpu.yml) |
-| PyTorch1.12.0 | GPU | [![pytorch112_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml) |
-| PyTorch1.10.0 | AArch64 |  [![pytorch110_aarch64](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml) |
-| TensorFlow1.15 | CPU| [![tf115_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml) |
-| TensorFlow2.4 | GPU | [![tf24_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf24_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf24_gpu.yml) |
-| TensorFlow2.8 | AArch64 | [![tf280_aarch64](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_aarch64.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_aarch64.yml) |
+| PyTorch Pre | GPU | [![pytorch_pre_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch_pre_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch_pre_gpu.yml) |
+| PyTorch Pre | CPU | [![pytorch_pre_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch_pre_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch_pre_cpu.yml) |
+| PyTorch2.0.0 | GPU | [![pytorch200_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_gpu.yml) |
+| PyTorch2.0.0 | CPU | [![pytorch200_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_cpu.yml) |
+| PyTorch2.0.0 | Yitian | [![pytorch200_yitian](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_yitian.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch200_yitian.yml) |
+| PyTorch1.13.0 | GPU | [![pytorch113_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_gpu.yml) |
+| PyTorch1.13.0 | CPU | [![pytorch113_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_cpu.yml) |
+| PyTorch1.13.0 | Yitian | [![pytorch113_yitian](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_yitian.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch113_yitian.yml) |
+| TensorFlow2.5 | GPU | [![tf250_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf250_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf250_gpu.yml) |
+| TensorFlow2.5 | CPU | [![tf250_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf250_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf250_cpu.yml) |
+| TensorFlow2.8 | Yitian | [![tf280_yitian](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_yitian.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_yitian.yml) |
 
 ## FAQ
 

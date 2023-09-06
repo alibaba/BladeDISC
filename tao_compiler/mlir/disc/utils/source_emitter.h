@@ -12,6 +12,7 @@
 #ifndef MLIR_DISC_UTILS_SOURCE_EMITTER
 #define MLIR_DISC_UTILS_SOURCE_EMITTER
 
+#include <optional>
 #include <string>
 
 #include "lhlo/IR/lhlo_ops.h"
@@ -29,27 +30,27 @@ class SourceEmitterCUDA {
   static bool isBroadcastOnScalarOrSplatConstant(Operation* op);
   static bool isSupportedOp(Operation* op);
 
-  llvm::Optional<std::string> EmitOp(Operation* op, ValueNameBinding& binding);
+  std::optional<std::string> EmitOp(Operation* op, ValueNameBinding& binding);
 
-  llvm::Optional<std::string> EmitElemWiseUnaryOp(Operation* op,
+  std::optional<std::string> EmitElemWiseUnaryOp(Operation* op,
+                                                 ValueNameBinding& binding);
+
+  std::optional<std::string> EmitElemWiseBinaryOp(Operation* op,
                                                   ValueNameBinding& binding);
 
-  llvm::Optional<std::string> EmitElemWiseBinaryOp(Operation* op,
+  std::optional<std::string> EmitElemWiseTernaryOp(Operation* op,
                                                    ValueNameBinding& binding);
 
-  llvm::Optional<std::string> EmitElemWiseTernaryOp(Operation* op,
-                                                    ValueNameBinding& binding);
-
-  llvm::Optional<std::string> EmitScalarOrSplatConstantOp(
+  std::optional<std::string> EmitScalarOrSplatConstantOp(
       Operation* op, ValueNameBinding& binding);
 
-  llvm::Optional<std::string> EmitBroadcastOfScalarOrSplatConstantOp(
+  std::optional<std::string> EmitBroadcastOfScalarOrSplatConstantOp(
       Operation* op, ValueNameBinding& binding);
 
-  llvm::Optional<std::string> EmitDynamicReshapeOp(Operation* op,
-                                                   ValueNameBinding& binding);
-  llvm::Optional<std::string> EmitTransposeOp(Operation* op,
-                                              ValueNameBinding& binding);
+  std::optional<std::string> EmitDynamicReshapeOp(Operation* op,
+                                                  ValueNameBinding& binding);
+  std::optional<std::string> EmitTransposeOp(Operation* op,
+                                             ValueNameBinding& binding);
 
   void bindValueNames(const SmallVectorImpl<Value>& inputs,
                       const SmallVectorImpl<std::string>& names,
@@ -60,7 +61,7 @@ class SourceEmitterCUDA {
 
  private:
   std::string EmitUniqueName(llvm::StringRef op_str);
-  llvm::Optional<std::string> EmitScalarOrSplatConstantExpression(
+  std::optional<std::string> EmitScalarOrSplatConstantExpression(
       lmhlo::ConstantOp constant);
 };
 

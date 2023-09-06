@@ -110,8 +110,7 @@ class AtomicRMWOpRewrite : public OpRewritePattern<LLVM::AtomicRMWOp> {
                                 PatternRewriter& rewriter) const override {
     if (atomicOp.getOrdering() == LLVM::AtomicOrdering::acq_rel) {
       rewriter.replaceOpWithNewOp<LLVM::AtomicRMWOp>(
-          atomicOp, atomicOp.getRes().getType(), atomicOp.getBinOp(),
-          atomicOp.getPtr(), atomicOp.getVal(),
+          atomicOp, atomicOp.getBinOp(), atomicOp.getPtr(), atomicOp.getVal(),
           LLVM::AtomicOrdering::monotonic);
     }
     return success();

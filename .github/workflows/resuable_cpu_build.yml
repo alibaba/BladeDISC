@@ -18,7 +18,7 @@ on:
       develop_base_image:
         required: false
         type: string
-        default: "nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04"
+        default: "nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04"
       remote_runtime_docker:
         required: false
         type: string

@@ -1,9 +1,9 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-transform-dialect-interpreter -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s
 
 
-// CHECK-LABEL: @foreach_thread_to_gpu_ctas
+// CHECK-LABEL: @forall_to_gpu_ctas
 // CHECK-SAME: (%[[arg0:.*]]: memref<2x2xf16>)
-func.func @foreach_thread_to_gpu_ctas(%arg0: memref<2x2xf16>) -> memref<2x2xf16> {
+func.func @forall_to_gpu_ctas(%arg0: memref<2x2xf16>) -> memref<2x2xf16> {
   // CHECK-DAG: %[[c4:.*]] = arith.constant 4 : index
   // CHECK-DAG: %[[c2:.*]] = arith.constant 2 : index
   // CHECK-DAG: %[[c0:.*]] = arith.constant 0 : index
@@ -18,14 +18,14 @@ func.func @foreach_thread_to_gpu_ctas(%arg0: memref<2x2xf16>) -> memref<2x2xf16>
   // CHECK: return %[[arg0]] : memref<2x2xf16>
   %cst = arith.constant 0.0e+00 : f16
   %c2 = arith.constant 2 : index
-  scf.foreach_thread (%arg1, %arg2) in (%c2, %c2) {
+  scf.forall (%arg1, %arg2) in (%c2, %c2) {
     memref.store %cst, %arg0[%arg1, %arg2] : memref<2x2xf16>
   } {mapping = [#gpu.block<x>, #gpu.block<y>]}
   return %arg0 : memref<2x2xf16>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %foreach = transform.structured.match ops{["scf.foreach_thread"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %result = transform.disc.foreach_thread_to_gpu_ctas %foreach : (!pdl.operation) -> (!pdl.operation)
+transform.sequence failures(propagate) {
+^bb1(%arg1: !transform.any_op):
+  %foreach = transform.structured.match ops{["scf.forall"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %result = transform.disc.forall_to_gpu_ctas %foreach : (!transform.any_op) -> (!transform.any_op)
 }

@@ -1,4 +1,4 @@
-// RUN: disc-opt %s -disc-shape-simplifier='insert-tie-shape=true' | FileCheck %s
+// RUN: disc-opt -split-input-file %s -disc-shape-simplifier='insert-tie-shape=true' | FileCheck %s
 
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?x?x?xf32>, %[[ARG1:.*]]: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xi1>

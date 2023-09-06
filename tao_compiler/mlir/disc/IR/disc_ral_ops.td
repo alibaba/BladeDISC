@@ -23,7 +23,6 @@ include "mlir/IR/OpBase.td"
 def RAL_Dialect : Dialect {
   let name = "disc_ral";
   let cppNamespace = "::mlir::disc_ral";
-  let useFoldAPI = kEmitFoldAdaptorFolder;
 }
 
 class RAL_Op<string mnemonic, list<Trait> traits> :

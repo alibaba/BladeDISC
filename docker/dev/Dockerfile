@@ -1,10 +1,10 @@
-ARG BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
+ARG BASEIMAGE=nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
 FROM ${BASEIMAGE}
 
 ARG DISC_HOST_TF_VERSION=""
 ENV DISC_HOST_TF_VERSION="${DISC_HOST_TF_VERSION}"
 
-ARG PYTHON_VERSION=PYTHON3.6
+ARG PYTHON_VERSION=PYTHON3.8
 ENV PYTHON_VERSION=${PYTHON_VERSION}
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -21,7 +21,7 @@ RUN bash /install/scripts/install-cmake.sh
 RUN bash /install/scripts/install-bazel.sh
 RUN bash /install/scripts/install-python.sh
 
-ARG DEVICE=cu110
+ARG DEVICE=cu113
 RUN bash /install/scripts/install-tensorrt.sh
 RUN bash /install/scripts/install-cudnn.sh
 

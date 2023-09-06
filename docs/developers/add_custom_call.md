@@ -50,7 +50,7 @@ for (Value operand : op.getOperands()) {
       newOperands.push_back(operand);
 }
 rewriter.replaceOpWithNewOp<DispatchOp>(op,
-      llvm::None,
+      {},
       ctx, /*Ral Execution Context*/,
       newOperands, /*Arguments*/
       "ral_gpu_transpose_2d", /*registry op name*/

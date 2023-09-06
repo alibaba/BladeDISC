@@ -18,6 +18,7 @@
 #include "mlir/IR/Dominance.h"
 #include "mlir/disc/transforms/fusion_utils.h"
 #include "mlir/disc/transforms/lhlo_elemental_utils.h"
+#include "mlir/disc/transforms/placement_utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -78,10 +79,13 @@ class InputInlineFusionPattern : public RewritePattern {
 
   LogicalResult matchAndRewrite(Operation* op,
                                 PatternRewriter& rewriter) const override {
-    if (isFusionType<FusionType::kStitch>(op) && !isOnGpu(op)) return failure();
+    if (isFusionType<FusionType::kStitch>(op) &&
+        !placement_utils::isGpuLmhlo(op))
+      return failure();
     // When we pass lower_config, we only process kStitch fusion on GPU.
     if (lower_config_ != nullptr) {
-      if (!isOnGpu(op) || !isFusionType<FusionType::kStitch>(op)) {
+      if (!placement_utils::isGpuLmhlo(op) ||
+          !isFusionType<FusionType::kStitch>(op)) {
         return failure();
       }
     }

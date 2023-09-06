@@ -1,2 +1,2 @@
 -r requirement-common.txt
-tensorflow-gpu==2.4.0
+tensorflow==2.5.0

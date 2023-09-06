@@ -16,24 +16,24 @@ func.func @mean_stitch_fusion(%arg0: !disc_ral.context) attributes {tf.entry_fun
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
   %c0 = arith.constant 0 : index
-  %1 = "disc_ral.dispatch"(%arg0, %c0) {backend_config = "cpu", call_target_name = "ral_recv_input", has_side_effect = false} : (!disc_ral.context, index) -> memref<?x?x?xf32, "gpu">
-  %2 = memref.dim %1, %c2 : memref<?x?x?xf32, "gpu">
-  %3 = memref.dim %1, %c0 : memref<?x?x?xf32, "gpu">
-  %4 = memref.dim %1, %c1 : memref<?x?x?xf32, "gpu">
+  %1 = "disc_ral.dispatch"(%arg0, %c0) {backend_config = "cpu", call_target_name = "ral_recv_input", has_side_effect = false} : (!disc_ral.context, index) -> memref<?x?x?xf32, #gpu.address_space<global>>
+  %2 = memref.dim %1, %c2 : memref<?x?x?xf32, #gpu.address_space<global>>
+  %3 = memref.dim %1, %c0 : memref<?x?x?xf32, #gpu.address_space<global>>
+  %4 = memref.dim %1, %c1 : memref<?x?x?xf32, #gpu.address_space<global>>
   %6 = arith.muli %2, %4 : index
-  %7 = memref.reinterpret_cast %1 to offset: [0], sizes: [%3, %4, %2], strides: [%6, %2, 1] {kDiscSymbolicDimAttr = [@S0, @S1, @S2]} : memref<?x?x?xf32, "gpu"> to memref<?x?x?xf32, "gpu">
+  %7 = memref.reinterpret_cast %1 to offset: [0], sizes: [%3, %4, %2], strides: [%6, %2, 1] {kDiscSymbolicDimAttr = [@S0, @S1, @S2]} : memref<?x?x?xf32, #gpu.address_space<global>> to memref<?x?x?xf32, #gpu.address_space<global>>
   %9 = arith.index_cast %3 : index to i32
   %10 = arith.index_cast %4 : index to i32
   %11 = arith.muli %9, %10 : i32
   %13 = arith.index_cast %11 : i32 to index
   %18 = arith.index_cast %2 : index to i64
-  %19 = memref.alloca() : memref<i64, "cpu">
-  memref.store %18, %19[] : memref<i64, "cpu">
-  %20 = memref.alloc() : memref<i64, "gpu">
+  %19 = memref.alloca() : memref<i64>
+  memref.store %18, %19[] : memref<i64>
+  %20 = memref.alloc() : memref<i64, #gpu.address_space<global>>
   %21 = llvm.inttoptr %0 : i32 to !llvm.ptr<i8>
-  "disc_ral.dispatch"(%arg0, %21, %19, %20) {backend_config = "gpu", call_target_name = "h2d", has_side_effect = false} : (!disc_ral.context, !llvm.ptr<i8>, memref<i64, "cpu">, memref<i64, "gpu">) -> ()
+  "disc_ral.dispatch"(%arg0, %21, %19, %20) {backend_config = "gpu", call_target_name = "h2d", has_side_effect = false} : (!disc_ral.context, !llvm.ptr<i8>, memref<i64>, memref<i64, #gpu.address_space<global>>) -> ()
   "disc_ral.dispatch"(%arg0, %21) {backend_config = "gpu", call_target_name = "sync_on_stream", has_side_effect = false} : (!disc_ral.context, !llvm.ptr<i8>) -> ()
-  %25 = memref.alloc(%3, %4) {kDiscSymbolicDimAttr = [@S0, @S1]} : memref<?x?xf32, "gpu">
+  %25 = memref.alloc(%3, %4) {kDiscSymbolicDimAttr = [@S0, @S1]} : memref<?x?xf32, #gpu.address_space<global>>
   "lmhlo.fusion"() ({
     scf.parallel (%arg1, %arg2) = (%c0, %c0) to (%13, %c256) step (%c1, %c1) {
       %31 = memref.alloc() : memref<1xf32, 3>
@@ -47,7 +47,7 @@ func.func @mean_stitch_fusion(%arg0: !disc_ral.context) attributes {tf.entry_fun
       %35 = scf.for %arg3 = %arg2 to %2 step %c256 iter_args(%arg4 = %cst) -> (f32) {
         %44 = "disc_shape.linearize"(%arg1, %arg3, %13, %2) {operand_segment_sizes = array<i32: 2, 2>} : (index, index, index, index) -> index
         %45:3 = "disc_shape.delinearize"(%44, %3, %4, %2) : (index, index, index, index) -> (index, index, index)
-        %46 = memref.load %7[%45#0, %45#1, %45#2] : memref<?x?x?xf32, "gpu">
+        %46 = memref.load %7[%45#0, %45#1, %45#2] : memref<?x?x?xf32, #gpu.address_space<global>>
         %47 = arith.addf %arg4, %46 : f32
         scf.yield %47 : f32
       }
@@ -99,20 +99,20 @@ func.func @mean_stitch_fusion(%arg0: !disc_ral.context) attributes {tf.entry_fun
       scf.for %arg3 = %arg2 to %c1 step %c256 {
         %44 = arith.addi %arg1, %arg3 : index
         %45 = arith.muli %3, %4 : index
-        %46 = memref.reinterpret_cast %25 to offset: [%c0], sizes: [%45], strides: [%c1] : memref<?x?xf32, "gpu"> to memref<?xf32, "gpu">
-        memref.assume_alignment %46, 4 : memref<?xf32, "gpu">
+        %46 = memref.reinterpret_cast %25 to offset: [%c0], sizes: [%45], strides: [%c1] : memref<?x?xf32, #gpu.address_space<global>> to memref<?xf32, #gpu.address_space<global>>
+        memref.assume_alignment %46, 4 : memref<?xf32, #gpu.address_space<global>>
         %47 = memref.load %31[%c0] : memref<1xf32, 3>
-        %48 = memref.load %20[] : memref<i64, "gpu">
+        %48 = memref.load %20[] : memref<i64, #gpu.address_space<global>>
         %49 = arith.sitofp %48 : i64 to f32
         %50 = arith.divf %47, %49 : f32
-        memref.store %50, %46[%44] : memref<?xf32, "gpu">
+        memref.store %50, %46[%44] : memref<?xf32, #gpu.address_space<global>>
       }
       scf.yield
     }
     "lmhlo.terminator"() : () -> ()
   }) {disc.device = "gpu", disc.fusion.name = "main_kStitch_divide__7_1_0", disc.fusion.tag = "1b1rX_vectile2X_no_vectile", disc.fusion_type = "kStitch", disc_row_reduction_schedule_hint = 1 : i32, disc_thread_per_block_hint = 256 : i32, disc_vectorize_or_tile_hint = 1 : i32} : () -> ()
-  memref.dealloc %20 : memref<i64, "gpu">
-  "disc_ral.dispatch"(%arg0, %c0, %25) {backend_config = "cpu", call_target_name = "ral_send_output", has_side_effect = false} : (!disc_ral.context, index, memref<?x?xf32, "gpu">) -> ()
+  memref.dealloc %20 : memref<i64, #gpu.address_space<global>>
+  "disc_ral.dispatch"(%arg0, %c0, %25) {backend_config = "cpu", call_target_name = "ral_send_output", has_side_effect = false} : (!disc_ral.context, index, memref<?x?xf32, #gpu.address_space<global>>) -> ()
   return
 }
 
@@ -122,21 +122,21 @@ func.func @sigmoid_grad(%arg0: !disc_ral.context) attributes {tf.entry_function 
   %c4 = arith.constant 4 : index
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
-  %0 = "disc_ral.dispatch"(%arg0, %c0) {backend_config = "cpu", call_target_name = "ral_recv_input", has_side_effect = false} : (!disc_ral.context, index) -> memref<?x?xf32, "gpu">
-  %1 = "disc_ral.dispatch"(%arg0, %c1) {backend_config = "cpu", call_target_name = "ral_recv_input", has_side_effect = false} : (!disc_ral.context, index) -> memref<?x?xf32, "gpu">
-  %2 = memref.dim %1, %c0 : memref<?x?xf32, "gpu">
-  %3 = memref.dim %0, %c0 : memref<?x?xf32, "gpu">
-  %4 = memref.dim %1, %c1 : memref<?x?xf32, "gpu">
-  %5 = memref.dim %0, %c1 : memref<?x?xf32, "gpu">
+  %0 = "disc_ral.dispatch"(%arg0, %c0) {backend_config = "cpu", call_target_name = "ral_recv_input", has_side_effect = false} : (!disc_ral.context, index) -> memref<?x?xf32, #gpu.address_space<global>>
+  %1 = "disc_ral.dispatch"(%arg0, %c1) {backend_config = "cpu", call_target_name = "ral_recv_input", has_side_effect = false} : (!disc_ral.context, index) -> memref<?x?xf32, #gpu.address_space<global>>
+  %2 = memref.dim %1, %c0 : memref<?x?xf32, #gpu.address_space<global>>
+  %3 = memref.dim %0, %c0 : memref<?x?xf32, #gpu.address_space<global>>
+  %4 = memref.dim %1, %c1 : memref<?x?xf32, #gpu.address_space<global>>
+  %5 = memref.dim %0, %c1 : memref<?x?xf32, #gpu.address_space<global>>
   %6 = arith.cmpi eq, %3, %c1 : index
   %7 = arith.select %6, %2, %3 : index
   %8 = arith.cmpi eq, %5, %c1 : index
   %9 = arith.select %8, %4, %5 : index
   %10 = arith.select %6, %7, %3 : index
   %11 = arith.select %8, %9, %5 : index
-  %12 = memref.alloc(%10, %11) : memref<?x?xf32, "gpu">
-  %13 = memref.reinterpret_cast %1 to offset: [0], sizes: [%3, %5], strides: [%5, 1] : memref<?x?xf32, "gpu"> to memref<?x?xf32, "gpu">
-  %14 = memref.reinterpret_cast %0 to offset: [0], sizes: [%3, %5], strides: [%5, 1] : memref<?x?xf32, "gpu"> to memref<?x?xf32, "gpu">
+  %12 = memref.alloc(%10, %11) : memref<?x?xf32, #gpu.address_space<global>>
+  %13 = memref.reinterpret_cast %1 to offset: [0], sizes: [%3, %5], strides: [%5, 1] : memref<?x?xf32, #gpu.address_space<global>> to memref<?x?xf32, #gpu.address_space<global>>
+  %14 = memref.reinterpret_cast %0 to offset: [0], sizes: [%3, %5], strides: [%5, 1] : memref<?x?xf32, #gpu.address_space<global>> to memref<?x?xf32, #gpu.address_space<global>>
   // CHECK: %[[T13:.*]] = memref.reinterpret_cast
   // CHECK: %[[T14:.*]] = memref.reinterpret_cast
   "lmhlo.fusion"() ({
@@ -147,15 +147,15 @@ func.func @sigmoid_grad(%arg0: !disc_ral.context) attributes {tf.entry_function 
         %17 = arith.muli %arg1, %c4 : index
         %18 = arith.addi %17, %arg2 : index
         %19 = arith.muli %3, %5 : index
-        %20 = memref.reinterpret_cast %12 to offset: [%c0], sizes: [%19], strides: [%c1] : memref<?x?xf32, "gpu"> to memref<?xf32, "gpu">
+        %20 = memref.reinterpret_cast %12 to offset: [%c0], sizes: [%19], strides: [%c1] : memref<?x?xf32, #gpu.address_space<global>> to memref<?xf32, #gpu.address_space<global>>
         %21:2 = "disc_shape.delinearize"(%18, %3, %5) : (index, index, index) -> (index, index)
-        %22 = memref.load %13[%21#0, %21#1] : memref<?x?xf32, "gpu">
-        %23 = memref.load %14[%21#0, %21#1] : memref<?x?xf32, "gpu">
+        %22 = memref.load %13[%21#0, %21#1] : memref<?x?xf32, #gpu.address_space<global>>
+        %23 = memref.load %14[%21#0, %21#1] : memref<?x?xf32, #gpu.address_space<global>>
         %24 = arith.mulf %22, %23 : f32
-        %25 = memref.load %14[%21#0, %21#1] : memref<?x?xf32, "gpu">
+        %25 = memref.load %14[%21#0, %21#1] : memref<?x?xf32, #gpu.address_space<global>>
         %26 = arith.subf %cst, %25 : f32
         %27 = arith.mulf %24, %26 : f32
-        memref.store %27, %20[%18] : memref<?xf32, "gpu">
+        memref.store %27, %20[%18] : memref<?xf32, #gpu.address_space<global>>
       }
       scf.yield
     }
@@ -170,6 +170,6 @@ func.func @sigmoid_grad(%arg0: !disc_ral.context) attributes {tf.entry_function 
     // CHECK-COUNT-4: memref.store
     "lmhlo.terminator"() : () -> ()
   }) {disc.device = "gpu", disc.fusion.name = "main_kLoop_multiply__9_1_0", disc.fusion.tag = "no_ibXVec4", disc.fusion_type = "kLoop", disc_vectorize_or_tile_hint = 4 : i32} : () -> ()
-  "disc_ral.dispatch"(%arg0, %c0, %12) {backend_config = "cpu", call_target_name = "ral_send_output", has_side_effect = false} : (!disc_ral.context, index, memref<?x?xf32, "gpu">) -> ()
+  "disc_ral.dispatch"(%arg0, %c0, %12) {backend_config = "cpu", call_target_name = "ral_send_output", has_side_effect = false} : (!disc_ral.context, index, memref<?x?xf32, #gpu.address_space<global>>) -> ()
   return
 }

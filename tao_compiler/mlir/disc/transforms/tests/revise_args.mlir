@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-tf-revise-args-for-static-rank %s | FileCheck %s
+// RUN: disc-opt -split-input-file -disc-tf-revise-args-for-static-rank %s | FileCheck %s
 
 func.func @main(%arg0: tensor<?xf32>, %arg1: tensor<f32>, %arg2: tensor<1x2xi64>) -> tensor<?xf32> 
     attributes {tf.entry_function = {input_placements = "cpu,const,cpu",

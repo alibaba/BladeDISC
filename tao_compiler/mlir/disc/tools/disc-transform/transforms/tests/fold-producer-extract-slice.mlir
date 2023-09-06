@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-transform-dialect-interpreter -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-transform-dialect-interpreter -canonicalize -cse -split-input-file %s | FileCheck %s
 
 // CHECK-LABEL: @fold_extracted_slice
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: index, %[[ARG2:.*]]: index, %[[ARG3:.*]]: index, %[[ARG4:.*]]: index)
@@ -19,11 +19,12 @@ func.func @fold_extracted_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: ind
   return %2 : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %slice = get_producer_of_operand %fill[1] : (!pdl.operation) -> !pdl.operation
+transform.sequence failures(propagate) {
+^bb1(%arg1: !transform.any_op):
+  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %slice = get_producer_of_operand %fill[1] : (!transform.any_op) -> !transform.any_op
   transform.disc.fold_producer_extract_slice %slice {max_repeat_num = 1}
+    : (!transform.any_op) -> !transform.any_op
 }
 
 // -----
@@ -49,9 +50,10 @@ func.func @fold_two_extracted_slice(%arg0: tensor<?x?xf32>, %arg1: index, %arg2:
   return %3 : tensor<?x?xf32>
 }
 
-transform.structured.canonicalized_sequence failures(propagate) {
-^bb1(%arg1: !pdl.operation):
-  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-  %slice = get_producer_of_operand %fill[1] : (!pdl.operation) -> !pdl.operation
+transform.sequence failures(propagate) {
+^bb1(%arg1: !transform.any_op):
+  %fill = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  %slice = get_producer_of_operand %fill[1] : (!transform.any_op) -> !transform.any_op
   transform.disc.fold_producer_extract_slice %slice {max_repeat_num = 2}
+    : (!transform.any_op) -> !transform.any_op
 }

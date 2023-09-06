@@ -95,7 +95,7 @@ struct RalInjectExecutionContextPass
     Value ctx = entry_block->insertArgument(0u, ctx_type, loc);
 
     // 2. remap original arguments to recv_input ops
-    for (auto&& en : llvm::enumerate(
+    for (const auto&& en : llvm::enumerate(
              llvm::zip(funcType.getInputs(),
                        entry_block->getArguments().drop_front(1)))) {
       Value idx = b.create<arith::ConstantIndexOp>(loc, en.index());
@@ -111,7 +111,7 @@ struct RalInjectExecutionContextPass
       Operation& operation = block.back();
       if (!operation.hasTrait<OpTrait::ReturnLike>()) continue;
       b.setInsertionPoint(&operation);
-      for (auto& en : llvm::enumerate(operation.getOperands())) {
+      for (const auto& en : llvm::enumerate(operation.getOperands())) {
         Value idx = b.create<arith::ConstantIndexOp>(loc, en.index());
         b.create<SendOutputOp>(loc, ctx, idx, en.value());
       }

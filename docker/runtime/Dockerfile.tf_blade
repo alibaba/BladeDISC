@@ -1,4 +1,4 @@
-ARG BASEIMAGE=nvidia/cuda:11.0.3-cudnn8-devel-ubuntu18.04
+ARG BASEIMAGE=nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
 FROM ${BASEIMAGE}
 
 ADD ./docker/scripts /install/scripts
@@ -12,6 +12,6 @@ ADD ./build/${TF_BLADE_WHEEL}  /install/python/
 
 RUN apt-get install -y python3 python3-pip \
     && pip3 install --upgrade pip \
-    && ln -s /usr/bin/python3.6 /usr/bin/python \
+    && ln -s /usr/bin/python3.8 /usr/bin/python \
     && pip install /install/python/${DISC_WHEEL} \
     && pip install /install/python/${TF_BLADE_WHEEL}

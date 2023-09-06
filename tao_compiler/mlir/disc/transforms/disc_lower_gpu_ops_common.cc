@@ -62,18 +62,17 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
 
   // Split the block into initial, loop, and ending parts.
   Block* initBlock = rewriter.getInsertionBlock();
-  Block* endBlock =
-      rewriter.splitBlock(initBlock, std::next(Block::iterator(atomicOp)));
-  Block* loopBlock = rewriter.createBlock(
-      initBlock->getParent(), std::next(Region::iterator(initBlock)), valueType,
-      loc);
+  auto* loopBlock = rewriter.splitBlock(initBlock, Block::iterator(atomicOp));
+  loopBlock->addArgument(valueType, loc);
+  auto* endBlock = rewriter.splitBlock(loopBlock, Block::iterator(atomicOp)++);
 
   // Compute the loaded value and branch to the loop block.
   rewriter.setInsertionPointToEnd(initBlock);
-  auto memRefType = atomicOp.getMemref().getType().cast<MemRefType>();
+  auto memRefType = cast<MemRefType>(atomicOp.getMemref().getType());
   auto dataPtr = getStridedElementPtr(loc, memRefType, adaptor.getMemref(),
                                       adaptor.getIndices(), rewriter);
-  Value init = rewriter.create<LLVM::LoadOp>(loc, dataPtr);
+  Value init = rewriter.create<LLVM::LoadOp>(
+      loc, typeConverter->convertType(memRefType.getElementType()), dataPtr);
   rewriter.create<LLVM::BrOp>(loc, init, loopBlock);
 
   // Prepare the body of the loop block.
@@ -94,22 +93,19 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
   // Append the cmpxchg op to the end of the loop block.
   auto successOrdering = LLVM::AtomicOrdering::acq_rel;
   auto failureOrdering = LLVM::AtomicOrdering::monotonic;
-  auto boolType = IntegerType::get(rewriter.getContext(), 1);
-  auto pairType = LLVM::LLVMStructType::getLiteral(rewriter.getContext(),
-                                                   {valueType, boolType});
 
   // Cast datatype for non integer 32/64 type.
   Type mayCastedType = valueType;
   Value mayCastedDataPtr = dataPtr;
-  LLVM::LLVMStructType mayCastedPairType = pairType;
   Value mayCastedLoopArgument = loopArgument;
   Value mayCastedResult = result;
+  unsigned addressSpace =
+      llvm::dyn_cast<LLVM::LLVMPointerType>(dataPtr.getType())
+          .getAddressSpace();
   if (valueType.isF16()) {
     mayCastedType = rewriter.getI16Type();
     mayCastedDataPtr = rewriter.create<LLVM::BitcastOp>(
-        loc, LLVM::LLVMPointerType::get(mayCastedType), dataPtr);
-    mayCastedPairType = LLVM::LLVMStructType::getLiteral(
-        rewriter.getContext(), {mayCastedType, boolType});
+        loc, LLVM::LLVMPointerType::get(mayCastedType, addressSpace), dataPtr);
     mayCastedLoopArgument =
         rewriter.create<LLVM::BitcastOp>(loc, mayCastedType, loopArgument);
     mayCastedResult =
@@ -117,9 +113,7 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
   } else if (valueType.isF32()) {
     mayCastedType = rewriter.getI32Type();
     mayCastedDataPtr = rewriter.create<LLVM::BitcastOp>(
-        loc, LLVM::LLVMPointerType::get(mayCastedType), dataPtr);
-    mayCastedPairType = LLVM::LLVMStructType::getLiteral(
-        rewriter.getContext(), {mayCastedType, boolType});
+        loc, LLVM::LLVMPointerType::get(mayCastedType, addressSpace), dataPtr);
     mayCastedLoopArgument =
         rewriter.create<LLVM::BitcastOp>(loc, mayCastedType, loopArgument);
     mayCastedResult =
@@ -127,9 +121,7 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
   } else if (valueType.isF64()) {
     mayCastedType = rewriter.getI64Type();
     mayCastedDataPtr = rewriter.create<LLVM::BitcastOp>(
-        loc, LLVM::LLVMPointerType::get(mayCastedType), dataPtr);
-    mayCastedPairType = LLVM::LLVMStructType::getLiteral(
-        rewriter.getContext(), {mayCastedType, boolType});
+        loc, LLVM::LLVMPointerType::get(mayCastedType, addressSpace), dataPtr);
     mayCastedLoopArgument =
         rewriter.create<LLVM::BitcastOp>(loc, mayCastedType, loopArgument);
     mayCastedResult =
@@ -142,8 +134,8 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
   }
 
   Value cmpxchg = rewriter.create<LLVM::AtomicCmpXchgOp>(
-      loc, mayCastedPairType, mayCastedDataPtr, mayCastedLoopArgument,
-      mayCastedResult, successOrdering, failureOrdering);
+      loc, mayCastedDataPtr, mayCastedLoopArgument, mayCastedResult,
+      successOrdering, failureOrdering);
   // Extract the %new_loaded and %ok values from the pair.
   Value newLoaded =
       rewriter.create<LLVM::ExtractValueOp>(loc, cmpxchg, ArrayRef<int64_t>{0});

@@ -15,6 +15,8 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 
+// Most of this file's contents come from the IREE project.
+
 namespace mlir {
 namespace disc_ral {
 namespace disc_linalg_ext {
@@ -28,7 +30,7 @@ LogicalResult verifyLinalgExtOpInterface(Operation* op) {
       return linalgExtOp.emitOpError(
           "expected number of outputs to be same as the number of results");
     }
-    for (auto en : llvm::enumerate(op->getResultTypes())) {
+    for (const auto& en : llvm::enumerate(op->getResultTypes())) {
       Type outputType = linalgExtOp.getOutputs()[en.index()].getType();
       if (en.value() != outputType) {
         return linalgExtOp.emitOpError("expected type of `outs` operand #")
@@ -46,12 +48,12 @@ LogicalResult verifyLinalgExtOpInterface(Operation* op) {
 
 template <typename Ty, typename DimOpTy>
 static void getDimValues(OpBuilder& b, Location loc, Value v, Ty t,
-                         SmallVector<Value>& dimVals) {
+                         SmallVector<OpFoldResult>& dimVals) {
   for (auto dim : llvm::enumerate(t.getShape())) {
     if (ShapedType::isDynamic(dim.value())) {
-      dimVals.push_back(b.create<DimOpTy>(loc, v, dim.index()));
+      dimVals.push_back(b.create<DimOpTy>(loc, v, dim.index()).getResult());
     } else {
-      dimVals.push_back(b.create<arith::ConstantIndexOp>(loc, dim.value()));
+      dimVals.push_back(b.getIndexAttr(dim.value()));
     }
   }
 }
@@ -60,7 +62,7 @@ LogicalResult LinalgExtOp::reifyResultShapes(
     OpBuilder& b, ReifiedRankedShapedTypeDims& reifiedReturnShapes) {
   Operation* op = getOperation();
   for (auto output : getOutputs()) {
-    SmallVector<Value> dims;
+    SmallVector<OpFoldResult> dims;
     Type outputType = output.getType();
     if (auto rankedTensorType = outputType.dyn_cast<RankedTensorType>()) {
       getDimValues<RankedTensorType, tensor::DimOp>(b, op->getLoc(), output,

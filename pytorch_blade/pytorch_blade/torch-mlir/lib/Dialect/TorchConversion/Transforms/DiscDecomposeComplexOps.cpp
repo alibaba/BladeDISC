@@ -10,7 +10,7 @@
 // limitations under the License.
 
 #include "torch-mlir/Conversion/MhloPasses.h"
-#include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
+#include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
@@ -84,29 +84,35 @@ class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
       ConversionPatternRewriter& rewriter) const override;
 };
 
-llvm::Optional<int64_t> getMaxIndexFromItemOps(OperatorOp op) {
+std::optional<int64_t> getMaxIndexFromItemOps(AtenSplitTensorOp op) {
   int64_t maxIndex = -1;
-  for (Operation* user : op.getResult(0).getUsers()) {
+  for (Operation* user : op.getResult().getUsers()) {
     if (mlir::isa<Aten__Getitem__TOp>(user)) {
       int64_t indexInt;
       auto indexValue = user->getOperand(1);
       if (!matchPattern(indexValue, m_TorchConstantInt(&indexInt)))
-        return llvm::None;
+        return std::nullopt;
       maxIndex = std::max(maxIndex, indexInt);
     } else {
-      return llvm::None;
+      return std::nullopt;
     }
   }
   return maxIndex;
 }
 
+template <typename AtenOpT>
 LogicalResult decomposeSplits(
     ConversionPatternRewriter& rewriter,
-    OperatorOp op,
+    AtenOpT op,
     Value splitSize,
     Value dim,
     int64_t chunks,
     bool keepDim = true) {
+  if (!isa<AtenSplitTensorOp, AtenChunkOp, AtenUnbindIntOp>(
+          op.getOperation())) {
+    return failure();
+  }
+
   if (chunks < 0)
     return failure();
   int64_t dimInt;
@@ -114,7 +120,7 @@ LogicalResult decomposeSplits(
     return rewriter.notifyMatchFailure(op, "unknown dim");
 
   auto self = op.getOperand(0);
-  auto selfTy = self.getType().dyn_cast<BaseTensorType>();
+  auto selfTy = self.getType().template dyn_cast<BaseTensorType>();
   ArrayRef<int64_t> inputShape = selfTy.getSizes();
 
   dimInt = toPositiveDim(dimInt, *getTensorRank(self));
@@ -161,7 +167,7 @@ LogicalResult decomposeSplits(
     slices.emplace_back(slice);
   }
   rewriter.replaceOpWithNewOp<PrimListConstructOp>(
-      op, op.getResult(0).getType(), slices);
+      op, op.getResult().getType(), slices);
   return success();
 }
 
@@ -215,86 +221,6 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     rewriter.replaceOpWithNewOp<AtenDivTensorOp>(
         op, outTy, op.getOperand(0), op.getOperand(1));
     return success();
-  } else if ("aten.split.Tensor" == name) {
-    auto chunkSize = op.getOperand(1);
-    auto dim = op.getOperand(2);
-    int64_t chunksInt = -1;
-    for (Operation* user : op.getResult(0).getUsers()) {
-      if (mlir::isa<PrimListUnpackOp>(user)) {
-        chunksInt = user->getNumResults();
-        break;
-      }
-    }
-    if (chunksInt < 0) {
-      int64_t chunkSizeInt = -1;
-      int64_t dimInt = -1;
-      if (!matchPattern(chunkSize, m_TorchConstantInt(&chunkSizeInt))) {
-        return failure();
-      }
-      if (!matchPattern(dim, m_TorchConstantInt(&dimInt))) {
-        return failure();
-      }
-
-      auto self = op.getOperand(0);
-      auto selfTy = self.getType().dyn_cast<BaseTensorType>();
-      ArrayRef<int64_t> inputShape = selfTy.getSizes();
-      auto rank = inputShape.size();
-      dimInt = toPositiveDim(dimInt, rank);
-      if (inputShape[dimInt] != kUnknownSize && chunkSizeInt > 0) {
-        chunksInt = inputShape[dimInt] / chunkSizeInt +
-            (inputShape[dimInt] % chunkSizeInt > 0);
-      }
-    }
-    if (chunksInt < 0) {
-      // inference result number according to the max index of aten.item ops.
-      auto maxItemIndex = getMaxIndexFromItemOps(op);
-      if (maxItemIndex)
-        chunksInt = maxItemIndex.value() + 1;
-    }
-    llvm::dbgs() << " chunksInt: " << chunksInt << "\n";
-    return decomposeSplits(rewriter, op, chunkSize, dim, chunksInt);
-  } else if ("aten.chunk" == name) {
-    int64_t chunksInt = -1;
-    auto chunks = op.getOperand(1);
-    if (!matchPattern(chunks, m_TorchConstantInt(&chunksInt))) {
-      for (Operation* user : op.getResult(0).getUsers()) {
-        if (mlir::isa<PrimListUnpackOp>(user)) {
-          chunksInt = user->getNumResults();
-          break;
-        }
-      }
-      if (chunksInt < 0) {
-        return rewriter.notifyMatchFailure(op, "unknown chunks");
-      }
-    }
-    auto self = op.getOperand(0);
-    auto dim = op.getOperand(2);
-
-    auto loc = op.getLoc();
-    Value one = rewriter.create<Torch::ConstantIntOp>(
-        loc, rewriter.getI64IntegerAttr(1));
-    auto intType = Torch::IntType::get(op.getContext());
-    Value dimSize = rewriter.create<AtenSizeIntOp>(loc, self, dim);
-    Value dimSizePlusChunk =
-        rewriter.create<AtenAddIntOp>(loc, intType, dimSize, chunks);
-    Value dimSizePlusChunkMinusOne =
-        rewriter.create<AtenSubIntOp>(loc, intType, dimSizePlusChunk, one);
-    Value splitSize = rewriter.create<AtenFloordivIntOp>(
-        loc, intType, dimSizePlusChunkMinusOne, chunks);
-    return decomposeSplits(rewriter, op, splitSize, dim, chunksInt);
-  } else if ("aten.unbind.int" == name) {
-    int64_t chunksInt = -1;
-    for (Operation* user : op.getResult(0).getUsers()) {
-      if (mlir::isa<PrimListUnpackOp>(user)) {
-        chunksInt = user->getNumResults();
-        break;
-      }
-    }
-    auto loc = op.getLoc();
-    Value one = rewriter.create<Torch::ConstantIntOp>(
-        loc, rewriter.getI64IntegerAttr(1));
-    return decomposeSplits(
-        rewriter, op, one, op.getOperand(1), chunksInt, /*keepDim*/ false);
   } else if ("aten.max.other" == name) {
     auto outTy = op.getResult(0).getType();
     rewriter.replaceOpWithNewOp<AtenMaximumOp>(
@@ -639,6 +565,106 @@ LogicalResult ConvertAtenOp<AtenNativeDropoutOp>::matchAndRewrite(
   rewriter.replaceOp(op, {output, boolMask});
   return success();
 }
+
+template <>
+LogicalResult ConvertAtenOp<AtenChunkOp>::matchAndRewrite(
+    AtenChunkOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  int64_t chunksInt = -1;
+  auto chunks = op.getOperand(1);
+  if (!matchPattern(chunks, m_TorchConstantInt(&chunksInt))) {
+    for (Operation* user : op.getResult().getUsers()) {
+      if (mlir::isa<PrimListUnpackOp>(user)) {
+        chunksInt = user->getNumResults();
+        break;
+      }
+    }
+    if (chunksInt < 0) {
+      return rewriter.notifyMatchFailure(op, "unknown chunks");
+    }
+  }
+  auto self = op.getOperand(0);
+  auto dim = op.getOperand(2);
+
+  auto loc = op.getLoc();
+  Value one =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(1));
+  auto intType = Torch::IntType::get(op.getContext());
+  Value dimSize = rewriter.create<AtenSizeIntOp>(loc, self, dim);
+  Value dimSizePlusChunk =
+      rewriter.create<AtenAddIntOp>(loc, intType, dimSize, chunks);
+  Value dimSizePlusChunkMinusOne =
+      rewriter.create<AtenSubIntOp>(loc, intType, dimSizePlusChunk, one);
+  Value splitSize = rewriter.create<AtenFloordivIntOp>(
+      loc, intType, dimSizePlusChunkMinusOne, chunks);
+  return decomposeSplits<AtenChunkOp>(rewriter, op, splitSize, dim, chunksInt);
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenUnbindIntOp>::matchAndRewrite(
+    AtenUnbindIntOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  int64_t chunksInt = -1;
+  for (Operation* user : op.getResult().getUsers()) {
+    if (mlir::isa<PrimListUnpackOp>(user)) {
+      chunksInt = user->getNumResults();
+      break;
+    }
+  }
+  auto loc = op.getLoc();
+  Value one =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(1));
+  return decomposeSplits<AtenUnbindIntOp>(
+      rewriter, op, one, op.getOperand(1), chunksInt, /*keepDim*/ false);
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenSplitTensorOp>::matchAndRewrite(
+    AtenSplitTensorOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto chunkSize = op.getOperand(1);
+  auto dim = op.getOperand(2);
+  int64_t chunksInt = -1;
+  for (Operation* user : op.getResult().getUsers()) {
+    if (mlir::isa<PrimListUnpackOp>(user)) {
+      chunksInt = user->getNumResults();
+      break;
+    }
+  }
+  if (chunksInt < 0) {
+    int64_t chunkSizeInt = -1;
+    int64_t dimInt = -1;
+    if (!matchPattern(chunkSize, m_TorchConstantInt(&chunkSizeInt))) {
+      return failure();
+    }
+    if (!matchPattern(dim, m_TorchConstantInt(&dimInt))) {
+      return failure();
+    }
+
+    auto self = op.getOperand(0);
+    auto selfTy = self.getType().dyn_cast<BaseTensorType>();
+    ArrayRef<int64_t> inputShape = selfTy.getSizes();
+    auto rank = inputShape.size();
+    dimInt = toPositiveDim(dimInt, rank);
+    if (inputShape[dimInt] != kUnknownSize && chunkSizeInt > 0) {
+      chunksInt = inputShape[dimInt] / chunkSizeInt +
+          (inputShape[dimInt] % chunkSizeInt > 0);
+    }
+  }
+  if (chunksInt < 0) {
+    // inference result number according to the max index of aten.item ops.
+    auto maxItemIndex = getMaxIndexFromItemOps(op);
+    if (maxItemIndex.has_value())
+      chunksInt = maxItemIndex.value() + 1;
+  }
+  llvm::dbgs() << " chunksInt: " << chunksInt << "\n";
+  return decomposeSplits<AtenSplitTensorOp>(
+      rewriter, op, chunkSize, dim, chunksInt);
+}
+
 } // namespace
 
 namespace {
@@ -716,9 +742,6 @@ class DiscDecomposeComplexOpsPass
           "aten.div_inplace.Tensor",
           "aten.mul_inplace.Tensor",
           "aten.sub_inplace.Tensor",
-          "aten.split.Tensor",
-          "aten.chunk",
-          "aten.unbind.int",
           "aten.max.other",
           "aten.narrow.Tensor",
           "aten.selu",
@@ -763,6 +786,9 @@ class DiscDecomposeComplexOpsPass
     INSERT_ATENOP_PATTERN(AtenPowTensorScalarOp);
     INSERT_ATENOP_PATTERN(PrimDeviceOp);
     INSERT_ATENOP_PATTERN(PrimDtypeOp);
+    INSERT_ATENOP_PATTERN(AtenSplitTensorOp);
+    INSERT_ATENOP_PATTERN(AtenChunkOp);
+    INSERT_ATENOP_PATTERN(AtenUnbindIntOp);
 
 #undef INSERT_ATENOP_PATTERN
 

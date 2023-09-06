@@ -412,7 +412,7 @@ LogicalResult DelinearizeOpConversion::matchAndRewrite(
   } else {
     Value linear = adaptor.getLinearIndex();
     SmallVector<Value> multiDims(rank);
-    for (auto&& en : llvm::enumerate(
+    for (const auto&& en : llvm::enumerate(
              llvm::reverse(adaptor.getShapeDimIndexes().drop_front()))) {
       multiDims[rank - 1 - en.index()] =
           rewriter.create<arith::RemUIOp>(loc, linear, en.value());

@@ -60,9 +60,9 @@ std::unique_ptr<OperationPass<ModuleOp>> createDiscRewritePayloadIRForRALPass(
 // Converts a memref.copy op to its linalg equivalent
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscMemrefCopyToLinalgPass();
 
-// Converts scf.foreach_thread to scf.parallel
+// Converts scf.forall to scf.parallel
 std::unique_ptr<OperationPass<func::FuncOp>>
-createDiscConvertForeachThreadOpToParallelOpPass();
+createDiscConvertForallOpToParallelOpPass();
 
 }  // namespace disc_ral
 }  // namespace mlir

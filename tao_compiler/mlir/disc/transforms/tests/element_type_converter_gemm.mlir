@@ -1,5 +1,5 @@
-// RUN: disc-opt -disc-element-type-converter=enable-fp16-gemm=false %s | FileCheck %s --check-prefix=BASIC
-// RUN: disc-opt -disc-element-type-converter=enable-fp16-gemm=true %s | FileCheck %s --check-prefix=FP16
+// RUN: disc-opt -split-input-file -disc-element-type-converter=enable-fp16-gemm=false %s | FileCheck %s --check-prefix=BASIC
+// RUN: disc-opt -split-input-file -disc-element-type-converter=enable-fp16-gemm=true %s | FileCheck %s --check-prefix=FP16
 
 // CHECK-LABEL: @dot_fp32
 

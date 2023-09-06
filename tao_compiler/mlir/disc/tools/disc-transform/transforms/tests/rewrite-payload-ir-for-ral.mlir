@@ -8,7 +8,7 @@
 #map5 = affine_map<(d0) -> (d0 * 16)>
 module {
   // CHECK-LABEL: @matmul_nn
-  // CHECK-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "cpu">, %[[ARG1:.*]]: memref<?x?xf32, "cpu">, %[[ARG2:.*]]: memref<?x?xf32, "cpu">)
+  // CHECK-SAME: (%[[ARG0:.*]]: memref<?x?xf32>, %[[ARG1:.*]]: memref<?x?xf32>, %[[ARG2:.*]]: memref<?x?xf32>)
   func.func @matmul_nn(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?x?xf32>) -> memref<?x?xf32> attributes {test = true} {
     %cst = arith.constant 0.000000e+00 : f32
     %c0 = arith.constant 0 : index
@@ -18,7 +18,7 @@ module {
     %0 = affine.apply #map()[%dim]
     %1 = affine.apply #map1()[%dim_0]
     %dim_1 = memref.dim %arg0, %c1 : memref<?x?xf32>
-    scf.foreach_thread (%arg3, %arg4) in (%0, %1) {
+    scf.forall (%arg3, %arg4) in (%0, %1) {
       %2 = affine.min #map2(%arg3)[%dim]
       %3 = affine.min #map3(%arg4)[%dim_0]
       %4 = affine.apply #map4(%arg3)

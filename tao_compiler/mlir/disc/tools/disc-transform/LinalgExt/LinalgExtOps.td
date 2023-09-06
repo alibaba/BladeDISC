@@ -119,8 +119,11 @@ def DISCLinalgExt_PaddingValuePlaceholderOp : Op<DISCLinalgExt_Dialect, "padding
   let assemblyFormat = "attr-dict `padding_mode` `(` $mode `)` `,` `value` `(` $value `)`";
 }
 
+// TODO: remove this OP and replace the corresponding logic with tensor.pack and
+// some tiling ops, to ease rebase effort in the future. Note this is an
+// extension of tensor.pack op.
 def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
-  DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>,
+  DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>
 ]>{
   let summary = "multi-level pack operation";
   let description = [{
@@ -181,13 +184,12 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
 
   let results = (outs Variadic<AnyRankedTensor>:$results);
   let assemblyFormat = [{
-    attr-dict
     $inputs `with`
     (`padding_value` `(` $padding_value^ `:` type($padding_value) `)`)?
     `tile_levels` `=` $tile_levels
     `tile_sizes` `=` $tile_sizes
     `permutation` `=` $permutation
-    `into` $outputs `:` `(` type($inputs) type($outputs) `)`
+    `into` $outputs attr-dict `:` `(` type($inputs) type($outputs) `)`
      (`->` type($results)^)?
   }];
 
@@ -196,7 +198,7 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
       "ArrayRef<int64_t>":$tileLevels,
       "ArrayRef<int64_t>":$tileSizes,
       CArg<"ArrayRef<int64_t>", "{}">:$permutation,
-      CArg<"Optional<Value>", "llvm::None">:$paddingValue
+      CArg<"std::optional<Value>", "{}">:$paddingValue
       )>
   ];
 
@@ -221,12 +223,12 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
 
     // Return the output type.
     ShapedType getOutputType() {
-      return getOutput().getType();
+      return dyn_cast<ShapedType>(getOutput().getType());
     }
 
     // Return the input type.
     ShapedType getInputType() {
-      return getInput().getType();
+      return dyn_cast<ShapedType>(getInput().getType());
     }
 
     // Return the output shape.
@@ -445,7 +447,7 @@ class DISCLinalgExt_StructuredOp<string mnemonic, list<Trait> props>
     }
 
     void getSuccessorRegions(
-        Optional<unsigned> index, ArrayRef<Attribute> operands,
+        std::optional<unsigned> index, ArrayRef<Attribute> operands,
         SmallVectorImpl<RegionSuccessor> &regions) {
       // Op has a region, but conceptually the control flow does not enter the
       // region.
@@ -457,6 +459,8 @@ def DISCLinalgExt_ConditionalGenericOp : DISCLinalgExt_StructuredOp<"conditional
     DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmBlockArgumentNames"]>,
     AttrSizedOperandSegments]> {
   let description = [{
+    The extended GenericOp with `pred` specified.
+
     Conditional Generic Linalg op form where the key properties of the computation are
     specified as attributes. In pretty form, a `disc_linalg_ext.conditional_generic` op
     is written as:

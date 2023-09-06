@@ -5,13 +5,13 @@
 
 
 // CHECK-LABEL: @non_fusion_elemwise_gpu
-// CHECK-SAME: (%[[INPUT1:.*]]: memref<?x?x?xf32, "gpu">, %[[INPUT2:.*]]: memref<?x?x?xf32, "gpu">, %[[OUT:.*]]: memref<?x?x?xf32, "gpu">) -> memref<?x?x?xf32, "gpu">
-func.func @non_fusion_elemwise_gpu(%input1: memref<?x?x?xf32, "gpu">, %input2: memref<?x?x?xf32, "gpu">, %out: memref<?x?x?xf32, "gpu">) -> (memref<?x?x?xf32, "gpu">) {
+// CHECK-SAME: (%[[INPUT1:.*]]: memref<?x?x?xf32, #gpu.address_space<global>>, %[[INPUT2:.*]]: memref<?x?x?xf32, #gpu.address_space<global>>, %[[OUT:.*]]: memref<?x?x?xf32, #gpu.address_space<global>>) -> memref<?x?x?xf32, #gpu.address_space<global>>
+func.func @non_fusion_elemwise_gpu(%input1: memref<?x?x?xf32, #gpu.address_space<global>>, %input2: memref<?x?x?xf32, #gpu.address_space<global>>, %out: memref<?x?x?xf32, #gpu.address_space<global>>) -> (memref<?x?x?xf32, #gpu.address_space<global>>) {
   // CHECK-NOT: lmhlo
   // CHECK: scf.parallel
-  "lmhlo.add"(%input1, %input2, %out) : (memref<?x?x?xf32, "gpu">, memref<?x?x?xf32, "gpu">, memref<?x?x?xf32, "gpu">) -> ()
-  // CHECK: return %[[OUT]] : memref<?x?x?xf32, "gpu">
-  return %out : memref<?x?x?xf32, "gpu">
+  "lmhlo.add"(%input1, %input2, %out) : (memref<?x?x?xf32, #gpu.address_space<global>>, memref<?x?x?xf32, #gpu.address_space<global>>, memref<?x?x?xf32, #gpu.address_space<global>>) -> ()
+  // CHECK: return %[[OUT]] : memref<?x?x?xf32, #gpu.address_space<global>>
+  return %out : memref<?x?x?xf32, #gpu.address_space<global>>
 }
 
 // CHECK-LABEL: @non_fusion_elemwise_cpu
@@ -174,13 +174,13 @@ func.func @dynamic_iota(%size: memref<2xi32>, %output: memref<?x?xi32>) -> memre
 }
 
 // CHECK-LABEL: @non_fusion_dynamic_broadcast_in_dim_gpu
-// CHECK-SAME: (%[[INPUT1:.*]]: memref<?xf32, "gpu">, %[[INPUT2:.*]]: memref<3xi32>, %[[OUT:.*]]: memref<?x?x?xf32, "gpu">) -> memref<?x?x?xf32, "gpu">
-func.func @non_fusion_dynamic_broadcast_in_dim_gpu(%input1: memref<?xf32, "gpu">, %input2: memref<3xi32>, %out: memref<?x?x?xf32, "gpu">) -> (memref<?x?x?xf32, "gpu">) {
+// CHECK-SAME: (%[[INPUT1:.*]]: memref<?xf32, #gpu.address_space<global>>, %[[INPUT2:.*]]: memref<3xi32>, %[[OUT:.*]]: memref<?x?x?xf32, #gpu.address_space<global>>) -> memref<?x?x?xf32, #gpu.address_space<global>>
+func.func @non_fusion_dynamic_broadcast_in_dim_gpu(%input1: memref<?xf32, #gpu.address_space<global>>, %input2: memref<3xi32>, %out: memref<?x?x?xf32, #gpu.address_space<global>>) -> (memref<?x?x?xf32, #gpu.address_space<global>>) {
   // CHECK-NOT lmhlo
   // CHECK: scf.parallel
-  "lmhlo.dynamic_broadcast_in_dim"(%input1, %input2, %out) {broadcast_dimensions = dense<2> : tensor<1xi64>} : (memref<?xf32, "gpu">, memref<3xi32>, memref<?x?x?xf32, "gpu">) -> ()
-  // CHECK: return %[[OUT]] : memref<?x?x?xf32, "gpu">
-  return %out : memref<?x?x?xf32, "gpu">
+  "lmhlo.dynamic_broadcast_in_dim"(%input1, %input2, %out) {broadcast_dimensions = dense<2> : tensor<1xi64>} : (memref<?xf32, #gpu.address_space<global>>, memref<3xi32>, memref<?x?x?xf32, #gpu.address_space<global>>) -> ()
+  // CHECK: return %[[OUT]] : memref<?x?x?xf32, #gpu.address_space<global>>
+  return %out : memref<?x?x?xf32, #gpu.address_space<global>>
 }
 
 // CHECK-LABEL: @basic_loop_fusion_misc_root

@@ -58,10 +58,12 @@ limitations under the License.
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/FileUtilities.h"  // from @llvm-project
 #include "mlir/Support/Timing.h"         // from @llvm-project
+#include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Dialect/ROCDL/ROCDLToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Export.h"  // from @llvm-project
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/disc/disc_util.h"
 #include "mlir/disc/tools/disc-transform/transforms/passes.h"
@@ -71,10 +73,9 @@ limitations under the License.
 #include "mlir/disc/transforms/placement_utils.h"
 #include "mlir/disc/transforms/rewriters.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
-#include "tensorflow/compiler/mlir/tensorflow/utils/compile_mlir_util.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/error_util.h"
-#include "tensorflow/compiler/mlir/xla/transforms/adjust_layout.h"
-#include "tensorflow/compiler/mlir/xla/transforms/passes.h"
+#include "tensorflow/compiler/mlir/tf2xla/api/v0/compile_mlir_util.h"
+#include "tensorflow/compiler/mlir/tf2xla/transforms/passes.h"
 #include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
@@ -442,7 +443,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // bufferize constant ops & index_cast that have tensor types.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscStdBufferizePass());
   pm.addPass(arith::createArithBufferizePass());
-  pm.addNestedPass<FuncOp>(createTensorBufferizePass());
+  pm.addNestedPass<FuncOp>(tensor::createTensorBufferizePass());
   pm.addNestedPass<FuncOp>(bufferization::createFinalizingBufferizePass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
@@ -565,30 +566,30 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // Flatten multi dim memref accesses to its 1D format to enable more
   // opportunities for linearizeOp/delinearizeOp elimination.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscFlattenMemrefAccessPass());
-  // Not using community canonicalizer since it will erase single iteration
-  // parallel for loop, which is illegal on GPU backend. Parallel for loops are
-  // supposed to be executed on device side while community canonicalizer break
-  // this assumption.
-  SmallVector<std::string> disablePatterns = {
-      "{anonymous}::CollapseSingleIterationLoops",
-      "{anonymous}::RemoveEmptyParallelLoops",
-      "{anonymous}::MergeNestedParallelLoops"};
-  if (!gpu_enabled) {
-    disablePatterns.clear();
+  // Disable the patterns that fold parallel loops of single or zero iterations
+  // for canonicalizer on GPU backend. Parallel for loops are supposed to be
+  // executed on device side while community canonicalizer break this
+  // assumption.
+  SmallVector<std::string> disablePatterns;
+  if (gpu_enabled) {
+    disablePatterns = SmallVector<std::string>{
+        "{anonymous}::ParallelOpSingleOrZeroIterationDimsFolder",
+        "{anonymous}::MergeNestedParallelLoops"};
   }
+  auto cano_rewrite_config = GreedyRewriteConfig();
   pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscCanonicalizerPass(disablePatterns));
+      createCanonicalizerPass(cano_rewrite_config, disablePatterns));
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscCanonicalizerPass(disablePatterns));
+      createCanonicalizerPass(cano_rewrite_config, disablePatterns));
   pm.addNestedPass<FuncOp>(disc_ral::createDiscMemRefCSEPass());
   // convert linearizeOp/delinearizeOp to std dialect.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertShapeToStandardPass());
   pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscCanonicalizerPass(disablePatterns));
+      createCanonicalizerPass(cano_rewrite_config, disablePatterns));
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscCanonicalizerPass({disablePatterns}));
+      createCanonicalizerPass(cano_rewrite_config, disablePatterns));
 
   if (gpu_enabled) {
     // Coalesce generated parallels to have 1d parallels.
@@ -608,7 +609,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addPass(disc_ral::createDiscAssignKernelNamePass());
   } else {
     pm.addNestedPass<FuncOp>(
-        disc_ral::createDiscConvertForeachThreadOpToParallelOpPass());
+        disc_ral::createDiscConvertForallOpToParallelOpPass());
     if (options.cpu_options.target_multi_threading) {
       pm.addNestedPass<FuncOp>(disc_ral::createDiscCpuMapParallelLoopPass());
       pm.addPass(disc_ral::createDiscOutlineCpuKernelPass());
@@ -829,6 +830,7 @@ LogicalResult LowerLLVMToBinary(ModuleOp module,
 
   // Translate the module.
   llvm::LLVMContext llvm_context;
+  mlir::registerBuiltinDialectTranslation(*module->getContext());
   mlir::registerLLVMDialectTranslation(*module->getContext());
   std::unique_ptr<llvm::Module> llvm_module =
       mlir::translateModuleToLLVMIR(module, llvm_context);
@@ -1071,7 +1073,7 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
 
   pm.addNestedPass<mlir::func::FuncOp>(mlir::TF::CreateLowerQuantizedPass());
   pm.addPass(mlir::mhlo::CreateLegalizeTfTypesPass());
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
+  pm.addPass(mlir::mhlo::createLegalizeTFPass(
       /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
       /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
 
@@ -1079,8 +1081,11 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   pm.addNestedPass<mlir::func::FuncOp>(mlir::disc_ral::createDiscLowerTfPass(
       disc_tf_pdll_files, disc_tf_pdll_include_dirs));
 
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::CreateAdjustLayoutPass());
+  pm.addNestedPass<mlir::func::FuncOp>(
+      mlir::mhlo::CreateInfeedsOpsXlaAdjustLayoutPass());
   pm.addPass(mlir::mhlo::CreateLegalizeTFCollectivePass());
+  // This has to run after legalization to delete non legal but dead ops.
+  // This must run before Shape Inference.
   pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
   // Run shape inference pass to propagate shapes through tensor_cast operations
   // from static to dynamic shapes. This could be generated if the shape
@@ -1093,7 +1098,7 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   // invocation.
   // TODO(wyzero): we can not set `allow_partial_conversion = false` since
   // `createLegalizeTFPass` pass does not known ops from hlo_disc dialect.
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
+  pm.addPass(mlir::mhlo::createLegalizeTFPass(
       /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
       /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
 

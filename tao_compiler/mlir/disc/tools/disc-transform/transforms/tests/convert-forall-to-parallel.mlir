@@ -1,4 +1,4 @@
-// RUN: disc-opt --disc-convert-foreach-thread-op-to-parallel-op -split-input-file %s | FileCheck %s
+// RUN: disc-opt --disc-convert-forall-op-to-parallel-op -cse -loop-invariant-code-motion --canonicalize -split-input-file %s | FileCheck %s
 
 #map = affine_map<()[s0] -> (s0 ceildiv 6)>
 #map1 = affine_map<()[s0] -> (s0 ceildiv 16)>
@@ -17,9 +17,9 @@ module {
     %0 = affine.apply #map()[%dim]
     %1 = affine.apply #map1()[%dim_0]
     %dim_1 = memref.dim %arg0, %c1 : memref<?x?xf32>
-    // CHECK-NOT: scf.foreach_thread
+    // CHECK-NOT: scf.forall
     // CHECK: scf.parallel
-    scf.foreach_thread (%arg3, %arg4) in (%0, %1) {
+    scf.forall (%arg3, %arg4) in (%0, %1) {
       %2 = affine.min #map2(%arg3)[%dim]
       %3 = affine.min #map3(%arg4)[%dim_0]
       %4 = affine.apply #map4(%arg3)

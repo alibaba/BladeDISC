@@ -1383,7 +1383,7 @@ SmallVector<Value> getDimValues(OpBuilder& b, Location loc, Value v) {
   SmallVector<Value> dims;
   for (auto en : llvm::enumerate(ty.getShape())) {
     if (ty.isDynamicDim(en.index())) {
-      dims.push_back(b.create<tensor::DimOp>(loc, v, en.index()));
+      dims.push_back(b.createOrFold<tensor::DimOp>(loc, v, en.index()));
     } else {
       dims.push_back(b.create<arith::ConstantIndexOp>(loc, en.value()));
     }
@@ -3486,9 +3486,8 @@ DiagnosedSilenceableFailure DISCForallToGPUWarpsOp::applyToOne(
   SmallVector<Attribute> gpuMapping =
       llvm::to_vector(forallOp.getMapping()->getValue());
   if (!llvm::all_of(gpuMapping, [](Attribute map) {
-        return map.isa<gpu::GPUThreadMappingAttr>();
+        return map.isa<gpu::GPUWarpMappingAttr>();
       })) {
-    // TODO: Use thread mapping to indicate warp mapping currently. To use warp
     // attr after rebase.
     return mlir::emitDefiniteFailure(target,
                                      "gpu warp mapping must be present");
@@ -3560,9 +3559,9 @@ DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
   Value lhs = matmulOp.getDpsInputOperand(0)->get();
   Value rhs = matmulOp.getDpsInputOperand(1)->get();
   Value output = matmulOp.getOutputs()[0];
-  Value dimM = b.create<tensor::DimOp>(loc, lhs, zero);
-  Value dimN = b.create<tensor::DimOp>(loc, rhs, one);
-  Value dimK = b.create<tensor::DimOp>(loc, lhs, one);
+  Value dimM = b.createOrFold<tensor::DimOp>(loc, lhs, zero);
+  Value dimN = b.createOrFold<tensor::DimOp>(loc, rhs, one);
+  Value dimK = b.createOrFold<tensor::DimOp>(loc, lhs, one);
 
   scf::ForOp forOp =
       b.create<scf::ForOp>(loc, zero, dimK, step, ValueRange{output});
@@ -3571,13 +3570,23 @@ DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
   SmallVector<Value> lhsOffsets{zero, iv};
   SmallVector<Value> lhsDimUppers{dimM, step};
   SmallVector<Value> lhsStrides{one, one};
-  Value lhsSlice = b.create<tensor::ExtractSliceOp>(loc, lhs, lhsOffsets,
-                                                    lhsDimUppers, lhsStrides);
+  auto toOpFoldResult = [](Value v) -> OpFoldResult {
+    auto op = v.getDefiningOp<arith::ConstantIndexOp>();
+    if (!op) return v;
+    return op.getValue();
+  };
+  Value lhsSlice = b.createOrFold<tensor::ExtractSliceOp>(
+      loc, lhs, llvm::to_vector(llvm::map_range(lhsOffsets, toOpFoldResult)),
+      llvm::to_vector(llvm::map_range(lhsDimUppers, toOpFoldResult)),
+      llvm::to_vector(llvm::map_range(lhsStrides, toOpFoldResult)));
+
   SmallVector<Value> rhsOffsets{iv, zero};
   SmallVector<Value> rhsDimUppers{step, dimN};
   SmallVector<Value> rhsStrides{one, one};
-  Value rhsSlice = b.create<tensor::ExtractSliceOp>(loc, rhs, rhsOffsets,
-                                                    rhsDimUppers, rhsStrides);
+  Value rhsSlice = b.createOrFold<tensor::ExtractSliceOp>(
+      loc, rhs, llvm::to_vector(llvm::map_range(rhsOffsets, toOpFoldResult)),
+      llvm::to_vector(llvm::map_range(rhsDimUppers, toOpFoldResult)),
+      llvm::to_vector(llvm::map_range(rhsStrides, toOpFoldResult)));
   ShapedType resultType = output.getType().cast<ShapedType>();
   Value iterArg = forOp.getRegionIterArg(0);
   linalg::MatmulOp res = b.create<linalg::MatmulOp>(

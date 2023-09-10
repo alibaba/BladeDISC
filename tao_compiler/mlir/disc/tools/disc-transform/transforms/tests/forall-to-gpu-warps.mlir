@@ -26,7 +26,7 @@ func.func @forall_to_gpu_warps(%arg0: memref<2x2xf16>) {
   scf.parallel (%arg1, %arg2) = (%c0, %c0) to (%c4, %c128) step (%c1, %c1) {
     scf.forall (%arg3, %arg4) in (%c2, %c2) {
       memref.store %cst, %arg0[%arg3, %arg4] : memref<2x2xf16>
-    } {mapping = [#gpu.thread<x>, #gpu.thread<y>]}
+    } {mapping = [#gpu.warp<x>, #gpu.warp<y>]}
   } {mapping = "cta-thread-mapping"}
   return
 }

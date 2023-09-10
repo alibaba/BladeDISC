@@ -42,6 +42,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -126,12 +127,15 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     llvmPatterns.add<RemoveUselessUnrealizedConversionCastOp>(converter);
     arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);
     cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
+    populateVectorToLLVMConversionPatterns(converter, llvmPatterns);
     populateFuncToLLVMConversionPatterns(converter, llvmPatterns);
     populateFinalizeMemRefToLLVMConversionPatterns(converter, llvmPatterns);
     populateGpuToNVVMConversionPatterns(converter, llvmPatterns);
+    populateNVGPUToNVVMConversionPatterns(converter, llvmPatterns);
     // Put the math conversioin after GpuToNVVM conversions as some math ops
     // are intended to be converted to nvvm intrinsics.
     populateMathToLLVMConversionPatterns(converter, llvmPatterns);
+    memref::populateExpandStridedMetadataPatterns(llvmPatterns);
     populateGpuWMMAToNVVMConversionPatterns(converter, llvmPatterns);
     if (this->hasRedux)
       populateGpuSubgroupReduceOpLoweringPattern(converter, llvmPatterns);

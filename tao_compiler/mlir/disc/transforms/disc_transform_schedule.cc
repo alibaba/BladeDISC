@@ -121,10 +121,10 @@ MatchOp buildMatchOp(OpBuilder& b, Location& loc, Value target,
 }
 
 TileToForallOp buildTileToForallOp(OpBuilder& b, Location& loc, Value target,
-                                   ArrayRef<int64_t> numThreads,
+                                   ArrayRef<int64_t> threads,
                                    transform::NumThreadsSpec numThreadsSpec,
                                    ArrayAttr mapping) {
-  return b.create<TileToForallOp>(loc, target, numThreads, numThreadsSpec,
+  return b.create<TileToForallOp>(loc, target, threads, numThreadsSpec,
                                   mapping);
 }
 
@@ -134,7 +134,6 @@ TileToForallOp buildTileToForallOp(OpBuilder& b, Location& loc, Value target,
                                    ArrayAttr mapping) {
   return b.create<TileToForallOp>(loc, target, tiles, tileSizesSpec, mapping);
 }
-}  // namespace
 
 Value buildFuseIntoContainingOp(OpBuilder& b, Location& loc, Value target,
                                 Value anchor) {
@@ -407,8 +406,9 @@ transform_dialect::DISCVectorToMMAConversionOp buildVectorToMMAConversionOp(
   return b.create<transform_dialect::DISCVectorToMMAConversionOp>(loc, target);
 }
 
-transform_dialect::DISCForallToGPUCTAsOp buildForallToGPUCTAsOp(
-    OpBuilder& b, Location& loc, Value target) {
+transform_dialect::DISCForallToGPUCTAsOp buildForallToGPUCTAsOp(OpBuilder& b,
+                                                                Location& loc,
+                                                                Value target) {
   auto transformOpType = transform::AnyOpType::get(b.getContext());
   return b.create<transform_dialect::DISCForallToGPUCTAsOp>(
       loc, transformOpType, target);
@@ -416,8 +416,7 @@ transform_dialect::DISCForallToGPUCTAsOp buildForallToGPUCTAsOp(
 
 transform_dialect::DISCForallToGPUWarpsOp buildForallToGPUWarpsOp(
     OpBuilder& b, Location& loc, Value target) {
-  return b.create<transform_dialect::DISCForallToGPUWarpsOp>(loc,
-                                                                    target);
+  return b.create<transform_dialect::DISCForallToGPUWarpsOp>(loc, target);
 }
 
 transform_dialect::DISCLowerGmemToSmemOp buildLowerGmemToSmemOp(OpBuilder& b,
@@ -1561,12 +1560,11 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   b.setInsertionPointToStart(&m.getBodyRegion().front());
   Location loc = m.getLoc();
   MLIRContext* ctx = m->getContext();
-  auto seqOp = b.create<transform_ext::CanonicalizedSequenceOp>(
-      loc, TypeRange{}, transform::FailurePropagationMode::Propagate, Value{});
-  seqOp.getBody().push_back(new Block);
-  auto& bodyBlock = seqOp.getBody().front();
   auto transformOpType = transform::AnyOpType::get(ctx);
-  bodyBlock.addArgument(transform::AnyOpType::get(ctx), loc);
+  auto seqOp = b.create<transform::SequenceOp>(
+      loc, TypeRange{}, transform::FailurePropagationMode::Propagate,
+      transformOpType, [&](OpBuilder& b, Location loc, Value variantH) {});
+  auto& bodyBlock = seqOp.getBody().front();
   b.setInsertionPointToStart(&bodyBlock);
   Value variant = bodyBlock.getArgument(0);
 
@@ -1619,9 +1617,9 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
       gpu::GPUBlockMappingAttr::get(ctx, gpu::Blocks::DimY)};
   auto blockTileMappingAttr = b.getArrayAttr(blockTileMapping);
 
-  auto forallOpBlock = buildTileToForallOp(
-      b, loc, matmul, {ctaTileSizes[0], ctaTileSizes[1]},
-      transform::TileSizesSpec(), blockTileMappingAttr);
+  auto forallOpBlock =
+      buildTileToForallOp(b, loc, matmul, {ctaTileSizes[0], ctaTileSizes[1]},
+                          transform::TileSizesSpec(), blockTileMappingAttr);
   Value forallLoopBlock = forallOpBlock->getResult(0);
   Value tiledMatmulBlock = forallOpBlock->getResult(1);
 
@@ -1677,6 +1675,10 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   auto tileOpVector =
       buildTileOp(b, loc, splitMatmulWarp, vectorTileSizes, {0, 1, 2});
 
+  buildLICMOp(b, loc, variant);
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
+
   // TODO: fully unroll the vector tiled loops.
 
   // ============================= Vectorization =============================
@@ -1684,6 +1686,9 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   Value func4Vec = buildMatchOp(b, loc, variant, {"func.func"});
   func4Vec = buildRunCanonicalizer(b, loc, func4Vec);
   auto vectorizeOp = buildVectorize(b, loc, func4Vec, true);
+
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
 
   // ============================= Bufferization =============================
 
@@ -1694,19 +1699,25 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
   // TODO: init with 0 in parallel.
   buildTransferWriteZeroToSCFOp(b, loc, func2ConvertTransfer);
 
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
+
   // ==================== ForallOp to GPU mappings ====================
 
   auto blockTileMappingDictAttr =
       b.getDictionaryAttr({b.getNamedAttr("mapping", blockTileMappingAttr)});
   Value forallBlock = buildMatchOp(b, loc, variant, {"scf.forall"}, {},
-                                    blockTileMappingDictAttr);
+                                   blockTileMappingDictAttr);
   auto parallelOp = buildForallToGPUCTAsOp(b, loc, forallBlock);
 
   auto warpTileMappingDictAttr =
       b.getDictionaryAttr({b.getNamedAttr("mapping", warpTileMappingAttr)});
   Value forallWarp = buildMatchOp(b, loc, variant, {"scf.forall"}, {},
-                                   warpTileMappingDictAttr);
+                                  warpTileMappingDictAttr);
   buildForallToGPUWarpsOp(b, loc, forallWarp);
+
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
 
   // ======================== Gmem to Smem conversion ========================
 
@@ -1719,11 +1730,18 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
   Value func4MMA = buildMatchOp(b, loc, variant, {"func.func"});
   auto vectorToMMAConversionOp = buildVectorToMMAConversionOp(b, loc, func4MMA);
+  buildLICMOp(b, loc, variant);
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
 
   // ============================ Post processing ============================
 
   Value func4PostProcess = buildMatchOp(b, loc, variant, {"func.func"});
   buildInlineAndConvertGPUIdsOp(b, loc, func4PostProcess);
+
+  buildLICMOp(b, loc, variant);
+  buildDCEOp(b, loc, variant);
+  buildCSEOp(b, loc, variant);
 
   b.create<transform::YieldOp>(loc);
 
@@ -1757,7 +1775,7 @@ DISC_TRANSFORM_SCHEDULE(PatternKind::kGEMM, 1000,
                         ArrayRef<StringRef>{"cuda_mma_default"},
                         DeviceType::kGPU);
 
-}  // namespace disc_ral
+}  // namespace
 
 const char* kDefaultScheduleFactoryTag = "default";
 
@@ -1979,5 +1997,5 @@ LogicalResult ScheduleDispatcher::dispatch(PatternDescription& pd, ModuleOp m) {
   return factory->assignSchedule(pd, m, getDeviceInfo());
 }
 
-}  // namespace mlir
+}  // namespace disc_ral
 }  // namespace mlir

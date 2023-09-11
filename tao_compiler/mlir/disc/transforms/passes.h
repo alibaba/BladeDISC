@@ -314,12 +314,17 @@ std::unique_ptr<OperationPass<ModuleOp>> createDiscGPUSourceToLibPass(
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscTransformLegalizeToLoopPass(bool gpuEnabled = false,
                                       const std::string& filename = "",
+                                      int cc_major = 8, int cc_minor = 0,
                                       bool expensiveCheck = false);
 
 // Duplicate and fuse some computation into their fusion consumer to reduce
 // memory footprint.
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscDuplicateComputationAfterFusionPass();
+
+// Erase dealloc ops for GPU func ops.
+std::unique_ptr<OperationPass<gpu::GPUFuncOp>>
+createDiscEraseBufferDeallocationPass();
 
 }  // namespace disc_ral
 }  // namespace mlir

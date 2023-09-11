@@ -33,7 +33,8 @@ static bool init_threads = []() {
 TEST(PackedMatmul, F32_304x1024x512) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::" + c_ft_path + "packed_matmul_nn_p_f32_large_schedule.mlir",
+       {"kGEMM::CPU:" + c_ft_path +
+            "packed_matmul_nn_p_f32_large_schedule.mlir",
         false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"ENABLE_AARCH64_SCHEDUELS", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},

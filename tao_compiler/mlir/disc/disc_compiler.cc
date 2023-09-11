@@ -49,6 +49,7 @@ limitations under the License.
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/Shape/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/Transforms/Passes.h"
+#include "mlir/Dialect/Vector/Transforms/Passes.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/IR/AsmState.h"
@@ -518,7 +519,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     tensorflow::ReadStringFromEnvVar("DISC_TRANSFORM_SCHEDULE_FILE", "",
                                      &transform_schedule);
     pm.addNestedPass<FuncOp>(disc_ral::createDiscTransformLegalizeToLoopPass(
-        gpu_enabled, transform_schedule));
+        gpu_enabled, transform_schedule, options.gpu_info.cc_major,
+        options.gpu_info.cc_minor));
   }
 
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
@@ -599,7 +601,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // TODO: adopt tileSize from attributes of speculation pass with a
     // wrapper of the original ParallelLoopTilingPass
     pm.addNestedPass<FuncOp>(
-        disc_ral::createParallelLoopTilingPass({kThreadsRowReduction}, true));
+        disc_ral::createParallelLoopTilingPass({kCTASizeDefault}, true));
     // pm.addNestedPass<FuncOp>(disc_ral::createMapParallelLoopsPass());
     pm.addNestedPass<FuncOp>(mlir::createGpuMapParallelLoopsPass());
 
@@ -640,6 +642,10 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       kernelPm.addPass(createLoopInvariantCodeMotionPass());
       kernelPm.addPass(createCSEPass());
     }
+    kernelPm.addNestedPass<gpu::GPUFuncOp>(
+        disc_ral::createDiscEraseBufferDeallocationPass());
+    kernelPm.addNestedPass<gpu::GPUFuncOp>(
+        memref::createExpandStridedMetadataPass());
     kernelPm.addPass(createConvertSCFToCFPass());
     kernelPm.addPass(createLowerAffinePass());
     kernelPm.addNestedPass<FuncOp>(createCanonicalizerPass());

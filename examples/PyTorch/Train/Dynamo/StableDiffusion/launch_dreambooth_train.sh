@@ -11,11 +11,11 @@
 # limitations under the License.
 
 #export TORCH_COMPILE_DEBUG=1
+#export TORCHDYNAMO_REPORT_GUARD_FAILURES=1
 #export TORCH_COMPILE_DEBUG_DIR="debug"
-#export AOT_FX_GRAPHS=true
-
+export AOT_FX_GRAPHS=true
+#rm -rf dump_dir
 export DISC_ENABLE_PREDEFINED_PDL=true
-export DISC_TORCH_PDL_FILES="sd.pdll"
 export MODEL_NAME="CompVis/stable-diffusion-v1-4"
 export INSTANCE_DIR="data"
 export CLASS_DIR="class_data"
@@ -23,8 +23,7 @@ export OUTPUT_DIR="save-model"
 export TORCH_BLADE_DEBUG_LOG=true
 export TORCH_BLADE_ENABLE_COMPILATION_CACHE=true
 export TORCH_BLADE_MHLO_DEBUG_LOG=true
-export PYTHONPATH=diffusers/src:$PYTHONPATH
-#export PYTHONPATH=/workspace/diffusers/src:$PYTHONPATH
+#export PYTHONPATH=diffusers/src:$PYTHONPATH
 export DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL=true
 export BLADE_GEMM_TUNE_JIT=1
 export TORCH_MHLO_OP_WHITE_LIST="aten::var;prims::broadcast_in_dim;aten::clone;aten::amax;aten::_to_copy;aten::floor;aten::upsample_nearest2d;aten::constant_pad_nd;aten::clamp;aten::slice_scatter;aten::new_zeros;aten::fill;aten::empty_like;aten::squeeze;aten::fill;aten::addcmul_;aten::addcmul_inplace_;aten::sqrt;aten::reciprocal;aten::addcdiv"
@@ -36,7 +35,7 @@ export DISC_ENABLE_HORIZONTAL_FUSION=true
 export DISC_ENABLE_DOT_MERGE=false
 ENTRY="nsys profile -f true -c cudaProfilerApi -o nsys-sd"
 ENTRY=""
-$ENTRY accelerate launch  --num_processes=1 train_dreambooth.py \
+$ENTRY accelerate launch  --num_processes=1 train_dreambooth.py.bak \
   --pretrained_model_name_or_path=$MODEL_NAME \
   --mixed_precision="fp16" \
   --instance_data_dir=$INSTANCE_DIR \

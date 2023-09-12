@@ -1308,7 +1308,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::pow(Scalar self, Tensor exponent) -> Tensor",
         },
         [this](Node* node) -> type_vec_t {
-          std::cout << "infer aten::pow" << std::endl;
           if (auto maybe_tensor_types = gatherTensorTypes(node)) {
             auto dtype = (*maybe_tensor_types)[0]->scalarType();
             if (!dtype)
@@ -1326,6 +1325,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::mul(Tensor self, Scalar other) -> Tensor",
             "aten::div(Tensor self, Scalar other) -> Tensor",
             "aten::floor_divide.Scalar(Tensor self, Scalar other) -> Tensor",
+            "aten::pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor",
         },
         [this](Node* node) -> type_vec_t {
           if (auto maybe_tensor_types = gatherTensorTypes(node)) {
@@ -2310,7 +2310,7 @@ class ShapePropagator : public PropertyPropBase {
       }
     } else if (
         node->matches(
-            "aten::_scaled_dot_product_efficient_attention(Tensor query, Tensor key, Tensor value, bool compute_log_sumexp, float dropout_p=0.0, bool is_causal=False, *, float? scale=None) -> (Tensor output, Tensor log_sumexp, Tensor philox_seed, Tensor philox_offset)")) {
+            "aten::_scaled_dot_product_efficient_attention(Tensor query, Tensor key, Tensor value, bool compute_log_sumexp, bool is_causal=False, *, float? scale=None) -> (Tensor output, Tensor log_sumexp)")) {
       if (auto q_type = input_type(0)) {
         node->output(0)->setType(q_type->withDim(4));
         node->output(1)->setType(
@@ -2321,7 +2321,7 @@ class ShapePropagator : public PropertyPropBase {
         node->matches(
             "aten::_scaled_dot_product_flash_attention_backward(Tensor grad_out, Tensor query, Tensor key, Tensor value, Tensor out, Tensor logsumexp, Tensor cum_seq_q, Tensor cum_seq_k, int max_q, int max_k, float dropout_p, bool is_causal, Tensor philox_seed, Tensor philox_offset, *, float? scale=None) -> (Tensor grad_query, Tensor grad_key, Tensor grad_value)") ||
         node->matches(
-            "aten::_scaled_dot_product_efficient_attention_backward(Tensor grad_out_, Tensor query, Tensor key, Tensor value, Tensor out, Tensor logsumexp, Tensor philox_seed, Tensor philox_offset, float dropout_p, bool is_causal=False, *, float? scale=None) -> (Tensor, Tensor, Tensor)")) {
+            "aten::_scaled_dot_product_efficient_attention_backward(Tensor grad_out_, Tensor query, Tensor key, Tensor value, Tensor out, Tensor logsumexp, bool is_causal=False, bool chunk_grad_outputs=False, *, float? scale=None) -> (Tensor, Tensor, Tensor)")) {
       if (auto q_type = input_type(1)) {
         if (auto k_type = input_type(2)) {
           node->output(0)->setType(q_type);
@@ -2386,7 +2386,7 @@ class ShapePropagator : public PropertyPropBase {
             auto sizes = typ->sizes().concrete_sizes().value();
             auto idx = node->get<int>(attr::idx).value();
             auto dim = at::maybe_wrap_dim(
-                list_node->get<int>(attr::dim).value(), sizes.size());
+                list_node->get<int>(attr::dim).value(), sizes.size(), false);
             auto split_size = list_node->get<int>(attr::split_size).value();
             int split_nums = sizes[dim] / split_size;
             if (sizes[dim] % split_size != 0)
@@ -2501,7 +2501,13 @@ class ShapePropagator : public PropertyPropBase {
       }
     } else if (
         node->matches(
-            "aten::index.Tensor_hacked_twin(Tensor self, Tensor?[] indices) -> Tensor")) {
+            "aten::index.Tensor_hacked_twin(Tensor self, Tensor[] indices) -> Tensor") ||
+        node->matches(
+            "aten::index.Tensor_hacked_twin(Tensor self, Tensor?[] indices) -> Tensor") ||
+        node->matches(
+            "aten::index.Tensor(Tensor self, Tensor[] indices) -> Tensor") ||
+        node->matches(
+            "aten::index.Tensor(Tensor self, Tensor?[] indices) -> Tensor")) {
       if (auto type = input_type(0)) {
         size_t max_rank = 0;
         if (auto indices = node->namedInput(attr::indices)) {
@@ -3083,6 +3089,13 @@ class ShapePropagator : public PropertyPropBase {
       bool keepdim = node->get<bool>(attr::keepdim).value();
       std::reverse(dims.begin(), dims.end());
       std::vector<int64_t> new_dims;
+      std::transform(
+          dims.begin(),
+          dims.end(),
+          dims.begin(),
+          [sizes](int64_t dim) -> int64_t {
+            return wrapDim(dim, sizes.size());
+          });
       for (size_t i = 0; i < sizes.size(); ++i) {
         if (std::find(dims.begin(), dims.end(), i) == dims.end()) {
           new_dims.push_back(sizes.at(i));
@@ -3097,9 +3110,11 @@ class ShapePropagator : public PropertyPropBase {
                    /*const_inputs=*/attr::dim)) {
       auto& tp = tensor_types.at(0);
       auto sizes = tp->sizes().concrete_sizes().value();
-      int64_t dim = wrapDim(node->get<int64_t>(attr::dim).value(), sizes);
+      int64_t dim = node->get<int64_t>(attr::dim).value();
+      if (dim < 0)
+        dim += sizes.size() + 1;
       SHAPE_ASSERT(dim >= 0 && static_cast<size_t>(dim) <= sizes.size());
-      sizes.insert(sizes.begin() + dim + 1, 1);
+      sizes.insert(sizes.begin() + dim, 1);
       node->output()->setType(tp->withSizes(sizes));
       return true;
     } else if (node->matches(

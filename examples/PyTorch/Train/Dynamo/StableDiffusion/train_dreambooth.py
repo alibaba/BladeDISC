@@ -56,6 +56,9 @@ from diffusers.utils.import_utils import is_xformers_available
 
 import time
 import torch_blade
+import ctypes
+_cudart = ctypes.CDLL('libcudart.so')
+
 
 if is_wandb_available():
     import wandb
@@ -1360,6 +1363,13 @@ def main(args):
             text_encoder.train()
         epoch_start_time = time.perf_counter()
         for step, batch in enumerate(train_dataloader):
+            if global_step == 30:
+                torch.cuda.synchronize()
+                _cudart.cudaProfilerStart()
+
+            if global_step == 31:
+                torch.cuda.synchronize()
+                _cudart.cudaProfilerStop()
             # Skip steps until we reach the resumed step
             if (
                 args.resume_from_checkpoint

@@ -1478,13 +1478,27 @@ bool BaseGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   bool has_row_reduction = llvm::any_of(target.getOpList(), [](Operation* op) {
     return isRank2RowReduction(op);
   });
-  bool has_col_reduciton = llvm::any_of(target.getOpList(), [](Operation* op) {
+  bool has_col_reduction = llvm::any_of(target.getOpList(), [](Operation* op) {
     return isRank2ColReduction(op);
   });
 
-  if (has_row_reduction && has_col_reduciton) {
+  if (has_row_reduction && has_col_reduction) {
     return false;
   }
+
+  if (has_col_reduction) {
+    const auto& results = target.getResults();
+    auto ref_shape = getEffectiveShape(target, results[0]);
+    if (!llvm::all_of(results, [&](Value result) {
+          auto op = target.findLastWriter(result);
+          Value shape = getEffectiveShape(target, result);
+          return isRank2ColReduction(op) &&
+                 shapeAnalysis.isShapeEqual(ref_shape, shape);
+        })) {
+      return false;
+    }
+  }
+
   return BaseFusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target);
 }
 

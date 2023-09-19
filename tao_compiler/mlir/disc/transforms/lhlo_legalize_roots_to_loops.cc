@@ -650,7 +650,8 @@ LogicalResult lowerWithScheduleColReduction(
 
   SmallVector<Value, 4> yield_values_for_if;
 
-  ValueRange load_index({row_index, col_index});
+  SmallVector<Value, 2> multidim_load_index({row_index, col_index});
+  ValueRange load_index(multidim_load_index);
   b.setInsertionPointToStart(&if_row_valid_op.getThenRegion().front());
   int col_red_root_op_idx = 0;
   for (auto* root_op : root_ops) {
@@ -924,7 +925,8 @@ LogicalResult lowerWithScheduleColReductionTileH(
 
   SmallVector<Value, 4> yield_values_for_if;
 
-  ValueRange load_index({row_index, col_index});
+  SmallVector<Value, 2> multidim_load_index({row_index, col_index});
+  ValueRange load_index(multidim_load_index);
   b.setInsertionPointToStart(&if_row_valid_op.getThenRegion().front());
   int col_red_root_op_idx = 0;
   for (auto* root_op : root_ops) {

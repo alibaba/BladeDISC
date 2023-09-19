@@ -442,8 +442,8 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
               return true;
             }
             Value shape = getEffectiveShape(fusion_pattern, result);
-            return isRank2ColReduction(op)
-                       && shapeAnalysis.isShapeEqual(ref_shape, shape);
+            return isRank2ColReduction(op) &&
+                   shapeAnalysis.isShapeEqual(ref_shape, shape);
           })) {
         return false;
       }

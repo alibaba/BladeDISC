@@ -1098,13 +1098,15 @@ def DISCSplitReductionSerialOp :
 
   // TODO: support mixed static-dynamic (see TileToForallOp).
   let arguments = (ins TransformHandleTypeInterface:$target,
-                   DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$tile_sizes);
+                   DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$tile_sizes,
+                   DefaultValuedAttr<StrAttr, "">:$loop_type);
   let results = (outs TransformHandleTypeInterface:$for_op,
                       TransformHandleTypeInterface:$splitted_op);
 
   let assemblyFormat = [{
     $target
     `by` `tile_sizes` `=` $tile_sizes
+    `loop_type` `=` $loop_type
     attr-dict
     `:` functional-type(operands, results)
   }];
@@ -1415,4 +1417,335 @@ def ApplyLoopIndependentCodeMotionOp : Op<Transform_Dialect, "disc.apply_licm",
   }];
 }
 
-#endif // DISC_TRANSFORM_OPS_EXT
+def DISCPaddingMN : Op<Transform_Dialect, "disc.padding_mn",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    For a matmul of 'C += A * B', padding along the dimension M and N.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       DefaultValuedAttr<ArrayAttr, "{}">:$padding_values,
+                       DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$tile_sizes);
+  let results = (outs TransformHandleTypeInterface:$padding_dot);
+
+  let assemblyFormat = [{
+    $target
+    `padding_values` $padding_values
+    `tile_sizes` $tile_sizes
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCPaddingK : Op<Transform_Dialect, "disc.padding_k",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    For a matmul of 'C += A * B', padding along the dimension K.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       DefaultValuedAttr<ArrayAttr, "{}">:$padding_values,
+                       DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$tile_sizes);
+  let results = (outs TransformHandleTypeInterface:$padding_dot);
+
+  let assemblyFormat = [{
+    $target
+    `padding_values` $padding_values
+    `tile_sizes` $tile_sizes
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCSwapAllocTensor : Op<Transform_Dialect, "disc.swap_alloc_tensor",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Swaps bufferization.alloc_tensor with the copied vector.transfer_write op
+    when the destination of this write is an empty op
+
+    Example:
+
+    ```
+    %empty = tensor.empty()
+    %val = vector.transfer_read                            
+    %write = vector.transfer_write %val, %empty[%c0, %c0]
+    %alloc = bufferization.alloc_tensor() copy(%write)
+    ... = ... alloc
+
+    is transformed to:
+
+    ```
+    %alloc = bufferization.alloc_tensor()
+    %read = vector.transfer_read
+    %write = vector.transfer_write %read, %alloc
+    ... = ... %write
+    ```
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCExpandTransferRWToMemrefCopy : Op<Transform_Dialect,
+    "disc.expand_transfer_rw_to_memref_copy",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Expand vetor::Transfer_Read/Write op to a sequence of linalg::FillOp and
+    Memref::Copy ops.
+
+    Example:
+
+    ```
+    %alloc = bufferization.alloc_tensor()
+    %val = memref.subview ...
+    %read = vector.transfer_read ... %padding ... %val                            
+    vector.transfer_write %read, %alloc
+
+    is transformed to:
+
+    ```
+    %alloc = bufferization.alloc_tensor()
+    linalg.fill %padding, %alloc
+    %val = memref.subview ... 
+    memref.copy %val, %alloc
+    ```
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCMultiBuffering : Op<Transform_Dialect, "disc.multi_buffering",
+    [FunctionalStyleTransformOpTrait,
+     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       I64Attr:$multi_buffering_factor);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `by` `multi_buffering_factor` `=` $multi_buffering_factor
+    `:` functional-type(operands, results)
+  }];
+
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCSwizzleShareMemoryOp : Op<Transform_Dialect, "disc.swizzle_smem",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCPackSharedMemoryAllocOp : Op<Transform_Dialect, "disc.pack_smem",
+    [FunctionalStyleTransformOpTrait,
+     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCMoveDataToRegister : Op<Transform_Dialect, "disc.move_data_to_register",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       DenseI64ArrayAttr:$block_mn_shape,
+                       I64Attr:$smem_padding,
+                       I64Attr:$bytes);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `by` `block_mn_shape` `=` $block_mn_shape
+    `smem_padding` `=` $smem_padding
+    `bytes` `=` $bytes
+    `:` functional-type(operands, results)
+  }];
+
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCGPUSoftwarePipeline : Op<Transform_Dialect, "disc.gpu_software_pipeline",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                       I64Attr:$depth,
+                       I64Attr:$k_dim);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `by` `depth` `=` $depth
+    `k_dim` `=` $k_dim
+    `:` functional-type(operands, results)
+  }];
+
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+def DISCConvertNVGPUAsyncCpTONVVMAsyncCp : Op<Transform_Dialect, "disc.convert_nvgpu_async_cp_to_nvvm_async_cp",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs);
+
+  let assemblyFormat = [{
+    $target
+    attr-dict
+    `:` functional-type(operands, results)
+  }];
+
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+#endif // DISC_TRANSFORM_OPS_EXT 

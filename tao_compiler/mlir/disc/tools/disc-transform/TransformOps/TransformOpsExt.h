@@ -9,6 +9,7 @@
 
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Dialect/Vector/TransformOps/VectorTransformOps.h"
@@ -36,6 +37,32 @@ class CommonExtensions
  public:
   CommonExtensions();
 };
+
+/// Pipeline shared memory copy by apply software pipelining scheduling where
+/// copy to shared memory is in stage 0 and the rest of the operations are in
+/// stage `depth - 1`.
+enum class PipeliningSchedulingStrategy {
+  // Schedule the load from global memory into stage 0 and the associated store
+  // will be in stage depth - 1.
+  loadGlobalStage0 = 0,
+  // Schedule both the load from global and the store to shared memory in stage
+  // 0. The compute operations will be in stage depth-1. This means there won't
+  // be vector registers carried between stages.
+  loadStoreStage0 = 1,
+  // Schedule optimized when using nvidia tensorcore with async copies. It will
+  // set all the copies in stage 0 then it will prefecth part of loads in `depth
+  // - 2` stage and keep the rest of the load and compute into `depth - 1`.
+  nvidiaTensorCore = 2,
+};
+
+/// Pipeline copy to shared memory for matmul op
+FailureOr<scf::ForOp> applyPipelining(scf::ForOp forOp, int64_t depth,
+                                      bool epiloguePeeling,
+                                      PipeliningSchedulingStrategy schedule);
+
+LogicalResult optimizeSharedMemoryReadsAndWrites(Operation* parentOp,
+                                                 Value memrefValue);
+
 }  // namespace transform_dialect
 }  // namespace disc_ral
 }  // namespace mlir

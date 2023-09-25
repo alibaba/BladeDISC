@@ -59,25 +59,24 @@ bool StitchGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
                                       FusionPattern& lhs, FusionPattern& rhs,
                                       FusionPattern& target) {
   // TODO(Yancey): support fusion with different reduction type
-  bool has_row_reduction = llvm::any_of(target.getOpList(), [](Operation* op) {
-    return isRank2RowReduction(op);
-  });
-  bool has_col_reduction = llvm::any_of(target.getOpList(), [](Operation* op) {
-    return isRank2ColReduction(op);
-  });
+  bool has_rank2_row_reduction =
+      llvm::any_of(target.getOpList(),
+                   [](Operation* op) { return isRank2RowReduction(op); });
+  bool has_rank2_col_reduction =
+      llvm::any_of(target.getOpList(),
+                   [](Operation* op) { return isRank2ColReduction(op); });
 
-  if (has_row_reduction && has_col_reduction) {
+  if (has_rank2_row_reduction && has_rank2_col_reduction) {
     return false;
   }
 
-  if (has_col_reduction) {
+  if (has_rank2_col_reduction) {
     const auto& results = target.getResults();
     auto ref_shape = getEffectiveShape(target, results[0]);
     if (!llvm::all_of(results, [&](Value result) {
           auto op = target.findLastWriter(result);
           Value shape = getEffectiveShape(target, result);
-          return isRank2ColReduction(op) &&
-                 shapeAnalysis.isShapeEqual(ref_shape, shape);
+          return isRank2ColReduction(op);
         })) {
       return false;
     }

@@ -2502,8 +2502,10 @@ class ShapePropagator : public PropertyPropBase {
         return true;
       }
     } else if (
+#if PYTORCH_VERSION_GT(2, 0)
         node->matches(
             "aten::_unsafe_index.Tensor(Tensor self, Tensor?[] indices) -> Tensor") ||
+#endif
         node->matches(
             "aten::index.Tensor_hacked_twin(Tensor self, Tensor[] indices) -> Tensor") ||
         node->matches(

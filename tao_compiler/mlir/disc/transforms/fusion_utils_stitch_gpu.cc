@@ -73,10 +73,9 @@ bool StitchGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   if (has_rank2_col_reduction) {
     const auto& results = target.getResults();
     auto ref_shape = getEffectiveShape(target, results[0]);
-    if (!llvm::all_of(results, [&](Value result) {
+    if (llvm::any_of(results, [&](Value result) {
           auto op = target.findLastWriter(result);
-          Value shape = getEffectiveShape(target, result);
-          return isRank2ColReduction(op);
+          return isa<lmhlo::TransposeOp>(op);
         })) {
       return false;
     }

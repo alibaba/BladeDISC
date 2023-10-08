@@ -10,13 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#export TORCH_COMPILE_DEBUG=1
-#export TORCHDYNAMO_REPORT_GUARD_FAILURES=1
-#export TORCH_COMPILE_DEBUG_DIR="debug"
-export AOT_FX_GRAPHS=true
-rm -rf dump_dir
+export TORCH_COMPILE_DEBUG=1
+export TORCH_COMPILE_DEBUG_DIR="debug"
+rm -rf debug
+#export AOT_FX_GRAPHS=true
+#export TORCHDYNAMO_DYNAMIC_SHAPES=0
 export DISC_ENABLE_PREDEFINED_PDL=true
-export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+#export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export MODEL_NAME="/root/.cache/huggingface/hub/models--CompVis--stable-diffusion-v1-4"
+export MODEL_NAME="/root/.cache/huggingface/hub/models--CompVis--stable-diffusion-v1-4/snapshots/b95be7d6f134c3a9e62ee616f310733567f069ce"
 export INSTANCE_DIR="data"
 export CLASS_DIR="class_data"
 export OUTPUT_DIR="save-model"
@@ -52,4 +54,4 @@ $ENTRY accelerate launch  --num_processes=1 train_dreambooth.py \
   --lr_warmup_steps=0 \
   --num_class_images=200 \
   --max_train_steps=800 \
-  --set_grads_to_none  2>&1 | tee train.log
+  --set_grads_to_none 2>&1 | tee train.log

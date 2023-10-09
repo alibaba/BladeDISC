@@ -73,9 +73,7 @@ def _script_module_preprocess(s_module, inputs, input_dims=[]):
         jit_pass_constant_propagation(graph)
     else:
         torch._C._jit_pass_constant_propagation(graph)
-    print("before propagate input shapes", graph, flush=True)
     jit_pass_propagate_input_shapes(graph)
-    print("after propagate input shapes", graph, flush=True)
 
 def _deep_copy_script_module(model):
 

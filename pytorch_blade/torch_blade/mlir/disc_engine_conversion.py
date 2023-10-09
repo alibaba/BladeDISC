@@ -236,7 +236,5 @@ def _optimize_mlir(script_module):
         )
 
     with tools.trust_tracing_shape():
-        print("before fusion_block", graph, flush=True)
         fusion_block(graph)
-        print("after fusion_block", graph, flush=True)
         _disc_engine_conversion(c_module)

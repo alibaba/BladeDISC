@@ -41,7 +41,10 @@ transform.sequence failures(propagate) {
   // 3. store the final result from reg to smem and to gmem
   // 4. use padding for output smem matrix to avoid bank conflict
   %mma = transform.structured.match ops{["nvgpu.mma.sync"]} in %5 : (!transform.any_op) -> !transform.any_op
-  transform.disc.move_data_to_register %mma by block_mn_shape = [128, 128] smem_padding = 8 bytes = 4: (!transform.any_op) -> ()
+  transform.disc.move_data_to_register %mma by block_mn_shape = [128, 128] smem_padding = 8 bytes = 2: (!transform.any_op) -> ()
+  transform.disc.apply_licm %5 : !transform.any_op
+  transform.disc.apply_dce %5 : !transform.any_op
+  transform.disc.apply_cse %5 : !transform.any_op
   // use cp.asys to load matrix A and B from gmem to smem
   %transfer_write = transform.structured.match ops{["func.func"]} in %5 : (!transform.any_op) -> !transform.any_op
   transform.disc.expand_transfer_rw_to_memref_copy %transfer_write : (!transform.any_op) -> ()
@@ -62,7 +65,7 @@ transform.sequence failures(propagate) {
   transform.disc.convert_nvgpu_async_cp_to_nvvm_async_cp %14 : (!transform.any_op) -> ()
   // software pipeline
   %pipeline = transform.structured.match ops{["func.func"]} in %5 : (!transform.any_op) -> !transform.any_op
-  transform.disc.gpu_software_pipeline %pipeline by depth = 2 k_dim = 1024: (!transform.any_op) -> ()
+  transform.disc.gpu_software_pipeline %pipeline by depth = 2: (!transform.any_op) -> ()
   transform.disc.apply_licm %5 : !transform.any_op
   transform.disc.apply_dce %5 : !transform.any_op
   transform.disc.apply_cse %5 : !transform.any_op

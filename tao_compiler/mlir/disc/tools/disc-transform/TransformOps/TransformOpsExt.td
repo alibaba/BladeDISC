@@ -1700,15 +1700,13 @@ def DISCGPUSoftwarePipeline : Op<Transform_Dialect, "disc.gpu_software_pipeline"
   }];
 
   let arguments = (ins TransformHandleTypeInterface:$target,
-                       I64Attr:$depth,
-                       I64Attr:$k_dim);
+                       I64Attr:$depth);
   let results = (outs);
 
   let assemblyFormat = [{
     $target
     attr-dict
     `by` `depth` `=` $depth
-    `k_dim` `=` $k_dim
     `:` functional-type(operands, results)
   }];
 

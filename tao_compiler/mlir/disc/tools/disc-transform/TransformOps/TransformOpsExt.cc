@@ -4403,7 +4403,6 @@ transform_dialect::DISCExpandTransferRWToMemrefCopy::applyToOne(
   // vector.transfer_write %9, %subview_7[%c0, %c0]
   // TODO: use another way to find out the R/W of ShareMemory
   ctaKLoop->walk([&](vector::TransferWriteOp write) {
-    write.dump();
     auto loop = dyn_cast_or_null<scf::ForOp>(write->getParentOp());
     if (!loop || loop != ctaKLoop) {
       WalkResult::skip();
@@ -4448,7 +4447,6 @@ transform_dialect::DISCExpandTransferRWToMemrefCopy::applyToOne(
   SmallVector<Value> tokens;
   auto d0 = b.getAffineDimExpr(0);
   auto s0 = b.getAffineSymbolExpr(0);
-  b.create<gpu::BarrierOp>();
   for (auto write : writes) {
     auto read = write.getVector().getDefiningOp<vector::TransferReadOp>();
     auto padding = read.getPadding();
@@ -4515,6 +4513,9 @@ transform_dialect::DISCExpandTransferRWToMemrefCopy::applyToOne(
   }
   auto tokenGroup = b.create<nvgpu::DeviceAsyncCreateGroupOp>(
       nvgpu::DeviceAsyncTokenType::get(ctx), tokens);
+  // we will manually lower nvgpu::DeviceAsyncWaitOp to
+  // NVVM::CpAsyncCommitGroupOp, so it's ok to use the
+  // `nullptr` directly.
   b.create<nvgpu::DeviceAsyncWaitOp>(tokenGroup, nullptr);
   b.create<gpu::BarrierOp>();
 
@@ -4747,7 +4748,6 @@ transform_dialect::DISCSwizzleShareMemoryOp::applyToOne(
   });
   LogicalResult result(failure());
   for (auto allocOp : shmAllocOps) {
-    allocOp.dump();
     result = disc_ral::transform_dialect::optimizeSharedMemoryReadsAndWrites(
         funcOp, allocOp.getMemref());
     if (failed(result)) {
@@ -4932,6 +4932,8 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
 
   auto zeroAttr = b.getZeroAttr(elementType);
   Value zeroCst = b.create<arith::ConstantOp>(zeroAttr);
+  Value zeroCstVec = b.create<arith::ConstantOp>(DenseElementsAttr::get(
+      VectorType::get({2}, elementType), FloatAttr::get(elementType, 0.0)));
   auto d0 = b.getAffineDimExpr(0);
   auto s0 = b.getAffineSymbolExpr(0);
   Value zeroIndex = b.create<arith::ConstantIndexOp>(0);
@@ -4954,17 +4956,14 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
   Value aWarpRegAlloc = b.create<memref::AllocOp>(allocTypeA);
   Value bWarpRegAlloc = b.create<memref::AllocOp>(allocTypeB);
   Value cWarpRegAlloc = b.create<memref::AllocOp>(allocTypeC);
-  // b.create<linalg::FillOp>(ValueRange{zeroCst}, ValueRange{cWarpRegAlloc});
   for (int64_t i = 0; i < warpMShape / mmaMShape; ++i) {
     for (int64_t j = 0; j < warpNShape / mmaNShape; ++j)
       for (int64_t m = 0; m < 2; ++m)
-        for (int64_t n = 0; n < 2; ++n)
-          b.create<memref::StoreOp>(
-              zeroCst, cWarpRegAlloc,
-              ValueRange{b.create<arith::ConstantIndexOp>(i),
-                         b.create<arith::ConstantIndexOp>(j),
-                         b.create<arith::ConstantIndexOp>(m),
-                         b.create<arith::ConstantIndexOp>(n)});
+        b.create<vector::StoreOp>(
+            zeroCstVec, cWarpRegAlloc,
+            ValueRange{b.create<arith::ConstantIndexOp>(i),
+                       b.create<arith::ConstantIndexOp>(j),
+                       b.create<arith::ConstantIndexOp>(m), zeroIndex});
   }
 
   // create vector for a, b, c
@@ -5002,116 +5001,144 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
   auto ldAKOffsetMap =
       AffineMap::get(1, 1, {d0 + (s0.floorDiv(mmaKShape)) * 8}, ctx);
   // create M/K nested loop to cache ldmatrix A's result
-  for (int64_t m = 0; m < warpMShape; m += mmaMShape) {
-    auto ldAMLoopIV = b.create<arith::ConstantIndexOp>(m);
-    auto ldAMOffset = b.create<affine::AffineApplyOp>(
-        ldAMOffsetMap,
-        ValueRange{b.create<arith::AddIOp>(ldAMLoopIV, matrixAWarpOffset),
-                   laneId});
-    for (int64_t k = 0; k < warpKShape; k += mmaKShape) {
-      auto ldAKLoopIV = b.create<arith::ConstantIndexOp>(k);
-      auto ldAKOffset = b.create<affine::AffineApplyOp>(
-          ldAKOffsetMap, ValueRange{ldAKLoopIV, laneId});
-      auto ldARes = b.create<nvgpu::LdMatrixOp>(
-          ldMatrixA.getRes().getType(), ldMatrixA.getSrcMemref(),
-          ValueRange{ldAMOffset, ldAKOffset}, ldMatrixA.getTransposeAttr(),
-          ldMatrixA.getNumTilesAttr());
-      for (unsigned i = 0; i < 4; ++i) {
-        Value extractOp = b.create<vector::ExtractOp>(
-            ldARes.getRes(), ValueRange{b.create<arith::ConstantIndexOp>(i)});
-        b.create<vector::StoreOp>(
-            extractOp, aWarpRegAlloc,
-            ValueRange{b.create<arith::ConstantIndexOp>(m / mmaMShape),
-                       b.create<arith::ConstantIndexOp>(k / mmaKShape),
-                       b.create<arith::ConstantIndexOp>(i), zeroIndex});
-      }
-    }
+  auto ldAMLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpMShape),
+      b.create<arith::ConstantIndexOp>(mmaMShape));
+  b.setInsertionPoint(ldAMLoop.getBody(), ldAMLoop.getBody()->begin());
+  auto ldAMLoopIV = ldAMLoop.getInductionVar();
+  auto ldAMOffset = b.create<affine::AffineApplyOp>(
+      ldAMOffsetMap,
+      ValueRange{b.create<arith::AddIOp>(ldAMLoopIV, matrixAWarpOffset),
+                 laneId});
+  auto ldAKLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpKShape),
+      b.create<arith::ConstantIndexOp>(mmaKShape));
+  b.setInsertionPoint(ldAKLoop.getBody(), ldAKLoop.getBody()->begin());
+  auto ldAKLoopIV = ldAKLoop.getInductionVar();
+  auto ldAKOffset = b.create<affine::AffineApplyOp>(
+      ldAKOffsetMap, ValueRange{ldAKLoopIV, laneId});
+  auto ldARes = b.create<nvgpu::LdMatrixOp>(
+      ldMatrixA.getRes().getType(), ldMatrixA.getSrcMemref(),
+      ValueRange{ldAMOffset, ldAKOffset}, ldMatrixA.getTransposeAttr(),
+      ldMatrixA.getNumTilesAttr());
+  for (unsigned i = 0; i < 4; ++i) {
+    Value extractOp = b.create<vector::ExtractOp>(
+        ldARes.getRes(), ValueRange{b.create<arith::ConstantIndexOp>(i)});
+    b.create<vector::StoreOp>(
+        extractOp, aWarpRegAlloc,
+        ValueRange{b.create<arith::DivUIOp>(
+                       ldAMLoopIV, b.create<arith::ConstantIndexOp>(mmaMShape)),
+                   b.create<arith::DivUIOp>(
+                       ldAKLoopIV, b.create<arith::ConstantIndexOp>(mmaKShape)),
+                   b.create<arith::ConstantIndexOp>(i), zeroIndex});
   }
-  auto ldBKOffsetMap =
-      AffineMap::get(1, 1,
-                     // {d0 + s0 - (s0.floorDiv(mmaKShape)) * mmaKShape}, ctx);
-                     {d0 + s0 % mmaKShape}, ctx);
+  b.setInsertionPointAfter(ldAMLoop);
+  (void)mlir::loopUnrollByFactor(ldAKLoop, warpKShape / mmaKShape);
+  (void)mlir::loopUnrollByFactor(ldAMLoop, warpMShape / mmaMShape);
+
+  auto ldBKOffsetMap = AffineMap::get(1, 1, {d0 + s0 % mmaKShape}, ctx);
   auto ldBNOffsetMap =
       AffineMap::get(1, 1, {d0 + (s0.floorDiv(mmaKShape)) * 8}, ctx);
   // create K/N nested loop to cache ldmartixB's result
-  for (int64_t k = 0; k < warpKShape; k += mmaKShape) {
-    auto ldBKLoopIV = b.create<arith::ConstantIndexOp>(k);
-    auto ldBKOffset = b.create<affine::AffineApplyOp>(
-        ldBKOffsetMap, ValueRange{ldBKLoopIV, laneId});
-    for (int64_t n = 0; n < warpNShape; n += mmaNShape) {
-      auto ldBNLoopIV = b.create<arith::ConstantIndexOp>(n);
-      auto ldBNOffset = b.create<affine::AffineApplyOp>(
-          ldBNOffsetMap,
-          ValueRange{b.create<arith::AddIOp>(ldBNLoopIV, matrixBWarpOffset),
-                     laneId});
-      auto ldBRes = b.create<nvgpu::LdMatrixOp>(
-          ldMatrixB.getRes().getType(), ldMatrixB.getSrcMemref(),
-          ValueRange{ldBKOffset, ldBNOffset}, ldMatrixB.getTransposeAttr(),
-          ldMatrixB.getNumTilesAttr());
-      for (unsigned i = 0; i < 2; ++i) {
-        Value extractOp = b.create<vector::ExtractOp>(
-            ldBRes.getRes(), ValueRange{b.create<arith::ConstantIndexOp>(i)});
-        b.create<vector::StoreOp>(
-            extractOp, bWarpRegAlloc,
-            ValueRange{b.create<arith::ConstantIndexOp>(k / mmaKShape),
-                       b.create<arith::ConstantIndexOp>(n / mmaNShape),
-                       b.create<arith::ConstantIndexOp>(i), zeroIndex});
-      }
-    }
+  auto ldBKLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpKShape),
+      b.create<arith::ConstantIndexOp>(mmaKShape));
+  b.setInsertionPoint(ldBKLoop.getBody(), ldBKLoop.getBody()->begin());
+  auto ldBKLoopIV = ldBKLoop.getInductionVar();
+  auto ldBKOffset = b.create<affine::AffineApplyOp>(
+      ldBKOffsetMap, ValueRange{ldBKLoopIV, laneId});
+  auto ldBNLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpNShape),
+      b.create<arith::ConstantIndexOp>(mmaNShape));
+  b.setInsertionPoint(ldBNLoop.getBody(), ldBNLoop.getBody()->begin());
+  auto ldBNLoopIV = ldBNLoop.getInductionVar();
+  auto ldBNOffset = b.create<affine::AffineApplyOp>(
+      ldBNOffsetMap,
+      ValueRange{b.create<arith::AddIOp>(ldBNLoopIV, matrixBWarpOffset),
+                 laneId});
+  auto ldBRes = b.create<nvgpu::LdMatrixOp>(
+      ldMatrixB.getRes().getType(), ldMatrixB.getSrcMemref(),
+      ValueRange{ldBKOffset, ldBNOffset}, ldMatrixB.getTransposeAttr(),
+      ldMatrixB.getNumTilesAttr());
+  for (unsigned i = 0; i < 2; ++i) {
+    Value extractOp = b.create<vector::ExtractOp>(
+        ldBRes.getRes(), ValueRange{b.create<arith::ConstantIndexOp>(i)});
+    b.create<vector::StoreOp>(
+        extractOp, bWarpRegAlloc,
+        ValueRange{b.create<arith::DivUIOp>(
+                       ldBKLoopIV, b.create<arith::ConstantIndexOp>(mmaKShape)),
+                   b.create<arith::DivUIOp>(
+                       ldBNLoopIV, b.create<arith::ConstantIndexOp>(mmaNShape)),
+                   b.create<arith::ConstantIndexOp>(i), zeroIndex});
   }
+  b.setInsertionPointAfter(ldBKLoop);
+  (void)mlir::loopUnrollByFactor(ldBNLoop, warpNShape / mmaNShape);
+  (void)mlir::loopUnrollByFactor(ldBKLoop, warpKShape / mmaKShape);
+
   // create M/N/K nested loop to compute mma
   int64_t vector_width = 2;
-  for (int64_t k = 0; k < warpKShape; k += mmaKShape) {
-    int64_t kIndex = k / mmaKShape;
-    for (int64_t m = 0; m < warpMShape; m += mmaMShape) {
-      int64_t mIndex = m / mmaMShape;
-      for (int64_t n = 0; n < warpNShape; n += mmaNShape) {
-        int64_t nIndex = n / mmaNShape;
-        // load C form reg
-        for (unsigned i = 0; i < 2; ++i) {
-          matrixCReg = b.create<vector::InsertOp>(
-              b.create<vector::LoadOp>(
-                  VectorType::get({vector_width}, elementType), cWarpRegAlloc,
-                  ValueRange{b.create<arith::ConstantIndexOp>(mIndex),
-                             b.create<arith::ConstantIndexOp>(nIndex),
-                             b.create<arith::ConstantIndexOp>(i), zeroIndex}),
-              matrixCReg, (int64_t[]){i});
-        }
-        // load A from reg
-        for (unsigned i = 0; i < 4; ++i) {
-          matrixAReg = b.create<vector::InsertOp>(
-              b.create<vector::LoadOp>(
-                  VectorType::get({vector_width}, elementType), aWarpRegAlloc,
-                  ValueRange{b.create<arith::ConstantIndexOp>(mIndex),
-                             b.create<arith::ConstantIndexOp>(kIndex),
-                             b.create<arith::ConstantIndexOp>(i), zeroIndex}),
-              matrixAReg, (int64_t[]){i});
-        }
-        // load B from reg
-        for (unsigned i = 0; i < 2; ++i) {
-          matrixBReg = b.create<vector::InsertOp>(
-              b.create<vector::LoadOp>(
-                  VectorType::get({vector_width}, elementType), bWarpRegAlloc,
-                  ValueRange{b.create<arith::ConstantIndexOp>(kIndex),
-                             b.create<arith::ConstantIndexOp>(nIndex),
-                             b.create<arith::ConstantIndexOp>(i), zeroIndex}),
-              matrixBReg, (int64_t[]){i});
-        }
-        // compute mma
-        matrixCReg = b.create<nvgpu::MmaSyncOp>(
-            matrixAReg, matrixBReg, matrixCReg, mma.getMmaShapeAttr());
-        // store c to reg
-        for (unsigned i = 0; i < 2; ++i) {
-          b.create<vector::StoreOp>(
-              b.create<vector::ExtractOp>(matrixCReg, (int64_t[]){i}),
-              cWarpRegAlloc,
-              ValueRange{b.create<arith::ConstantIndexOp>(mIndex),
-                         b.create<arith::ConstantIndexOp>(nIndex),
-                         b.create<arith::ConstantIndexOp>(i), zeroIndex});
-        }
-      }
-    }
+  auto newMmaKLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpKShape),
+      b.create<arith::ConstantIndexOp>(mmaKShape));
+  b.setInsertionPoint(newMmaKLoop.getBody(), newMmaKLoop.getBody()->begin());
+  auto mmaKLoopIV = newMmaKLoop.getInductionVar();
+  auto mmaKShapeValue = b.create<arith::ConstantIndexOp>(mmaKShape);
+  auto kIndexValue = b.create<arith::DivUIOp>(mmaKLoopIV, mmaKShapeValue);
+  auto newMmaMLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpMShape),
+      b.create<arith::ConstantIndexOp>(mmaMShape));
+  b.setInsertionPoint(newMmaMLoop.getBody(), newMmaMLoop.getBody()->begin());
+  auto mmaMLoopIV = newMmaMLoop.getInductionVar();
+  auto mmaMShapeValue = b.create<arith::ConstantIndexOp>(mmaMShape);
+  auto mIndexValue = b.create<arith::DivUIOp>(mmaMLoopIV, mmaMShapeValue);
+  auto newMmaNLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpNShape),
+      b.create<arith::ConstantIndexOp>(mmaNShape));
+  b.setInsertionPoint(newMmaNLoop.getBody(), newMmaNLoop.getBody()->begin());
+  auto mmaNLoopIV = newMmaNLoop.getInductionVar();
+  auto mmaNShapeValue = b.create<arith::ConstantIndexOp>(mmaNShape);
+  auto nIndexValue = b.create<arith::DivUIOp>(mmaNLoopIV, mmaNShapeValue);
+  // load C form reg
+  for (unsigned i = 0; i < 2; ++i) {
+    matrixCReg = b.create<vector::InsertOp>(
+        b.create<vector::LoadOp>(
+            VectorType::get({vector_width}, elementType), cWarpRegAlloc,
+            ValueRange{mIndexValue, nIndexValue,
+                       b.create<arith::ConstantIndexOp>(i), zeroIndex}),
+        matrixCReg, (int64_t[]){i});
   }
+  // load A from reg
+  for (unsigned i = 0; i < 4; ++i) {
+    matrixAReg = b.create<vector::InsertOp>(
+        b.create<vector::LoadOp>(
+            VectorType::get({vector_width}, elementType), aWarpRegAlloc,
+            ValueRange{mIndexValue, kIndexValue,
+                       b.create<arith::ConstantIndexOp>(i), zeroIndex}),
+        matrixAReg, (int64_t[]){i});
+  }
+  // load B from reg
+  for (unsigned i = 0; i < 2; ++i) {
+    matrixBReg = b.create<vector::InsertOp>(
+        b.create<vector::LoadOp>(
+            VectorType::get({vector_width}, elementType), bWarpRegAlloc,
+            ValueRange{kIndexValue, nIndexValue,
+                       b.create<arith::ConstantIndexOp>(i), zeroIndex}),
+        matrixBReg, (int64_t[]){i});
+  }
+  // compute mma
+  matrixCReg = b.create<nvgpu::MmaSyncOp>(matrixAReg, matrixBReg, matrixCReg,
+                                          mma.getMmaShapeAttr());
+  // store c to reg
+  for (unsigned i = 0; i < 2; ++i) {
+    b.create<vector::StoreOp>(
+        b.create<vector::ExtractOp>(matrixCReg, (int64_t[]){i}), cWarpRegAlloc,
+        ValueRange{mIndexValue, nIndexValue,
+                   b.create<arith::ConstantIndexOp>(i), zeroIndex});
+  }
+  b.setInsertionPointAfter(newMmaKLoop);
+  (void)mlir::loopUnrollByFactor(newMmaNLoop, warpNShape / mmaNShape);
+  (void)mlir::loopUnrollByFactor(newMmaMLoop, warpMShape / mmaMShape);
+  (void)mlir::loopUnrollByFactor(newMmaKLoop, warpKShape / mmaKShape);
   // no longer need origin mmaMLoop
   for (auto user : mmaMLoop->getUsers()) user->erase();
   mmaMLoop.erase();
@@ -5143,34 +5170,29 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
   auto cWarpSmemColOffset =
       b.create<affine::AffineApplyOp>(cWarpSmemColOffsetMap, warpId);
 
-  auto cWarpSmemRow0Map = AffineMap::get(1, 1, {d0 + s0.floorDiv(4)}, ctx);
-  auto cWarpSmemRow1Map = AffineMap::get(1, 1, {d0 + s0.floorDiv(4) + 8}, ctx);
   auto cWarpSmemColMap = AffineMap::get(1, 1, {d0 + (s0 % 4) * 2}, ctx);
-
+  Value warpBaseRow = b.create<arith::AddIOp>(
+      cWarpSmemRowOffset,
+      b.create<arith::ShRUIOp>(laneId, b.create<arith::ConstantIndexOp>(2)));
   mmaMLoop = b.create<scf::ForOp>(zeroIndex,
                                   b.create<arith::ConstantIndexOp>(warpMShape),
                                   b.create<arith::ConstantIndexOp>(mmaMShape));
   mmaMLoop->setAttr("loop-type", StringAttr::get(ctx, "reg-to-smem-loop"));
   b.setInsertionPoint(mmaMLoop.getBody(), mmaMLoop.getBody()->begin());
-  auto mmaMLoopIV = mmaMLoop.getInductionVar();
+  mmaMLoopIV = mmaMLoop.getInductionVar();
   mmaNLoop = b.create<scf::ForOp>(zeroIndex,
                                   b.create<arith::ConstantIndexOp>(warpNShape),
                                   b.create<arith::ConstantIndexOp>(mmaNShape));
   b.setInsertionPoint(mmaNLoop.getBody(), mmaNLoop.getBody()->begin());
-  auto mmaNLoopIV = mmaNLoop.getInductionVar();
+  mmaNLoopIV = mmaNLoop.getInductionVar();
   auto mIndex = b.create<arith::DivUIOp>(
       mmaMLoopIV, b.create<arith::ConstantIndexOp>(mmaMShape));
   auto nIndex = b.create<arith::DivUIOp>(
       mmaNLoopIV, b.create<arith::ConstantIndexOp>(mmaNShape));
 
-  Value cWarpSmemRow0 = b.create<arith::AddIOp>(
-      cWarpSmemRowOffset,
-      b.create<affine::AffineApplyOp>(cWarpSmemRow0Map,
-                                      ValueRange{mmaMLoopIV, laneId}));
+  Value cWarpSmemRow0 = b.create<arith::AddIOp>(warpBaseRow, mmaMLoopIV);
   Value cWarpSmemRow1 = b.create<arith::AddIOp>(
-      cWarpSmemRowOffset,
-      b.create<affine::AffineApplyOp>(cWarpSmemRow1Map,
-                                      ValueRange{mmaMLoopIV, laneId}));
+      cWarpSmemRow0, b.create<arith::ConstantIndexOp>(8));
   Value cWarpSmemCol = b.create<arith::AddIOp>(
       cWarpSmemColOffset, b.create<affine::AffineApplyOp>(
                               cWarpSmemColMap, ValueRange{mmaNLoopIV, laneId}));
@@ -5186,10 +5208,8 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
       cBlockSmemAlloc, ValueRange{cWarpSmemRow1, cWarpSmemCol});
   b.setInsertionPointAfter(mmaMLoop);
   b.create<gpu::BarrierOp>();
-  // TODO: unroll loop will cause runtime result mismatch
-  // (void)mlir::loopUnrollByFactor(mmaNLoop, warpNShape / mmaNShape);
-  // (void)mlir::loopUnrollByFactor(mmaMLoop, warpMShape / mmaMShape);
-  // b.create<gpu::BarrierOp>();
+  (void)mlir::loopUnrollByFactor(mmaNLoop, warpNShape / mmaNShape);
+  (void)mlir::loopUnrollByFactor(mmaMLoop, warpMShape / mmaMShape);
 
   // 5. Move data from smem to gmem
   linalg::GenericOp genericOp;
@@ -5214,7 +5234,7 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
   b.setInsertionPoint(genericOp);
   // TODO: theoretically, each thread should copy 16 bytes to achieve best
   // performance, however there is bug when lowering mlir code to ptx code
-  // during converting load/store vector if we set vector_width to 16
+  // during converting load/store-vector if we set vector_width to 16
   int64_t cpBytesPerThread = getBytes();
   int64_t cpElementsPerThread = cpBytesPerThread / 2;
   int64_t cpThreadsPerRow = blockNShape / cpElementsPerThread;
@@ -5244,9 +5264,7 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
       outputSubView, ValueRange{offsetX, offsetY});
   b.setInsertionPointAfter(smemToGmemLoop);
   b.create<gpu::BarrierOp>();
-  // TODO: unroll loop will cause runtime result mismatch
-  // (void) mlir::loopUnrollByFactor(smemToGmemLoop, blockMShape /
-  // cpRowsPerBlock);
+  (void)mlir::loopUnrollByFactor(smemToGmemLoop, blockMShape / cpRowsPerBlock);
   genericOp->erase();
 
   RewritePatternSet patterns(ctx);
@@ -5258,6 +5276,7 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
                                      "greedy pattern applicatin failed");
   }
 
+  // Delete any transfer_write op
   Operation* transferWrite = nullptr;
   parallelOp->walk([&](memref::AllocOp alloc) {
     if (llvm::hasSingleElement(alloc->getUsers())) {
@@ -5295,17 +5314,17 @@ transform_dialect::DISCGPUSoftwarePipeline::applyToOne(
       WalkResult::interrupt();
     }
   });
-  auto schedule = PipeliningSchedulingStrategy::loadStoreStage0;
-  b.setInsertionPoint(ctaKLoop);
-  ctaKLoop.setUpperBound(b.create<arith::ConstantIndexOp>(getKDim()));
-  FailureOr<scf::ForOp> pipelinedFor =
-      applyPipelining(ctaKLoop, getDepth(), true, schedule);
+  auto [diag, pipelined] = applyPipelining(ctaKLoop, getDepth(), true);
 
-  if (failed(pipelinedFor)) {
-    return mlir::emitDefiniteFailure(target, "failed to pipeline");
+  if (diag.succeeded()) {
+    return DiagnosedSilenceableFailure::success();
+  }
+  if (diag.isDefiniteFailure()) {
+    auto diag = emitDefiniteFailure("irreversible pipelining failure");
+    return diag;
   }
 
-  return DiagnosedSilenceableFailure::success();
+  return std::move(diag);
 }
 
 //===----------------------------------------------------------------------===//
@@ -5335,7 +5354,6 @@ transform_dialect::DISCConvertNVGPUAsyncCpTONVVMAsyncCp::applyToOne(
           op->getLoc(),
           cast<nvgpu::DeviceAsyncWaitOp>(op).getNumGroups().value_or(0));
       rewriter.setInsertionPointAfter(waitGroup);
-      rewriter.create<gpu::BarrierOp>(op->getLoc());
       waitGroups.push_back(op);
     }
   });

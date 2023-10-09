@@ -6,6 +6,8 @@
 // #include "iree-dialects/Dialect/LinalgTransform/SimpleRewriterBase.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/Analysis/SliceAnalysis.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/NVVMDialect.h"
@@ -50,6 +52,7 @@ struct LoopPipelinerInternal {
   unsigned maxStage = 0;
   DenseMap<Operation*, unsigned> stages;
   std::vector<Operation*> opOrder;
+  Value upperBound;
   int64_t ub;
   int64_t lb;
   int64_t step;
@@ -83,7 +86,7 @@ struct LoopPipelinerInternal {
       llvm::DenseMap<std::pair<Value, unsigned>, unsigned>& loopArgMap);
   /// Emits the pipelined kernel. This clones loop operations following user
   /// order and remaps operands defined in a different stage as their use.
-  void createKernel(
+  LogicalResult createKernel(
       scf::ForOp newForOp,
       const llvm::MapVector<Value, LiverangeInfo>& crossStageValues,
       const llvm::DenseMap<std::pair<Value, unsigned>, unsigned>& loopArgMap,
@@ -96,13 +99,15 @@ struct LoopPipelinerInternal {
 bool LoopPipelinerInternal::initializeLoopInfo(
     ForOp op, const PipeliningOption& options) {
   forOp = op;
-  // TODO: add support for dynamic shape of K
-  auto upperBoundCst =
-      forOp.getUpperBound().getDefiningOp<arith::ConstantIndexOp>();
+  upperBound = forOp.getUpperBound();
+  auto upperBoundCst = upperBound.getDefiningOp<arith::ConstantIndexOp>();
+  if (upperBoundCst) {
+    ub = upperBoundCst.value();
+  }
+  // only require lowerBound and step to be constant
   auto lowerBoundCst =
       forOp.getLowerBound().getDefiningOp<arith::ConstantIndexOp>();
-  if (!upperBoundCst || !lowerBoundCst) return false;
-  ub = upperBoundCst.value();
+  if (!lowerBoundCst) return false;
   lb = lowerBoundCst.value();
   auto stepCst = forOp.getStep().getDefiningOp<arith::ConstantIndexOp>();
   if (!stepCst) return false;
@@ -110,18 +115,18 @@ bool LoopPipelinerInternal::initializeLoopInfo(
   peelEpilogue = options.peelEpilogue;
   predicateFn = options.predicateFn;
   if (!peelEpilogue && predicateFn == nullptr) return false;
-  int64_t numIteration = ceilDiv(ub - lb, step);
   std::vector<std::pair<Operation*, unsigned>> schedule;
   options.getScheduleFn(forOp, schedule);
   if (schedule.empty()) return false;
 
+  // Note: user need to assure that loop's iteration
+  // must greater than maxStage
   opOrder.reserve(schedule.size());
   for (auto& opSchedule : schedule) {
     maxStage = std::max(maxStage, opSchedule.second);
     stages[opSchedule.first] = opSchedule.second;
     opOrder.push_back(opSchedule.first);
   }
-  if (numIteration <= maxStage) return false;
 
   // All operations need to have a stage.
   for (Operation& op : forOp.getBody()->without_terminator()) {
@@ -285,9 +290,17 @@ scf::ForOp LoopPipelinerInternal::createKernelLoop(
   // `numStages - 1` iterations. Then we adjust the upper bound to remove those
   // iterations.
   Value newUb = forOp.getUpperBound();
-  if (peelEpilogue)
-    newUb = rewriter.create<arith::ConstantIndexOp>(forOp.getLoc(),
-                                                    ub - maxStage * step);
+  if (peelEpilogue) {
+    if (ub == 0) {
+      newUb = rewriter.create<arith::ConstantIndexOp>(forOp.getLoc(),
+                                                      ub - maxStage * step);
+    } else {
+      newUb = rewriter.create<arith::SubIOp>(
+          forOp.getLoc(), upperBound,
+          rewriter.create<arith::ConstantIndexOp>(forOp.getLoc(),
+                                                  maxStage * step));
+    }
+  }
   auto newForOp =
       rewriter.create<scf::ForOp>(forOp.getLoc(), forOp.getLowerBound(), newUb,
                                   forOp.getStep(), newLoopArg);
@@ -367,7 +380,7 @@ static void updateCrossStageUses(
   }
 }
 
-void LoopPipelinerInternal::createKernel(
+LogicalResult LoopPipelinerInternal::createKernel(
     scf::ForOp newForOp,
     const llvm::MapVector<Value, LoopPipelinerInternal::LiverangeInfo>&
         crossStageValues,
@@ -387,8 +400,16 @@ void LoopPipelinerInternal::createKernel(
   if (!peelEpilogue) {
     // Create a predicate for each stage except the last stage.
     for (unsigned i = 0; i < maxStage; i++) {
-      Value c = rewriter.create<arith::ConstantIndexOp>(
-          newForOp.getLoc(), ub - (maxStage - i) * step);
+      Value c;
+      if (ub == 0) {
+        c = rewriter.create<arith::ConstantIndexOp>(newForOp.getLoc(),
+                                                    ub - (maxStage - i) * step);
+      } else {
+        c = rewriter.create<arith::SubIOp>(
+            newForOp.getLoc(), upperBound,
+            rewriter.create<arith::ConstantIndexOp>(newForOp.getLoc(),
+                                                    (maxStage - i) * step));
+      }
       Value pred = rewriter.create<arith::CmpIOp>(
           newForOp.getLoc(), arith::CmpIPredicate::slt,
           newForOp.getInductionVar(), c);
@@ -410,6 +431,7 @@ void LoopPipelinerInternal::createKernel(
 
     if (predicates[useStage]) {
       newOp = predicateFn(rewriter, newOp, predicates[useStage]);
+      if (!newOp) return failure();
       // Remap the results to the new predicated one.
       for (auto values : llvm::zip(op->getResults(), newOp->getResults()))
         mapping.map(std::get<0>(values), std::get<1>(values));
@@ -431,9 +453,9 @@ void LoopPipelinerInternal::createKernel(
   for (auto& it : crossStageValues) {
     int64_t version = maxStage - it.second.lastUseStage + 1;
     unsigned numVersionReturned = it.second.lastUseStage - it.second.defStage;
-    // add the original verstion to yield ops.
-    // If there is a liverange spanning across more than 2 stages we need to add
-    // extra arg.
+    // add the original version to yield ops.
+    // If there is a live range spanning across more than 2 stages we need to
+    // add extra arg.
     for (unsigned i = 1; i < numVersionReturned; i++) {
       setValueMapping(it.first, newForOp->getResult(yieldOperands.size()),
                       version++);
@@ -456,6 +478,7 @@ void LoopPipelinerInternal::createKernel(
                     maxStage - defStage + 1);
   }
   rewriter.create<scf::YieldOp>(forOp.getLoc(), yieldOperands);
+  return success();
 }
 
 llvm::SmallVector<Value> LoopPipelinerInternal::emitEpilogue(
@@ -464,8 +487,19 @@ llvm::SmallVector<Value> LoopPipelinerInternal::emitEpilogue(
   // Emit different versions of the induction variable. They will be
   // removed by dead code if not used.
   for (int64_t i = 0; i < maxStage; i++) {
-    Value newlastIter = rewriter.create<arith::ConstantIndexOp>(
-        forOp.getLoc(), lb + step * ((((ub - 1) - lb) / step) - i));
+    Value newlastIter;
+    if (ub == 0) {
+      newlastIter = rewriter.create<arith::ConstantIndexOp>(
+          forOp.getLoc(), lb + step * ((((ub - 1) - lb) / step) - i));
+    } else {
+      AffineExpr d0;
+      auto ctx = rewriter.getContext();
+      bindDims(ctx, d0);
+      auto map = AffineMap::get(
+          1, 0, {lb + step * ((((d0 - 1) - lb).floorDiv(step)) - i)}, ctx);
+      newlastIter = rewriter.create<affine::AffineApplyOp>(forOp.getLoc(), map,
+                                                           upperBound);
+    }
     setValueMapping(forOp.getInductionVar(), newlastIter, maxStage - i);
   }
   // Emit `maxStage - 1` epilogue part that includes operations from stages
@@ -522,251 +556,186 @@ void LoopPipelinerInternal::setValueMapping(Value key, Value el, int64_t idx) {
 
 }  // namespace
 
-static const StringLiteral kPipeliningLoopMarker = "__pipelining_K_loop__";
-static const StringLiteral kPipeliningFirstStage = "__pipelining_first_stage__";
-static const StringLiteral kPipeliningExtraBarrier =
-    "__pipelining_extra_barrier__";
+/// Populate `ops` with the set of operations that belong to the stage 0 of the
+/// pipelined version of the given loop when pipelining copies to shared memory.
+/// Specifically, this collects:
+///
+///   1. all loads from global memory, both sync and async;
+///   2. the barriers for async loads.
+///
+/// In particular, barriers are omitted if they do not dominate at least one
+/// async load for which there is not yet a barrier.
+static LogicalResult collectStage0PipeliningOps(
+    scf::ForOp forOp, llvm::SmallPtrSet<Operation*, 16>& ops) {
+  llvm::SmallPtrSet<Operation*, 4> barriers;
+  for (Operation& op : *forOp.getBody()) {
+    if (isa<gpu::BarrierOp>(op)) {
+      barriers.insert(&op);
+      continue;
+    }
 
-/// Returns a new predicated operation to support unpeeled epilogue. Unpeeled
-/// epilogue needs to handle the last iterations within the mainloop which
-/// requires predicating operations, for e.g., OOB global memory access. This
-/// helper function predicates operations (where predication is avialable),
-/// checks if unpredicated operations are side-effect free and acceptable to
-/// execute speculatively.
-static Operation* replaceOpWithPredicatedOp(RewriterBase& rewriter,
-                                            Operation* op, Value pred) {
-  // Predication is only supported for AsyncCopyOp. Thus, for operations which
-  // are *not* AsyncCopyOp additional checks are requrired in order to be issued
-  // speculatively.
-  if (!isa<nvgpu::DeviceAsyncCopyOp>(op)) {
-    // Return/execute the op if it is a side effect free.
-    if (mlir::isMemoryEffectFree(op)) return op;
-    // Return/execute the op if it is barrier, commit group, or ldmatrix op.
-    if (isa<gpu::BarrierOp, nvgpu::DeviceAsyncCreateGroupOp, nvgpu::LdMatrixOp,
-            nvgpu::DeviceAsyncWaitOp>(op))
-      return op;
-    // Return/execute the op if it is a shared memory load.
-    if (auto loadOp = dyn_cast<vector::LoadOp>(op)) {
-      auto loadBaseType = llvm::cast<MemRefType>(loadOp.getBase().getType());
-      if (hasSharedMemoryAddressSpace(loadBaseType)) return op;
+    if (isa<nvgpu::DeviceAsyncCopyOp, NVVM::CpAsyncCommitGroupOp>(op)) {
+      ops.insert(&op);
+      ops.insert(std::make_move_iterator(barriers.begin()),
+                 std::make_move_iterator(barriers.end()));
+      assert(barriers.empty() &&
+             "expected to have moved the barriers into another set");
+      continue;
     }
-    if (auto loadOp = dyn_cast<memref::LoadOp>(op)) {
-      auto loadBaseType = loadOp.getMemRefType();
-      if (hasSharedMemoryAddressSpace(loadBaseType)) return op;
-    }
-    // If we are here that means the operation does not have predication support
-    // and cannot be speculatively executed. Thus, unpeeled epilogue is not
-    // supported.
-    assert(false &&
-           "Unpeeled epilogue not supported with a side-effect instruction "
-           "with no predication.");
   }
 
-  // Replace mainloop AsyncCopy with AsyncCopy(zfill) inline asm.
-  auto asyncCopyOp = dyn_cast<nvgpu::DeviceAsyncCopyOp>(op);
-  auto loc = asyncCopyOp->getLoc();
+  return success();
+}
 
-  // Create srcElement Value based on the pred.
-  // The next few lins generate the below code:
-  // srcElement = (pred) ?  prevSrcElements : 0;
+/// Hook for the loop pipeliner that sets the "num groups in flight" attribute
+/// of async wait operations corresponding to pipelined shared memory copies.
+// TODO: this currently assumes that there are no groups that could be in flight
+// in the existing code.
+static void setAsyncWaitGroupsInFlight(
+    OpBuilder& builder, Operation* op,
+    scf::PipeliningOption::PipelinerPart part, unsigned iteration,
+    unsigned depth) {
+  // Based on the order of copies within the loop we need to set the number
+  // of copies in flight, unless it is already set.
+  auto waitOp = dyn_cast<NVVM::CpAsyncWaitGroupOp>(op);
+  if (!waitOp || waitOp.getN()) return;
+
+  int numGroupInFlight = 0;
+  if (part == scf::PipeliningOption::PipelinerPart::Kernel ||
+      part == scf::PipeliningOption::PipelinerPart::Prologue) {
+    numGroupInFlight = depth - 1;
+  } else {
+    // By construction there should be no wait op in the prologue as all the
+    // wait should be in the last stage.
+    assert(part == scf::PipeliningOption::PipelinerPart::Epilogue);
+    // Based on the schedule we pick we know how many groups are in flight for
+    // each iteration of the epilogue.
+    numGroupInFlight = depth - 1 - iteration;
+  }
+  waitOp.setN(numGroupInFlight);
+}
+
+/// Hook for the loop pipeliner that populates `ops` with the stage information
+/// as follows:
+///
+///   - operations in `stage0Ops` (typically loads from global memory and
+///     related barriers) are at stage 0;
+///   - operations in the backward slice of any stage0Ops are all at stage 0;
+///   - other operations are at stage `depth`;
+///   - the internal order of the pipelined loop has ops at stage `depth` first,
+///   then those at stage 0, with relative order within each group preserved.
+///
+static void getPipelineStages(
+    scf::ForOp forOp,
+    std::vector<std::pair<Operation*, unsigned>>& opsWithPipelineStages,
+    unsigned depth, llvm::SmallPtrSetImpl<Operation*>& stage0Ops) {
+  SetVector<Operation*> dependencies;
+  BackwardSliceOptions options([&](Operation* visited) {
+    return visited->getBlock() == forOp.getBody();
+  });
+  options.inclusive = true;
+  for (Operation& op : forOp.getBody()->getOperations()) {
+    if (stage0Ops.contains(&op)) getBackwardSlice(&op, &dependencies, options);
+  }
+
+  for (Operation& op : forOp.getBody()->getOperations()) {
+    if (!dependencies.contains(&op) && !isa<scf::YieldOp>(op))
+      opsWithPipelineStages.emplace_back(&op, depth);
+  }
+  for (Operation& op : forOp.getBody()->getOperations()) {
+    if (dependencies.contains(&op)) opsWithPipelineStages.emplace_back(&op, 0);
+  }
+}
+
+/// Hook for the loop pipeliner. Replaces op with a predicated version and
+/// returns the resulting operation. Returns the original op if the predication
+/// isn't necessary for the given op. Returns null if predication is needed but
+/// not supported.
+static Operation* replaceOpWithPredicatedOp(RewriterBase& rewriter,
+                                            Operation* op, Value predicate) {
+  // Some operations may be fine to execute "speculatively" more times than the
+  // original number of iterations, in particular side-effect free operations
+  // and barriers, even if they cannot be predicated.
+  if (isMemoryEffectFree(op) ||
+      isa<gpu::BarrierOp, nvgpu::DeviceAsyncCreateGroupOp,
+          nvgpu::DeviceAsyncWaitOp, NVVM::CpAsyncCommitGroupOp,
+          NVVM::CpAsyncWaitGroupOp>(op)) {
+    return op;
+  }
+
+  // Otherwise, only async copies can currently be predicated.
+  auto asyncCopyOp = dyn_cast<nvgpu::DeviceAsyncCopyOp>(op);
+  if (!asyncCopyOp) return nullptr;
+
+  // Create srcElement Value based on `predicate`. The next lines generate
+  // the following code:
+  //
+  //   srcElement = (pred) ?  prevSrcElements : 0;
+  //
+  Location loc = asyncCopyOp->getLoc();
   Value dstElements =
       rewriter.create<arith::ConstantOp>(loc, asyncCopyOp.getDstElementsAttr());
   Value originalSrcElement =
       asyncCopyOp.getSrcElements() ? asyncCopyOp.getSrcElements() : dstElements;
   Value c0Index = rewriter.create<arith::ConstantIndexOp>(loc, 0);
-  auto srcElements =
-      rewriter.create<arith::SelectOp>(loc, pred, originalSrcElement, c0Index);
-  int64_t sizeInBytes =
-      (asyncCopyOp.getDst().getType().getElementTypeBitWidth() *
-       asyncCopyOp.getDstElements().getZExtValue()) /
-      8;
-  UnitAttr bypassL1 = sizeInBytes == 16 ? rewriter.getUnitAttr() : UnitAttr();
-  auto asyncCopyZfillOp = rewriter.create<nvgpu::DeviceAsyncCopyOp>(
+  auto srcElements = rewriter.create<arith::SelectOp>(
+      loc, predicate, originalSrcElement, c0Index);
+  auto asyncCopyZeroFillOp = rewriter.create<nvgpu::DeviceAsyncCopyOp>(
       loc, nvgpu::DeviceAsyncTokenType::get(asyncCopyOp.getContext()),
       asyncCopyOp.getDst(), asyncCopyOp.getDstIndices(), asyncCopyOp.getSrc(),
       asyncCopyOp.getSrcIndices(), asyncCopyOp.getDstElements(), srcElements,
-      bypassL1);
-  rewriter.eraseOp(asyncCopyOp);
-
-  // Return the newly create predicated AsyncCopyZfillOp.
-  return asyncCopyZfillOp;
+      UnitAttr());
+  rewriter.replaceOp(asyncCopyOp, ValueRange{asyncCopyZeroFillOp});
+  return asyncCopyZeroFillOp;
 }
 
-/// Helper to recursively add operation dependencies within `block` to `dep`
-/// set.
-static void addDepOps(llvm::SmallDenseSet<Operation*>& dep, Operation* op,
-                      Block* block) {
-  if (!dep.insert(op).second) return;
-  for (Value operand : op->getOperands()) {
-    Operation* defOp = operand.getDefiningOp();
-    if (defOp && defOp->getBlock() == block) addDepOps(dep, defOp, block);
+/// Applies loop pipelining with the given depth to the given loop so that
+/// copies into the shared memory are pipelined. Doesn't affect other loops.
+/// Returns a pair containing the error state and the pipelined op, the latter
+/// being null in case of any failure. The error state contains a definite error
+/// if the IR has been modified and a silenceable error otherwise.
+std::tuple<DiagnosedSilenceableFailure, scf::ForOp> applyPipelining(
+    scf::ForOp forOp, int64_t depth, bool epiloguePeeling) {
+  llvm::SmallPtrSet<Operation*, 16> stage0Ops;
+  if (failed(collectStage0PipeliningOps(forOp, stage0Ops))) {
+    return std::make_tuple(
+        emitSilenceableFailure(forOp, "cannot find stage 0 ops for pipelining"),
+        scf::ForOp());
   }
-}
-
-/// Assign stages to the loop ops. Simple logic by default, put load from global
-/// memory in stage 0 and the rest in stage 1. If store_stage = 0 then put store
-/// to shared memory in stage 0 as well.
-static void getPipelineStages(scf::ForOp forOp,
-                              std::vector<std::pair<Operation*, unsigned>>& ops,
-                              unsigned depth) {
-  if (!forOp->hasAttr(kPipeliningLoopMarker)) return;
-
-  // Track dependencies of stage 0 ops.
-  llvm::SmallDenseSet<Operation*> loadDep;
-  for (Operation& op : forOp.getBody()->getOperations()) {
-    if (op.hasAttr(kPipeliningFirstStage)) {
-      addDepOps(loadDep, &op, forOp.getBody());
-    }
-  }
-  // Create a modulo schedule with loads from global memory and the operations
-  // it depends on in stage 0. Store to shared memory and computation are in
-  // stage `maxDepth`. In order to have a correct scheduling even with back
-  // edges we order stages in decreasing order.
-  for (Operation& op : forOp.getBody()->getOperations()) {
-    if (!loadDep.count(&op) && !isa<scf::YieldOp>(op))
-      ops.push_back(std::make_pair(&op, depth));
-  }
-  for (Operation& op : forOp.getBody()->getOperations()) {
-    if (loadDep.count(&op)) ops.push_back(std::make_pair(&op, 0));
-  }
-}
-
-static void setAsyncAnnotations(Operation* op,
-                                scf::PipeliningOption::PipelinerPart part,
-                                unsigned iteration, unsigned depth,
-                                PipeliningSchedulingStrategy schedule) {
-  if (auto waitOp = dyn_cast<NVVM::CpAsyncWaitGroupOp>(op)) {
-    // Based on the order copies within the loop we need to adjust the number of
-    // copies in flight.
-    bool copyBeforeLoad =
-        schedule == PipeliningSchedulingStrategy::nvidiaTensorCore;
-    if (waitOp.getN()) return;
-    int numGroupInFlight = 0;
-    if (part == scf::PipeliningOption::PipelinerPart::Kernel ||
-        part == scf::PipeliningOption::PipelinerPart::Prologue) {
-      numGroupInFlight = copyBeforeLoad ? depth - 2 : depth - 1;
-    } else {
-      // By construction there should be no wait op in the prologue as all the
-      // wait should be in the last stage.
-      assert(part == scf::PipeliningOption::PipelinerPart::Epilogue);
-      // Based on the schedule we pick we know how many groups are in flight for
-      // each iteration of the epilogue.
-      numGroupInFlight = depth - 1 - iteration;
-    }
-    OpBuilder b(op);
-    waitOp.setNAttr(b.getI32IntegerAttr(numGroupInFlight));
-  } else if (auto barrierOp = dyn_cast<gpu::BarrierOp>(op)) {
-    unsigned pipelineStoreStage =
-        schedule == PipeliningSchedulingStrategy::loadStoreStage0 ? 0 : 1;
-    if (pipelineStoreStage != 0 ||
-        part != mlir::scf::PipeliningOption::PipelinerPart::Prologue ||
-        iteration >= depth - 1)
-      return;
-    OpBuilder b(op);
-    barrierOp->setAttr(kPipeliningExtraBarrier, b.getUnitAttr());
-  }
-}
-
-/// Check if the for operations contains a shared memory copy that can be
-/// pipelined and annotate operations with stage information if this is the
-/// case.
-static bool setPipeliningMarkers(scf::ForOp forOp, bool pipelineStoreStage) {
-  bool copyToWorkgroupMemory = false;
-  OpBuilder builder(forOp.getContext());
-  SmallVector<Operation*> barriers;
-  for (Operation& op : forOp.getBody()->getOperations()) {
-    // do not check region number since
-    // we have mma loops inside cta-k-loop
-    // clang-off
-    // Pipeline the most inner for op that should be a flat region.
-    // if (op.getNumRegions() > 0)
-    //   return false;
-    // clang-on
-    if (isa<gpu::BarrierOp>(op)) {
-      barriers.push_back(&op);
-      if (pipelineStoreStage == 0)
-        op.setAttr(kPipeliningFirstStage, builder.getUnitAttr());
-    }
-    if (isa<nvgpu::DeviceAsyncCopyOp, NVVM::CpAsyncCommitGroupOp>(op)) {
-      copyToWorkgroupMemory = true;
-      op.setAttr(kPipeliningFirstStage, builder.getUnitAttr());
-      // async copy ops need to be moved along with previous barrier.
-      for (Operation* barrier : barriers) {
-        barrier->setAttr(kPipeliningFirstStage, builder.getUnitAttr());
-      }
-      barriers.clear();
-      continue;
-    }
-    auto ld = dyn_cast<vector::TransferReadOp>(op);
-    if (!ld) continue;
-    auto ldSrcType = llvm::cast<MemRefType>(ld.getSource().getType());
-    if (!ld->hasOneUse()) continue;
-    auto st = dyn_cast<vector::TransferWriteOp>(ld->use_begin()->getOwner());
-    if (!st) continue;
-    auto stSrcType = llvm::cast<MemRefType>(st.getSource().getType());
-    if (!hasSharedMemoryAddressSpace(stSrcType)) continue;
-    copyToWorkgroupMemory = true;
-    ld->setAttr(kPipeliningFirstStage, builder.getUnitAttr());
-    if (pipelineStoreStage == 0)
-      st->setAttr(kPipeliningFirstStage, builder.getUnitAttr());
-  }
-  if (copyToWorkgroupMemory) {
-    forOp->setAttr(kPipeliningLoopMarker, builder.getUnitAttr());
-    if (pipelineStoreStage == 0 && !barriers.empty()) {
-      barriers.front()->erase();
-    }
-  }
-  return copyToWorkgroupMemory;
-}
-
-// Apply pipeline rewrite pattern assuming the operations were already
-// annotated with stage information.
-// TODO: move away from using attribute annotations.
-FailureOr<scf::ForOp> applyPipelining(scf::ForOp forOp, int64_t depth,
-                                      bool epiloguePeeling,
-                                      PipeliningSchedulingStrategy schedule) {
-  // TODO: Refactor schedules to not rely on markers.
-  if (schedule == PipeliningSchedulingStrategy::loadGlobalStage0 ||
-      schedule == PipeliningSchedulingStrategy::loadStoreStage0) {
-    unsigned pipelineStoreStage =
-        schedule == PipeliningSchedulingStrategy::loadGlobalStage0;
-    if (!setPipeliningMarkers(forOp, pipelineStoreStage)) {
-      return failure();
-    }
+  if (stage0Ops.empty()) {
+    return std::make_tuple(
+        emitSilenceableFailure(forOp, "no shared memory copy"), scf::ForOp());
   }
 
-  scf::PipeliningOption options;
-  unsigned maxDepth = depth;
-  auto getSchedule = [maxDepth, schedule](
-                         scf::ForOp forOp,
-                         std::vector<std::pair<Operation*, unsigned>>& ops) {
-    return getPipelineStages(forOp, ops, maxDepth);
-  };
-  auto setAnnotation = [maxDepth, schedule](
-                           Operation* op,
-                           scf::PipeliningOption::PipelinerPart part,
-                           unsigned iteration) {
-    return setAsyncAnnotations(op, part, iteration, maxDepth, schedule);
-  };
-  options.getScheduleFn = getSchedule;
-  options.annotateFn = setAnnotation;
-
-  // Use un-peeled epilogue (i.e. epiloguePeeling=flase) only when predication
-  // is avialable a.k.a. AsyncCopyOp.
-  if (!epiloguePeeling) {
-    options.peelEpilogue = false;
-    options.predicateFn = [](RewriterBase& rewriter, Operation* op,
-                             Value pred) {
-      return replaceOpWithPredicatedOp(rewriter, op, pred);
-    };
-  }
-  LoopPipelinerInternal pipeliner;
-  if (!pipeliner.initializeLoopInfo(forOp, options)) {
-    return failure();
-  }
   IRRewriter rewriter(forOp->getContext());
   OpBuilder::InsertionGuard guard(rewriter);
   rewriter.setInsertionPoint(forOp);
+  scf::PipeliningOption options;
+  unsigned maxDepth = depth;
+  auto setAnnotation = [&](Operation* op,
+                           scf::PipeliningOption::PipelinerPart part,
+                           unsigned iteration) {
+    return setAsyncWaitGroupsInFlight(rewriter, op, part, iteration, maxDepth);
+  };
+  options.getScheduleFn =
+      [&](scf::ForOp schedulingFor,
+          std::vector<std::pair<Operation*, unsigned>>& ops) {
+        if (schedulingFor != forOp) return;
+        return getPipelineStages(forOp, ops, maxDepth, stage0Ops);
+      };
+  options.annotateFn = setAnnotation;
+  if (!epiloguePeeling) {
+    options.peelEpilogue = false;
+    options.predicateFn = replaceOpWithPredicatedOp;
+  }
+
+  LoopPipelinerInternal pipeliner;
+  if (!pipeliner.initializeLoopInfo(forOp, options)) {
+    return std::make_tuple(
+        emitSilenceableFailure(forOp, "failed to initialize loop info"),
+        scf::ForOp());
+  }
+
   // 1. Emit prologue.
   pipeliner.emitPrologue(rewriter);
 
@@ -786,7 +755,11 @@ FailureOr<scf::ForOp> applyPipelining(scf::ForOp forOp, int64_t depth,
       pipeliner.createKernelLoop(crossStageValues, rewriter, loopArgMap);
   // Create the kernel block, order ops based on user choice and remap
   // operands.
-  pipeliner.createKernel(newForOp, crossStageValues, loopArgMap, rewriter);
+  if (failed(pipeliner.createKernel(newForOp, crossStageValues, loopArgMap,
+                                    rewriter)))
+    return std::make_tuple(
+        emitSilenceableFailure(forOp, "pipeliner failed to create kernel"),
+        scf::ForOp());
   llvm::SmallVector<Value> returnValues =
       newForOp.getResults().take_front(forOp->getNumResults());
   if (options.peelEpilogue) {
@@ -799,7 +772,7 @@ FailureOr<scf::ForOp> applyPipelining(scf::ForOp forOp, int64_t depth,
     rewriter.replaceOp(forOp, returnValues);
   else
     rewriter.eraseOp(forOp);
-  return newForOp;
+  return std::make_tuple(DiagnosedSilenceableFailure::success(), newForOp);
 }
 
 }  // namespace transform_dialect

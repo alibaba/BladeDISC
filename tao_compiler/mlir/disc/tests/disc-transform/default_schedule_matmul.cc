@@ -290,47 +290,32 @@ TEST(Matmul, F16_256x256x128_Using_Default_Schedule) {
 
 TEST(Matmul, F16_Dynamic_Shape_Using_Default_Schedule) {
   EnvSetting setting = {
-      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-      {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::GPU:" + c_ft_path +
-            "default_schedule_matmul_nn_s_cuda_f16_schedule.mlir",
-        false}},
-      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-      //  {"TAO_MLIR_ENABLE_AMP", {"1", false}},
-      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}}};
-  EnvSettingContext ctx(setting);
-  int m = 128;
+    {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+    {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}} {
+        "DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+    {"DISC_TRANSFORM_SCHEDULE_FILE",
+     {"kGEMM::GPU:" + c_ft_path + "matmul_nn_s_f16_gpu_schedule_1.mlir",
+      false}},
+    EnvSettingContext ctx(setting);
+  int m = 1024;
   int n = 1024;
   int k = 1024;
   std::string type = "f16";
-  std::string input1_str, input2_str, input3_str;
+  std::string input1_str, input2_str;
   input1_str = std::to_string(m) + "x" + std::to_string(k) + "x" + type + "_X";
   input2_str = std::to_string(k) + "x" + std::to_string(n) + "x" + type + "_X";
-  input3_str = std::to_string(m) + "x" + std::to_string(n) + "x" + type + "_X";
   std::vector<std::string> input_descriptors;
   input_descriptors.push_back(input1_str);
   input_descriptors.push_back(input2_str);
-  // input_descriptors.push_back(input3_str);
-  std::vector<std::vector<float>> inputs;
-  // std::vector<float> inputs1(m * k, 1.0);
-  // for (unsigned i = 0; i < m; ++i) {
-  //   for (unsigned j = 0; j < k; ++j) {
-  //     inputs1[i * k + j] = 10 * i + j;
-  //   }
-  // }
-  // std::vector<float> inputs2(k * n, 1.0);
-  // inputs.push_back(inputs1);
-  // inputs.push_back(inputs2);
   EXPECT_TRUE(feature_test_main(
-      ///*mlir_file_path*/ c_ft_path +
-      "/disc/tao_compiler/mlir/disc/tests/disc-transform/data/"
-      "default_schedule_matmul_nn_s_partial_dynamic_shape_f16_1",
+      /*mlir_file_path*/ c_ft_path +
+          "default_schedule_matmul_nn_s_dynamic_shape_f16",
       /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ input_descriptors.size(),
       /*num_outputs*/ 1,
       /*input_descriptors*/ input_descriptors,
       /*output_descriptors*/ {type + "_X"},
-      /*input_vals*/ inputs,
+      /*input_vals*/ {},
       /*expected_output_vals*/ {},
       /*profiling*/ true));
 }

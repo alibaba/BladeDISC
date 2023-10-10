@@ -16,9 +16,8 @@ rm -rf debug
 #export AOT_FX_GRAPHS=true
 #export TORCHDYNAMO_DYNAMIC_SHAPES=0
 export DISC_ENABLE_PREDEFINED_PDL=true
-#export MODEL_NAME="CompVis/stable-diffusion-v1-4"
-export MODEL_NAME="/root/.cache/huggingface/hub/models--CompVis--stable-diffusion-v1-4"
-export MODEL_NAME="/root/.cache/huggingface/hub/models--CompVis--stable-diffusion-v1-4/snapshots/b95be7d6f134c3a9e62ee616f310733567f069ce"
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+#export MODEL_NAME="/root/.cache/huggingface/hub/models--CompVis--stable-diffusion-v1-4/snapshots/b95be7d6f134c3a9e62ee616f310733567f069ce"
 export INSTANCE_DIR="data"
 export CLASS_DIR="class_data"
 export OUTPUT_DIR="save-model"

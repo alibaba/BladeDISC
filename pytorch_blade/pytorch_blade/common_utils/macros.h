@@ -37,6 +37,10 @@
   (PYTORCH_MAJOR_VERSION > major ||      \
    PYTORCH_MAJOR_VERSION == major && PYTORCH_MINOR_VERSION >= minor)
 
+#define PYTORCH_VERSION_GT(major, minor) \
+  (PYTORCH_MAJOR_VERSION > major ||      \
+   PYTORCH_MAJOR_VERSION == major && PYTORCH_MINOR_VERSION > minor)
+
 #define PYTORCH_VERSION_LE(major, minor) \
   (PYTORCH_MAJOR_VERSION < major ||      \
    PYTORCH_MAJOR_VERSION == major && PYTORCH_MINOR_VERSION <= minor)

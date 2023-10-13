@@ -14,7 +14,7 @@ please go to the official [diffusers repo](https://github.com/huggingface/diffus
 
     ``` bash
     docker run --rm -it -v $PWD:/workspace -w /workspace bladedisc/bladedisc:latest-runtime-torch-pre-cu118 bash
-    pip install diffusers==0.17.0
+    pip install diffusers==0.19.0
     ```
 
 - step2: 
@@ -30,7 +30,7 @@ please go to the official [diffusers repo](https://github.com/huggingface/diffus
 
 ### Results
 
-| Backend | Batch Size | Throughput (samples/sec) | Speedup |
-| :-----: | :--------: | :----------------------: | :-----: |
-| Eager | 1 | 3.02 | 1.00 |
-| TorchBlade | 1 | 3.34 | 1.10 |
+|  Backend   | Batch Size | Throughput (samples/sec) | Speedup |
+| :--------: | :--------: | :----------------------: | :-----: |
+|   Eager    |     1      |           3.02           |  1.00   |
+| TorchBlade |     1      |           3.34           |  1.10   |

@@ -4506,7 +4506,7 @@ transform_dialect::DISCExpandTransferRWToMemrefCopy::applyToOne(
           /*dstIndices*/ ValueRange{offsetX, offsetY}, src,
           /*srcIndices*/ ValueRange{offsetX, offsetY},
           /*dstElements*/ b.getIndexAttr(kThreadCopyBytes / 2),
-          /*srcElements*/ nullptr,  // TODO: add support for dynamic shape
+          /*srcElements*/ srcElements,
           /*bypassL1*/ b.getUnitAttr());
       tokens.push_back(token);
     }
@@ -4973,10 +4973,6 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
       ldMatrixB.getRes().getType(), FloatAttr::get(elementType, 0.0)));
   Value matrixCReg = b.create<arith::ConstantOp>(DenseElementsAttr::get(
       mma.getRes().getType(), FloatAttr::get(elementType, 0.0)));
-  Value matrixBReg1 = b.create<arith::ConstantOp>(DenseElementsAttr::get(
-      ldMatrixB.getRes().getType(), FloatAttr::get(elementType, 0.0)));
-  Value matrixCReg1 = b.create<arith::ConstantOp>(DenseElementsAttr::get(
-      mma.getRes().getType(), FloatAttr::get(elementType, 0.0)));
 
   SmallVector<Type> outputTypes(2, b.getIndexType());
   SmallVector<Value> shape;
@@ -5091,6 +5087,15 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
   auto mmaMLoopIV = newMmaMLoop.getInductionVar();
   auto mmaMShapeValue = b.create<arith::ConstantIndexOp>(mmaMShape);
   auto mIndexValue = b.create<arith::DivUIOp>(mmaMLoopIV, mmaMShapeValue);
+  // load A from reg
+  for (unsigned i = 0; i < 4; ++i) {
+    matrixAReg = b.create<vector::InsertOp>(
+        b.create<vector::LoadOp>(
+            VectorType::get({vector_width}, elementType), aWarpRegAlloc,
+            ValueRange{mIndexValue, kIndexValue,
+                       b.create<arith::ConstantIndexOp>(i), zeroIndex}),
+        matrixAReg, (int64_t[]){i});
+  }
   auto newMmaNLoop = b.create<scf::ForOp>(
       zeroIndex, b.create<arith::ConstantIndexOp>(warpNShape),
       b.create<arith::ConstantIndexOp>(mmaNShape));
@@ -5106,15 +5111,6 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
             ValueRange{mIndexValue, nIndexValue,
                        b.create<arith::ConstantIndexOp>(i), zeroIndex}),
         matrixCReg, (int64_t[]){i});
-  }
-  // load A from reg
-  for (unsigned i = 0; i < 4; ++i) {
-    matrixAReg = b.create<vector::InsertOp>(
-        b.create<vector::LoadOp>(
-            VectorType::get({vector_width}, elementType), aWarpRegAlloc,
-            ValueRange{mIndexValue, kIndexValue,
-                       b.create<arith::ConstantIndexOp>(i), zeroIndex}),
-        matrixAReg, (int64_t[]){i});
   }
   // load B from reg
   for (unsigned i = 0; i < 2; ++i) {
@@ -5139,6 +5135,7 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
   (void)mlir::loopUnrollByFactor(newMmaNLoop, warpNShape / mmaNShape);
   (void)mlir::loopUnrollByFactor(newMmaMLoop, warpMShape / mmaMShape);
   (void)mlir::loopUnrollByFactor(newMmaKLoop, warpKShape / mmaKShape);
+
   // no longer need origin mmaMLoop
   for (auto user : mmaMLoop->getUsers()) user->erase();
   mmaMLoop.erase();
@@ -5196,6 +5193,7 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
   Value cWarpSmemCol = b.create<arith::AddIOp>(
       cWarpSmemColOffset, b.create<affine::AffineApplyOp>(
                               cWarpSmemColMap, ValueRange{mmaNLoopIV, laneId}));
+  // TODO: store 4xf16 rather than 2x2xf16
   b.create<vector::StoreOp>(
       b.create<vector::LoadOp>(
           VectorType::get({vector_width}, elementType), cWarpRegAlloc,
@@ -5232,10 +5230,7 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
 
   // expand genericOp to loop
   b.setInsertionPoint(genericOp);
-  // TODO: theoretically, each thread should copy 16 bytes to achieve best
-  // performance, however there is bug when lowering mlir code to ptx code
-  // during converting load/store-vector if we set vector_width to 16
-  int64_t cpBytesPerThread = getBytes();
+  int64_t cpBytesPerThread = 16;  // 128 bits
   int64_t cpElementsPerThread = cpBytesPerThread / 2;
   int64_t cpThreadsPerRow = blockNShape / cpElementsPerThread;
   int64_t cpRowsPerBlock = 128 * cpElementsPerThread / blockNShape;
@@ -5256,12 +5251,17 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
   auto offsetX = b.create<arith::AddIOp>(
       iv, b.create<arith::DivUIOp>(
               threadId, b.create<arith::ConstantIndexOp>(cpThreadsPerRow)));
-  // TODO: enable mask store
-  b.create<vector::StoreOp>(
-      b.create<vector::LoadOp>(
-          VectorType::get({cpBytesPerThread / 2}, elementType), cBlockSmemAlloc,
-          ValueRange{offsetX, offsetY}),
-      outputSubView, ValueRange{offsetX, offsetY});
+  auto dimM = b.create<memref::DimOp>(outputSubView.getSource(),
+                                      b.create<arith::ConstantIndexOp>(0));
+  auto dimN = b.create<memref::DimOp>(outputSubView.getSource(),
+                                      b.create<arith::ConstantIndexOp>(1));
+  // TODO: enable mask vector store
+  auto vec8xf16 = b.create<vector::LoadOp>(
+      VectorType::get({cpElementsPerThread}, elementType), cBlockSmemAlloc,
+      ValueRange{offsetX, offsetY});
+  auto vecStore = b.create<vector::StoreOp>(vec8xf16, outputSubView,
+                                            ValueRange{offsetX, offsetY});
+  vecStore->setAttr("alignment", IntegerAttr::get(b.getI32Type(), 16));
   b.setInsertionPointAfter(smemToGmemLoop);
   b.create<gpu::BarrierOp>();
   (void)mlir::loopUnrollByFactor(smemToGmemLoop, blockMShape / cpRowsPerBlock);
@@ -5276,7 +5276,7 @@ transform_dialect::DISCMoveDataToRegister::applyToOne(
                                      "greedy pattern applicatin failed");
   }
 
-  // Delete any transfer_write op
+  // Delete any remain transfer_write op
   Operation* transferWrite = nullptr;
   parallelOp->walk([&](memref::AllocOp alloc) {
     if (llvm::hasSingleElement(alloc->getUsers())) {

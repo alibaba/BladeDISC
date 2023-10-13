@@ -43,6 +43,7 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Transforms.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -61,6 +62,48 @@ namespace {
 
 /// Import the GPU Ops to NVVM Patterns.
 #include "GPUToNVVM.cpp.inc"
+
+/// Conversion vector.store with align attribute to llvm.store
+class VectorStoreWithAlignToLLVMPattern
+    : public ConvertOpToLLVMPattern<vector::StoreOp> {
+  using ConvertOpToLLVMPattern<vector::StoreOp>::ConvertOpToLLVMPattern;
+
+  LogicalResult matchAndRewrite(
+      vector::StoreOp storeOp, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    // Only 1-D vectors can be lowered to LLVM.
+    VectorType vectorTy = storeOp.getVectorType();
+    if (vectorTy.getRank() > 1) return failure();
+    auto alignAttr = storeOp->getAttrOfType<IntegerAttr>("alignment");
+    if (!alignAttr) return failure();
+    storeOp.dump();
+    unsigned align = alignAttr.getInt();
+
+    auto loc = storeOp->getLoc();
+    MemRefType memRefTy = storeOp.getMemRefType();
+
+    // Resolve address.
+    auto vtype = cast<VectorType>(
+        this->typeConverter->convertType(storeOp.getVectorType()));
+    Value dataPtr = this->getStridedElementPtr(loc, memRefTy, adaptor.getBase(),
+                                               adaptor.getIndices(), rewriter);
+    // Casts a strided element pointer to a vector pointer.  The vector pointer
+    // will be in the same address space as the incoming memref type.
+    Value ptr;
+    if ((*this->getTypeConverter()).useOpaquePointers()) {
+      ptr = dataPtr;
+    } else {
+      unsigned addressSpace =
+          *(*this->getTypeConverter()).getMemRefAddressSpace(memRefTy);
+      auto pType = LLVM::LLVMPointerType::get(vtype, addressSpace);
+      ptr = rewriter.create<LLVM::BitcastOp>(loc, pType, dataPtr);
+    }
+
+    rewriter.replaceOpWithNewOp<LLVM::StoreOp>(
+        storeOp, adaptor.getValueToStore(), ptr, align);
+    return success();
+  }
+};
 
 /// A pass that replaces all occurrences of GPU device operations with their
 /// corresponding NVVM equivalent.
@@ -125,6 +168,8 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     llvmPatterns.add<GenericAtomicRMWOpLoweringWithBitcast>(
         converter, /* PatternBenefit */ 3);
     llvmPatterns.add<RemoveUselessUnrealizedConversionCastOp>(converter);
+    llvmPatterns.add<VectorStoreWithAlignToLLVMPattern>(converter,
+                                                        /* PatternBenefit */ 3);
     arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);
     cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
     populateVectorToLLVMConversionPatterns(converter, llvmPatterns);

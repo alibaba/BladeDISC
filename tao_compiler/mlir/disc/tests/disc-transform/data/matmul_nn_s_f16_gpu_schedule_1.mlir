@@ -39,9 +39,9 @@ transform.sequence failures(propagate) {
   // 1. use register to cache the result of ldmatrix
   // 2. use register to cache the result of mma's accumulation result
   // 3. store the final result from reg to smem and to gmem
-  // 4. use padding for output smem matrix to avoid bank conflict
+  // 4. use padding for output smem matrix to avoid bank conflict`
   %mma = transform.structured.match ops{["nvgpu.mma.sync"]} in %5 : (!transform.any_op) -> !transform.any_op
-  transform.disc.move_data_to_register %mma by block_mn_shape = [128, 128] smem_padding = 8 bytes = 2: (!transform.any_op) -> ()
+  transform.disc.move_data_to_register %mma by block_mn_shape = [128, 128] smem_padding = 8 : (!transform.any_op) -> ()
   transform.disc.apply_licm %5 : !transform.any_op
   transform.disc.apply_dce %5 : !transform.any_op
   transform.disc.apply_cse %5 : !transform.any_op

@@ -1668,8 +1668,7 @@ def DISCMoveDataToRegister : Op<Transform_Dialect, "disc.move_data_to_register",
 
   let arguments = (ins TransformHandleTypeInterface:$target,
                        DenseI64ArrayAttr:$block_mn_shape,
-                       I64Attr:$smem_padding,
-                       I64Attr:$bytes);
+                       I64Attr:$smem_padding);
   let results = (outs);
 
   let assemblyFormat = [{
@@ -1677,7 +1676,6 @@ def DISCMoveDataToRegister : Op<Transform_Dialect, "disc.move_data_to_register",
     attr-dict
     `by` `block_mn_shape` `=` $block_mn_shape
     `smem_padding` `=` $smem_padding
-    `bytes` `=` $bytes
     `:` functional-type(operands, results)
   }];
 

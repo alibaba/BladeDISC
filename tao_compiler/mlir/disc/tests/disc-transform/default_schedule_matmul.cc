@@ -290,13 +290,13 @@ TEST(Matmul, F16_256x256x128_Using_Default_Schedule) {
 
 TEST(Matmul, F16_Dynamic_Shape_Using_Default_Schedule) {
   EnvSetting setting = {
-    {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-    {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}} {
-        "DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-    {"DISC_TRANSFORM_SCHEDULE_FILE",
-     {"kGEMM::GPU:" + c_ft_path + "matmul_nn_s_f16_gpu_schedule_1.mlir",
-      false}},
-    EnvSettingContext ctx(setting);
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}} {
+          "DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+      {"DISC_TRANSFORM_SCHEDULE_FILE",
+       {"kGEMM::GPU:" + c_ft_path + "matmul_nn_s_f16_gpu_schedule_1.mlir",
+        false}},
+  } EnvSettingContext ctx(setting);
   int m = 1024;
   int n = 1024;
   int k = 1024;

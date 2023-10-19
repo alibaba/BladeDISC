@@ -395,11 +395,17 @@ transform_dialect::DISCPromoteDotOperandsOp buildPromoteDotOperandsOp(
 
 transform_dialect::DISCSplitReductionSerialOp buildSplitReductionSerialOp(
     OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> tileSizes,
-    StringAttr loopType) {
+    StringAttr loopType = nullptr) {
   SmallVector<Type> transformOpTypes(2,
                                      transform::AnyOpType::get(b.getContext()));
-  return b.create<transform_dialect::DISCSplitReductionSerialOp>(
-      loc, transformOpTypes, target, tileSizes, loopType);
+  if (!loopType) {
+    return b.create<transform_dialect::DISCSplitReductionSerialOp>(
+        loc, transformOpTypes, target, tileSizes,
+        StringAttr::get(b.getContext(), ""));
+  } else {
+    return b.create<transform_dialect::DISCSplitReductionSerialOp>(
+        loc, transformOpTypes, target, tileSizes, loopType);
+  }
 }
 
 transform_dialect::DISCVectorToMMAConversionOp buildVectorToMMAConversionOp(
@@ -1632,8 +1638,7 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
   // K iteration on block tile.
   auto splitReductionSerialOpBlock =
-      buildSplitReductionSerialOp(b, loc, tiledMatmulBlock, {ctaTileSizes[2]},
-                                  StringAttr::get(ctx, "cta-k-loop"));
+      buildSplitReductionSerialOp(b, loc, tiledMatmulBlock, {ctaTileSizes[2]});
   auto splitMatmulBlock = splitReductionSerialOpBlock->getResult(0);
 
   // Promote operands for shared memory buffering.
@@ -1659,8 +1664,7 @@ LogicalResult CUDAMMAGEMMDefaultScheduleFactory::assignSchedule(
 
   // K iteration on warp tile.
   auto splitReductionSerialOpWarp =
-      buildSplitReductionSerialOp(b, loc, tiledMatmulWarp, {warpTileSizes[2]},
-                                  StringAttr::get(ctx, "warp-k-loop"));
+      buildSplitReductionSerialOp(b, loc, tiledMatmulWarp, {warpTileSizes[2]});
   auto splitMatmulWarp = splitReductionSerialOpWarp->getResult(0);
 
   // Vector op tile.

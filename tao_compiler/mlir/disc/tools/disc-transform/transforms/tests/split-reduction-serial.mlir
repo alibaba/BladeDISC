@@ -24,6 +24,6 @@ func.func @split_reduction_serial(%A: tensor<256x128xf16>, %B: tensor<128x256xf1
 transform.sequence failures(propagate) {
 ^bb1(%arg1: !transform.any_op):
   %matmul_op = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!transform.any_op) -> !transform.any_op
-  %matmul_split, %foreach_split = transform.disc.split_reduction_serial %matmul_op by tile_sizes = [32] loop_type = ""
+  %matmul_split, %foreach_split = transform.disc.split_reduction_serial %matmul_op by tile_sizes = [32]
     : (!transform.any_op) -> (!transform.any_op, !transform.any_op)
 }

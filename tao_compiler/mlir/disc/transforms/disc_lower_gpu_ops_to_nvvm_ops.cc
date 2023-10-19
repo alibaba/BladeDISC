@@ -76,7 +76,6 @@ class VectorStoreWithAlignToLLVMPattern
     if (vectorTy.getRank() > 1) return failure();
     auto alignAttr = storeOp->getAttrOfType<IntegerAttr>("alignment");
     if (!alignAttr) return failure();
-    storeOp.dump();
     unsigned align = alignAttr.getInt();
 
     auto loc = storeOp->getLoc();

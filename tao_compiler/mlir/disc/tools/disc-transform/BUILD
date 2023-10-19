@@ -219,7 +219,6 @@ cc_library(
         "TransformOps/TransformOpsExt.h.inc",
         "TransformOps/GPUPipeline.cc",
         "TransformOps/OptimizeShareMemory.cc",
-        "TransformOps/OptimizeThreadRegisters.cc",
     ],
     hdrs = [
         "TransformOps/TransformOpsExt.h",

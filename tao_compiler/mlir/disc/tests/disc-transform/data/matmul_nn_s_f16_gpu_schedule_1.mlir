@@ -11,7 +11,7 @@ transform.sequence failures(propagate) {
   transform.disc.apply_cse %arg0 : !transform.any_op
   %promoted_dot, %lhs_alloc, %rhs_alloc = transform.disc.promote_dot_operands %padding_k [0, 1] : (!transform.any_op) -> (!transform.any_op, !transform.any_op, !transform.any_op)
   %forall_op_0, %tiled_op_1 = transform.structured.tile_to_forall_op %promoted_dot num_threads [] tile_sizes [64, 64](mapping = [#gpu.warp<x>, #gpu.warp<y>]) : (!transform.any_op) -> (!transform.any_op, !transform.any_op)
-  %for_op_2, %splitted_op_3 = transform.disc.split_reduction_serial %tiled_op_1 by tile_sizes = [32] loop_type = "warp-k-loop" : (!transform.any_op) -> (!transform.any_op, !transform.any_op)
+  %for_op_2, %splitted_op_3 = transform.disc.split_reduction_serial %tiled_op_1 by tile_sizes = [32] : (!transform.any_op) -> (!transform.any_op, !transform.any_op)
   %tiled_linalg_op, %loops:3 = transform.structured.tile %for_op_2[16, 8, 16] {interchange = [0, 1, 2]} : (!transform.any_op) -> (!transform.any_op, !transform.any_op, !transform.any_op, !transform.any_op)
   transform.disc.apply_licm %arg0 : !transform.any_op
   transform.disc.apply_dce %arg0 : !transform.any_op

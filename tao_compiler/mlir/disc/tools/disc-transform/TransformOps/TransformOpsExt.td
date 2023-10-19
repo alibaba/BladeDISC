@@ -1099,14 +1099,14 @@ def DISCSplitReductionSerialOp :
   // TODO: support mixed static-dynamic (see TileToForallOp).
   let arguments = (ins TransformHandleTypeInterface:$target,
                    DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$tile_sizes,
-                   DefaultValuedAttr<StrAttr, "">:$loop_type);
+                   OptionalAttr<StrAttr>:$loop_type);
   let results = (outs TransformHandleTypeInterface:$for_op,
                       TransformHandleTypeInterface:$splitted_op);
 
   let assemblyFormat = [{
     $target
     `by` `tile_sizes` `=` $tile_sizes
-    `loop_type` `=` $loop_type
+    oilist (`loop_type` `=` $loop_type)
     attr-dict
     `:` functional-type(operands, results)
   }];

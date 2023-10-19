@@ -3579,9 +3579,9 @@ DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
 
   scf::ForOp forOp =
       b.create<scf::ForOp>(loc, zero, dimK, step, ValueRange{output});
-  if (getLoopType().equals("cta-k-loop")) {
-    forOp->setAttr("loop-type", StringAttr::get(ctx, "cta-k-loop"));
-  }
+  if (getLoopType().has_value())
+    if (getLoopType().value().equals("cta-k-loop"))
+      forOp->setAttr("loop-type", StringAttr::get(ctx, "cta-k-loop"));
   b.setInsertionPoint(forOp.getBody(), forOp.getBody()->begin());
   Value iv = forOp.getInductionVar();
   auto lhsTy = lhs.getType().cast<RankedTensorType>();

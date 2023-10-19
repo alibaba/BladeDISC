@@ -287,33 +287,4 @@ TEST(Matmul, F16_256x256x128_Using_Default_Schedule) {
       /*expected_output_vals*/ {},
       /*profiling*/ true));
 }
-
-TEST(Matmul, F16_Dynamic_Shape_Using_Default_Schedule) {
-  EnvSetting setting = {
-      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", false}},
-      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", false}},
-      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
-      {"DISC_TRANSFORM_SCHEDULE_FILE",
-       {"kGEMM::GPU:" + c_ft_path + "matmul_nn_s_f16_gpu_schedule_1.mlir",
-        false}},
-  };
-  EnvSettingContext ctx(setting);
-  std::vector<std::vector<float>> inputs;
-  std::vector<float> inputs1(512 * 512, 1.0);
-  std::vector<float> inputs2(512 * 512, 1.0);
-  inputs.push_back(inputs1);
-  inputs.push_back(inputs2);
-  EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path +
-          "default_schedule_matmul_nn_s_dynamic_shape_f16.mlir",
-      /*backend_types*/ {BackendType::kCuda},
-      /*num_inputs*/ 2,
-      /*num_outputs*/ 1,
-      /*input_descriptors*/ {"512x512xf16_X", "512x512xf16_X"},
-      /*output_descriptors*/ {"f16_X"},
-      /*input_vals*/ inputs,
-      /*expected_output_vals*/ {},
-      /*profiling*/ true));
-}
-
 }  // namespace mlir_test

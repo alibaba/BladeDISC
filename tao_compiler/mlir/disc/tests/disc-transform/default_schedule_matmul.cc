@@ -305,7 +305,7 @@ TEST(Matmul, F16_Dynamic_Shape_Using_Default_Schedule) {
   inputs.push_back(inputs2);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
-          "default_schedule_matmul_nn_s_dynamic_shape_f16",
+          "default_schedule_matmul_nn_s_dynamic_shape_f16.mlir",
       /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,

@@ -298,15 +298,20 @@ TEST(Matmul, F16_Dynamic_Shape_Using_Default_Schedule) {
         false}},
   };
   EnvSettingContext ctx(setting);
+  std::vector<std::vector<float>> inputs;
+  std::vector<float> inputs1(512 * 512, 1.0);
+  std::vector<float> inputs2(512 * 512, 1.0);
+  inputs.push_back(inputs1);
+  inputs.push_back(inputs2);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
           "default_schedule_matmul_nn_s_dynamic_shape_f16",
       /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"1024x1024xf16_X", "1024x1024xf16_X"},
+      /*input_descriptors*/ {"512x512xf16_X", "512x512xf16_X"},
       /*output_descriptors*/ {"f16_X"},
-      /*input_vals*/ {},
+      /*input_vals*/ inputs,
       /*expected_output_vals*/ {},
       /*profiling*/ true));
 }

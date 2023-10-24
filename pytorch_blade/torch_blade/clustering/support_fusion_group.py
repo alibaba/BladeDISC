@@ -91,9 +91,10 @@ def supported_node_fusion(graph, block, unsupported_nodes, support_number_ios=Fa
         _fuse_supported_subgraph(graph, grp_to_fuse)
 
     utils.block_topology_ajust(block)
-
-    # 3. eliminate some dead constants
-    pass_manager._jit_pass_dce_during_lower_to_trt(graph)
+    ctx = torch_blade.default_disc_context()
+    if not ctx.input_mutation:
+        # 3. eliminate some dead constants
+        pass_manager._jit_pass_dce_during_lower_to_trt(graph)
 
 
 def conv_centric_fusion(graph, block, unsupported_nodes):

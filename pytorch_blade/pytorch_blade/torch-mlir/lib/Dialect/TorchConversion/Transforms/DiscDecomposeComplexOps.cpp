@@ -475,6 +475,20 @@ LogicalResult ConvertAtenOp<AtenPowTensorScalarOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<AtenPowScalarOp>::matchAndRewrite(
+    AtenPowScalarOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  auto resType = op.getType().cast<BaseTensorType>();
+  Value selfTensor = createRank0Tensor(rewriter, loc, resType, op.getSelf());
+
+  rewriter.replaceOpWithNewOp<AtenPowTensorTensorOp>(
+      op, op.getType(), selfTensor, op.getExponent());
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<AtenPowTensorTensorOp>::matchAndRewrite(
     AtenPowTensorTensorOp op,
     OpAdaptor adaptor,
@@ -784,6 +798,7 @@ class DiscDecomposeComplexOpsPass
     INSERT_ATENOP_PATTERN(AtenNativeDropoutOp);
     INSERT_ATENOP_PATTERN(AtenNllLossForwardOp);
     INSERT_ATENOP_PATTERN(AtenPowTensorScalarOp);
+    INSERT_ATENOP_PATTERN(AtenPowScalarOp);
     INSERT_ATENOP_PATTERN(PrimDeviceOp);
     INSERT_ATENOP_PATTERN(PrimDtypeOp);
     INSERT_ATENOP_PATTERN(AtenSplitTensorOp);

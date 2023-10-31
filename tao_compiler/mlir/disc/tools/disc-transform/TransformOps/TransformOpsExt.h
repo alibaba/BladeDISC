@@ -9,6 +9,7 @@
 
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Dialect/Vector/TransformOps/VectorTransformOps.h"
@@ -36,6 +37,14 @@ class CommonExtensions
  public:
   CommonExtensions();
 };
+
+/// Pipeline copy to shared memory for matmul op
+std::tuple<DiagnosedSilenceableFailure, scf::ForOp> applyPipelining(
+    scf::ForOp forOp, int64_t depth, bool epiloguePeeling);
+
+LogicalResult optimizeSharedMemoryReadsAndWrites(Operation* parentOp,
+                                                 Value memrefValue);
+
 }  // namespace transform_dialect
 }  // namespace disc_ral
 }  // namespace mlir

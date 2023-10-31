@@ -287,5 +287,4 @@ TEST(Matmul, F16_256x256x128_Using_Default_Schedule) {
       /*expected_output_vals*/ {},
       /*profiling*/ true));
 }
-
 }  // namespace mlir_test

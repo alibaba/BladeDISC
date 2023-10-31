@@ -362,6 +362,13 @@ void convertWorkgroupBuffer(gpu::GPUFuncOp gpu_func_op, AllocOp alloc) {
   alloc.erase();
 }
 
+void convertPrivateBuffer(gpu::GPUFuncOp gpu_func_op, AllocOp alloc) {
+  auto memref_type = alloc.getResult().getType().cast<MemRefType>();
+  auto buffer = gpu_func_op.addPrivateAttribution(memref_type, alloc.getLoc());
+  alloc.replaceAllUsesWith(buffer);
+  alloc.erase();
+}
+
 /* This pass revises the kernel outlining:
  *
  * 1, For a MemRef resides in host memory, which always means that the MemRef
@@ -418,7 +425,7 @@ class ReviseGpuKernelOutliningPass
       }
     }
 
-    // convert for shared buffer
+    // convert for shared/private buffer
     module.walk([&](gpu::LaunchFuncOp launch_func_op) {
       auto gpu_module = module.lookupSymbol<gpu::GPUModuleOp>(
           launch_func_op.getKernelModuleName());
@@ -428,12 +435,16 @@ class ReviseGpuKernelOutliningPass
       assert(gpu_func_op && "gpu_func_op is empty");
       gpu_func_op.walk([&](AllocOp alloc) {
         auto memref_type = alloc.getResult().getType().cast<MemRefType>();
-        assert(memref_type.getMemorySpace()
-                       .dyn_cast<gpu::AddressSpaceAttr>()
-                       .getValue() ==
-                   gpu::GPUDialect::getWorkgroupAddressSpace() &&
-               "unexpected alloc op in gpu_func_op");
-        convertWorkgroupBuffer(gpu_func_op, alloc);
+        gpu::AddressSpace addressSpace = memref_type.getMemorySpace()
+                                             .dyn_cast<gpu::AddressSpaceAttr>()
+                                             .getValue();
+        if (addressSpace == gpu::GPUDialect::getWorkgroupAddressSpace()) {
+          convertWorkgroupBuffer(gpu_func_op, alloc);
+        } else if (addressSpace == gpu::GPUDialect::getPrivateAddressSpace()) {
+          convertPrivateBuffer(gpu_func_op, alloc);
+        } else {
+          llvm_unreachable("unexpected alloc op in gpu_func_op");
+        }
       });
     });
   }

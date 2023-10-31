@@ -29,6 +29,7 @@
 #include "mlir/Dialect/Bufferization/Transforms/Transforms.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
@@ -43,6 +44,7 @@
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
+#include "mlir/IR/Dominance.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
 #include "mlir/Interfaces/ValueBoundsOpInterface.h"
@@ -52,6 +54,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 #include "mlir/Transforms/Passes.h"
+#include "mlir/disc/IR/disc_shape_ops.h"
 #include "mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "mlir/disc/tools/disc-transform/utils.h"
 #include "mlir/disc/transforms/codegen_utils.h"
@@ -3562,11 +3565,37 @@ DiagnosedSilenceableFailure DISCSplitReductionSerialOp::applyToOne(
   Value dimM = b.createOrFold<tensor::DimOp>(loc, lhs, zero);
   Value dimN = b.createOrFold<tensor::DimOp>(loc, rhs, one);
   Value dimK = b.createOrFold<tensor::DimOp>(loc, lhs, one);
+  // TODO: use a better way to get the dim K
+  if (lhs.getType().cast<RankedTensorType>().isDynamicDim(1)) {
+    tensor::PadOp pad = lhs.getDefiningOp<tensor::PadOp>();
+    if (pad) {
+      tensor::ExtractSliceOp slice =
+          pad.getSource().getDefiningOp<tensor::ExtractSliceOp>();
+      if (slice) {
+        dimK = b.create<tensor::DimOp>(loc, slice.getSource(), one);
+      }
+    }
+  }
 
   scf::ForOp forOp =
       b.create<scf::ForOp>(loc, zero, dimK, step, ValueRange{output});
+  if (getLoopType().has_value())
+    if (getLoopType().value().equals("cta-k-loop"))
+      forOp->setAttr("loop-type", StringAttr::get(ctx, "cta-k-loop"));
   b.setInsertionPoint(forOp.getBody(), forOp.getBody()->begin());
   Value iv = forOp.getInductionVar();
+  auto lhsTy = lhs.getType().cast<RankedTensorType>();
+  bool isKDimDynamic = lhsTy.isDynamicDim(1);
+  if (isKDimDynamic ||
+      (!isKDimDynamic && lhsTy.getDimSize(1) % staticTileSize != 0)) {
+    AffineExpr d0, s0;
+    bindDims(ctx, d0);
+    bindSymbols(ctx, s0);
+    AffineMap minMap = AffineMap::get(
+        1, 1, {d0 * (-1) + s0, b.getAffineConstantExpr(staticTileSize)}, ctx);
+    step = b.create<affine::AffineMinOp>(loc, b.getIndexType(), minMap,
+                                         ValueRange{iv, dimK});
+  }
   SmallVector<Value> lhsOffsets{zero, iv};
   SmallVector<Value> lhsDimUppers{dimM, step};
   SmallVector<Value> lhsStrides{one, one};
@@ -4027,6 +4056,1314 @@ void transform_dialect::ApplyLoopIndependentCodeMotionOp::getEffects(
     SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
   transform::onlyReadsHandle(getTarget(), effects);
   transform::modifiesPayload(effects);
+}
+
+//===----------------------------------------------------------------------===//
+// DISCPaddingMNOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure transform_dialect::DISCPaddingMN::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  linalg::MatmulOp matmul = dyn_cast<linalg::MatmulOp>(target);
+  if (!matmul) {
+    return mlir::emitDefiniteFailure(target,
+                                     "apples only to linalg.matmul op.");
+  }
+
+  const ArrayRef<int64_t> tileSizes = getTileSizes();
+  if (tileSizes.size() != 2) {
+    return mlir::emitDefiniteFailure(target, "expect only tile M and N");
+  }
+  int64_t MTileSize = tileSizes[0];
+  int64_t NTileSize = tileSizes[1];
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = matmul.getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+  b.setInsertionPoint(target);
+
+  Value lhs, rhs, res;
+  lhs = matmul.getOperand(0);
+  rhs = matmul.getOperand(1);
+  res = matmul.getOperand(2);
+  auto lhsTy = lhs.getType().cast<RankedTensorType>();
+  auto rhsTy = rhs.getType().cast<RankedTensorType>();
+  auto resTy = res.getType().cast<RankedTensorType>();
+
+  bool shouldPaddingM = true, shouldPaddingN = true;
+  if (!lhsTy.isDynamicDim(0)) {
+    // TODO: support small static shape
+    if (lhsTy.getDimSize(0) < MTileSize) {
+      return mlir::emitDefiniteFailure(
+          target, "expected dimension M greater than MTileSize");
+    }
+    if (lhsTy.getDimSize(0) % MTileSize == 0) shouldPaddingM = false;
+  }
+  if (!rhsTy.isDynamicDim(1)) {
+    if (rhsTy.getDimSize(1) < NTileSize) {
+      return mlir::emitDefiniteFailure(
+          target, "expected dimension N greater than NTileSize");
+    }
+    if (rhsTy.getDimSize(1) % NTileSize == 0) shouldPaddingN = false;
+  }
+  if (!shouldPaddingM && !shouldPaddingN) {
+    results.push_back(matmul);
+    return DiagnosedSilenceableFailure::success();
+  }
+
+  // Padded shape
+  SmallVector<int64_t> lhsPadShape = {MTileSize, lhsTy.isDynamicDim(1)
+                                                     ? ShapedType::kDynamic
+                                                     : lhsTy.getDimSize(1)};
+  SmallVector<int64_t> rhsPadShape = {
+      rhsTy.isDynamicDim(0) ? ShapedType::kDynamic : rhsTy.getDimSize(0),
+      NTileSize};
+  SmallVector<int64_t> resPadShape = {MTileSize, NTileSize};
+
+  // Padding low and high
+  auto zeroIndex = b.createOrFold<arith::ConstantIndexOp>(0);
+  SmallVector<OpFoldResult> paddingLow;
+  paddingLow.resize(lhsTy.getRank(), zeroIndex);
+  AffineExpr d0;
+  bindDims(rewriter.getContext(), d0);
+  auto mDimSubMap = AffineMap::get(1, 0, {MTileSize - d0}, ctx);
+  auto nDimSubMap = AffineMap::get(1, 0, {NTileSize - d0}, ctx);
+  Value paddingMHigh = zeroIndex, paddingNHigh = zeroIndex;
+  Value mDim = b.create<tensor::DimOp>(lhs, 0);
+  Value nDim = b.create<tensor::DimOp>(rhs, 1);
+  if (shouldPaddingM) {
+    paddingMHigh = b.create<affine::AffineApplyOp>(mDimSubMap, mDim);
+  }
+  if (shouldPaddingN) {
+    paddingNHigh = b.create<affine::AffineApplyOp>(nDimSubMap, nDim);
+  }
+  SmallVector<OpFoldResult> lhsPadingHigh = {paddingMHigh, zeroIndex};
+  SmallVector<OpFoldResult> rhsPadingHigh = {zeroIndex, paddingNHigh};
+  SmallVector<OpFoldResult> resPadingHigh = {paddingMHigh, paddingNHigh};
+
+  // Convert the padding values to attributes.
+  SmallVector<TypedAttr> paddingValues;
+  if (getPaddingValues().size() != 3) {
+    emitOpError("expects padding A, B and C");
+    return DiagnosedSilenceableFailure::definiteFailure();
+  }
+  for (auto const& it :
+       llvm::zip(getPaddingValues(), matmul.getOperandTypes())) {
+    auto attr = dyn_cast<TypedAttr>(std::get<0>(it));
+    if (!attr) {
+      emitOpError("expects padding values to be typed attributes");
+      return DiagnosedSilenceableFailure::definiteFailure();
+    }
+    auto elementType = getElementTypeOrSelf(std::get<1>(it));
+    if (attr.getType() != elementType) {
+      auto diag = this->emitOpError("expects a padding value of type ")
+                  << elementType << ", got " << attr;
+      diag.attachNote(matmul.getLoc()) << "when applied to this op";
+      return DiagnosedSilenceableFailure::definiteFailure();
+    }
+    paddingValues.push_back(attr);
+  }
+  Value lhsPaddingValue = b.create<arith::ConstantOp>(paddingValues[0]);
+  Value rhsPaddingValue = b.create<arith::ConstantOp>(paddingValues[1]);
+  Value resPaddingValue = b.create<arith::ConstantOp>(paddingValues[2]);
+
+  if (shouldPaddingM) {
+    lhs = b.create<tensor::PadOp>(lhsTy.clone(lhsPadShape), lhs, paddingLow,
+                                  lhsPadingHigh, lhsPaddingValue);
+  }
+  if (shouldPaddingN) {
+    rhs = b.create<tensor::PadOp>(rhsTy.clone(rhsPadShape), rhs, paddingLow,
+                                  rhsPadingHigh, rhsPaddingValue);
+  }
+  res = b.create<tensor::PadOp>(resTy.clone(resPadShape), res, paddingLow,
+                                resPadingHigh, resPaddingValue, true);
+  SmallVector<Value, 2> matmulInputVals = {lhs, rhs};
+  auto newMatmul = b.create<linalg::MatmulOp>(
+      matmulInputVals, ArrayRef<Value>(res), target->getAttrs());
+  results.push_back(newMatmul);
+
+  // Extract padded matmul
+  SmallVector<OpFoldResult> offsets = {zeroIndex, zeroIndex};
+  Value mSize = shouldPaddingM
+                    ? mDim
+                    : b.create<arith::ConstantIndexOp>(lhsTy.getDimSize(0));
+  Value nSize = shouldPaddingN
+                    ? nDim
+                    : b.create<arith::ConstantIndexOp>(rhsTy.getDimSize(1));
+  SmallVector<OpFoldResult> sizes = {mSize, nSize};
+  auto oneIndex = b.createOrFold<arith::ConstantIndexOp>(1);
+  SmallVector<OpFoldResult> strides = {oneIndex, oneIndex};
+  auto extractSliceMatmul = b.create<tensor::ExtractSliceOp>(
+      resTy, newMatmul.getResult(0), offsets, sizes, strides);
+  matmul.getResult(0).replaceAllUsesWith(extractSliceMatmul.getResult());
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCPaddingKOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure transform_dialect::DISCPaddingK::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  linalg::MatmulOp matmul = dyn_cast<linalg::MatmulOp>(target);
+  if (!matmul) {
+    return mlir::emitDefiniteFailure(target,
+                                     "apples only to linalg.matmul op.");
+  }
+
+  const ArrayRef<int64_t> tileSizes = getTileSizes();
+  if (tileSizes.size() != 1) {
+    return mlir::emitDefiniteFailure(target, "expect only tile K");
+  }
+
+  int64_t KTileSize = tileSizes[0];
+
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = matmul.getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+  b.setInsertionPoint(target);
+
+  Value lhs, rhs, res;
+  lhs = matmul.getOperand(0);
+  rhs = matmul.getOperand(1);
+  res = matmul.getOperand(2);
+  auto lhsTy = lhs.getType().cast<RankedTensorType>();
+  auto rhsTy = rhs.getType().cast<RankedTensorType>();
+
+  bool shouldPaddingK = true;
+  if (!lhsTy.isDynamicDim(1)) {
+    if (lhsTy.getDimSize(1) < KTileSize) {
+      return mlir::emitDefiniteFailure(
+          target, "expect dimemsion K greater than KTileSize");
+    }
+    if (lhsTy.getDimSize(1) % KTileSize == 0) shouldPaddingK = false;
+  }
+
+  // Padded shape
+  SmallVector<int64_t> lhsPadShape = {
+      lhsTy.isDynamicDim(0) ? ShapedType::kDynamic : lhsTy.getDimSize(0),
+      KTileSize};
+  SmallVector<int64_t> rhsPadShape = {KTileSize, rhsTy.isDynamicDim(1)
+                                                     ? ShapedType::kDynamic
+                                                     : rhsTy.getDimSize(1)};
+
+  // Padding low and high
+  auto zeroIndex = b.createOrFold<arith::ConstantIndexOp>(0);
+  SmallVector<OpFoldResult> padingLow;
+  padingLow.resize(lhsTy.getRank(), zeroIndex);
+  AffineExpr d0;
+  bindDims(rewriter.getContext(), d0);
+  auto kDimSubMap = AffineMap::get(1, 0, {KTileSize - d0}, ctx);
+  Value kDim = b.create<tensor::DimOp>(lhs, 1);
+  // Add an unecessary zero padding for later
+  // FoldOrthogonalPaddings canonicalization
+  Value paddingKHigh = shouldPaddingK
+                           ? b.create<affine::AffineApplyOp>(kDimSubMap, kDim)
+                           : zeroIndex;
+  SmallVector<OpFoldResult> lhsPadingHigh = {zeroIndex, paddingKHigh};
+  SmallVector<OpFoldResult> rhsPadingHigh = {paddingKHigh, zeroIndex};
+
+  // Convert the padding values to attributes.
+  SmallVector<TypedAttr> paddingValues;
+  if (getPaddingValues().size() != 2) {
+    emitOpError("expects only padding A, B");
+    return DiagnosedSilenceableFailure::definiteFailure();
+  }
+  for (auto const& it :
+       llvm::zip(getPaddingValues(), matmul.getOperandTypes())) {
+    auto attr = dyn_cast<TypedAttr>(std::get<0>(it));
+    if (!attr) {
+      emitOpError("expects padding values to be typed attributes");
+      return DiagnosedSilenceableFailure::definiteFailure();
+    }
+    Type elementType = getElementTypeOrSelf(std::get<1>(it));
+    if (attr.getType() != elementType) {
+      auto diag = this->emitOpError("expects a padding value of type ")
+                  << elementType << ", got " << attr;
+      diag.attachNote(matmul.getLoc()) << "when applied to this op";
+      return DiagnosedSilenceableFailure::definiteFailure();
+    }
+    paddingValues.push_back(attr);
+  }
+
+  Value lhsPaddingValue = b.create<arith::ConstantOp>(paddingValues[0]);
+  Value rhsPaddingValue = b.create<arith::ConstantOp>(paddingValues[1]);
+  Value lhsPadOp =
+      b.create<tensor::PadOp>(lhsTy.clone(lhsPadShape), lhs, padingLow,
+                              lhsPadingHigh, lhsPaddingValue, true);
+  Value rhsPadOp =
+      b.create<tensor::PadOp>(rhsTy.clone(rhsPadShape), rhs, padingLow,
+                              rhsPadingHigh, rhsPaddingValue, true);
+
+  SmallVector<Value, 2> matmulInputVals = {lhsPadOp, rhsPadOp};
+  auto newMatmul = b.create<linalg::MatmulOp>(
+      matmulInputVals, ArrayRef<Value>(res), target->getAttrs());
+
+  matmul.getResult(0).replaceAllUsesWith(newMatmul.getResult(0));
+  results.push_back(newMatmul);
+
+  RewritePatternSet pattern(ctx);
+  func::FuncOp funcOp = newMatmul->getParentOfType<func::FuncOp>();
+  tensor::PadOp::getCanonicalizationPatterns(pattern, ctx);
+  if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(pattern)))) {
+    emitOpError("failed to run padop canonicalization patterns");
+    return DiagnosedSilenceableFailure::definiteFailure();
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCSwapAllocTensorOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure transform_dialect::DISCSwapAllocTensor::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  MLIRContext* ctx = target->getContext();
+  SimplePatternRewriter rewriter(ctx);
+  Location loc = target->getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+
+  SmallVector<bufferization::AllocTensorOp> allocs;
+  // Collect all the candidate alloc operations.
+  target->walk([&](bufferization::AllocTensorOp allocOp) {
+    vector::TransferWriteOp xWrite =
+        allocOp.getCopy().getDefiningOp<vector::TransferWriteOp>();
+    if (xWrite) {
+      tensor::EmptyOp emptyOp =
+          cast<tensor::EmptyOp>(xWrite.getOperand(1).getDefiningOp());
+      if (emptyOp) {
+        allocs.push_back(allocOp);
+      }
+    }
+  });
+
+  for (auto allocOp : allocs) {
+    vector::TransferWriteOp xWrite =
+        allocOp.getCopy().getDefiningOp<vector::TransferWriteOp>();
+    tensor::EmptyOp emptyOp =
+        cast<tensor::EmptyOp>(xWrite.getOperand(1).getDefiningOp());
+    // alloc A and B before cta-k-loop
+    b.setInsertionPoint(emptyOp->getParentOp());
+    std::optional<Attribute> memorySpace = allocOp.getMemorySpace();
+    Value newAllocOp = b.create<bufferization::AllocTensorOp>(
+        allocOp.getType(), allocOp.getDynamicSizes(),
+        /*copy=*/Value(),
+        memorySpace ? cast<IntegerAttr>(*memorySpace) : IntegerAttr());
+
+    b.setInsertionPoint(xWrite);
+    auto newXWrite = b.create<vector::TransferWriteOp>(
+        xWrite.getVector(), newAllocOp, xWrite.getIndices(),
+        xWrite.getPermutationMapAttr(), xWrite.getMask(),
+        xWrite.getInBoundsAttr());
+    allocOp.getResult().replaceAllUsesWith(newXWrite.getResult());
+
+    allocOp.erase();
+    xWrite.erase();
+  }
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCExpandTransferRWToMemrefCopyOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCExpandTransferRWToMemrefCopy::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = target->getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+  SmallVector<vector::TransferWriteOp, 2> writes;
+  SmallVector<memref::CopyOp, 2> copies;
+  scf::ForOp ctaKLoop;
+  scf::ParallelOp parallelOp;
+  target->walk([&](scf::ForOp forOp) {
+    auto loopType = forOp->getAttrOfType<StringAttr>("loop-type");
+    if (loopType && loopType.getValue().equals("cta-k-loop") &&
+        isa<scf::ParallelOp>(forOp->getParentOp())) {
+      ctaKLoop = forOp;
+      parallelOp = cast<scf::ParallelOp>(forOp->getParentOp());
+      WalkResult::interrupt();
+    }
+  });
+  if (!ctaKLoop) {
+    return mlir::emitDefiniteFailure(target, "cannot find ctaKLoop");
+  }
+  // %subview_8 = memref.subview %arg0[%4, %arg5] [%2, %8] [1, 1]
+  // %9 = vector.transfer_read %subview_8[%c0, %c0], %cst_0
+  // vector.transfer_write %9, %subview_7[%c0, %c0]
+  // TODO: use another way to find out the R/W of ShareMemory
+  ctaKLoop->walk([&](vector::TransferWriteOp write) {
+    auto loop = dyn_cast_or_null<scf::ForOp>(write->getParentOp());
+    if (!loop || loop != ctaKLoop) {
+      WalkResult::skip();
+    }
+    auto read = write.getVector().getDefiningOp<vector::TransferReadOp>();
+    auto dst = write.getSource();
+    if (!read || !dst) WalkResult::skip();
+    if (!write.getPermutationMap().isMinorIdentity()) WalkResult::skip();
+    if (!vector::isLastMemrefDimUnitStride(
+            dyn_cast<MemRefType>(write.getShapedType())))
+      WalkResult::skip();
+    if (!hasSharedMemoryAddressSpace(
+            llvm::cast<MemRefType>(write.getShapedType()))) {
+      WalkResult::skip();
+    }
+    if (write.hasOutOfBoundsDim() || write.getMask()) WalkResult::skip();
+    if (write.getMask() || read.getMask()) WalkResult::skip();
+    if (!read.getPermutationMap().isMinorIdentity()) WalkResult::skip();
+    if (!vector::isLastMemrefDimUnitStride(
+            dyn_cast<MemRefType>(read.getShapedType()))) {
+      WalkResult::skip();
+    }
+    writes.push_back(write);
+  });
+  if (writes.empty()) {
+    return DiagnosedSilenceableFailure::success();
+  }
+
+  Value ctaKLoopIV = ctaKLoop.getInductionVar();
+  Value ctaKLoopStep =
+      ctaKLoop.getStep().getDefiningOp<arith::ConstantIndexOp>();
+  Value ctaKLoopUB = ctaKLoop.getUpperBound();
+
+  const size_t kThreadCopyBytes = 16;
+  const size_t kThreadsPerBlock = 128;
+  const size_t kThreadsPerWarp = 32;
+  b.setInsertionPointToStart(&parallelOp.getRegion().front());
+  Value threadId = parallelOp.getInductionVars()[1];
+  Value warpSize = b.create<arith::ConstantIndexOp>(kThreadsPerWarp);
+  Value warpId = b.create<arith::DivUIOp>(threadId, warpSize);
+  Value laneId = b.create<arith::RemUIOp>(threadId, warpSize);
+  SmallVector<Value> tokens;
+  auto d0 = b.getAffineDimExpr(0);
+  auto s0 = b.getAffineSymbolExpr(0);
+  for (auto write : writes) {
+    auto read = write.getVector().getDefiningOp<vector::TransferReadOp>();
+    auto padding = read.getPadding();
+    auto dst = write.getSource();
+    auto dstMemref = cast<MemRefType>(dst.getType());
+    auto src = read.getSource();
+    ArrayRef<int64_t> shape =
+        dyn_cast<MemRefType>(write.getShapedType()).getShape();
+    int64_t total_chunk_lines = shape[0];
+    int64_t chunk_size_in_bytes = shape[1] * 2;
+    int64_t chunk_copy_lines_per_waro =
+        kThreadsPerWarp * kThreadCopyBytes / chunk_size_in_bytes;
+    int64_t chunk_copy_lines_per_block =
+        kThreadsPerBlock * kThreadCopyBytes / chunk_size_in_bytes;
+    int64_t iterations = shape[0] / chunk_copy_lines_per_block;
+    int64_t chunk_copy_line_lanes = chunk_size_in_bytes / kThreadCopyBytes;
+    b.setInsertionPointAfter(write);
+    Value zero = b.create<arith::ConstantIndexOp>(0);
+    Value one = b.create<arith::ConstantIndexOp>(1);
+    Value numElements = b.create<arith::ConstantIndexOp>(kThreadCopyBytes / 2);
+    for (int64_t i = 0; i < iterations; ++i) {
+      auto offsetXMap = AffineMap::get(
+          1, 0,
+          {i * chunk_copy_lines_per_block + d0.floorDiv(chunk_copy_line_lanes)},
+          ctx);
+      auto offsetYMap = AffineMap::get(
+          1, 0, {(d0 % chunk_copy_line_lanes) * (kThreadCopyBytes / 2)}, ctx);
+      Value offsetX =
+          b.create<affine::AffineApplyOp>(offsetXMap, ValueRange{threadId});
+      Value offsetY =
+          b.create<affine::AffineApplyOp>(offsetYMap, ValueRange{threadId});
+      // clang-format off
+      // if (offsetX >= src.dim0 || offsetY >= src.dim1)
+      //     srcElements = 0;
+      // else
+      //     if (offsetY + numElements > src.dim1)
+      //         srcElements = src.dim1 - offsetY;
+      //     else
+      //         srcElements = numElements
+      // clang-format on
+      Value dim0 = b.create<memref::DimOp>(src, zero);
+      Value dim1 = b.create<memref::DimOp>(src, one);
+      Value dim0GeX =
+          b.create<arith::CmpIOp>(arith::CmpIPredicate::uge, offsetX, dim0);
+      Value dim1GeY =
+          b.create<arith::CmpIOp>(arith::CmpIPredicate::uge, offsetY, dim1);
+      Value cond0 = b.create<arith::OrIOp>(dim0GeX, dim1GeY);
+
+      Value diffY = b.create<arith::SubIOp>(dim1, offsetY);
+      Value cond1 = b.create<arith::CmpIOp>(
+          arith::CmpIPredicate::ugt,
+          b.create<arith::AddIOp>(offsetY, numElements), dim1);
+      Value srcElements = b.create<arith::SelectOp>(
+          cond0, zero, b.create<arith::SelectOp>(cond1, diffY, numElements));
+      auto token = b.create<nvgpu::DeviceAsyncCopyOp>(
+          nvgpu::DeviceAsyncTokenType::get(ctx), dst,
+          /*dstIndices*/ ValueRange{offsetX, offsetY}, src,
+          /*srcIndices*/ ValueRange{offsetX, offsetY},
+          /*dstElements*/ b.getIndexAttr(kThreadCopyBytes / 2),
+          /*srcElements*/ srcElements,
+          /*bypassL1*/ b.getUnitAttr());
+      tokens.push_back(token);
+    }
+  }
+  auto tokenGroup = b.create<nvgpu::DeviceAsyncCreateGroupOp>(
+      nvgpu::DeviceAsyncTokenType::get(ctx), tokens);
+  // we will manually lower nvgpu::DeviceAsyncWaitOp to
+  // NVVM::CpAsyncCommitGroupOp, so it's ok to use the
+  // `nullptr` directly.
+  b.create<nvgpu::DeviceAsyncWaitOp>(tokenGroup, nullptr);
+  b.create<gpu::BarrierOp>();
+
+  for (auto write : writes) {
+    write.erase();
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+
+/// Replace the uses of `oldOp` with the given `val` and for subview uses
+/// propagate the type change. Changing the memref type may require propagating
+/// it through subview ops so we cannot just do a replaceAllUse but need to
+/// propagate the type change and erase old subview ops.
+static void replaceUsesAndPropagateType(RewriterBase& rewriter,
+                                        Operation* oldOp, Value val) {
+  SmallVector<Operation*> opsToDelete;
+  SmallVector<OpOperand*> operandsToReplace;
+
+  // Save the operand to replace / delete later (avoid iterator invalidation).
+  // TODO: can we use an early_inc iterator?
+  for (OpOperand& use : oldOp->getUses()) {
+    // Non-subview ops will be replaced by `val`.
+    auto subviewUse = dyn_cast<memref::SubViewOp>(use.getOwner());
+    if (!subviewUse) {
+      operandsToReplace.push_back(&use);
+      continue;
+    }
+
+    // `subview(old_op)` is replaced by a new `subview(val)`.
+    OpBuilder::InsertionGuard g(rewriter);
+    rewriter.setInsertionPoint(subviewUse);
+    Type newType = memref::SubViewOp::inferRankReducedResultType(
+        subviewUse.getType().getShape(), cast<MemRefType>(val.getType()),
+        subviewUse.getStaticOffsets(), subviewUse.getStaticSizes(),
+        subviewUse.getStaticStrides());
+    Value newSubview = rewriter.create<memref::SubViewOp>(
+        subviewUse->getLoc(), cast<MemRefType>(newType), val,
+        subviewUse.getMixedOffsets(), subviewUse.getMixedSizes(),
+        subviewUse.getMixedStrides());
+
+    // Ouch recursion ... is this really necessary?
+    replaceUsesAndPropagateType(rewriter, subviewUse, newSubview);
+
+    opsToDelete.push_back(use.getOwner());
+  }
+
+  // Perform late replacement.
+  // TODO: can we use an early_inc iterator?
+  for (OpOperand* operand : operandsToReplace) {
+    Operation* op = operand->getOwner();
+    rewriter.startRootUpdate(op);
+    operand->set(val);
+    rewriter.finalizeRootUpdate(op);
+  }
+
+  // Perform late op erasure.
+  // TODO: can we use an early_inc iterator?
+  for (Operation* op : opsToDelete) rewriter.eraseOp(op);
+}
+
+//===----------------------------------------------------------------------===//
+// DISCMultiBufferingOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure transform_dialect::DISCMultiBuffering::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = target->getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+  auto funcOp = cast<func::FuncOp>(target);
+  // Get ctaKLoop
+  scf::ForOp ctaKLoop;
+  target->walk([&](scf::ForOp loop) {
+    auto reductionTy = loop->getAttrOfType<StringAttr>("loop-type");
+    if (reductionTy && reductionTy.getValue().equals("cta-k-loop")) {
+      ctaKLoop = loop;
+      WalkResult::interrupt();
+    }
+  });
+  scf::ForOp mmaKLoop;
+  target->walk([&](nvgpu::MmaSyncOp mmaSyncOp) {
+    auto loop = dyn_cast_or_null<scf::ForOp>(mmaSyncOp->getParentOp());
+    if (loop) {
+      mmaKLoop = loop;
+      WalkResult::interrupt();
+    }
+  });
+
+  DominanceInfo dom(ctaKLoop);
+  SmallVector<memref::AllocOp> allocs;
+  // Collect all the candidate alloc operations
+  //   1. shared memory
+  //   2. dominate ctaKLoop
+  //   3. all users inside ctaKLoop or inside mmaKLoop
+  funcOp.walk([&](memref::AllocOp allocOp) {
+    if (!hasSharedMemoryAddressSpace(allocOp.getType()) ||
+        !dom.properlyDominates(allocOp.getOperation(), ctaKLoop)) {
+      return WalkResult::advance();
+    }
+    for (Operation* user : allocOp->getUsers()) {
+      if (isa<memref::DeallocOp>(user)) continue;
+      auto loop = dyn_cast_or_null<scf::ForOp>(user->getParentOp());
+      if (!loop && loop != ctaKLoop && loop != mmaKLoop)
+        return WalkResult::advance();
+    }
+    allocOp.dump();
+    allocs.push_back(allocOp);
+    return WalkResult::advance();
+  });
+
+  // Try to apply multi-buffering to all of them.
+  for (memref::AllocOp allocOp : allocs) {
+    DominanceInfo dom(allocOp->getParentOp());
+    LoopLikeOpInterface candidateLoop = ctaKLoop;
+
+    std::optional<Value> inductionVar = candidateLoop.getSingleInductionVar();
+    std::optional<OpFoldResult> lowerBound =
+        candidateLoop.getSingleLowerBound();
+    std::optional<OpFoldResult> singleStep = candidateLoop.getSingleStep();
+    if (!inductionVar || !lowerBound || !singleStep) {
+      return DiagnosedSilenceableFailure::definiteFailure();
+    }
+
+    // Start multibuffering loop
+    // 1. Construct the multi-buffered memref type.
+    ArrayRef<int64_t> originalShape = allocOp.getType().getShape();
+    int64_t multiBufferingFactor = getMultiBufferingFactor();
+    SmallVector<int64_t, 4> multiBufferedShape{multiBufferingFactor};
+    llvm::append_range(multiBufferedShape, originalShape);
+    MemRefType mbMemRefType = MemRefType::Builder(allocOp.getType())
+                                  .setShape(multiBufferedShape)
+                                  .setLayout(MemRefLayoutAttrInterface());
+
+    // 2. Create the multi-buffered alloc.
+    Location loc = allocOp->getLoc();
+    OpBuilder::InsertionGuard g(rewriter);
+    b.setInsertionPoint(allocOp);
+    auto mbAlloc = b.create<memref::AllocOp>(loc, mbMemRefType, ValueRange{},
+                                             allocOp->getAttrs());
+
+    // 3. Within the loop, build the modular leading index (i.e. each loop
+    // iteration %iv accesses slice ((%iv - %lb) / %step) % %mb_factor).
+    b.setInsertionPointToStart(&candidateLoop.getLoopBody().front());
+    Value ivVal = *inductionVar;
+    Value lbVal = getValueOrCreateConstantIndexOp(b, loc, *lowerBound);
+    Value stepVal = getValueOrCreateConstantIndexOp(b, loc, *singleStep);
+    AffineExpr iv, lb, step;
+    bindDims(b.getContext(), iv, lb, step);
+    Value bufferIndex = affine::makeComposedAffineApply(
+        b, loc, ((iv - lb).floorDiv(step)) % multiBufferingFactor,
+        {ivVal, lbVal, stepVal});
+
+    // 4. Build the subview accessing the particular slice,
+    // taking modular rotation into account.
+    int64_t mbMemRefTypeRank = mbMemRefType.getRank();
+    IntegerAttr zero = b.getIndexAttr(0);
+    IntegerAttr one = b.getIndexAttr(1);
+    SmallVector<OpFoldResult> offsets(mbMemRefTypeRank, zero);
+    SmallVector<OpFoldResult> sizes(mbMemRefTypeRank, one);
+    SmallVector<OpFoldResult> strides(mbMemRefTypeRank, one);
+    // Offset is [bufferIndex, 0 ... 0 ].
+    offsets.front() = bufferIndex;
+    // Sizes is [1, original_size_0 ... original_size_n ].
+    for (int64_t i = 0, e = originalShape.size(); i != e; ++i)
+      sizes[1 + i] = b.getIndexAttr(originalShape[i]);
+    // Strides is [1, 1 ... 1 ].
+    auto dstMemref =
+        cast<MemRefType>(memref::SubViewOp::inferRankReducedResultType(
+            originalShape, mbMemRefType, offsets, sizes, strides));
+    Value subview = b.create<memref::SubViewOp>(dstMemref, mbAlloc, offsets,
+                                                sizes, strides);
+
+    // 5. Due to the recursive nature of replaceUsesAndPropagateType,
+    // we need to handle dealloc uses separately.
+    for (OpOperand& use : llvm::make_early_inc_range(allocOp->getUses())) {
+      auto deallocOp = dyn_cast<memref::DeallocOp>(use.getOwner());
+      if (!deallocOp) continue;
+      OpBuilder::InsertionGuard g(b);
+      b.setInsertionPoint(deallocOp);
+      auto newDeallocOp =
+          b.create<memref::DeallocOp>(deallocOp->getLoc(), mbAlloc);
+      (void)newDeallocOp;
+      deallocOp.erase();
+    }
+
+    // 6. RAUW with the particular slice, taking modular rotation into account.
+    replaceUsesAndPropagateType(rewriter, allocOp, subview);
+
+    // 7. Finally, erase the old allocOp.
+    allocOp.erase();
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+
+void transform_dialect::DISCMultiBuffering::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::onlyReadsHandle(getTarget(), effects);
+  transform::modifiesPayload(effects);
+}
+
+//===----------------------------------------------------------------------===//
+// DISCSwizzleShareMemoryOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCSwizzleShareMemoryOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = target->getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+  auto funcOp = cast<func::FuncOp>(target);
+  SmallVector<memref::AllocOp> shmAllocOps;
+  RewritePatternSet pattern(funcOp.getContext());
+  memref::populateFoldMemRefAliasOpPatterns(pattern);
+  if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(pattern)))) {
+    return DiagnosedSilenceableFailure::definiteFailure();
+  }
+  funcOp->walk([&](memref::AllocOp allocOp) {
+    // Only apply swizzling to input shared memory.
+    if (hasSharedMemoryAddressSpace(allocOp.getType())) {
+      auto memoryTy = allocOp->getAttrOfType<StringAttr>("memory-type");
+      if (!memoryTy) {
+        shmAllocOps.push_back(allocOp);
+      }
+    }
+  });
+  LogicalResult result(failure());
+  for (auto allocOp : shmAllocOps) {
+    result = disc_ral::transform_dialect::optimizeSharedMemoryReadsAndWrites(
+        funcOp, allocOp.getMemref());
+    if (failed(result)) {
+      return DiagnosedSilenceableFailure::definiteFailure();
+    }
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+
+static int64_t getAllocSize(Operation* op, DataLayout& dataLayout) {
+  auto allocOp = cast<memref::AllocOp>(op);
+  int64_t numElements = allocOp.getType().getNumElements();
+  return (dataLayout.getTypeSizeInBits(allocOp.getType().getElementType()) *
+          numElements) /
+         8;
+}
+
+//===----------------------------------------------------------------------===//
+// DISCPackSharedMemoryAllocOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCPackSharedMemoryAllocOp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = target->getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+  auto parallelOp = cast<scf::ParallelOp>(target);
+  DominanceInfo dominators(parallelOp);
+  SmallVector<memref::AllocOp> inputAllocs;
+  SmallVector<memref::AllocOp> outputAllocs;
+  parallelOp.walk([&](memref::AllocOp alloc) {
+    if (hasSharedMemoryAddressSpace(alloc.getType())) {
+      auto memoryType = alloc->getAttrOfType<StringAttr>("memory-type");
+      if (memoryType && memoryType.getValue().equals("output")) {
+        outputAllocs.push_back(alloc);
+      } else {
+        inputAllocs.push_back(alloc);
+      }
+    }
+  });
+
+  DataLayout dataLayout = DataLayout::closest(parallelOp);
+  int64_t maxAlloc = 0;
+  int64_t inputAllocSize = 0, outputAllocSize = 0;
+  for (auto alloc : inputAllocs) {
+    inputAllocSize += getAllocSize(alloc, dataLayout);
+    maxAlloc = std::max(maxAlloc, inputAllocSize);
+  }
+  for (auto alloc : outputAllocs) {
+    outputAllocSize += getAllocSize(alloc, dataLayout);
+    maxAlloc = std::max(maxAlloc, outputAllocSize);
+  }
+  b.setInsertionPointToStart(&parallelOp.getRegion().front());
+  Attribute memorySpace = gpu::AddressSpaceAttr::get(
+      ctx, gpu::GPUDialect::getWorkgroupAddressSpace());
+  MemRefType allocType =
+      MemRefType::get({maxAlloc}, b.getI8Type(), AffineMap(), memorySpace);
+  Value packedAlloc = b.create<memref::AllocOp>(allocType);
+
+  int64_t inputOffset = 0, outputOffset = 0;
+  for (auto alloc : inputAllocs) {
+    b.setInsertionPoint(alloc);
+    Value offsetValue = b.create<arith::ConstantIndexOp>(inputOffset);
+    Value newAlloc = b.create<memref::ViewOp>(alloc.getType(), packedAlloc,
+                                              offsetValue, ArrayRef<Value>({}));
+    inputOffset += getAllocSize(alloc, dataLayout);
+    alloc.replaceAllUsesWith(newAlloc);
+  }
+  for (auto alloc : outputAllocs) {
+    b.setInsertionPoint(alloc);
+    Value offsetValue = b.create<arith::ConstantIndexOp>(outputOffset);
+    Value newAlloc = b.create<memref::ViewOp>(alloc.getType(), packedAlloc,
+                                              offsetValue, ArrayRef<Value>({}));
+    outputOffset += getAllocSize(alloc, dataLayout);
+    alloc.replaceAllUsesWith(newAlloc);
+  }
+  for (auto alloc : inputAllocs) {
+    alloc.erase();
+  }
+  for (auto alloc : outputAllocs) {
+    alloc.erase();
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+
+void transform_dialect::DISCPackSharedMemoryAllocOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::onlyReadsHandle(getTarget(), effects);
+  transform::modifiesPayload(effects);
+}
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCMoveDataToRegister::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = target->getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+  auto mma = cast<nvgpu::MmaSyncOp>(target);
+  if (!mma) {
+    return mlir::emitDefiniteFailure(
+        target, "DISCUseRegForAccumalation expect mma operation");
+  }
+  auto ldMatrixA = mma.getMatrixA().getDefiningOp<nvgpu::LdMatrixOp>();
+  auto ldMatrixB = mma.getMatrixB().getDefiningOp<nvgpu::LdMatrixOp>();
+  if (!ldMatrixA || !ldMatrixB) {
+    return mlir::emitDefiniteFailure(target, "expect ldmatrixA and ldmatrixB");
+  }
+  // mma shape
+  std::array<int64_t, 3> mmaShapeArray = mma.getMmaShapeAsArray();
+  int64_t mmaMShape = mmaShapeArray[0];
+  int64_t mmaNShape = mmaShapeArray[1];
+  int64_t mmaKShape = mmaShapeArray[2];
+
+  // get mma's M, N, K loop
+  auto mmaKLoop = dyn_cast_or_null<scf::ForOp>(mma->getParentOp());
+  if (!mmaKLoop) {
+    return mlir::emitDefiniteFailure(target, "expect mma inner loop");
+  }
+  auto mmaNLoop = dyn_cast_or_null<scf::ForOp>(mmaKLoop->getParentOp());
+  if (!mmaNLoop) {
+    return mlir::emitDefiniteFailure(target, "expect mma mid loop");
+  }
+  auto mmaMLoop = dyn_cast_or_null<scf::ForOp>(mmaNLoop->getParentOp());
+  if (!mmaMLoop) {
+    return mlir::emitDefiniteFailure(target, "expect mma outer loop");
+  }
+  auto mmaMLoopUB =
+      mmaMLoop.getUpperBound().getDefiningOp<arith::ConstantIndexOp>();
+  auto mmaNLoopUB =
+      mmaNLoop.getUpperBound().getDefiningOp<arith::ConstantIndexOp>();
+  auto mmaKLoopUB =
+      mmaKLoop.getUpperBound().getDefiningOp<arith::ConstantIndexOp>();
+  if (!mmaMLoopUB || !mmaNLoopUB || !mmaKLoopUB) {
+    return mlir::emitDefiniteFailure(target, "expect constant warp shape");
+  }
+  // warp shape
+  int64_t warpMShape = mmaMLoopUB.value();
+  int64_t warpNShape = mmaNLoopUB.value();
+  int64_t warpKShape = mmaKLoopUB.value();
+  // block shape
+  const ArrayRef<int64_t> blockShape = getBlockMnShape();
+  if (blockShape.size() != 2) {
+    return mlir::emitDefiniteFailure(target, "expect block M, N shape");
+  }
+  int64_t blockMShape = blockShape[0];
+  int64_t blockNShape = blockShape[1];
+  if (blockMShape % warpMShape != 0 || blockNShape % warpNShape != 0 ||
+      warpMShape % mmaMShape != 0 || warpNShape % mmaNShape != 0 ||
+      warpKShape % mmaKShape != 0) {
+    return mlir::emitDefiniteFailure(target, "invalid shape of block or warp");
+  }
+  auto parallelOp = mmaMLoop->getParentOfType<scf::ParallelOp>();
+  if (!parallelOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "It should have a parent parallel op");
+  }
+
+  scf::ForOp ctaKLoop;
+  parallelOp->walk([&](scf::ForOp forOp) {
+    auto reductionTy = forOp->getAttrOfType<StringAttr>("loop-type");
+    if (reductionTy && reductionTy.getValue().equals("cta-k-loop")) {
+      ctaKLoop = forOp;
+      WalkResult::interrupt();
+    }
+  });
+  if (!ctaKLoop) {
+    return mlir::emitDefiniteFailure(target, "expect cta K reduction loop");
+  }
+
+  auto privateAS = gpu::GPUDialect::getPrivateAddressSpace();
+  auto shareAS = gpu::GPUDialect::getWorkgroupAddressSpace();
+  auto privateASAttr = gpu::AddressSpaceAttr::get(ctx, privateAS);
+  auto shareASAttr = gpu::AddressSpaceAttr::get(ctx, shareAS);
+  Type elementType = mma.getType().cast<VectorType>().getElementType();
+
+  b.setInsertionPointToStart(&parallelOp.getRegion().front());
+
+  auto zeroAttr = b.getZeroAttr(elementType);
+  Value zeroCst = b.create<arith::ConstantOp>(zeroAttr);
+  Value zeroCstVec = b.create<arith::ConstantOp>(DenseElementsAttr::get(
+      VectorType::get({2}, elementType), FloatAttr::get(elementType, 0.0)));
+  auto d0 = b.getAffineDimExpr(0);
+  auto s0 = b.getAffineSymbolExpr(0);
+  Value zeroIndex = b.create<arith::ConstantIndexOp>(0);
+  Value oneIndex = b.create<arith::ConstantIndexOp>(1);
+
+  Value threadId = parallelOp.getInductionVars()[1];
+  Value warpSize = b.create<arith::ConstantIndexOp>(kWarpSize);
+  Value warpId = b.create<arith::DivUIOp>(threadId, warpSize);
+  Value laneId = b.create<arith::RemUIOp>(threadId, warpSize);
+  // A. alloc register for input matrix
+  MemRefType allocTypeA =
+      MemRefType::get({warpMShape / mmaMShape, warpKShape / mmaKShape, 4, 2},
+                      elementType, AffineMap(), privateASAttr);
+  MemRefType allocTypeB =
+      MemRefType::get({warpKShape / mmaKShape, warpNShape / mmaNShape, 2, 2},
+                      elementType, AffineMap(), privateASAttr);
+  MemRefType allocTypeC =
+      MemRefType::get({warpMShape / mmaMShape, warpNShape / mmaNShape, 2, 2},
+                      elementType, AffineMap(), privateASAttr);
+  Value aWarpRegAlloc = b.create<memref::AllocOp>(allocTypeA);
+  Value bWarpRegAlloc = b.create<memref::AllocOp>(allocTypeB);
+  Value cWarpRegAlloc = b.create<memref::AllocOp>(allocTypeC);
+  for (int64_t i = 0; i < warpMShape / mmaMShape; ++i) {
+    for (int64_t j = 0; j < warpNShape / mmaNShape; ++j)
+      for (int64_t m = 0; m < 2; ++m)
+        b.create<vector::StoreOp>(
+            zeroCstVec, cWarpRegAlloc,
+            ValueRange{b.create<arith::ConstantIndexOp>(i),
+                       b.create<arith::ConstantIndexOp>(j),
+                       b.create<arith::ConstantIndexOp>(m), zeroIndex});
+  }
+
+  // create vector for a, b, c
+  Value matrixAReg = b.create<arith::ConstantOp>(DenseElementsAttr::get(
+      ldMatrixA.getRes().getType(), FloatAttr::get(elementType, 0.0)));
+  Value matrixBReg = b.create<arith::ConstantOp>(DenseElementsAttr::get(
+      ldMatrixB.getRes().getType(), FloatAttr::get(elementType, 0.0)));
+  Value matrixCReg = b.create<arith::ConstantOp>(DenseElementsAttr::get(
+      mma.getRes().getType(), FloatAttr::get(elementType, 0.0)));
+
+  SmallVector<Type> outputTypes(2, b.getIndexType());
+  SmallVector<Value> shape;
+  shape.push_back(b.create<arith::ConstantIndexOp>(blockMShape / warpMShape));
+  shape.push_back(b.create<arith::ConstantIndexOp>(blockNShape / warpNShape));
+  auto delinearizeOp = b.create<disc_shape::DelinearizeOp>(
+      outputTypes, b.create<arith::DivUIOp>(threadId, warpSize), shape);
+  SmallVector<Value> delinearizeRes;
+  for (Value result : delinearizeOp->getResults())
+    delinearizeRes.push_back(result);
+  Value matrixAWarpOffset = b.create<arith::MulIOp>(
+      delinearizeRes[0], b.create<arith::ConstantIndexOp>(warpMShape));
+  Value matrixBWarpOffset = b.create<arith::MulIOp>(
+      delinearizeRes[1], b.create<arith::ConstantIndexOp>(warpNShape));
+
+  OpBuilder::InsertionGuard g(b);
+  b.setInsertionPoint(mmaMLoop);
+  auto ldAMOffsetMap =
+      AffineMap::get(1, 1,
+                     // {d0 + s0 - (s0.floorDiv(mmaMShape)) * mmaMShape}, ctx);
+                     {d0 + s0 % mmaMShape}, ctx);
+  auto ldAKOffsetMap =
+      AffineMap::get(1, 1, {d0 + (s0.floorDiv(mmaKShape)) * 8}, ctx);
+  // create M/K nested loop to cache ldmatrix A's result
+  auto ldAMLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpMShape),
+      b.create<arith::ConstantIndexOp>(mmaMShape));
+  b.setInsertionPoint(ldAMLoop.getBody(), ldAMLoop.getBody()->begin());
+  auto ldAMLoopIV = ldAMLoop.getInductionVar();
+  auto ldAMOffset = b.create<affine::AffineApplyOp>(
+      ldAMOffsetMap,
+      ValueRange{b.create<arith::AddIOp>(ldAMLoopIV, matrixAWarpOffset),
+                 laneId});
+  auto ldAKLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpKShape),
+      b.create<arith::ConstantIndexOp>(mmaKShape));
+  b.setInsertionPoint(ldAKLoop.getBody(), ldAKLoop.getBody()->begin());
+  auto ldAKLoopIV = ldAKLoop.getInductionVar();
+  auto ldAKOffset = b.create<affine::AffineApplyOp>(
+      ldAKOffsetMap, ValueRange{ldAKLoopIV, laneId});
+  auto ldARes = b.create<nvgpu::LdMatrixOp>(
+      ldMatrixA.getRes().getType(), ldMatrixA.getSrcMemref(),
+      ValueRange{ldAMOffset, ldAKOffset}, ldMatrixA.getTransposeAttr(),
+      ldMatrixA.getNumTilesAttr());
+  for (unsigned i = 0; i < 4; ++i) {
+    Value extractOp = b.create<vector::ExtractOp>(
+        ldARes.getRes(), ValueRange{b.create<arith::ConstantIndexOp>(i)});
+    b.create<vector::StoreOp>(
+        extractOp, aWarpRegAlloc,
+        ValueRange{b.create<arith::DivUIOp>(
+                       ldAMLoopIV, b.create<arith::ConstantIndexOp>(mmaMShape)),
+                   b.create<arith::DivUIOp>(
+                       ldAKLoopIV, b.create<arith::ConstantIndexOp>(mmaKShape)),
+                   b.create<arith::ConstantIndexOp>(i), zeroIndex});
+  }
+  b.setInsertionPointAfter(ldAMLoop);
+  (void)mlir::loopUnrollByFactor(ldAKLoop, warpKShape / mmaKShape);
+  (void)mlir::loopUnrollByFactor(ldAMLoop, warpMShape / mmaMShape);
+
+  auto ldBKOffsetMap = AffineMap::get(1, 1, {d0 + s0 % mmaKShape}, ctx);
+  auto ldBNOffsetMap =
+      AffineMap::get(1, 1, {d0 + (s0.floorDiv(mmaKShape)) * 8}, ctx);
+  // create K/N nested loop to cache ldmartixB's result
+  auto ldBKLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpKShape),
+      b.create<arith::ConstantIndexOp>(mmaKShape));
+  b.setInsertionPoint(ldBKLoop.getBody(), ldBKLoop.getBody()->begin());
+  auto ldBKLoopIV = ldBKLoop.getInductionVar();
+  auto ldBKOffset = b.create<affine::AffineApplyOp>(
+      ldBKOffsetMap, ValueRange{ldBKLoopIV, laneId});
+  auto ldBNLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpNShape),
+      b.create<arith::ConstantIndexOp>(mmaNShape));
+  b.setInsertionPoint(ldBNLoop.getBody(), ldBNLoop.getBody()->begin());
+  auto ldBNLoopIV = ldBNLoop.getInductionVar();
+  auto ldBNOffset = b.create<affine::AffineApplyOp>(
+      ldBNOffsetMap,
+      ValueRange{b.create<arith::AddIOp>(ldBNLoopIV, matrixBWarpOffset),
+                 laneId});
+  auto ldBRes = b.create<nvgpu::LdMatrixOp>(
+      ldMatrixB.getRes().getType(), ldMatrixB.getSrcMemref(),
+      ValueRange{ldBKOffset, ldBNOffset}, ldMatrixB.getTransposeAttr(),
+      ldMatrixB.getNumTilesAttr());
+  for (unsigned i = 0; i < 2; ++i) {
+    Value extractOp = b.create<vector::ExtractOp>(
+        ldBRes.getRes(), ValueRange{b.create<arith::ConstantIndexOp>(i)});
+    b.create<vector::StoreOp>(
+        extractOp, bWarpRegAlloc,
+        ValueRange{b.create<arith::DivUIOp>(
+                       ldBKLoopIV, b.create<arith::ConstantIndexOp>(mmaKShape)),
+                   b.create<arith::DivUIOp>(
+                       ldBNLoopIV, b.create<arith::ConstantIndexOp>(mmaNShape)),
+                   b.create<arith::ConstantIndexOp>(i), zeroIndex});
+  }
+  b.setInsertionPointAfter(ldBKLoop);
+  (void)mlir::loopUnrollByFactor(ldBNLoop, warpNShape / mmaNShape);
+  (void)mlir::loopUnrollByFactor(ldBKLoop, warpKShape / mmaKShape);
+
+  // create M/N/K nested loop to compute mma
+  int64_t vector_width = 2;
+  auto newMmaKLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpKShape),
+      b.create<arith::ConstantIndexOp>(mmaKShape));
+  b.setInsertionPoint(newMmaKLoop.getBody(), newMmaKLoop.getBody()->begin());
+  auto mmaKLoopIV = newMmaKLoop.getInductionVar();
+  auto mmaKShapeValue = b.create<arith::ConstantIndexOp>(mmaKShape);
+  auto kIndexValue = b.create<arith::DivUIOp>(mmaKLoopIV, mmaKShapeValue);
+  auto newMmaMLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpMShape),
+      b.create<arith::ConstantIndexOp>(mmaMShape));
+  b.setInsertionPoint(newMmaMLoop.getBody(), newMmaMLoop.getBody()->begin());
+  auto mmaMLoopIV = newMmaMLoop.getInductionVar();
+  auto mmaMShapeValue = b.create<arith::ConstantIndexOp>(mmaMShape);
+  auto mIndexValue = b.create<arith::DivUIOp>(mmaMLoopIV, mmaMShapeValue);
+  // load A from reg
+  for (unsigned i = 0; i < 4; ++i) {
+    matrixAReg = b.create<vector::InsertOp>(
+        b.create<vector::LoadOp>(
+            VectorType::get({vector_width}, elementType), aWarpRegAlloc,
+            ValueRange{mIndexValue, kIndexValue,
+                       b.create<arith::ConstantIndexOp>(i), zeroIndex}),
+        matrixAReg, (int64_t[]){i});
+  }
+  auto newMmaNLoop = b.create<scf::ForOp>(
+      zeroIndex, b.create<arith::ConstantIndexOp>(warpNShape),
+      b.create<arith::ConstantIndexOp>(mmaNShape));
+  b.setInsertionPoint(newMmaNLoop.getBody(), newMmaNLoop.getBody()->begin());
+  auto mmaNLoopIV = newMmaNLoop.getInductionVar();
+  auto mmaNShapeValue = b.create<arith::ConstantIndexOp>(mmaNShape);
+  auto nIndexValue = b.create<arith::DivUIOp>(mmaNLoopIV, mmaNShapeValue);
+  // load C form reg
+  for (unsigned i = 0; i < 2; ++i) {
+    matrixCReg = b.create<vector::InsertOp>(
+        b.create<vector::LoadOp>(
+            VectorType::get({vector_width}, elementType), cWarpRegAlloc,
+            ValueRange{mIndexValue, nIndexValue,
+                       b.create<arith::ConstantIndexOp>(i), zeroIndex}),
+        matrixCReg, (int64_t[]){i});
+  }
+  // load B from reg
+  for (unsigned i = 0; i < 2; ++i) {
+    matrixBReg = b.create<vector::InsertOp>(
+        b.create<vector::LoadOp>(
+            VectorType::get({vector_width}, elementType), bWarpRegAlloc,
+            ValueRange{kIndexValue, nIndexValue,
+                       b.create<arith::ConstantIndexOp>(i), zeroIndex}),
+        matrixBReg, (int64_t[]){i});
+  }
+  // compute mma
+  matrixCReg = b.create<nvgpu::MmaSyncOp>(matrixAReg, matrixBReg, matrixCReg,
+                                          mma.getMmaShapeAttr());
+  // store c to reg
+  for (unsigned i = 0; i < 2; ++i) {
+    b.create<vector::StoreOp>(
+        b.create<vector::ExtractOp>(matrixCReg, (int64_t[]){i}), cWarpRegAlloc,
+        ValueRange{mIndexValue, nIndexValue,
+                   b.create<arith::ConstantIndexOp>(i), zeroIndex});
+  }
+  b.setInsertionPointAfter(newMmaKLoop);
+  (void)mlir::loopUnrollByFactor(newMmaNLoop, warpNShape / mmaNShape);
+  (void)mlir::loopUnrollByFactor(newMmaMLoop, warpMShape / mmaMShape);
+  (void)mlir::loopUnrollByFactor(newMmaKLoop, warpKShape / mmaKShape);
+
+  // no longer need origin mmaMLoop
+  for (auto user : mmaMLoop->getUsers()) user->erase();
+  mmaMLoop.erase();
+
+  // 4. Move data from cWarpReg to cWarpSmem
+  b.setInsertionPointAfter(ctaKLoop);
+  b.create<gpu::BarrierOp>();
+  const int64_t kThreadsPerBlock = 128;
+  const int64_t kWarpsPersBlock = kThreadsPerBlock / kWarpSize;
+  const int64_t kWarpsPerRowInBlock = blockNShape / warpNShape;
+  if ((blockMShape / warpMShape) * (blockNShape / warpNShape) !=
+      kWarpsPersBlock) {
+    return mlir::emitDefiniteFailure(target,
+                                     "warps should be equal to thread groups");
+  }
+  // Use padding to avoid output bank conflict
+  int64_t smemPadding = getSmemPadding();
+  auto cBlockSmemAlloc = b.create<memref::AllocOp>(
+      MemRefType::get({blockMShape, blockNShape + smemPadding}, elementType,
+                      AffineMap(), shareASAttr));
+  cBlockSmemAlloc->setAttr("memory-type", StringAttr::get(ctx, "output"));
+  // Get cWarpSmem of cBlockSmem by subviewing
+  auto cWarpSmemRowOffsetMap = AffineMap::get(
+      1, 0, {(d0.floorDiv(kWarpsPerRowInBlock)) * warpMShape}, ctx);
+  auto cWarpSmemColOffsetMap =
+      AffineMap::get(1, 0, {(d0 % kWarpsPerRowInBlock) * warpNShape}, ctx);
+  auto cWarpSmemRowOffset =
+      b.create<affine::AffineApplyOp>(cWarpSmemRowOffsetMap, warpId);
+  auto cWarpSmemColOffset =
+      b.create<affine::AffineApplyOp>(cWarpSmemColOffsetMap, warpId);
+
+  auto cWarpSmemColMap = AffineMap::get(1, 1, {d0 + (s0 % 4) * 2}, ctx);
+  Value warpBaseRow = b.create<arith::AddIOp>(
+      cWarpSmemRowOffset,
+      b.create<arith::ShRUIOp>(laneId, b.create<arith::ConstantIndexOp>(2)));
+  mmaMLoop = b.create<scf::ForOp>(zeroIndex,
+                                  b.create<arith::ConstantIndexOp>(warpMShape),
+                                  b.create<arith::ConstantIndexOp>(mmaMShape));
+  mmaMLoop->setAttr("loop-type", StringAttr::get(ctx, "reg-to-smem-loop"));
+  b.setInsertionPoint(mmaMLoop.getBody(), mmaMLoop.getBody()->begin());
+  mmaMLoopIV = mmaMLoop.getInductionVar();
+  mmaNLoop = b.create<scf::ForOp>(zeroIndex,
+                                  b.create<arith::ConstantIndexOp>(warpNShape),
+                                  b.create<arith::ConstantIndexOp>(mmaNShape));
+  b.setInsertionPoint(mmaNLoop.getBody(), mmaNLoop.getBody()->begin());
+  mmaNLoopIV = mmaNLoop.getInductionVar();
+  auto mIndex = b.create<arith::DivUIOp>(
+      mmaMLoopIV, b.create<arith::ConstantIndexOp>(mmaMShape));
+  auto nIndex = b.create<arith::DivUIOp>(
+      mmaNLoopIV, b.create<arith::ConstantIndexOp>(mmaNShape));
+
+  Value cWarpSmemRow0 = b.create<arith::AddIOp>(warpBaseRow, mmaMLoopIV);
+  Value cWarpSmemRow1 = b.create<arith::AddIOp>(
+      cWarpSmemRow0, b.create<arith::ConstantIndexOp>(8));
+  Value cWarpSmemCol = b.create<arith::AddIOp>(
+      cWarpSmemColOffset, b.create<affine::AffineApplyOp>(
+                              cWarpSmemColMap, ValueRange{mmaNLoopIV, laneId}));
+  // TODO: store 4xf16 rather than 2x2xf16
+  b.create<vector::StoreOp>(
+      b.create<vector::LoadOp>(
+          VectorType::get({vector_width}, elementType), cWarpRegAlloc,
+          ValueRange{mIndex, nIndex, zeroIndex, zeroIndex}),
+      cBlockSmemAlloc, ValueRange{cWarpSmemRow0, cWarpSmemCol});
+  b.create<vector::StoreOp>(
+      b.create<vector::LoadOp>(VectorType::get({vector_width}, elementType),
+                               cWarpRegAlloc,
+                               ValueRange{mIndex, nIndex, oneIndex, zeroIndex}),
+      cBlockSmemAlloc, ValueRange{cWarpSmemRow1, cWarpSmemCol});
+  b.setInsertionPointAfter(mmaMLoop);
+  b.create<gpu::BarrierOp>();
+  (void)mlir::loopUnrollByFactor(mmaNLoop, warpNShape / mmaNShape);
+  (void)mlir::loopUnrollByFactor(mmaMLoop, warpMShape / mmaMShape);
+
+  // 5. Move data from smem to gmem
+  linalg::GenericOp genericOp;
+  parallelOp->walk([&](linalg::GenericOp generic) {
+    // TODO: check input is shared memory, output is global
+    genericOp = generic;
+    WalkResult::interrupt();
+  });
+  if (!genericOp) return mlir::emitDefiniteFailure(target, "expect generic op");
+  Value input = genericOp.getInputs()[0];
+  Value output = genericOp.getOutputs()[0];
+  auto inputSubView =
+      dyn_cast_or_null<memref::SubViewOp>(input.getDefiningOp());
+  auto outputSubView =
+      dyn_cast_or_null<memref::SubViewOp>(output.getDefiningOp());
+  if (!inputSubView || !outputSubView) {
+    return mlir::emitDefiniteFailure(target,
+                                     "expect generic op's operand is subview");
+  }
+
+  // expand genericOp to loop
+  b.setInsertionPoint(genericOp);
+  int64_t cpBytesPerThread = 16;  // 128 bits
+  int64_t cpElementsPerThread = cpBytesPerThread / 2;
+  int64_t cpThreadsPerRow = blockNShape / cpElementsPerThread;
+  int64_t cpRowsPerBlock = 128 * cpElementsPerThread / blockNShape;
+  auto smemToGmemLoop =
+      b.create<scf::ForOp>(b.create<arith::ConstantIndexOp>(0),
+                           b.create<arith::ConstantIndexOp>(blockMShape),
+                           b.create<arith::ConstantIndexOp>(cpRowsPerBlock));
+  smemToGmemLoop->setAttr("loop-type",
+                          StringAttr::get(ctx, "smem-to-gmem-loop"));
+
+  b.setInsertionPoint(smemToGmemLoop.getBody(),
+                      smemToGmemLoop.getBody()->begin());
+  auto iv = smemToGmemLoop.getInductionVar();
+  auto offsetY = b.create<arith::MulIOp>(
+      b.create<arith::ConstantIndexOp>(cpElementsPerThread),
+      b.create<arith::RemUIOp>(
+          threadId, b.create<arith::ConstantIndexOp>(cpThreadsPerRow)));
+  auto offsetX = b.create<arith::AddIOp>(
+      iv, b.create<arith::DivUIOp>(
+              threadId, b.create<arith::ConstantIndexOp>(cpThreadsPerRow)));
+  auto dimM = b.create<memref::DimOp>(outputSubView.getSource(),
+                                      b.create<arith::ConstantIndexOp>(0));
+  auto dimN = b.create<memref::DimOp>(outputSubView.getSource(),
+                                      b.create<arith::ConstantIndexOp>(1));
+  // TODO: enable mask vector store
+  auto vec8xf16 = b.create<vector::LoadOp>(
+      VectorType::get({cpElementsPerThread}, elementType), cBlockSmemAlloc,
+      ValueRange{offsetX, offsetY});
+  auto vecStore = b.create<vector::StoreOp>(vec8xf16, outputSubView,
+                                            ValueRange{offsetX, offsetY});
+  vecStore->setAttr("alignment", IntegerAttr::get(b.getI32Type(), 16));
+  b.setInsertionPointAfter(smemToGmemLoop);
+  b.create<gpu::BarrierOp>();
+  (void)mlir::loopUnrollByFactor(smemToGmemLoop, blockMShape / cpRowsPerBlock);
+  genericOp->erase();
+
+  RewritePatternSet patterns(ctx);
+  addAllRegisteredCanonicalizationPatterns(patterns);
+  GreedyRewriteConfig config;
+  if (failed(applyPatternsAndFoldGreedily(parallelOp, std::move(patterns),
+                                          config))) {
+    return mlir::emitDefiniteFailure(target,
+                                     "greedy pattern applicatin failed");
+  }
+
+  // Delete any remain transfer_write op
+  Operation* transferWrite = nullptr;
+  parallelOp->walk([&](memref::AllocOp alloc) {
+    if (llvm::hasSingleElement(alloc->getUsers())) {
+      Operation* op = *(alloc->getUsers().begin());
+      auto xWrite = dyn_cast_or_null<vector::TransferWriteOp>(op);
+      if (xWrite) {
+        transferWrite = op;
+      }
+    }
+  });
+  if (transferWrite != nullptr) transferWrite->erase();
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// DISCGPUSoftwarePipelineOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCGPUSoftwarePipeline::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = target->getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+  auto funcOp = cast<func::FuncOp>(target);
+  scf::ForOp ctaKLoop;
+  target->walk([&](scf::ForOp forOp) {
+    auto reductionTy = forOp->getAttrOfType<StringAttr>("loop-type");
+    if (reductionTy && reductionTy.getValue().equals("cta-k-loop") &&
+        isa<scf::ParallelOp>(forOp->getParentOp())) {
+      ctaKLoop = forOp;
+      WalkResult::interrupt();
+    }
+  });
+  auto [diag, pipelined] = applyPipelining(ctaKLoop, getDepth(), true);
+
+  if (diag.succeeded()) {
+    return DiagnosedSilenceableFailure::success();
+  }
+  if (diag.isDefiniteFailure()) {
+    auto diag = emitDefiniteFailure("irreversible pipelining failure");
+    return diag;
+  }
+
+  return std::move(diag);
+}
+
+//===----------------------------------------------------------------------===//
+// DISCConvertNVGPUAsyncCpTONVVMAsyncCp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform_dialect::DISCConvertNVGPUAsyncCpTONVVMAsyncCp::applyToOne(
+    Operation* target, transform::ApplyToEachResultList& results,
+    transform::TransformState& state) {
+  MLIRContext* ctx = target->getContext();
+  IRRewriter rewriter(ctx);
+  Location loc = target->getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+  SmallVector<Operation*> waitGroups;
+  SmallVector<Operation*> commitGroups;
+
+  target->walk([&](Operation* op) {
+    if (isa<nvgpu::DeviceAsyncCreateGroupOp>(op)) {
+      rewriter.setInsertionPoint(op);
+      auto commitGroup =
+          rewriter.create<NVVM::CpAsyncCommitGroupOp>(op->getLoc());
+      commitGroups.push_back(op);
+    } else if (isa<nvgpu::DeviceAsyncWaitOp>(op)) {
+      rewriter.setInsertionPoint(op);
+      auto waitGroup = rewriter.create<NVVM::CpAsyncWaitGroupOp>(
+          op->getLoc(),
+          cast<nvgpu::DeviceAsyncWaitOp>(op).getNumGroups().value_or(0));
+      rewriter.setInsertionPointAfter(waitGroup);
+      waitGroups.push_back(op);
+    }
+  });
+  for (auto op : waitGroups) {
+    rewriter.eraseOp(op);
+  }
+  for (auto op : commitGroups) {
+    rewriter.eraseOp(op);
+  }
+  return DiagnosedSilenceableFailure::success();
 }
 
 }  // namespace transform_dialect

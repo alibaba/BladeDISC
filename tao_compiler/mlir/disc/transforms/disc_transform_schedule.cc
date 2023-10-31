@@ -394,11 +394,18 @@ transform_dialect::DISCPromoteDotOperandsOp buildPromoteDotOperandsOp(
 }
 
 transform_dialect::DISCSplitReductionSerialOp buildSplitReductionSerialOp(
-    OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> tileSizes) {
+    OpBuilder& b, Location& loc, Value target, ArrayRef<int64_t> tileSizes,
+    StringAttr loopType = nullptr) {
   SmallVector<Type> transformOpTypes(2,
                                      transform::AnyOpType::get(b.getContext()));
-  return b.create<transform_dialect::DISCSplitReductionSerialOp>(
-      loc, transformOpTypes, target, tileSizes);
+  if (!loopType) {
+    return b.create<transform_dialect::DISCSplitReductionSerialOp>(
+        loc, transformOpTypes, target, tileSizes,
+        StringAttr::get(b.getContext(), ""));
+  } else {
+    return b.create<transform_dialect::DISCSplitReductionSerialOp>(
+        loc, transformOpTypes, target, tileSizes, loopType);
+  }
 }
 
 transform_dialect::DISCVectorToMMAConversionOp buildVectorToMMAConversionOp(

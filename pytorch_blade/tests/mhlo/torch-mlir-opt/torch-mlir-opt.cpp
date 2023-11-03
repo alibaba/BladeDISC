@@ -24,14 +24,19 @@
 #include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/InitAll.h"
 
+#include "mhlo/IR/hlo_ops.h"
+#include "mhlo/transforms/passes.h"
+#include "stablehlo/dialect/Register.h"
 using namespace mlir;
 
 int main(int argc, char** argv) {
   mlir::torch::registerTorchToMhloPasses();
   registerAllPasses();
   mlir::torch::registerAllPasses();
+  mlir::mhlo::registerStablehloLegalizeToHloPass();
 
   DialectRegistry registry;
+  mlir::stablehlo::registerAllDialects(registry);
   registerAllDialects(registry);
   mlir::torch::registerAllDialects(registry);
 

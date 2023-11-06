@@ -41,6 +41,6 @@ please go to the official [diffusers repo](https://github.com/huggingface/diffus
 |  Backend   |       bs=1       |       bs=2       |       bs=4       |
 | :--------: | :--------------: | :--------------: | :--------------: |
 |   Eager    | 1.9303 samples/s | 2.9052 samples/s | 4.3350 samples/s |
-| TorchBlade | 2.4131 samples/s | 3.3935 samples/s | 4.9432 samples/s |
+| TorchBlade | 2.4889 samples/s | 3.4621 samples/s | 5.0066 samples/s |
 
 TorchBlade can achieve up to 1.26X speedup with batchsize=1.

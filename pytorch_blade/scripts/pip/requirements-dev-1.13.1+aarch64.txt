@@ -6,3 +6,4 @@ torchvision==0.14.1
 py-cpuinfo
 torchaudio==0.13.1
 expecttest
+decorator

@@ -27,7 +27,16 @@ signature_safe_contextmanager = wrap_decorator(contextlib.contextmanager)
 class DiscContext:
     def __init__(self):
         self._fx_gms : List[torch.fx.GraphModule] = []
-        pass
+        self._input_mutation = False
+
+    @property
+    def input_mutation(self):
+        return self._input_mutation
+
+    @input_mutation.setter
+    def input_mutation(self, value):
+        self._input_mutation = value
+
     @property
     def fx_gms(self):
         return self._fx_gms

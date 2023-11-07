@@ -80,7 +80,9 @@ def _disc_compile(fx_g: fx.GraphModule, inps, use_ts=False, is_training=True) ->
             return f
         cfg = torch_blade.Config()
         cfg.disable_optimization_for_inference = is_training
-        with cfg:
+        ctx = torch_blade.default_disc_context()
+        with cfg, torch_blade.disc_context_guard(ctx):
+            ctx.input_mutation = True
             f = torch_blade.optimize(f, True, tuple(inps))
         with open('aot_disc.py', 'a') as writer:
             writer.write(str(f.forward.code) + '\n')
@@ -203,7 +205,6 @@ aot_disc = aot_autograd(
     decompositions=_get_disc_decomp(),
     partition_fn=min_cut_rematerialization_partition,
     keep_inference_input_mutations=True)
-
 
 aot_disc_debug = aot_autograd(
     # these are taken from memory_efficient_fusion()

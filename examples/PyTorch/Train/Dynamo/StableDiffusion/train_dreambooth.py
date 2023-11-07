@@ -1167,6 +1167,8 @@ def main(args):
         betas=(args.adam_beta1, args.adam_beta2),
         weight_decay=args.adam_weight_decay,
         eps=args.adam_epsilon,
+        capturable=True,
+        fused=False,
     )
 
     if args.pre_compute_text_embeddings:
@@ -1356,7 +1358,10 @@ def main(args):
     )
     progress_bar.set_description("Steps")
 
+    def run_optimizer(optimizer):
+        optimizer.step()
     unet = torch.compile(backend="aot_disc")(unet)
+    run_optimizer = torch.compile(backend="aot_disc")(run_optimizer)
     for epoch in range(first_epoch, args.num_train_epochs):
         unet.train()
         if args.train_text_encoder:
@@ -1492,7 +1497,7 @@ def main(args):
                         else unet.parameters()
                     )
                     accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-                optimizer.step()
+                run_optimizer(optimizer)
                 lr_scheduler.step()
                 optimizer.zero_grad(set_to_none=args.set_grads_to_none)
 

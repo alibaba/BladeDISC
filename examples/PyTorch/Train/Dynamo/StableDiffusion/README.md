@@ -25,12 +25,22 @@ please go to the official [diffusers repo](https://github.com/huggingface/diffus
     cd examples/PyTorch/Train/Dynamo/StableDiffusion
     bash launch_dreambooth_train.sh
     ```
+- step3:
+    
+    inference with trained model:
 
-    if you want to execute with PyTorch eager mode, please remove the `--enable_torch_compile` argument.
+    ``` bash
+    python inference.py
+    ```
+    
+    you can check the generated image file `dog-bucket.png`.
 
-### Results
+### Benchmark
+<img src='docs/image.png' alt='benchmark icon' style="width:70%">
 
-|  Backend   | Batch Size | Throughput (samples/sec) | Speedup |
-| :--------: | :--------: | :----------------------: | :-----: |
-|   Eager    |     1      |           3.02           |  1.00   |
-| TorchBlade |     1      |           3.34           |  1.10   |
+|  Backend   |       bs=1       |       bs=2       |       bs=4       |
+| :--------: | :--------------: | :--------------: | :--------------: |
+|   Eager    | 1.9303 samples/s | 2.9052 samples/s | 4.3350 samples/s |
+| TorchBlade | 2.4889 samples/s | 3.4621 samples/s | 5.0066 samples/s |
+
+TorchBlade can achieve up to 1.26X speedup with batchsize=1.

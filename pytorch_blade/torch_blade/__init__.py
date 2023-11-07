@@ -24,6 +24,7 @@ import torch_blade.version as version
 import warnings
 
 from torch_blade.config import Config
+from torch_blade.context import default_disc_context, disc_context_guard
 from torch_blade.optimization import optimize
 try:
     import torch_blade.pai_internal

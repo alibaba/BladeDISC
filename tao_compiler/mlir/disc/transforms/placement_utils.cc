@@ -32,7 +32,7 @@ bool isGpuMhlo(Operation* op) {
 }
 
 bool isGpuLmhlo(Operation* op) {
-  if (!op || !isa<lmhlo::LmhloOp>(op)) {
+  if (!op || !isa<lmhlo::LmhloOp>(op) || isa<lmhlo::TerminatorOp>(op)) {
     return false;
   }
   auto attr =

@@ -168,6 +168,12 @@ LogicalResult miscLowerHelper(OpBuilder& b, Location loc, Operation* opaque_op,
   if (isa<lmhlo::DynamicUpdateSliceOp>(op) && isInplaceOperator(op)) {
     memref = cast<lmhlo::LmhloOp>(&*op).getOperation()->getOperand(1);
   }
+
+  // for inplace scatter op, output_index according to operand(3)
+  if (isa<lmhlo::ScatterOp>(op) && isInplaceOperator(op)) {
+    memref = cast<lmhlo::ScatterOp>(&*op).getOperation()->getOperand(2);
+  }
+
   for (int64_t i = 0; i < vector_size; i++) {
     Value linear_index = linear_indices[i];
     auto multidim_index = calcMultiDimIndex(&b, loc, linear_index, memref);
@@ -285,6 +291,8 @@ LogicalResult lowerHelper(OpBuilder& b, Location loc, Operation* op,
       succeeded(miscLowerHelper<lmhlo::ReverseOp>(
           b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::DynamicUpdateSliceOp>(
+          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+      succeeded(miscLowerHelper<lmhlo::ScatterOp>(
           b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config))
     ) {
     return success();
@@ -324,6 +332,7 @@ LogicalResult lowerWithScheduleLoop(
   } else {
     (void)createLoopAndSetInsPt(b, loc, var, zero, thread_number, one, {});
   }
+
   for (Operation* root_op : root_ops) {
     // TODO: vectorize here
     if (failed(lowerHelper(b, loc, root_op, var, shape_analysis, vector_size)))
@@ -5749,6 +5758,7 @@ struct DiscLhloLegalizeRootsToParallelLoops
       // TODO(disc): single nodes with non kLoop schedule like ReduceOp
       // is not implemented yet. Currently ReduceOp is lowered with loop
       // schedule, which means for poor performance.
+
       if (failed(lowerWithScheduleLoop({op}, op, nullptr,
                                        /*non_fusion=*/true,
                                        /*parallel_loop=*/true))) {

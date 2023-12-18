@@ -141,6 +141,37 @@ struct LhloConcatenateOpConverter
   }
 };
 
+struct LhloScatterOpConverter
+    : public OpRewritePattern<lmhlo::ScatterOp> {
+  explicit LhloScatterOpConverter(MLIRContext* context)
+      : OpRewritePattern(context) {}
+  LogicalResult matchAndRewrite(lmhlo::ScatterOp lhloOp,
+                                PatternRewriter& rewriter) const override {
+    
+    Operation* op = lhloOp.getOperation();
+
+    auto operands = op->getOperands();
+
+    // Already rewrited
+    if(operands[0] == operands[3]) {
+      return failure();
+    }
+
+    SmallVector<Value, 4> ins(operands.begin(), operands.end());
+    rewriter.create<lmhlo::CopyOp>(op->getLoc(), operands[0], operands[3]);
+    ins[0] = operands[3];
+    auto newOp = rewriter.create<lmhlo::ScatterOp>(op->getLoc(), TypeRange{}, ins,
+                                               op->getAttrs());
+    // Copy over the operations inside the region.
+    rewriter.inlineRegionBefore(lhloOp.getUpdateComputation(), newOp.getUpdateComputation(),
+                                newOp.getUpdateComputation().end());
+        
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
 struct DiscLhloRewriterPass
     : public DiscLhloRewriterPassBase<DiscLhloRewriterPass> {
   using DiscLhloRewriterPassBase<
@@ -164,6 +195,7 @@ struct DiscLhloRewriterPass
     target.addIllegalOp<lmhlo::ConcatenateOp>();
 
     patterns.insert<LhloConcatenateOpConverter>(&context);
+    patterns.insert<LhloScatterOpConverter>(&context);
     patterns.insert<LhloArgsMutationOpRewriter>(&context);
     if (failed(
             applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))

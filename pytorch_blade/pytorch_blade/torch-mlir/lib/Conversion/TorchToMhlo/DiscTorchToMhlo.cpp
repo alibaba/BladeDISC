@@ -1542,6 +1542,7 @@ Value getNormalizedDimSizeInternal(
   return rewriter.create<arith::SelectOp>(
       loc, indexPositive, index, dimSizePlusIndex);
 }
+
 template <>
 LogicalResult ConvertAtenOp<AtenSliceScatterOp>::matchAndRewrite(
     AtenSliceScatterOp op,
@@ -1590,6 +1591,208 @@ LogicalResult ConvertAtenOp<AtenSliceScatterOp>::matchAndRewrite(
       start_indices);
   return success();
 }
+
+// Reference implementation: https://github.com/pytorch/xla/blob/master/torch_xla/csrc/xla_lower_util.cpp#L139
+template <>
+LogicalResult ConvertAtenOp<AtenScatterSrcOp>::matchAndRewrite(
+    AtenScatterSrcOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+
+  Location loc = op.getLoc();
+  Value self = adaptor.getSelf();
+  Value index = adaptor.getIndex();
+  Value src = adaptor.getSrc();
+
+  RankedTensorType selfType = self.getType().cast<RankedTensorType>();
+  RankedTensorType indexType = index.getType().cast<RankedTensorType>();
+  RankedTensorType srcType = src.getType().cast<RankedTensorType>();
+
+  if (selfType.getRank() != indexType.getRank() ||
+      indexType.getRank() != srcType.getRank())
+    return rewriter.notifyMatchFailure(op,
+                                        "'self', 'index' and 'src' should all"
+                                        "have the same number of dimensions.");
+
+  int64_t dim;
+  if (!matchPattern(op.getDim(), m_TorchConstantInt(&dim)))
+    return rewriter.notifyMatchFailure(op,
+                                        "unimplemented: dim is not constant");
+  
+  // Insert SliceOp for optimization
+  Value zero =
+        rewriter.create<arith::ConstantOp>(loc, rewriter.getI32IntegerAttr(0));
+  Value one =
+      rewriter.create<arith::ConstantOp>(loc, rewriter.getI32IntegerAttr(1));
+  SmallVector<Value> baseIndices(srcType.getRank());
+  SmallVector<Value> limitIndices(srcType.getRank());
+  SmallVector<Value> strides(srcType.getRank());
+  RankedTensorType indicesType = RankedTensorType::get({srcType.getRank()}, rewriter.getIntegerType(64));
+  for(int i=0; i < srcType.getRank(); i++) {
+    baseIndices[i] = zero;
+    strides[i] = one;
+    limitIndices[i] = rewriter.create<arith::ConstantOp>(loc, rewriter.getI32IntegerAttr(indexType.getShape()[i]));
+  }
+
+  Value baseIndicesValue = rewriter.create<tensor::FromElementsOp>(loc, baseIndices);
+  Value stridesValue = rewriter.create<tensor::FromElementsOp>(loc, strides);
+  Value limitIndicesValue = rewriter.create<tensor::FromElementsOp>(loc, limitIndices);
+
+  auto sliceOpResultType = RankedTensorType::get(indexType.getShape(), srcType.getElementType());
+  src = rewriter.create<mhlo::RealDynamicSliceOp>(loc, getTypeConverter()->convertType(sliceOpResultType), src, baseIndicesValue, limitIndicesValue, stridesValue);
+
+  // Construct ScatterDimensionNumbersAttr
+  int64_t indexVectorDim = srcType.getRank();
+  SmallVector<int64_t> updateWindowDimsVec;
+  SmallVector<int64_t> insertWindowDimsVec;
+  SmallVector<int64_t> scatterDimsToOperationDimsVec;
+  for(int i=0; i < indexVectorDim; i++) {
+    insertWindowDimsVec.push_back(i);
+    scatterDimsToOperationDimsVec.push_back(i);
+  }
+  auto scatterDimension = mhlo::ScatterDimensionNumbersAttr::get(rewriter.getContext(), updateWindowDimsVec, insertWindowDimsVec, scatterDimsToOperationDimsVec, indexVectorDim);
+  
+  // Convert index to scatter_indices
+  limitIndices.push_back(one);
+  auto indexShape = rewriter.create<tensor::FromElementsOp>(loc, limitIndices);
+
+  auto originalShapeVec = indexType.getShape().vec();
+  originalShapeVec.push_back(1);
+
+  auto iotaType = RankedTensorType::get(originalShapeVec, indexType.getElementType());
+  SmallVector<Value> toConcat;
+  for(int i=0; i < indexVectorDim; i++) {
+    if(i == dim) {
+      toConcat.push_back(rewriter.create<mhlo::DynamicReshapeOp>(loc, getTypeConverter()->convertType(iotaType), index, indexShape));
+    } else{
+      toConcat.push_back(rewriter.create<mhlo::IotaOp>(loc, iotaType, i));
+    }
+  }
+  Value scatter_indices = rewriter.create<mhlo::ConcatenateOp>(loc, toConcat, indexVectorDim);
+
+  // Construct mhlo::ScatterOp
+  auto mhloScatterOp = rewriter.create<mhlo::ScatterOp>(loc, getTypeConverter()->convertType(op.getType()), ValueRange{self}, scatter_indices, ValueRange{src}, scatterDimension, false, false);
+  
+  // Construct updateComputation region, here we treat it as update operation
+  Block& block = mhloScatterOp.getUpdateComputation().emplaceBlock();
+  auto blockArg1Type = RankedTensorType::get({}, srcType.getElementType());
+  auto blockArg2Type = RankedTensorType::get({}, srcType.getElementType());
+  block.addArgument(blockArg1Type, loc);
+  block.addArgument(blockArg2Type, loc);
+  {
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&block);
+    rewriter.create<mhlo::ReturnOp>(op->getLoc(), block.getArgument(1));
+  }
+
+  // Replace Op
+  rewriter.replaceOp(op, mhloScatterOp.getResults());
+
+  return success();
+}
+
+// Reference implementation: https://github.com/pytorch/xla/blob/master/torch_xla/csrc/xla_lower_util.cpp#L139
+template <>
+LogicalResult ConvertAtenOp<AtenScatterAddOp>::matchAndRewrite(
+    AtenScatterAddOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+
+  Location loc = op.getLoc();
+  Value self = adaptor.getSelf();
+  Value index = adaptor.getIndex();
+  Value src = adaptor.getSrc();
+
+  RankedTensorType selfType = self.getType().cast<RankedTensorType>();
+  RankedTensorType indexType = index.getType().cast<RankedTensorType>();
+  RankedTensorType srcType = src.getType().cast<RankedTensorType>();
+
+  if (selfType.getRank() != indexType.getRank() ||
+      indexType.getRank() != srcType.getRank())
+    return rewriter.notifyMatchFailure(op,
+                                        "'self', 'index' and 'src' should all"
+                                        "have the same number of dimensions.");
+
+  int64_t dim;
+  if (!matchPattern(op.getDim(), m_TorchConstantInt(&dim)))
+    return rewriter.notifyMatchFailure(op,
+                                        "unimplemented: dim is not constant");
+  
+  // Insert SliceOp for optimization
+  Value zero =
+        rewriter.create<arith::ConstantOp>(loc, rewriter.getI32IntegerAttr(0));
+  Value one =
+      rewriter.create<arith::ConstantOp>(loc, rewriter.getI32IntegerAttr(1));
+  SmallVector<Value> baseIndices(srcType.getRank());
+  SmallVector<Value> limitIndices(srcType.getRank());
+  SmallVector<Value> strides(srcType.getRank());
+  RankedTensorType indicesType = RankedTensorType::get({srcType.getRank()}, rewriter.getIntegerType(64));
+  for(int i=0; i < srcType.getRank(); i++) {
+    baseIndices[i] = zero;
+    strides[i] = one;
+    limitIndices[i] = rewriter.create<arith::ConstantOp>(loc, rewriter.getI32IntegerAttr(indexType.getShape()[i]));
+  }
+
+  Value baseIndicesValue = rewriter.create<tensor::FromElementsOp>(loc, baseIndices);
+  Value stridesValue = rewriter.create<tensor::FromElementsOp>(loc, strides);
+  Value limitIndicesValue = rewriter.create<tensor::FromElementsOp>(loc, limitIndices);
+
+  auto sliceOpResultType = RankedTensorType::get(indexType.getShape(), srcType.getElementType());
+  src = rewriter.create<mhlo::RealDynamicSliceOp>(loc, getTypeConverter()->convertType(sliceOpResultType), src, baseIndicesValue, limitIndicesValue, stridesValue);
+
+  // Construct ScatterDimensionNumbersAttr
+  int64_t indexVectorDim = srcType.getRank();
+  SmallVector<int64_t> updateWindowDimsVec;
+  SmallVector<int64_t> insertWindowDimsVec;
+  SmallVector<int64_t> scatterDimsToOperationDimsVec;
+  for(int i=0; i < indexVectorDim; i++) {
+    insertWindowDimsVec.push_back(i);
+    scatterDimsToOperationDimsVec.push_back(i);
+  }
+  auto scatterDimension = mhlo::ScatterDimensionNumbersAttr::get(rewriter.getContext(), updateWindowDimsVec, insertWindowDimsVec, scatterDimsToOperationDimsVec, indexVectorDim);
+  
+  // Convert index to scatter_indices
+  limitIndices.push_back(one);
+  auto indexShape = rewriter.create<tensor::FromElementsOp>(loc, limitIndices);
+
+  auto originalShapeVec = indexType.getShape().vec();
+  originalShapeVec.push_back(1);
+
+  auto iotaType = RankedTensorType::get(originalShapeVec, indexType.getElementType());
+  SmallVector<Value> toConcat;
+  for(int i=0; i < indexVectorDim; i++) {
+    if(i == dim) {
+      toConcat.push_back(rewriter.create<mhlo::DynamicReshapeOp>(loc, getTypeConverter()->convertType(iotaType), index, indexShape));
+    } else{
+      toConcat.push_back(rewriter.create<mhlo::IotaOp>(loc, iotaType, i));
+    }
+  }
+  Value scatter_indices = rewriter.create<mhlo::ConcatenateOp>(loc, toConcat, indexVectorDim);
+
+
+  // Construct mhlo::ScatterOp
+  auto mhloScatterOp = rewriter.create<mhlo::ScatterOp>(loc, getTypeConverter()->convertType(op.getType()), ValueRange{self}, scatter_indices, ValueRange{src}, scatterDimension, false, false);
+  
+  // Construct updateComputation region, here we treat it as update operation
+  Block& block = mhloScatterOp.getUpdateComputation().emplaceBlock();
+  auto blockArg1Type = RankedTensorType::get({}, srcType.getElementType());
+  auto blockArg2Type = RankedTensorType::get({}, srcType.getElementType());
+  block.addArgument(blockArg1Type, loc);
+  block.addArgument(blockArg2Type, loc);
+  {
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&block);
+    auto retValue = rewriter.create<mhlo::AddOp>(op->getLoc(), block.getArgument(0), block.getArgument(1)).getResult();
+    rewriter.create<mhlo::ReturnOp>(op->getLoc(), retValue);
+  }
+
+  // Replace Op
+  rewriter.replaceOp(op, mhloScatterOp.getResults());
+
+  return success();
+}
+
+
 } // namespace
 
 namespace {
@@ -1807,6 +2010,8 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenFillScalarOp);
     INSERT_ATENOP_PATTERN(OverwriteTensorContentsOp);
     INSERT_ATENOP_PATTERN(AtenSliceScatterOp);
+    INSERT_ATENOP_PATTERN(AtenScatterSrcOp);
+    INSERT_ATENOP_PATTERN(AtenScatterAddOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \

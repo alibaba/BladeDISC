@@ -23,6 +23,7 @@ limitations under the License.
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/disc/IR/disc_shape_ops.h"
+#include "mlir/disc/IR/lhlo_disc_ops.h"
 #include "mlir/disc/disc_util.h"
 
 using mlir::memref::DimOp;
@@ -108,6 +109,11 @@ Value emitNumElementsComputation(OpBuilder& b, Location loc, Operation* op) {
       op->getOperand(0) == op->getOperand(num_operands - 1)) {
     return emitNumElementsComputation(b, loc, op->getOperand(1));
   }
+
+  if (isa<lmhlo::ScatterOp>(op) && op->getOperand(0) == op->getOperand(num_operands - 1)) {
+    return emitNumElementsComputation(b, loc, op->getOperand(2));
+  }
+
   Value result_memref = op->getOperand(num_operands - 1);
   return emitNumElementsComputation(b, loc, result_memref);
 }

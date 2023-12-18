@@ -71,7 +71,7 @@ bool enableTransposeLibraryCall() {
 }
 
 bool isInplaceOperator(Operation* op) {
-  if (isa<lmhlo::LmhloOp>(op)) {
+  if (isa<lmhlo::LmhloOp>(op) && !isa<lmhlo::TerminatorOp>(op)) {
     Value resultMemref = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     for (int i = 0; i < op->getNumOperands() - 1; ++i) {
       if (op->getOperand(i) == resultMemref) {

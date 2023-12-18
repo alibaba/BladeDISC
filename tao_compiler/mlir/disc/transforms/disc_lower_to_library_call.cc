@@ -436,6 +436,13 @@ Value getCopyRemovableResult(Operation* op) {
     if (!IsSmallCpuBuffer(result) && !IsSmallCpuBuffer(op->getOperand(0)))
       return result;
 #else
+    // If the copy result buffer is used by other inplace op as result buffer, it is not removable.
+    for (Operation* user : result.getUsers()) {
+      if(isInplaceOperator(user) && result == cast<lmhlo::LmhloOp>(user).getResultBuffer()) {
+        return {};
+      }
+    }
+    
     if (placement_utils::isGpuMemRef(result)) return result;
 #endif
   }
@@ -446,6 +453,7 @@ Value getCopyRemovableResult(Operation* op) {
 Value getRootMemRefIfSafe(Value memref) {
   Value rootMemRef = memref;
   DenseSet<Operation*> knownSafeOpSet;
+  
   while (auto view = dyn_cast_or_null<ViewLikeOpInterface>(
              rootMemRef.getDefiningOp())) {
     knownSafeOpSet.insert(view);

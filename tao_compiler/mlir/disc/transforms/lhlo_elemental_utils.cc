@@ -162,6 +162,18 @@ Operation* getReduceOperator(Region& body) {
   return calc_op;
 }
 
+Operation* tryGetUpdateOperator(Region& body) {
+  Operation* calc_op = nullptr;
+  int64_t num_calc_ops = 0;
+  body.walk([&](Operation* op) {
+    if (isa<lmhlo::AddOp>(op)) {
+          calc_op = op;
+          return;
+    }
+  });
+  return calc_op;
+}
+
 AccumulatorFactory getFactory(OpBuilder& b, Location loc, Region& body) {
   return AccumulatorFactory([&](Value lhs, Value rhs) {
     auto calc_op = getReduceOperator(body);
@@ -440,7 +452,6 @@ Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder* b, Location loc,
   mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
   return result;
 }
-
 namespace {
 
 template <typename T>
@@ -512,6 +523,199 @@ Value elementalLower<lmhlo::DynamicBroadcastInDimOp>(
       b, loc, op, output_index, check_cache, lower_config);
   mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
   return result;
+}
+
+Value LowerInplaceScatterOp(
+    OpBuilder* b, Location loc, lmhlo::ScatterOp op,
+    ValueRange update_index, bool check_cache, LowerConfig* lower_config) {
+  
+  Value indices_memref = op->getOperand(1);
+  Value update_memref = op->getOperand(2);
+  Value result_memref = op->getOperand(3);
+
+  int update_memref_rank = update_memref.getType().dyn_cast<MemRefType>().getRank();
+  int scatter_indices_rank = indices_memref.getType().dyn_cast<MemRefType>().getRank();
+  int input_rank = result_memref.getType().dyn_cast<MemRefType>().getRank();
+  auto scatter_indices_shape = indices_memref.getType().dyn_cast<MemRefType>().getShape();
+
+  auto scatter_dimension_numbers = op.getScatterDimensionNumbers();
+  auto update_window_dims = scatter_dimension_numbers.getUpdateWindowDims();
+  auto index_vector_dim = scatter_dimension_numbers.getIndexVectorDim();
+  auto scatter_dims_to_operand = scatter_dimension_numbers.getScatterDimsToOperandDims();
+  auto inserted_window_dims = scatter_dimension_numbers.getInsertedWindowDims();
+
+
+  Value zero = b->create<arith::ConstantIndexOp>(loc, 0);
+  int rank = update_index.size();
+  SmallVector<Value> update_scatter_dims, update_scatter_index, start_index, update_window_index, full_window_index, result_index, full_start_index;
+  
+  int inner_index1 = 0;
+  int inner_index2 = 0;
+
+  // update_scatter_dims = [d for d in axes(updates[0]) and d not in update_window_dims]
+  // update_scatter_index = update_index[update_scatter_dims...]
+  for(inner_index1=0; inner_index1<update_memref_rank; inner_index1++) {
+    bool add_to_update_scatter = true;
+    for(inner_index2=0; inner_index2 < update_window_dims.size(); inner_index2++) {
+      if(inner_index1 == update_window_dims[inner_index2]) add_to_update_scatter = false;
+    }
+
+    if(add_to_update_scatter) {
+      update_scatter_index.push_back(update_index[inner_index1]);
+    }
+  }
+
+  //start_index = scatter_indices[si0, ..., :, ..., siN] if index_vector_dim < rank(scatter_indices) else [scatter_indices[update_scatter_index]
+  if(index_vector_dim < scatter_indices_rank) {
+    // Require update_scatter_index.size() == scatter_indices_shape.size() - 1
+    SmallVector<Value> tmpIndex;
+    tmpIndex.resize(scatter_indices_rank);
+    inner_index1 = 0;
+    inner_index2 = 0;
+    for(inner_index1 =0; inner_index1 < scatter_indices_shape.size(); inner_index1++) {
+      if(inner_index1 == index_vector_dim) {
+        continue;
+      }
+      tmpIndex[inner_index1] = update_scatter_index[inner_index2++];
+      
+    }
+
+    for(inner_index1= 0; inner_index1 < scatter_indices_shape[index_vector_dim]; inner_index1++) {
+      tmpIndex[index_vector_dim] = b->create<arith::ConstantIndexOp>(loc, inner_index1);
+      Value idx;
+      if (!check_cache) {
+        idx = createMaySpecificLoad(*b, loc, op.getOperation(), indices_memref,
+                                      tmpIndex, lower_config);
+      } else {
+        idx = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                            indices_memref, tmpIndex,
+                                            b->saveInsertionPoint(), lower_config);
+      }
+      start_index.push_back(idx);
+    }
+  }else {
+    Value idx;
+    if (!check_cache) {
+      idx = createMaySpecificLoad(*b, loc, op.getOperation(), indices_memref,
+                                    update_scatter_index, lower_config);
+    } else {
+      idx = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                          indices_memref, update_scatter_index,
+                                          b->saveInsertionPoint(), lower_config);
+    }
+    start_index.push_back(idx);    
+  }
+  // full_start_index[d_input] = start_index[d_start] if d_input = scatter_dims_to_operand_dims[d_start].
+  // full_start_index[d_input] = 0 otherwise.
+  int d_start = 0;
+  for(int d_input = 0; d_input < input_rank; d_input++) {
+    if(d_start < scatter_dims_to_operand.size() && d_input == scatter_dims_to_operand[d_start]) {
+      full_start_index.push_back(start_index[d_start++]);
+    }else{
+      full_start_index.push_back(zero);
+    }
+  }
+
+  // update_window_index = update_index[update_window_dims...].
+  // full_window_index = [wi0, ..., 0, ..., wiN] where wi are individual elements in update_window_index, and 0 is inserted at indices from inserted_window_dims
+  // Require rank(inputs[0]) = size(update_window_dims) + size(inserted_window_dims).
+  inner_index1 = 0;
+  inner_index2 = 0;
+  for(int d_input = 0; d_input < input_rank; d_input++) {
+    // 0 is inserted at indices from inserted_window_dims
+    if(inner_index1 < inserted_window_dims.size() & d_input == inserted_window_dims[inner_index1]) {
+      full_window_index.push_back(zero);
+      inner_index1 += 1;
+    }else{
+      // wi are individual elements in update_window_index
+      full_window_index.push_back(update_index[update_window_dims[inner_index2++]]);
+    }
+  }
+
+  // result_index = full_start_index + full_window_index
+  Value in_bound = b->create<arith::ConstantIntOp>(loc, 1, 1);
+  for(int d_input = 0; d_input < input_rank; d_input++) {
+    auto dim_res = b->create<arith::IndexCastOp>(loc, b->getIndexType(), b->create<arith::AddIOp>(loc, full_start_index[d_input], full_window_index[d_input]));
+    in_bound = b->create<arith::AndIOp>(
+        loc, in_bound,
+        b->create<arith::CmpIOp>(
+            loc, arith::CmpIPredicate::slt, dim_res,
+            disc_ral::getDimSizeValue(b, result_memref, d_input)));
+    result_index.push_back(dim_res);
+  }
+
+  // Combine computation
+  auto calc_op = tryGetUpdateOperator(op.getUpdateComputation());
+  Value update_value, updated_value;
+  if (!check_cache) {
+    update_value = createMaySpecificLoad(*b, loc, op.getOperation(), update_memref,
+                                  update_index, lower_config);
+  } else {
+    update_value = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                        update_memref, update_index,
+                                        b->saveInsertionPoint(), lower_config);
+  }
+
+  SmallVector<Type, 4> result_types;
+  result_types.push_back(
+      result_memref.getType().cast<MemRefType>().getElementType());
+
+  auto if_inbound_op = b->create<scf::IfOp>(loc, result_types, in_bound, true);
+  if_inbound_op.getThenRegion().front().clear();
+  if_inbound_op.getElseRegion().front().clear();
+  b->setInsertionPointToEnd(&if_inbound_op.getThenRegion().front());
+  if(calc_op == nullptr) {
+    b->create<memref::StoreOp>(loc, update_value, result_memref, result_index);
+  } else{
+    Value original_value;
+    if (!check_cache) {
+      original_value = createMaySpecificLoad(*b, loc, op.getOperation(), result_memref,
+                                    result_index, lower_config);
+    } else {
+      original_value = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                          result_memref, result_index,
+                                          b->saveInsertionPoint(), lower_config);
+    }
+    SmallVector<Value, 4> operand_values;
+    operand_values.push_back(original_value);
+    operand_values.push_back(update_value);
+    auto num_operands = calc_op->getNumOperands();
+    auto result_type = calc_op->getOperand(num_operands - 1).getType();
+    auto result_elem_type = result_type.cast<MemRefType>().getElementType();
+    if (isa<lmhlo::AddOp>(calc_op)) {
+      updated_value = LhloOpToStdScalarOp::map<lmhlo::AddOp>(
+          llvm::cast<lmhlo::AddOp>(calc_op), result_elem_type, operand_values,
+          b);
+    } else {
+      assert(false && "unexpected update computation in scatter op");
+    }
+
+    b->create<memref::StoreOp>(loc, updated_value, result_memref, result_index);
+  }
+  b->create<scf::YieldOp>(loc, update_value);
+  b->setInsertionPointToEnd(&if_inbound_op.getElseRegion().front());
+  // Else we do nothing
+  b->create<scf::YieldOp>(loc, update_value);
+  b->setInsertionPointAfter(if_inbound_op);
+
+  Value result = *(if_inbound_op.getResults().begin());
+
+  return result;
+}
+
+template <>
+Value elementalLower<lmhlo::ScatterOp>(
+    OpBuilder* b, Location loc, lmhlo::ScatterOp op,
+    ValueRange output_index, bool check_cache, LowerConfig* lower_config) {
+  int rank = output_index.size();
+  Value result_opearnd = op->getOperand(op->getNumOperands() - 1);
+  Value src_memref = op->getOperand(0);
+  if (result_opearnd == src_memref) {
+    return LowerInplaceScatterOp(b, loc, op, output_index,
+                                            check_cache, lower_config);
+  }
+  op->emitError("Out of place ScatterOp is not supported now");
+  return Value(nullptr);
 }
 
 template <>

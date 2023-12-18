@@ -307,9 +307,9 @@ class FusionPlanner {
       // Thus these operands are supposed to be updated.
       // Suppose that an op (or its nested ops) can only write the buffers
       // explicit passed in as operands of this op.
-      if (op->getDialect()->getTypeID() != TypeID::get<lmhlo::LmhloDialect>() &&
+      if (isInplaceOperator(op) || (op->getDialect()->getTypeID() != TypeID::get<lmhlo::LmhloDialect>() &&
           op->getDialect()->getTypeID() !=
-              TypeID::get<lmhlo_disc::LmhloDiscDialect>()) {
+              TypeID::get<lmhlo_disc::LmhloDiscDialect>())) {
         // If an op is not in lmhlo or lmhlo_disc dialect, it may be written
         // multiple times (e.g. multiple memref.store ops for the same
         // underlying buffer).

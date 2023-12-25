@@ -968,6 +968,33 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_input_output_alias",
+    srcs = ["transforms/disc_input_output_alias.cc"],
+    hdrs = [
+        "transforms/passes.h",
+        "transforms/rewriters.h",
+    ],
+    deps = [
+        ":pass_details",
+        ":placement_utils",
+        ":lmhlo_disc",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//llvm:TransformUtils",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:LLVMDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:TensorTransforms",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_assign_memory_space",
     srcs = ["transforms/disc_assign_memory_space.cc"],
     hdrs = [
@@ -2304,6 +2331,7 @@ cc_library(
         ":disc_lower_quantize_and_dequantize",
         ":disc_transform_weight_data_layout_for_weight_only_quant",
         ":disc_lower_to_library_call",
+        ":disc_input_output_alias",
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
         ":disc_outline_cpu_kernel",

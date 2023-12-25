@@ -658,3 +658,8 @@ def DiscEraseBufferDeallocationPass : Pass<"disc-erase-buffer-deallocation", "ml
   let summary = "Erase dealloc op for GPU func ops.";
   let constructor = "createDiscEraseBufferDeallocationPass()";
 }
+
+def DiscInputOutputAliasPass : Pass<"disc-input-output-alias", "ModuleOp"> {
+  let summary = "Input and output alias information for buffer reuse";
+  let constructor = "createDiscInputOutputAliasPass()";
+}

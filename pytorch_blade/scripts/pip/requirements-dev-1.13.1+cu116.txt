@@ -1,4 +1,3 @@
-cpython
 pyyaml
 typing_extensions
 numpy

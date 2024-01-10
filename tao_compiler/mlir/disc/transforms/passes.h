@@ -326,6 +326,8 @@ createDiscDuplicateComputationAfterFusionPass();
 std::unique_ptr<OperationPass<gpu::GPUFuncOp>>
 createDiscEraseBufferDeallocationPass();
 
+// Insert ArgsMutationOp for buffer reuse
+std::unique_ptr<OperationPass<ModuleOp>> createDiscInputOutputAliasPass();
 }  // namespace disc_ral
 }  // namespace mlir
 

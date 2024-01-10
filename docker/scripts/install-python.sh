@@ -28,7 +28,7 @@ function install_python() {
   fi
   ln -s /usr/bin/python3 /usr/bin/python
   python3 -m pip install --upgrade pip
-  python3 -m pip install cpython virtualenv numpy
+  python3 -m pip install virtualenv numpy
 }
 
 function install_venv() {

@@ -22,7 +22,6 @@ using tao::ral::ExecutionContext;
 using tao::ral::MemRefType;
 using tao::ral::gpu::GPUDriver;
 using tao::ral::gpu::stream_t;
-
 namespace tao {
 namespace ral {
 

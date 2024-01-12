@@ -26,6 +26,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
 #include "mlir/disc/disc_util.h"
 #include "mlir/disc/transforms/PassDetail.h"
 
@@ -132,6 +133,76 @@ LogicalResult SliceOpConvert::matchAndRewrite(mhlo::SliceOp op,
   return success();
 }
 }  // namespace
+namespace {
+struct CollectiveOpConverter : public OpRewritePattern<mhlo::AllReduceOp> {
+  using OpRewritePattern<mhlo::AllReduceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::AllReduceOp op,
+                                PatternRewriter& rewriter) const override {
+    llvm::dbgs() << "before convert results:\n";
+    op->getParentOp()->dump();
+    // if (failed(ConvertResults(op, buffer_args, rewriter))) return failure();
+    llvm::dbgs() << "after convert results:\n";
+    op->getParentOp()->dump();
+    auto results = op.getResults();
+    SmallVector<Value, 4> newOutputs;
+    for (int i = 0; i < op.getOperands().size(); ++i) {
+      if (op.getResult(i).getUsers().empty()) {
+        continue;
+      }
+
+      op->setAttr("call_target_name", rewriter.getStringAttr("ral_all_reduce"));
+      op->setAttr("device", rewriter.getStringAttr("d"));
+      op->setAttr("input_placements", rewriter.getStringAttr("d"));
+      op->setAttr("output_placements", rewriter.getStringAttr("d"));
+      op->setAttr("input_layouts", rewriter.getStringAttr("*"));
+      op->setAttr("output_layouts", rewriter.getStringAttr("*"));
+      op->setAttr("expected_input_layouts", rewriter.getStringAttr("*"));
+      op->setAttr("expected_output_layouts", rewriter.getStringAttr("*"));
+      op->setAttr("custom_attrs", rewriter.getDictionaryAttr({}));
+
+      auto newOutput = rewriter.create<mhlo_disc::CustomCallV2Op>(
+          op->getLoc(), op.getResults()[0].getType(), op->getOperands()[i],
+          op->getAttrs());
+
+      //      auto newOutput = rewriter.create<mhlo_disc::CustomCallOp>(
+      //        op->getLoc(), op.getResults()[0].getType(),
+      //        ValueRange{op->getOperands()[i]},
+      //        "ral_all_reduce",
+      //        false,
+      //        rewriter.getStringAttr(""));
+
+      // results[i].replaceAllUsesWith(newOutput.getResult(0));
+      newOutputs.push_back(newOutput.getResult(0));
+
+      // auto toMemrefOp =
+      // newOutput.getResults()[0].getUsers().begin()->getOwner(); if
+      // (mlir::isa<bufferization::ToMemrefOp>(toMemrefOp)) {
+      //  auto result = toMemrefOp->getResults()[0];
+      //  result.replaceAllUsesWith(results[i]);
+      //  toMemrefOp->erase();
+      //}
+
+      // results[i].replaceAllUsesWith(newOutput.getResult(0));
+      //      const int32_t segments[2] =
+      //      {static_cast<int32_t>(operands.size()),
+      //                                 static_cast<int32_t>(op->getNumResults())};
+      //
+      //      auto attrValue = mlir::DenseI32ArrayAttr::get(op->getContext(),
+      //      segments); lhloOp->setAttr(lhloOp.getOperandSegmentSizeAttr(),
+      //      attrValue);
+      // auto first_user_op = op.getResults()[i].getUses().begin()->getOwner();
+      // if (mlir::isa<bufferization::ToMemrefOp>(first_user_op)) {
+      //  auto result = first_user_op->getResults()[0];
+      //  result.replaceAllUsesWith(output);
+      // first_user_op->erase();
+      // }
+    }
+    rewriter.replaceOp(op, newOutputs);
+    return success();
+  }
+};
+}  //  namespace
 
 struct MhloDecompositionRewriterPass
     : public MhloDecompositionRewriterPassBase<MhloDecompositionRewriterPass> {
@@ -142,6 +213,7 @@ struct MhloDecompositionRewriterPass
     patterns.insert<BatchNormInferenceOpConvert>(ctx);
     patterns.insert<PadOpConvert>(ctx);
     patterns.insert<SliceOpConvert>(ctx);
+    patterns.insert<CollectiveOpConverter>(ctx);
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");
       signalPassFailure();

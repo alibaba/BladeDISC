@@ -11,6 +11,7 @@
 
 #include "mlir/ral/collective.h"
 #include "mlir/ral/context/base/cuda/cuda_context_impl.h"
+#include "mlir/ral/context/stream_executor_based_impl.h"
 #include "mlir/ral/ral_helper.h"
 #include "third_party/nccl/nccl.h"
 
@@ -30,7 +31,7 @@ struct ncclDataTypeMapper<float> {
 };
 
 template <>
-struct ncclDataTypeMapper<Eigen::half> {
+struct ncclDataTypeMapper<float16> {
   static const ncclDataType_t value = ncclHalf;
 };
 
@@ -40,11 +41,10 @@ struct ncclDataTypeMapper<int> {
 };
 
 template <typename T, int N>
-void all_reduce(ExecutionContext* ctx, void* stream_heandle,
-                MemRefType<T, N> input, MemRefType<T, N> output) {
+MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
+                                MemRefType<T, N> input, void* customAttrs) {
   ncclDataType_t ncclDtype = ncclDataTypeMapper<T>::value;
   auto send_buffer = input.data;
-  auto recv_buffer = output.data;
   int element_count = 1;
   for (int i = 0; i < N; ++i) {
     element_count *= input.sizes[i];
@@ -52,24 +52,23 @@ void all_reduce(ExecutionContext* ctx, void* stream_heandle,
   auto gpu_driver = ctx->getDriver<tao::ral::gpu::GPUDriver>(
       tao::ral::gpu::GPUDriver::name());
   auto gpu_stream =
-      static_cast<cudaStream_t>(gpu_driver->asCUStream(ctx, stream_heandle));
+      static_cast<cudaStream_t>(gpu_driver->asCUStream(ctx, stream_handle));
   auto nccl_comm =
       static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getNcclComm();
   // TODO(yancey): support more nccl operations
-  auto ncclResult = ncclAllReduce(send_buffer, recv_buffer, element_count,
+  auto ncclResult = ncclAllReduce(send_buffer, send_buffer, element_count,
                                   ncclDtype, ncclSum, nccl_comm, gpu_stream);
   if (ncclResult != ncclSuccess) {
     ctx->signalError(Context::FAILURE, "fail to call ncclAllReduce\n");
   }
+  auto output = assignMemRef<T, N>(send_buffer, input.sizes);
+  return output;
 }
 
-TAO_RAL_API("all_reduce", "gpu", all_reduce<float, 1>);
-TAO_RAL_API("all_reduce", "gpu", all_reduce<float, 2>);
-TAO_RAL_API("all_reduce", "gpu", all_reduce<float, 3>);
-TAO_RAL_API("all_reduce", "gpu", all_reduce<float, 4>);
-TAO_RAL_API("all_reduce", "gpu", all_reduce<Eigen::half, 1>);
-TAO_RAL_API("all_reduce", "gpu", all_reduce<Eigen::half, 2>);
-TAO_RAL_API("all_reduce", "gpu", all_reduce<Eigen::half, 3>);
-TAO_RAL_API("all_reduce", "gpu", all_reduce<Eigen::half, 4>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float, 1>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float, 2>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float, 3>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float, 4>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 4>);
 }  //  namespace ral
 }  //  namespace tao

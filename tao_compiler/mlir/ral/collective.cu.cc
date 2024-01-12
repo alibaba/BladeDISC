@@ -55,13 +55,15 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
       static_cast<cudaStream_t>(gpu_driver->asCUStream(ctx, stream_handle));
   auto nccl_comm =
       static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getNcclComm();
+  auto ptr = static_cast<T*>(gpu_driver->alloc(ctx, element_count * sizeof(T)));
+  auto output = assignMemRef<T, N>(ptr, input.sizes);
+  auto recv_buffer = output.data;
   // TODO(yancey): support more nccl operations
-  auto ncclResult = ncclAllReduce(send_buffer, send_buffer, element_count,
+  auto ncclResult = ncclAllReduce(send_buffer, recv_buffer, element_count,
                                   ncclDtype, ncclSum, nccl_comm, gpu_stream);
   if (ncclResult != ncclSuccess) {
     ctx->signalError(Context::FAILURE, "fail to call ncclAllReduce\n");
   }
-  auto output = assignMemRef<T, N>(send_buffer, input.sizes);
   return output;
 }
 

@@ -78,6 +78,7 @@ cc_library(
     ],
     deps=[
         ":ral_logging",
+        "@local_config_cuda//cuda:cuda_headers",
     ],
     alwayslink=1,
 )

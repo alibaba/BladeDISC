@@ -17,8 +17,6 @@
 
 #include "mlir/ral/ral_context.h"
 
-#include <cuda_runtime.h>
-
 #include <array>
 #include <atomic>
 #include <iostream>

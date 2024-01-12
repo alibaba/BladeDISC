@@ -448,12 +448,6 @@ stream_t ral_base_cuda_get_stream(ExecutionContext* ctx, int32_t stream_id) {
 opaque_t ral_base_cuda_as_cu_stream(ExecutionContext* ctx, stream_t sidx) {
   auto* state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
-
-  // if ((intptr_t)(sidx) != 0) {
-  //  ctx->signalError(Context::FAILURE, "not a valid stream idx");
-  //  return nullptr;
-  //}
-
   return state->stream;
 }
 

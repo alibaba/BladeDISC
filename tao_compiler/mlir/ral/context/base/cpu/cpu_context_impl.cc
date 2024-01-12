@@ -72,14 +72,12 @@ std::unique_ptr<BaseContext> MakeBaseCpuContext(BaseContextOption& opt,
                      new ::tao::ral::cpu::CPUDriver(ctx.get())));
 
   ctx->getOrCreateResource(kRalBaseCpuContextState, [opt, cpu_opt]() {
-    std::cout << "init create kRalBaseCpuContextState" << std::endl;
     auto state = new BaseCpuContextState;
     if (cpu_opt.cpu_allocator != nullptr) {
       state->cpu_allocator = cpu_opt.cpu_allocator;
     } else {
       state->cpu_allocator.reset(new InternalAllocator(cpu_alloc, cpu_dealloc));
     }
-    std::cout << "after init cpu allocator" << std::endl;
     state->cache_workspace_mem_across_execution =
         opt.cache_workspace_mem_across_execution;
 

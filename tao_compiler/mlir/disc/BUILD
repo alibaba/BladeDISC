@@ -503,6 +503,7 @@ cc_library(
     deps = [
         ":disc_util",
         ":pass_details",
+        ":mhlo_disc",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",

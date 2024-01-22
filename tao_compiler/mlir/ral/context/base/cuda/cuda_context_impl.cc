@@ -200,10 +200,12 @@ BaseCudaExecutionContext::BaseCudaExecutionContext(BaseContext* ctx)
     : BaseCpuExecutionContext(ctx) {}
 
 BaseCudaExecutionContext::~BaseCudaExecutionContext() {}
+
 ncclComm_t BaseCudaExecutionContext::getNcclComm() {
   auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
   return state->nccl_comm;
 }
+
 void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
   {
     if (synced) {

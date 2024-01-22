@@ -11,6 +11,7 @@
 
 #include "mlir/ral/collective.h"
 #include "mlir/ral/context/base/cuda/cuda_context_impl.h"
+#include "mlir/ral/context/pdll_util.h"
 #include "mlir/ral/context/stream_executor_based_impl.h"
 #include "mlir/ral/ral_helper.h"
 #include "third_party/nccl/nccl.h"
@@ -40,10 +41,34 @@ struct ncclDataTypeMapper<int> {
   static const ncclDataType_t value = ncclInt;
 };
 
+ncclRedOp_t toNcclReductionType(const std::string& kind) {
+  switch (kind) {
+    case "sum":
+      return ncclSum;
+    case "prod":
+      return ncclProd;
+    case "min":
+      return ncclMin;
+    case "max":
+      return ncclMax;
+    default:
+      return ncclSum;
+  }
+}
+
 template <typename T, int N>
 MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
                                 MemRefType<T, N> input, void* customAttrs) {
+  auto attr =
+      getOrParsePDLAttr(ctx, customAttrs, "simple_test_fused_add_mul_kernel");
+  if (!attr) {
+    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
+  }
+  std::string reductionKind =
+      dictAttr.get("reduction_kind").template as<StrPDLAttr>().getValue();
   ncclDataType_t ncclDtype = ncclDataTypeMapper<T>::value;
+  auto ncclReductionType = toNcclReductionType(reductionKind);
+
   auto send_buffer = input.data;
   int element_count = 1;
   for (int i = 0; i < N; ++i) {
@@ -59,8 +84,9 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
   auto output = assignMemRef<T, N>(ptr, input.sizes);
   auto recv_buffer = output.data;
   // TODO(yancey): support more nccl operations
-  auto ncclResult = ncclAllReduce(send_buffer, recv_buffer, element_count,
-                                  ncclDtype, ncclSum, nccl_comm, gpu_stream);
+  auto ncclResult =
+      ncclAllReduce(send_buffer, recv_buffer, element_count, ncclDtype,
+                    ncclReductionType, nccl_comm, gpu_stream);
   if (ncclResult != ncclSuccess) {
     ctx->signalError(Context::FAILURE, "fail to call ncclAllReduce\n");
   }
@@ -71,6 +97,9 @@ TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float, 1>);
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float, 2>);
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float, 3>);
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float, 4>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 1>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 2>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 3>);
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 4>);
 }  //  namespace ral
 }  //  namespace tao

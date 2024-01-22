@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <iterator>
 #include <string>
@@ -149,9 +150,10 @@ void LogMessage::GenerateLogMessage() {
   char time_buffer[time_buffer_size];
   strftime(time_buffer, time_buffer_size, "%Y-%m-%d %H:%M:%S",
            localtime(&result));
+  auto pid = getpid();
   const char* last_slash = strrchr(fname_, '/');
   const char* short_fname = last_slash == nullptr ? fname_ : last_slash + 1;
-  fprintf(stderr, "%s: %c %s:%d] %s\n", time_buffer, "IWEF"[severity_],
+  fprintf(stderr, "%s:%d %c %s:%d] %s\n", time_buffer, pid, "IWEF"[severity_],
           short_fname, line_, str().c_str());
 }
 

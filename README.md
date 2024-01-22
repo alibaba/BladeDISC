@@ -1,7 +1,7 @@
 # BladeDISC Introduction <!-- omit in toc -->
 
 ## We're hiring!🔥🔥🔥
-We're always looking for canidates to join our dev team. You're the one we're searching for long:
+We're always looking for candidates to join our dev team. You're the one we're searching for long:
 * 🥷 If you are a compiler or AI enthusiast.
 * ⭐️ or if you are experienced in optimization on CPUs and GPUs.
 * ⚙️ or if you wanna build a unified and automated compiler to optimize both inference and training workload.

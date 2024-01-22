@@ -41,19 +41,15 @@ struct ncclDataTypeMapper<int> {
   static const ncclDataType_t value = ncclInt;
 };
 
-ncclRedOp_t toNcclReductionType(const std::string& kind) {
-  switch (kind) {
-    case "sum":
-      return ncclSum;
-    case "prod":
-      return ncclProd;
-    case "min":
-      return ncclMin;
-    case "max":
-      return ncclMax;
-    default:
-      return ncclSum;
+const std::unordered_map<std::string, ncclRedOp_t> kReductionTypeMap = {
+    {"sum", ncclSum}, {"prod", ncclProd}, {"min", ncclMin}, {"max", ncclMax}};
+
+ncclRedOp_t getNcclReductionType(const std::string& kind) {
+  auto it = kReductionTypeMap.find(kind);
+  if (it == kReductionTypeMap.end()) {
+    return ncclSum;
   }
+  return it->second;
 }
 
 template <typename T, int N>
@@ -64,10 +60,11 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
   if (!attr) {
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }
+  auto& dictAttr = attr->as<DictPDLAttr>();
   std::string reductionKind =
       dictAttr.get("reduction_kind").template as<StrPDLAttr>().getValue();
   ncclDataType_t ncclDtype = ncclDataTypeMapper<T>::value;
-  auto ncclReductionType = toNcclReductionType(reductionKind);
+  auto ncclReductionType = getNcclReductionType(reductionKind);
 
   auto send_buffer = input.data;
   int element_count = 1;

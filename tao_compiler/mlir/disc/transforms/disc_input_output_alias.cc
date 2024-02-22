@@ -141,56 +141,16 @@ struct DiscInputOutputAliasPass
       if (outputs[outputs_index[i]] == params[params_index[i]]) {
         continue;
       }
-      // Inplace buffer reuse.
-      bool inplace_reuse = false;
+      // DISC now only support one-hop buffer sharing.
       auto defineOp = outputs[outputs_index[i]].getDefiningOp();
       for (const auto& value : defineOp->getOperands()) {
         if (params[params_index[i]] == value) {
           builder.setInsertionPointAfterValue(outputs[outputs_index[i]]);
-          builder.create<mhlo_disc::ArgsMutationOp>(
-              outputs[outputs_index[i]].getLoc(), outputs[outputs_index[i]],
-              params[params_index[i]]);
-          inplace_reuse = true;
+          builder.create<mhlo_disc::ArgsMutationOp>(main_func.getLoc(),
+                                                    outputs[outputs_index[i]],
+                                                    params[params_index[i]]);
           break;
         }
-      }
-
-      // Try one-hop buffer sharing propogation
-      if (!inplace_reuse) {
-        OneHopBufferReusePropogation(params[params_index[i]],
-                                     outputs[outputs_index[i]], builder);
-      }
-    }
-  }
-
- private:
-  /*
-                   A = op(src)
-  A = op(src) =>   args_mutation(A, src)
-  B = op(A)   =>   B = op(A)
-                   args_mutation(B, A)
-  */
-  void OneHopBufferReusePropogation(Value src, Value dst, OpBuilder& builder) {
-    auto dst_op = dst.getDefiningOp();
-    auto user_begin = src.user_begin();
-    auto user_end = src.user_end();
-    auto users_cnt = std::distance(user_begin, user_end);
-
-    if (users_cnt > 1 || user_begin->getNumResults() > 1) {
-      return;
-    }
-
-    auto user_result = user_begin->getResult(0);
-    for (const auto& operand : dst_op->getOperands()) {
-      if (operand == user_result) {
-        builder.setInsertionPointAfterValue(user_result);
-        builder.create<mhlo_disc::ArgsMutationOp>(user_result.getLoc(),
-                                                  user_result, src);
-
-        builder.setInsertionPointAfterValue(dst);
-        builder.create<mhlo_disc::ArgsMutationOp>(dst.getLoc(), dst,
-                                                  user_result);
-        break;
       }
     }
   }

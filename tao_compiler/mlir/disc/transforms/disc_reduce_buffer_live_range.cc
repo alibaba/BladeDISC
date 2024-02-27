@@ -20,6 +20,7 @@ limitations under the License.
 #include "mlir/Dialect/Bufferization/Transforms/BufferViewFlowAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
@@ -35,20 +36,33 @@ using memref::AllocOp;
 
 namespace {
 
-Operation* findNearestConsumer(AllocOp allocOp) {
-  auto value = allocOp->getResult(0);
-  for (auto user : value.getUsers()) {
-    if (isa<memref::DeallocOp>(user)) continue;
-    auto resultBuffer = user->getOperands()[user->getOperands().size() - 1];
-    if (resultBuffer == value) {
-      // if parent op is fusion op, return this fusion op
-      if (auto fusion_op = dyn_cast<FusionOp>(user->getParentOp())) {
-        return fusion_op;
-      }
-      return user;
+LogicalResult moveBufferAllocator(AllocOp allocOp) {
+  Value alloc = allocOp.getResult();
+  BufferViewFlowAnalysis aliasAnalysis(allocOp);
+  Liveness livenessAnalysis(allocOp);
+  PostDominanceInfo postDominators(allocOp);
+  auto aliasesSet = aliasAnalysis.resolve(alloc);
+  assert(!aliasesSet.empty() && "must contain at least one alias");
+  // Determine the actual block to place the alloc and get liveness
+  // information.
+  Block* placementBlock =
+      bufferization::BufferPlacementTransformationBase::findCommonDominator(
+          alloc, aliasesSet, postDominators);
+
+  Operation* toMoveBefore = nullptr;
+  for (auto user : alloc.getUsers()) {
+    if (isa<func::ReturnOp>(user)) continue;
+    // Skip if the user is in the same block as the alloc.
+    while (isa<scf::IfOp>(user->getParentOp()) ||
+           isa<lmhlo::FusionOp>(user->getParentOp())) {
+      user = user->getParentOp();
+    }
+    if (toMoveBefore == nullptr || user->isBeforeInBlock(toMoveBefore)) {
+      toMoveBefore = user;
     }
   }
-  return nullptr;
+  allocOp->moveBefore(toMoveBefore);
+  return success();
 }
 
 struct DiscReduceBufferLiveRangePass
@@ -60,9 +74,8 @@ struct DiscReduceBufferLiveRangePass
     func.walk([&](AllocOp op) { candidateBuffers.push_back(op); });
 
     for (int i = 0; i < candidateBuffers.size(); ++i) {
-      AllocOp alloc_op = candidateBuffers[i];
-      if (auto consumer = findNearestConsumer(alloc_op)) {
-        alloc_op->moveBefore(consumer);
+      if (failed(moveBufferAllocator(candidateBuffers[i]))) {
+        return signalPassFailure();
       }
     }
   }

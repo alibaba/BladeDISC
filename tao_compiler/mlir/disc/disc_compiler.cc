@@ -526,9 +526,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscReduceBufferLiveRangePass());
   pm.addNestedPass<FuncOp>(bufferization::createBufferDeallocationPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscBufferDeallocationPass());
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscReduceBufferLiveRangePass());
 
   pm.addPass(disc_ral::createRalInjectExecutionContextPass());
   pm.addNestedPass<FuncOp>(

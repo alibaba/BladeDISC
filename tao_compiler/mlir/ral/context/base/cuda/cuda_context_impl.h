@@ -31,6 +31,7 @@
 #include "mlir/ral/device/cpu/cpu_driver.h"
 #include "mlir/ral/device/gpu/gpu_driver.h"
 #include "mlir/ral/ral_context.h"
+#include "third_party/nccl/nccl.h"
 
 // Raw cuda ral implementation.
 
@@ -45,6 +46,7 @@ using GpuStreamHandle = CUstream;
 #endif
 
 struct BaseCudaContextOption {
+  ncclComm_t nccl_comm = nullptr;
   GpuStreamHandle stream = nullptr;
   int device_ordinal = 0;
   bool use_stream_executor = true;
@@ -61,6 +63,7 @@ struct BaseCudaExecutionContext
   BaseCudaExecutionContext(BaseContext* ctx);
   ~BaseCudaExecutionContext();
 
+  ncclComm_t getNcclComm();
   // We need to sync on the gpu stream before we fetch the first output.
   bool synced = false;
   // all buffer allocated by the gpu_allocator

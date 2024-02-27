@@ -51,6 +51,7 @@ disc_cc_library(
         "@local_config_cuda//cuda:cuda_headers",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cudart",
+        "@local_config_nccl//:nccl",
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
         "//tensorflow/compiler/xla/stream_executor/rocm:rocm_driver",

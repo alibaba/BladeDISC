@@ -26,6 +26,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
+#include "mlir/disc/IR/hlo_disc_ops.h"
 #include "mlir/disc/disc_util.h"
 #include "mlir/disc/transforms/PassDetail.h"
 
@@ -132,16 +133,114 @@ LogicalResult SliceOpConvert::matchAndRewrite(mhlo::SliceOp op,
   return success();
 }
 }  // namespace
+namespace {
+enum ReductionKind {
+  ALL_REDUCE_SUM,
+  ALL_REDUCE_PRODUCT,
+  ALL_REDUCE_MIN,
+  ALL_REDUCE_MAX,
+};
+
+std::optional<std::string> ReductionKindToString(ReductionKind kind) {
+  switch (kind) {
+    case ReductionKind::ALL_REDUCE_SUM:
+      return "sum";
+    case ReductionKind::ALL_REDUCE_PRODUCT:
+      return "product";
+    case ReductionKind::ALL_REDUCE_MIN:
+      return "min";
+    case ReductionKind::ALL_REDUCE_MAX:
+      return "max";
+  }
+  return std::nullopt;
+}
+
+std::optional<std::string> MatchReductionComputation(Region& region) {
+  if (!region.hasOneBlock()) {
+    return std::nullopt;
+  }
+
+  auto ret = dyn_cast<mhlo::ReturnOp>(region.front().getTerminator());
+  if (!ret || ret->getNumOperands() != 1) {
+    return std::nullopt;
+  }
+
+  auto computation = ret.getOperand(0).getDefiningOp();
+
+  if (isa<mhlo::AddOp>(computation)) {
+    return "sum";
+  }
+  if (isa<mhlo::MulOp>(computation)) {
+    return "product";
+  }
+  if (isa<mhlo::MinOp>(computation)) {
+    return "min";
+  }
+  if (isa<mhlo::MaxOp>(computation)) {
+    return "max";
+  }
+  return std::nullopt;
+}
+
+struct CollectiveOpConverter : public OpRewritePattern<mhlo::AllReduceOp> {
+  using OpRewritePattern<mhlo::AllReduceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::AllReduceOp op,
+                                PatternRewriter& rewriter) const override {
+    SmallVector<Value, 4> newOutputs;
+    auto reductionKind = MatchReductionComputation(op.getRegion());
+    if (!reductionKind) {
+      return failure();
+    }
+    for (int i = 0; i < op->getOperands().size(); ++i) {
+      // no need call all_reduce op if no consumer
+      if (op->getResult(i).getUsers().empty()) {
+        continue;
+      }
+
+      op->setAttr("call_target_name", rewriter.getStringAttr("ral_all_reduce"));
+      op->setAttr("device", rewriter.getStringAttr("d"));
+      op->setAttr("input_placements", rewriter.getStringAttr("d"));
+      op->setAttr("output_placements", rewriter.getStringAttr("d"));
+      op->setAttr("input_layouts", rewriter.getStringAttr("*"));
+      op->setAttr("output_layouts", rewriter.getStringAttr("*"));
+      op->setAttr("expected_input_layouts", rewriter.getStringAttr("*"));
+      op->setAttr("expected_output_layouts", rewriter.getStringAttr("*"));
+      SmallVector<NamedAttribute> newAttrs;
+      newAttrs.push_back(
+          NamedAttribute(rewriter.getStringAttr("reduction_kind"),
+                         rewriter.getStringAttr(reductionKind.value())));
+
+      auto newCustomAttrs = DictionaryAttr::get(op->getContext(), newAttrs);
+
+      op->setAttr("custom_attrs", newCustomAttrs);
+
+      auto newOutput = rewriter.create<mhlo_disc::CustomCallV2Op>(
+          op->getLoc(), op->getResults()[i].getType(), op->getOperands()[i],
+          op->getAttrs());
+      newOutputs.push_back(newOutput.getResult(0));
+    }
+    rewriter.replaceOp(op, newOutputs);
+    return success();
+  }
+};
+}  //  namespace
 
 struct MhloDecompositionRewriterPass
     : public MhloDecompositionRewriterPassBase<MhloDecompositionRewriterPass> {
+  void getDependentDialects(DialectRegistry& registry) const override {
+    registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
+  }
   void runOnOperation() override {
     func::FuncOp func = getOperation();
-    MLIRContext* ctx = func.getContext();
+    // MLIRContext* ctx = func.getContext();
+    MLIRContext* ctx = &getContext();
+
     RewritePatternSet patterns(ctx);
     patterns.insert<BatchNormInferenceOpConvert>(ctx);
     patterns.insert<PadOpConvert>(ctx);
     patterns.insert<SliceOpConvert>(ctx);
+    patterns.insert<CollectiveOpConverter>(ctx);
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");
       signalPassFailure();

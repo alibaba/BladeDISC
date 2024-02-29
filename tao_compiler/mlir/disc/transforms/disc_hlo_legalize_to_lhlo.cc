@@ -21,6 +21,7 @@ limitations under the License.
 
 #include "lhlo/IR/lhlo_ops.h"
 #include "llvm/Support/Debug.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
@@ -177,12 +178,13 @@ struct HloToLhloArgsMutationOpConverter
   }
 };
 
-struct HloToLhloCustomCallOpConverter : public BaseOpConversion<CustomCallOp> {
+struct HloToLhloCustomCallOpConverter
+    : public BaseOpConversion<mhlo_disc::CustomCallOp> {
  public:
-  using BaseOpConversion<CustomCallOp>::BaseOpConversion;
+  using BaseOpConversion<mhlo_disc::CustomCallOp>::BaseOpConversion;
 
   LogicalResult matchAndRewrite(
-      CustomCallOp hloOp, OpAdaptor adaptor,
+      mhlo_disc::CustomCallOp hloOp, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
     Operation* op = hloOp.getOperation();
     auto operands = adaptor.getOperands();
@@ -204,12 +206,12 @@ struct HloToLhloCustomCallOpConverter : public BaseOpConversion<CustomCallOp> {
 };
 
 struct HloToLhloCustomCallOpV2Converter
-    : public BaseOpConversion<CustomCallV2Op> {
+    : public BaseOpConversion<mhlo_disc::CustomCallV2Op> {
  public:
-  using BaseOpConversion<CustomCallV2Op>::BaseOpConversion;
+  using BaseOpConversion<mhlo_disc::CustomCallV2Op>::BaseOpConversion;
 
   LogicalResult matchAndRewrite(
-      CustomCallV2Op hloOp, OpAdaptor adaptor,
+      mhlo_disc::CustomCallV2Op hloOp, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
     Location loc = hloOp->getLoc();
     SmallVector<Type> resultTypes;
@@ -218,8 +220,111 @@ struct HloToLhloCustomCallOpV2Converter
       resultTypes.push_back(
           MemRefType::get(ty.getShape(), ty.getElementType()));
     }
+
     rewriter.replaceOpWithNewOp<lmhlo_disc::CustomCallV2Op>(
         hloOp, resultTypes, adaptor.getOperands(), hloOp->getAttrs());
+
+    return success();
+  }
+};
+
+struct CustomCallOpConverter : public BaseOpConversion<mhlo::CustomCallOp> {
+ public:
+  using BaseOpConversion<mhlo::CustomCallOp>::BaseOpConversion;
+
+  LogicalResult matchAndRewrite(
+      mhlo::CustomCallOp hloOp, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    Operation* op = hloOp.getOperation();
+    auto operands = adaptor.getOperands();
+
+    SmallVector<Type> resultTypes;
+
+    std::string input_placements, output_placements;
+    std::string input_layouts, output_layouts;
+    for (int i = 0; i < operands.size(); i++) {
+      input_placements += "d,";
+      input_layouts += "*,";
+    }
+
+    hloOp->setAttr("call_target_name",
+                   rewriter.getStringAttr(hloOp.getCallTargetName()));
+    hloOp->setAttr("device", rewriter.getStringAttr("x"));
+
+    SmallVector<NamedAttribute> newAttrs;
+    if (hloOp.getBackendConfig().has_value()) {
+      newAttrs.push_back(
+          NamedAttribute(rewriter.getStringAttr("backend_config"),
+                         hloOp.getBackendConfig().value()));
+    }
+    auto newCustomAttrs = DictionaryAttr::get(hloOp->getContext(), newAttrs);
+    hloOp->setAttr("custom_attrs", newCustomAttrs);
+
+    if (hloOp->getNumResults() == 1 &&
+        hloOp->getResult(0).getType().dyn_cast<mlir::TupleType>()) {
+      auto tupleTy = hloOp->getResult(0).getType().dyn_cast<mlir::TupleType>();
+      for (auto [index, ty] : llvm::enumerate(tupleTy.getTypes())) {
+        output_placements += "d,";
+        output_layouts += "*,";
+        auto tensor_type = ty.cast<RankedTensorType>();
+        if (!tensor_type) {
+          op->emitOpError() << "Unsupported result type in disc for ";
+        }
+        resultTypes.push_back(tensor_type);
+      }
+    } else {
+      output_placements = "d,";
+      output_layouts += "*,";
+      for (Value v : hloOp->getResults()) {
+        auto ty = v.getType().cast<RankedTensorType>();
+        if (!ty) {
+          op->emitOpError() << "Unsupported result type in disc for ";
+        }
+        resultTypes.push_back(ty);
+      }
+    }
+
+    if (!input_placements.empty()) {
+      input_placements.pop_back();
+      input_layouts.pop_back();
+    }
+    if (!output_placements.empty()) {
+      output_placements.pop_back();
+      output_layouts.pop_back();
+    }
+
+    hloOp->setAttr("input_placements",
+                   rewriter.getStringAttr(input_placements));
+    hloOp->setAttr("output_placements",
+                   rewriter.getStringAttr(output_placements));
+    hloOp->setAttr("input_layouts", rewriter.getStringAttr(input_layouts));
+    hloOp->setAttr("output_layouts", rewriter.getStringAttr(output_layouts));
+    hloOp->setAttr("expected_input_layouts",
+                   rewriter.getStringAttr(input_layouts));
+    hloOp->setAttr("expected_output_layouts",
+                   rewriter.getStringAttr(output_layouts));
+
+    auto custom_v2_op = rewriter.create<mhlo_disc::CustomCallV2Op>(
+        hloOp.getLoc(), resultTypes, operands, hloOp->getAttrs());
+
+    if (hloOp->getNumResults() == 1 &&
+        hloOp->getResult(0).getType().dyn_cast<mlir::TupleType>()) {
+      auto tupleValue = hloOp->getResult(0);
+      for (int index = 0; index < resultTypes.size(); index++) {
+        for (auto& use : tupleValue.getUses()) {
+          Operation* consumerOp = use.getOwner();
+          if (auto getTupleElementOp =
+                  llvm::dyn_cast<mhlo::GetTupleElementOp>(consumerOp)) {
+            if (getTupleElementOp.getIndex() == index) {
+              rewriter.replaceOp(consumerOp, {custom_v2_op.getResult(index)});
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    rewriter.replaceOp(hloOp, custom_v2_op.getResults());
     return success();
   }
 };
@@ -257,7 +362,8 @@ struct DiscHloLegalizeToLhlo
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<lmhlo_disc::LmhloDiscDialect, memref::MemRefDialect,
                     shape::ShapeDialect, bufferization::BufferizationDialect,
-                    lmhlo::LmhloDialect>();
+                    lmhlo::LmhloDialect, mhlo::MhloDialect,
+                    mhlo_disc::MhloDiscDialect>();
   }
 
  public:
@@ -270,10 +376,12 @@ struct DiscHloLegalizeToLhlo
     target.addLegalDialect<arith::ArithDialect, lmhlo_disc::LmhloDiscDialect,
                            bufferization::BufferizationDialect,
                            memref::MemRefDialect, shape::ShapeDialect,
-                           tensor::TensorDialect, lmhlo::LmhloDialect>();
+                           tensor::TensorDialect, lmhlo::LmhloDialect,
+                           mhlo::MhloDialect>();
     target.addIllegalDialect<mhlo_disc::MhloDiscDialect>();
     target.addIllegalOp<disc_shape::TieShapeOp>();
     target.addIllegalOp<mhlo_disc::ArgsMutationOp>();
+    target.addIllegalOp<mhlo::CustomCallOp>();
 
     bufferization::BufferizeTypeConverter converter;
     populateDiscHLOToLHLOConversionPattern(&context, &converter, &patterns);
@@ -290,6 +398,7 @@ void populateDiscHLOToLHLOConversionPattern(
     RewritePatternSet* patterns) {
   // clang-format off
   patterns->insert<
+      CustomCallOpConverter,
       HloToLhloOpConverter<mhlo_disc::H2DOp>,
       HloToLhloOpConverter<mhlo_disc::D2HOp>,
       HloToLhloOpConverter<mhlo_disc::QuantizedDotGeneralOp>,

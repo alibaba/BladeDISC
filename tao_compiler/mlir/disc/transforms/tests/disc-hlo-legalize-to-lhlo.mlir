@@ -208,3 +208,14 @@ func.func @custom_call_v2_op(
   } : (tensor<?x?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
   return %1 : tensor<?x?xf32>
 }
+
+// -----
+
+// CHECK-LABEL: @mhlo_custom_call
+func.func @mhlo_custom_call(%arg0: tensor<2048x32x128xf16>, %arg1: tensor<2048x32x128xf16>) -> tensor<2048x32x128xf16> {
+  // CHECK: %0:2 = "lmhlo_disc.custom_call_v2"(%arg0, %arg1) {backend_config = "test_config", call_target_name = "custom_fn", custom_attrs = {backend_config = "test_config"}, device = "x", expected_input_layouts = "*,*", expected_output_layouts = "*,*", has_side_effect = false, input_layouts = "*,*", input_placements = "d,d", output_layouts = "*,*", output_placements = "d,d"} : (memref<2048x32x128xf16>, memref<2048x32x128xf16>) -> (memref<1x32x2048xf32>, memref<2048x32x128xf16>)
+  // CHECK: return %0#1 : memref<2048x32x128xf16>
+  %1 = "mhlo.custom_call"(%arg0, %arg1) {call_target_name="custom_fn", backend_config = "test_config"} : (tensor<2048x32x128xf16>, tensor<2048x32x128xf16>) -> tuple<tensor<1x32x2048xf32>, tensor<2048x32x128xf16>>
+  %2 = mhlo.get_tuple_element %1[1] : (tuple<tensor<1x32x2048xf32>, tensor<2048x32x128xf16>>) -> tensor<2048x32x128xf16>
+  return %2: tensor<2048x32x128xf16>
+}

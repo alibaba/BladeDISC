@@ -117,6 +117,7 @@ static int32_t reportErrorIfAny(GpuStatus result, Context* ctx,
 struct BaseCudaContextState : public tao::ral::Context::Resource {
   std::mutex mu;
 
+  ncclComm_t nccl_comm = nullptr;
   GpuStreamHandle stream = nullptr;
   // map blob ptr -> loaded module
   std::map<void*, GpuModuleHandle> blobs;
@@ -171,6 +172,7 @@ std::unique_ptr<BaseContext> MakeBaseCudaContext(
   ctx->getOrCreateResource(kRalBaseCudaContextState, [opt, gpu_opt]() {
     auto state = new BaseCudaContextState;
     state->stream = gpu_opt.stream;
+    state->nccl_comm = gpu_opt.nccl_comm;
     if (gpu_opt.gpu_allocator != nullptr) {
       state->gpu_allocator = gpu_opt.gpu_allocator;
     } else {
@@ -198,6 +200,11 @@ BaseCudaExecutionContext::BaseCudaExecutionContext(BaseContext* ctx)
     : BaseCpuExecutionContext(ctx) {}
 
 BaseCudaExecutionContext::~BaseCudaExecutionContext() {}
+
+ncclComm_t BaseCudaExecutionContext::getNcclComm() {
+  auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  return state->nccl_comm;
+}
 
 void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
   {
@@ -443,12 +450,6 @@ stream_t ral_base_cuda_get_stream(ExecutionContext* ctx, int32_t stream_id) {
 opaque_t ral_base_cuda_as_cu_stream(ExecutionContext* ctx, stream_t sidx) {
   auto* state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
-
-  if ((intptr_t)(sidx) != 0) {
-    ctx->signalError(Context::FAILURE, "not a valid stream idx");
-    return nullptr;
-  }
-
   return state->stream;
 }
 

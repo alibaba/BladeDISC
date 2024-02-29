@@ -34,6 +34,7 @@ disc_cc_library(
         "@local_config_cuda//cuda:cuda_headers",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cudart",
+        "@local_config_nccl//:nccl",
     ])
 )
 

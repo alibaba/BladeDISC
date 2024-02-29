@@ -52,11 +52,9 @@ LogicalResult moveBufferAllocator(AllocOp allocOp) {
   Operation* toMoveBefore = nullptr;
   for (auto user : alloc.getUsers()) {
     if (isa<func::ReturnOp>(user)) continue;
-    // Skip if the user is in the same block as the alloc.
-    while (isa<scf::IfOp>(user->getParentOp()) ||
-           isa<lmhlo::FusionOp>(user->getParentOp()) ||
-           isa<scf::ForOp>(user->getParentOp()) ||
-           isa<scf::ParallelOp>(user->getParentOp())) {
+    // user maybe in the sub-block of the placementBlock,
+    // find the closest parent op inside of placementBlock
+    while (user->getBlock() != placementBlock) {
       user = user->getParentOp();
     }
     if (toMoveBefore == nullptr || user->isBeforeInBlock(toMoveBefore)) {

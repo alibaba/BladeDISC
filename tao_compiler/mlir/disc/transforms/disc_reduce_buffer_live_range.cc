@@ -39,10 +39,8 @@ namespace {
 LogicalResult moveBufferAllocator(AllocOp allocOp) {
   Value alloc = allocOp.getResult();
   BufferViewFlowAnalysis aliasAnalysis(allocOp);
-  Liveness livenessAnalysis(allocOp);
   PostDominanceInfo postDominators(allocOp);
   auto aliasesSet = aliasAnalysis.resolve(alloc);
-  assert(!aliasesSet.empty() && "must contain at least one alias");
   // Determine the actual block to place the alloc and get liveness
   // information.
   Block* placementBlock =

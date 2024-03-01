@@ -585,7 +585,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(
       createCanonicalizerPass(cano_rewrite_config, disablePatterns));
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscMemRefCSEPass());
+  // pm.addNestedPass<FuncOp>(disc_ral::createDiscMemRefCSEPass());
   // convert linearizeOp/delinearizeOp to std dialect.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertShapeToStandardPass());
   pm.addNestedPass<FuncOp>(

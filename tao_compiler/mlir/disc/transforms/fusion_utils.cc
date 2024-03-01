@@ -175,6 +175,8 @@ StringRef fusionTypeToString(FusionType ft) {
       return "kRowReduction";
     case FusionType::kColReduction:
       return "kColReduction";
+    case FusionType::kScalarReduction:
+      return "kScalarReduction";
     case FusionType::kInput:
       return "kInput";
     case FusionType::kStitch:
@@ -205,6 +207,8 @@ FusionType fusionTypeFromString(StringRef ft) {
     return FusionType::kRowReduction;
   } else if (ft == "kColReduction") {
     return FusionType::kColReduction;
+  } else if (ft == "kScalarReduction") {
+    return FusionType::kScalarReduction;
   } else if (ft == "kInput") {
     return FusionType::kInput;
   } else if (ft == "kStitch") {
@@ -479,6 +483,21 @@ bool isRowReduction(Operation* op) {
   return true;
 }
 
+bool isRank2ScalarReduction(Operation* op) {
+  auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
+  if (!reduce_op || reduce_op.getDimensions().getNumElements() != 1)
+    return false;
+  int rank = op->getOperand(2).getType().cast<MemRefType>().getRank();
+  // TODO(yancey): rewrite scalar reduction result to scalar tensor to avoid
+  // reshape to scalar tensor behand reduce op
+  Operation* reshapeOp = *op->getOperand(2).getUsers().begin();
+  if (isa<ReshapeOp>(reshapeOp) &&
+      reshapeOp->getOperand(1).getType().cast<MemRefType>().getRank() == 0) {
+    return true;
+  }
+  return false;
+}
+
 // Returns true if this op is a rank-2 column reduction.
 bool isRank2ColReduction(Operation* op) {
   auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
@@ -487,7 +506,8 @@ bool isRank2ColReduction(Operation* op) {
 
   int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
   auto dimensions = reduce_op.getDimensions().getValues<int64_t>();
-  return ((*dimensions.begin() == 0) && (rank == 2));
+  return ((*dimensions.begin() == 0) && (rank == 2)) &&
+         !isRank2ScalarReduction(op);
 }
 
 // Return true if this op is a rank-2 transpose
@@ -558,6 +578,9 @@ bool initFusionPatternBase(ShapeAnalysis& shapeAnalysis,
         inferredFusionType = FusionType::kColReduction;
         inferredDominantOp = op;
       }
+    } else if (isRank2ScalarReduction(op)) {
+      inferredFusionType = FusionType::kScalarReduction;
+      inferredDominantOp = op;
     } else if (isFusible(op)) {
       // Ignore if already a kRowReduction or kColReduction, otherwise update
       // the fusion type to kLoop and dominant op to current op. This supposes
@@ -750,6 +773,7 @@ FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
   FusionType fusionType = FusionType::kNone;
   auto deviceAttr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);
   auto fusionTypeAttr = op->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
+
   if (fusionTypeAttr) {
     fusionType = fusionTypeFromString(fusionTypeAttr.getValue());
   }
@@ -773,6 +797,7 @@ FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
   FusionStrategy& strategy =
       getFusionStrategy(deviceAttr.getValue(), strategyStr);
   bool status = strategy.initFusionPattern(*shape_analysis, *this);
+  fusion_type_ = fusionType;
   assert(status);
   (void)(status);
 }
@@ -1451,7 +1476,8 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
 bool BaseGpuFusionStrategy::isFusible(Operation* op) {
   // Only rank-2 tensor -> rank-1 tensor reduction are supported now.
   if (isa<lmhlo::ReduceOp>(op) &&
-      (!isRank2RowReduction(op) && !isRank2ColReduction(op)))
+      (!isRank2RowReduction(op) && !isRank2ColReduction(op) &&
+       !isRank2ScalarReduction(op)))  // || isScalarReduction(op)))
     return false;
 
   if (isa<lmhlo::TransposeOp>(op) && isRank2or3Transpose(op)) return false;
@@ -1481,8 +1507,12 @@ bool BaseGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   bool has_rank2_col_reduction =
       llvm::any_of(target.getOpList(),
                    [](Operation* op) { return isRank2ColReduction(op); });
-
-  if (has_rank2_row_reduction && has_rank2_col_reduction) {
+  bool has_rank2_scalar_reduction =
+      llvm::any_of(target.getOpList(),
+                   [](Operation* op) { return isRank2ScalarReduction(op); });
+  int cnt = has_rank2_row_reduction + has_rank2_col_reduction +
+            has_rank2_scalar_reduction;
+  if (cnt >= 2) {
     return false;
   }
 

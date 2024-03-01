@@ -47,8 +47,9 @@ struct ParallelLoopCollapsing
         if (fusion) {
           auto fusionTypeAttr =
               fusion->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
-          if (fusionTypeAttr && (fusionTypeAttr.getValue() == "kStitch" ||
-                                 fusionTypeAttr.getValue() == "kTransform")) {
+          if (fusionTypeAttr &&
+              (fusionTypeAttr.getValue() == "kStitch" ||
+               fusionTypeAttr.getValue() == "kScalarReduction")) {
             continue;
           }
         }

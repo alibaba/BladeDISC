@@ -111,6 +111,7 @@ enum FusionType {
   // kInput fusion pattern and all reduce ops of the fused pattern are column
   // reduction
   kColReduction,
+  kScalarReduction,
   // kInput fusion pattern
   kInput,
   // Stitch Fusion pattern

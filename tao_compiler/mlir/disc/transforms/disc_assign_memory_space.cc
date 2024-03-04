@@ -593,8 +593,8 @@ LogicalResult DiscAssignMemorySpacePass::applyOperationAssignment(
   // clang-format: off
   Operation* newOp = tryReplaceResultType<
       memref::AllocOp, memref::AllocaOp, memref::SubViewOp, memref::ViewOp,
-      memref::CastOp, memref::ReinterpretCastOp, lmhlo_disc::CustomCallV2Op>(
-      op, assignment);
+      memref::CastOp, memref::ReinterpretCastOp, lmhlo_disc::CustomCallV2Op,
+      lmhlo_disc::OptimizationBarrierOp>(op, assignment);
   // clang-format: on
 
   if (newOp) {

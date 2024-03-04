@@ -37,12 +37,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
-#include "mlir/disc/IR/disc_ral_ops.h"
 #include "mlir/disc/IR/disc_shape_ops.h"
-#include "mlir/disc/IR/hlo_disc_ops.h"
 #include "mlir/disc/IR/lhlo_disc_ops.h"
 #include "mlir/disc/transforms/PassDetail.h"
-#include "mlir/disc/transforms/disc_map_hlo_to_lhlo_op.h"
 #include "mlir/disc/transforms/placement_utils.h"
 #include "mlir/disc/transforms/rewriters.h"
 #include "mlir/disc/transforms/shape_utils.h"
@@ -57,19 +54,18 @@ namespace {
 template <typename T>
 using BaseOpConversion = OpConversionPattern<T>;
 
-struct LhloDISCOptimizationBarrierOpConverter : public OpRewritePattern<lmhlo_disc::OptimizationBarrierOp> {
+struct LhloDISCOptimizationBarrierOpConverter
+    : public OpRewritePattern<lmhlo_disc::OptimizationBarrierOp> {
   explicit LhloDISCOptimizationBarrierOpConverter(MLIRContext* context)
       : OpRewritePattern(context) {}
   LogicalResult matchAndRewrite(lmhlo_disc::OptimizationBarrierOp lhloOp,
                                 PatternRewriter& rewriter) const override {
-    
-    llvm::dbgs() << "Expand OptimizationBarrierPass \n";
     Operation* op = lhloOp.getOperation();
 
     auto operands = op->getOperands();
     auto results = op->getResults();
 
-    for(int i=0; i<operands.size(); i++) {
+    for (int i = 0; i < operands.size(); i++) {
       results[i].replaceAllUsesWith(operands[i]);
     }
 
@@ -80,13 +76,13 @@ struct LhloDISCOptimizationBarrierOpConverter : public OpRewritePattern<lmhlo_di
 };
 
 struct DiscOptimizationBarrierExpandPass
-    : public DiscOptimizationBarrierExpandPassBase<DiscOptimizationBarrierExpandPass> {
+    : public DiscOptimizationBarrierExpandPassBase<
+          DiscOptimizationBarrierExpandPass> {
   using DiscOptimizationBarrierExpandPassBase<
       DiscOptimizationBarrierExpandPass>::DiscOptimizationBarrierExpandPassBase;
 
   void getDependentDialects(DialectRegistry& registry) const override {
-    registry.insert<lmhlo_disc::LmhloDiscDialect, memref::MemRefDialect,
-                    disc_ral::RalDialect, lmhlo::LmhloDialect>();
+    registry.insert<lmhlo_disc::LmhloDiscDialect, memref::MemRefDialect>();
   }
 
  public:
@@ -108,7 +104,8 @@ struct DiscOptimizationBarrierExpandPass
 };
 }  // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>> createDiscOptimizationBarrierExpandPass() {
+std::unique_ptr<OperationPass<ModuleOp>>
+createDiscOptimizationBarrierExpandPass() {
   return std::make_unique<DiscOptimizationBarrierExpandPass>();
 }
 

@@ -663,3 +663,8 @@ def DiscInputOutputAliasPass : Pass<"disc-input-output-alias", "ModuleOp"> {
   let summary = "Input and output alias information for buffer reuse";
   let constructor = "createDiscInputOutputAliasPass()";
 }
+
+def DiscReduceBufferLiveRangePass : Pass<"disc-reduce-buffer-live-range", "mlir::func::FuncOp"> {
+  let summary = "reduce buffer live range";
+  let constructor = "createDiscReduceBufferLiveRangePass()";
+}

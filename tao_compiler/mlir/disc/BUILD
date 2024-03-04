@@ -941,10 +941,7 @@ cc_library(
         "transforms/rewriters.h",
     ],
     deps = [
-        ":mhlo_disc",
         ":lmhlo_disc",
-        ":disc_ral",
-        ":disc_map_hlo_to_lhlo_op",
         ":pass_details",
         ":placement_utils",
         ":shape_utils",
@@ -2122,6 +2119,25 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_reduce_buffer_live_range",
+    srcs = ["transforms/disc_reduce_buffer_live_range.cc"],
+    deps = [
+        ":lmhlo_disc",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:BufferizationTransforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_bf16_expansion",
     srcs = ["transforms/disc_bf16_expansion.cc"],
     deps = [
@@ -2337,6 +2353,7 @@ cc_library(
         ":disc_assign_memory_space",
         ":disc_bf16_expansion",
         ":disc_buffer_deallocation",
+        ":disc_reduce_buffer_live_range",
         ":disc_canonicalizer",
         ":disc_comp_intens_fusion_to_cuda_source",
         ":disc_comp_intens_fusion_to_func",

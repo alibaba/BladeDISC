@@ -185,9 +185,6 @@ struct HloToLhloOptimizationBarrierOpConverter
   LogicalResult matchAndRewrite(
       mhlo::OptimizationBarrierOp hloOp, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
-    
-    llvm::dbgs() << "Converting mhlo::OptimizationBarrierOp \n";
-
     Operation* op = hloOp.getOperation();
     auto operands = adaptor.getOperands();
 
@@ -197,9 +194,9 @@ struct HloToLhloOptimizationBarrierOpConverter
       resultTypes.push_back(
           MemRefType::get(ty.getShape(), ty.getElementType()));
     }
-    
-    llvm::dbgs() << "Replace Op With lmhlo_disc::OptimizationBarrierOp\n";
-    rewriter.replaceOpWithNewOp<lmhlo_disc::OptimizationBarrierOp>(hloOp, resultTypes, operands, op->getAttrs());
+
+    rewriter.replaceOpWithNewOp<lmhlo_disc::OptimizationBarrierOp>(
+        hloOp, resultTypes, operands, op->getAttrs());
 
     return success();
   }
@@ -247,6 +244,7 @@ struct HloToLhloCustomCallOpV2Converter
       resultTypes.push_back(
           MemRefType::get(ty.getShape(), ty.getElementType()));
     }
+
     rewriter.replaceOpWithNewOp<lmhlo_disc::CustomCallV2Op>(
         hloOp, resultTypes, adaptor.getOperands(), hloOp->getAttrs());
 

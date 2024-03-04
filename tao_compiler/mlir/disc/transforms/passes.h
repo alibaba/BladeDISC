@@ -328,6 +328,7 @@ createDiscEraseBufferDeallocationPass();
 
 // Insert ArgsMutationOp for buffer reuse
 std::unique_ptr<OperationPass<ModuleOp>> createDiscInputOutputAliasPass();
+std::unique_ptr<OperationPass<ModuleOp>> createDiscReduceBufferLiveRangePass();
 }  // namespace disc_ral
 }  // namespace mlir
 
@@ -339,7 +340,8 @@ std::unique_ptr<OperationPass<ModuleOp>> createDiscLegalizeToLhloPass();
 
 std::unique_ptr<OperationPass<ModuleOp>> createDiscLhloRewriterPass();
 
-std::unique_ptr<OperationPass<ModuleOp>> createDiscOptimizationBarrierExpandPass();
+std::unique_ptr<OperationPass<ModuleOp>>
+createDiscOptimizationBarrierExpandPass();
 
 }  // namespace mhlo_disc
 }  // namespace mlir

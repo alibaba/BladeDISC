@@ -514,6 +514,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(disc_ral::createDiscStitchFusionPass());
   }
 
+  pm.addPass(mhlo_disc::createDiscOptimizationBarrierExpandPass());
+
   if (useTransformSchedule()) {
     std::string transform_schedule;
     tensorflow::ReadStringFromEnvVar("DISC_TRANSFORM_SCHEDULE_FILE", "",

@@ -24,3 +24,8 @@ def DiscLhloRewriterPass: Pass<"disc-lhlo-rewriter", "ModuleOp"> {
   let summary = "rewrite lmhlo ops to lmhlo_disc ops.";
   let constructor = "createDiscLhloRewriterPass()";
 }
+
+def DiscOptimizationBarrierExpandPass : Pass<"disc-optimization-barrier-expand", "ModuleOp"> {
+  let summary = "Expand OptimizationBarrierOp";
+  let constructor = "createDiscOptimizationBarrierExpandPass()";
+}

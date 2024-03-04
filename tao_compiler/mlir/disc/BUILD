@@ -934,6 +934,37 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_optimization_barrier_expand",
+    srcs = ["transforms/disc_optimization_barrier_expand.cc"],
+    hdrs = [
+        "transforms/passes.h",
+        "transforms/rewriters.h",
+    ],
+    deps = [
+        ":mhlo_disc",
+        ":lmhlo_disc",
+        ":disc_ral",
+        ":disc_map_hlo_to_lhlo_op",
+        ":pass_details",
+        ":placement_utils",
+        ":shape_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:ShapeTransforms",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:SCFDialect",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_lower_to_library_call",
     srcs = ["transforms/disc_lower_to_library_call.cc"],
     hdrs = [
@@ -2336,6 +2367,7 @@ cc_library(
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
         ":disc_outline_cpu_kernel",
+        ":disc_optimization_barrier_expand",
         ":disc_parallel_loop_collapsing",
         ":disc_parallel_loop_tiling",
         ":disc_remove_dead_buffer",

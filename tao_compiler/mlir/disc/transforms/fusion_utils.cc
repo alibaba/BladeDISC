@@ -487,13 +487,28 @@ bool isRank2ScalarReduction(Operation* op) {
   auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
   if (!reduce_op || reduce_op.getDimensions().getNumElements() != 1)
     return false;
-  int rank = op->getOperand(2).getType().cast<MemRefType>().getRank();
-  // TODO(yancey): rewrite scalar reduction result to scalar tensor to avoid
-  // reshape to scalar tensor behand reduce op
-  Operation* reshapeOp = *op->getOperand(2).getUsers().begin();
-  if (isa<ReshapeOp>(reshapeOp) &&
-      reshapeOp->getOperand(1).getType().cast<MemRefType>().getRank() == 0) {
-    return true;
+  auto isRank0Tensor = [](Value v) -> bool {
+    return v.getType().cast<MemRefType>().getRank() == 0;
+  };
+  // TODO(yancey): it's a temporary solution to match scalar reduction, we need
+  // to erase the reshape op after scalar reduction, the result buffer of scalar
+  // reduction should be a scalar tensor instead of a <1xf32>tensor
+  {
+    Operation* reshapeOp = *op->getOperand(2).getUsers().begin();
+    if (isa<ReshapeOp>(reshapeOp) && isRank0Tensor(reshapeOp->getOperand(1))) {
+      return true;
+    }
+  }
+  {
+    Operation* convertOp = *op->getOperand(2).getUsers().begin();
+    if (isa<ConvertOp>(convertOp)) {
+      auto resultBuffer =
+          convertOp->getOperand(convertOp->getNumOperands() - 1);
+      for (auto user : resultBuffer.getUsers()) {
+        if (isa<ReshapeOp>(user) && isRank0Tensor(user->getOperand(1)))
+          return true;
+      }
+    }
   }
   return false;
 }
@@ -1480,7 +1495,7 @@ bool BaseGpuFusionStrategy::isFusible(Operation* op) {
        !isRank2ScalarReduction(op)))  // || isScalarReduction(op)))
     return false;
 
-  if (isa<lmhlo::TransposeOp>(op) && isRank2or3Transpose(op)) return false;
+  // if (isa<lmhlo::TransposeOp>(op) && isRank2or3Transpose(op)) return false;
   return BaseFusionStrategy::isFusible(op);
 }
 
@@ -1515,18 +1530,18 @@ bool BaseGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   if (cnt >= 2) {
     return false;
   }
-
-  if (has_rank2_col_reduction) {
-    const auto& results = target.getResults();
-    auto ref_shape = getEffectiveShape(target, results[0]);
-    if (llvm::any_of(results, [&](Value result) {
-          auto op = target.findLastWriter(result);
-          return isa<lmhlo::TransposeOp>(op);
-        })) {
-      return false;
+  /*
+    if (has_rank2_col_reduction) {
+      const auto& results = target.getResults();
+      auto ref_shape = getEffectiveShape(target, results[0]);
+      if (llvm::any_of(results, [&](Value result) {
+            auto op = target.findLastWriter(result);
+            return isa<lmhlo::TransposeOp>(op);
+          })) {
+        return false;
+      }
     }
-  }
-
+  */
   return BaseFusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target);
 }
 

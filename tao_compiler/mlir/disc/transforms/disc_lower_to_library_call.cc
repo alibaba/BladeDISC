@@ -494,7 +494,7 @@ struct TransposeConverter : public OpRewritePattern<lmhlo::TransposeOp> {
     if (rank != 2 && rank != 3) return failure();
     // only rewriter custom library when switch 1 and 2 dimensions of
     // a 3d tensor, that means permute = [0, 2, 1]
-    if (rank == 3 && (permutation[1] != 2 || permutation[2] != 1))
+    if (rank == 3 && (permutation[1] != 2 && permutation[2] != 1))
       return failure();
     bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(0));
     // TODO: support other device

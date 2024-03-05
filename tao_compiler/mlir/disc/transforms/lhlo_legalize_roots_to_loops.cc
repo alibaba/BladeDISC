@@ -1258,31 +1258,7 @@ LogicalResult lowerWithScheduleRowReduction(ArrayRef<Operation*>, Operation*,
                                             int vector_size = 1) {
   return failure();
 }
-/* Row reduction with 1 round warp shuffle
- *
- * RowPerBlock = threads / warpSize;
- * for (m = 0; m < rows; m += RowPerBlock) {
- *   for (n = 0; n < threads; ++n) {
- *     rowIdx = m + warpIdx;
- *     if (rowIdx < rows) {
- *       // intra-thread reduction
- *       sum = init_value;
- *       for (k = laneIdx; k < cols; k += warpSize) {
- *         sum += inputs[rowIdx][k];
- *       }
- *
- *       // inter-thread reduction via warp shuffle
- *       for (offset = warpSize / 2; offset > 0; offset /= 2) {
- *         sum += __shfl_xor(sum, offset);
- *       }
- *
- *       // write to output
- *       if (laneIdx == 0) {
- *         outputs[rowIdx] = sum
- *       }
- *     }
- *   }
- */
+
 /**
  * for (m = 0; m < block_nums; ++m) {
  *  for (n = 0; n < block_size; ++n) {
@@ -1456,38 +1432,7 @@ LogicalResult lowerWithScheduleParallelReduction(
       b.create<memref::StoreOp>(loc, *(for_op_k.getResults().begin() + idx),
                                 shared_mem_map[root_op], tid);
     }
-    // acc_value = for_op_k.getResult(0);
-    // b.create<memref::StoreOp>(loc, acc_value, shared_mem, tid);
   }
-  /*
-    {
-      Value init_value = b.create<memref::LoadOp>(
-        loc, cast<lmhlo::ReduceOp>(root_op).getInitValues()[0]);
-      SmallVector<Value, 2> init_values{init_value};
-      Value var_j = nullptr;
-      // for (; i < n; i += grid_size)
-      //  acc += inputs[i] + inputs[i + grid_size];
-      scf::ForOp for_op_k = createLoopAndSetInsPt(
-          b, loc, var_j, i, mn, grid_size, init_values);
-      for_op_k.getBody()->clear();
-      b.setInsertionPointToStart(for_op_k.getBody());
-      auto lhs = dominant_op->getOperand(0);
-      SmallVector<Value, 2> load_index({var_j, zero});
-      Value data = createLoadOrUseCachedValue(
-          loc, &b, dominant_op, lhs, load_index, b.saveInsertionPoint());
-
-      SmallVector<Value, 2> load_index2({b.create<arith::AddIOp>(loc, var_j,
-    block_dim), zero}); Value data1 = createLoadOrUseCachedValue( loc, &b,
-    dominant_op, lhs, load_index2, b.saveInsertionPoint());
-
-      Value sum = b.create<arith::AddFOp>(loc, data, data1);
-      acc = b.create<arith::AddFOp>(loc, acc,
-    *for_op_k.getRegionIterArgs().begin()); b.create<scf::YieldOp>(loc,
-    ValueRange{acc}); b.setInsertionPointAfter(for_op_k); acc_value =
-    for_op_k.getResult(0); b.create<memref::StoreOp>(loc, acc_value, shared_mem,
-    tid);
-    }
-  */
   {
     Value var_j = nullptr;
     SmallVector<Value, 4> init_values = {};
@@ -1514,18 +1459,6 @@ LogicalResult lowerWithScheduleParallelReduction(
         Value sum = (accum_factory[idx])(shm_val_1, shm_val_2);
         b.create<memref::StoreOp>(loc, sum, shared_mem_map[root_op], tid);
       }
-      /*
-      SmallVector<Value, 2> multidim_load_index({tid});
-      ValueRange load_index(multidim_load_index);
-
-      SmallVector<Value, 2> multidim_load_index2({b.create<arith::AddIOp>(loc,
-      tid, stride_val)}); ValueRange load_index2(multidim_load_index2);
-
-      Value in_data = b.create<memref::LoadOp>(loc, shared_mem, load_index);
-      Value in_data1 = b.create<memref::LoadOp>(loc, shared_mem, load_index2);
-      Value sum = b.create<arith::AddFOp>(loc, in_data, in_data1);
-      b.create<memref::StoreOp>(loc, sum, shared_mem, tid);
-      */
       b.create<gpu::BarrierOp>(loc);
       b.create<scf::YieldOp>(loc, yield_values);
       b.setInsertionPointAfter(if_tid_valid_op);
@@ -1534,7 +1467,7 @@ LogicalResult lowerWithScheduleParallelReduction(
   b.create<gpu::BarrierOp>(loc);
   {
     // warp reduce
-    // if (tid < 16)
+    // if (tid < 32)
     scf::IfOp if_tid_valid_op = b.create<scf::IfOp>(
         loc, /*resultTypes*/ TypeRange{},
         b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, tid,
@@ -1556,14 +1489,6 @@ LogicalResult lowerWithScheduleParallelReduction(
         b.create<memref::StoreOp>(loc, sum, shared_mem_map[root_op], tid);
         b.create<gpu::BarrierOp>(loc);
       }
-
-      // shm[tid] += shm[tid + stride];
-      // Value idx2 = b.create<arith::AddIOp>(loc, tid, stride_val);
-      // Value shm_val_1 = b.create<memref::LoadOp>(loc, shared_mem, tid);
-      // Value shm_val_2 = b.create<memref::LoadOp>(loc, shared_mem, idx2);
-      // Value sum = b.create<arith::AddFOp>(loc, shm_val_1, shm_val_2);
-      // b.create<memref::StoreOp>(loc, sum, shared_mem_map[root_op], tid);
-      // b.create<gpu::BarrierOp>(loc);
     }
     b.setInsertionPointAfter(if_tid_valid_op);
   }
@@ -1590,16 +1515,7 @@ LogicalResult lowerWithScheduleParallelReduction(
           getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()), val,
           root_op->getOperand(2), ValueRange({zero}));
     }
-    /*
-    Value val = b.create<memref::LoadOp>(loc, shared_mem, tid);
-    Type root_element_type = getLhloOpsElementType(root_op);
-    b.create<memref::AtomicRMWOp>(
-        loc, root_element_type,
-        getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()),
-        val, root_op->getOperand(2), ValueRange({zero}));
-    */
     b.create<scf::YieldOp>(loc, yield_values);
-
     b.setInsertionPointAfter(if_tid_zero_op);
   }
   b.setInsertionPointToEnd(local_workgroup.getBody());
@@ -4551,7 +4467,6 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
     } break;
     case FusionType::kScalarReduction: {
       auto kname = getFusionFullName(fusion_op);
-      llvm::errs() << "kScalarReduction <" << kname << ">\n";
       LogicalResult r = lowerWithScheduleParallelReduction(
           root_ops, dominant_op, fused_block);
       if (failed(r)) {

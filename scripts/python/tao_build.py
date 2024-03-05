@@ -327,11 +327,11 @@ def build_tao_compiler(root, args):
 
         flag = build_tao_compiler_add_flags_platform_alibaba(root, args, flag)
 
-        bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
+        #bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
         # TODO:(fl237079) Support disc_replay for rocm version
-        if not args.rocm and not args.dcu:
-            bazel_build(TARGET_DISC_REPLAY, flag=flag)
+        #if not args.rocm and not args.dcu:
+        #    bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
             "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/decoupling/".format(
                 root

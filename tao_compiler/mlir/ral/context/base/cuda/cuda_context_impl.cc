@@ -145,6 +145,7 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
     reportErrorIfAny(stream_executor::wrap::hipStreamSynchronize(stream), ctx,
                      "StreamSync");
 #else
+    reportErrorIfAny(cuStreamSynchronize(stream), ctx, "StreamSync");
 #endif
     for (const_buffer_t buffer : device_persistent_buffers) {
       gpu_allocator->dealloc(const_cast<buffer_t>(buffer));

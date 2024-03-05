@@ -66,7 +66,6 @@ TAO_RAL_API("ral_transpose", "gpu", ral_transpose<float, 2>);
 TAO_RAL_API("ral_transpose", "gpu", ral_transpose<float, 3>);
 TAO_RAL_API("ral_transpose", "gpu", ral_transpose<Eigen::half, 2>);
 TAO_RAL_API("ral_transpose", "gpu", ral_transpose<Eigen::half, 3>);
-TAO_RAL_API("ral_transpose", "gpu", ral_transpose<bool, 2>);
 #endif
 
 }  //  namespace ral

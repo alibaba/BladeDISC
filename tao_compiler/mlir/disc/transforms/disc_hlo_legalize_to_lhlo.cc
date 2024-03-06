@@ -178,6 +178,30 @@ struct HloToLhloArgsMutationOpConverter
   }
 };
 
+struct HloToLhloOptimizationBarrierOpConverter
+    : public BaseOpConversion<mhlo::OptimizationBarrierOp> {
+ public:
+  using BaseOpConversion<mhlo::OptimizationBarrierOp>::BaseOpConversion;
+  LogicalResult matchAndRewrite(
+      mhlo::OptimizationBarrierOp hloOp, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    Operation* op = hloOp.getOperation();
+    auto operands = adaptor.getOperands();
+
+    SmallVector<Type> resultTypes;
+    for (Value v : hloOp.getResults()) {
+      auto ty = v.getType().cast<RankedTensorType>();
+      resultTypes.push_back(
+          MemRefType::get(ty.getShape(), ty.getElementType()));
+    }
+
+    rewriter.replaceOpWithNewOp<lmhlo_disc::OptimizationBarrierOp>(
+        hloOp, resultTypes, operands, op->getAttrs());
+
+    return success();
+  }
+};
+
 struct HloToLhloCustomCallOpConverter
     : public BaseOpConversion<mhlo_disc::CustomCallOp> {
  public:
@@ -382,6 +406,7 @@ struct DiscHloLegalizeToLhlo
     target.addIllegalOp<disc_shape::TieShapeOp>();
     target.addIllegalOp<mhlo_disc::ArgsMutationOp>();
     target.addIllegalOp<mhlo::CustomCallOp>();
+    target.addIllegalOp<mhlo::OptimizationBarrierOp>();
 
     bufferization::BufferizeTypeConverter converter;
     populateDiscHLOToLHLOConversionPattern(&context, &converter, &patterns);
@@ -411,6 +436,7 @@ void populateDiscHLOToLHLOConversionPattern(
       HloToLhloArgsMutationOpConverter,
       HloToLhloCustomCallOpConverter,
       HloToLhloCustomCallOpV2Converter,
+      HloToLhloOptimizationBarrierOpConverter,
       TieShapeOpConverter
   >(*converter, context);
   // clang-format on

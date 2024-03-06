@@ -295,5 +295,30 @@ def LHLO_ArgsMutationOp : LHLODISC_Op<"args_mutation", []> {
   );
 }
 
+def LHLODISC_OptimizationBarrierOp : LHLODISC_Op<"optimization_barrier", []> {
+  let summary = "OptimizationBarrier operation";
+  let description = [{
+    Ensures that the operations that produce the `operand` are executed before any
+    operations that depend on the `result` and prevents compiler transformations
+    from moving operations across the barrier. Other than that, the operation is
+    an identity, i.e. `result` = `operand`.
+
+    See:
+    https://github.com/openxla/stablehlo/blob/main/docs/spec.md#optimization_barrier
+
+    Example:
+    ```mlir
+    %result0, %result1 = mhlo.optimization_barrier %operand0, %operand1 : tensor<f32>, tensor<f32>
+    ```
+  }];
+
+  let arguments = (ins
+    Arg<Variadic<LHLO_BufferOrIndexBuffer>, "", [MemRead]>:$args
+  );
+
+  let results = (outs Variadic<LHLO_BufferOrIndexBuffer>);
+ 
+}
+
 
 #endif // LMHLO_DISC_OPS

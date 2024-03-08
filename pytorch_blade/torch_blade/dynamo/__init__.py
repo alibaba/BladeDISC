@@ -69,7 +69,6 @@ def _disc_compile(fx_g: fx.GraphModule, inps, use_ts=False, is_training=True) ->
             node.kwargs = new_kwargs
         fx_g.graph.lint()
         fx_g.recompile()
-
         f = torch.jit.script(fx_g)
         torch._C._jit_pass_remove_mutation(f.graph)
         if not is_training:

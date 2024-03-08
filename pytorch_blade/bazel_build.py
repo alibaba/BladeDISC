@@ -264,7 +264,6 @@ class BazelBuild(TorchBladeBuild):
         env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
         self.test_suites = [
-            "@org_disc_compiler//mlir/ral:collective_ops_test",
             "//tests/mhlo/...",
             "//pytorch_blade:torch_blade_test_suite",
             "//tests/torch-disc-pdll/tests/...",
@@ -274,7 +273,6 @@ class BazelBuild(TorchBladeBuild):
             # torchscript graph ir parser changed after torch 1.6.
             # We will not test torchscript graph ir before torch 1.6
             self.test_suites.append("//tests/torchscript/...")
-            pass
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

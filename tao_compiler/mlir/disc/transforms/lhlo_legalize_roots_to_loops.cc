@@ -1284,7 +1284,7 @@ LogicalResult lowerWithScheduleRowReduction(ArrayRef<Operation*>, Operation*,
 LogicalResult lowerWithScheduleParallelReduction(
     ArrayRef<Operation*> root_ops, Operation* dominant_op, Block* parent,
     const ShapeAnalysis* shape_analysis = nullptr, int vector_size = 1) {
-  if (!isRank2ColReduction(dominant_op)) {
+  if (!isRank2ScalarReduction(dominant_op)) {
     return failure();
   }
   // Create helper Values
@@ -1292,10 +1292,9 @@ LogicalResult lowerWithScheduleParallelReduction(
   std::copy_if(
       root_ops.begin(), root_ops.end(),
       std::back_inserter(scalar_reduction_roots),
-      [](Operation* operation) { return isRank2ColReduction(operation); });
+      [](Operation* operation) { return isRank2ScalarReduction(operation); });
   auto root_op = scalar_reduction_roots.back();
   const int thread_per_block = getCTASize(dominant_op);
-  ;
   Location loc = dominant_op->getLoc();
   OpBuilder b(root_ops.back());
 
@@ -1392,7 +1391,7 @@ LogicalResult lowerWithScheduleParallelReduction(
     b.setInsertionPointToStart(for_op_k.getBody());
     int scalar_red_root_op_idx = 0;
     for (auto* root_op : root_ops) {
-      if (isRank2ColReduction(root_op)) {
+      if (isRank2ScalarReduction(root_op)) {
         auto lhs = root_op->getOperands().begin();
         SmallVector<Value, 2> load_index({i, zero});
         Value data = createLoadOrUseCachedValue(
@@ -1513,7 +1512,7 @@ LogicalResult lowerWithScheduleParallelReduction(
       b.create<memref::AtomicRMWOp>(
           loc, root_element_type,
           getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()), val,
-          root_op->getOperand(2), ValueRange({zero}));
+          root_op->getOperand(2), ValueRange({}));
     }
     b.create<scf::YieldOp>(loc, yield_values);
     b.setInsertionPointAfter(if_tid_zero_op);

@@ -485,30 +485,10 @@ bool isRowReduction(Operation* op) {
 
 bool isRank2ScalarReduction(Operation* op) {
   auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
-  if (!reduce_op || reduce_op.getDimensions().getNumElements() != 1)
+  if (!reduce_op || reduce_op.getDimensions().getNumElements() != 2)
     return false;
-  auto isRank0Tensor = [](Value v) -> bool {
-    return v.getType().cast<MemRefType>().getRank() == 0;
-  };
-  // TODO(yancey): it's a temporary solution to match scalar reduction, we need
-  // to erase the reshape op after scalar reduction, the result buffer of scalar
-  // reduction should be a scalar tensor instead of a <1xf32>tensor
-  {
-    Operation* reshapeOp = *op->getOperand(2).getUsers().begin();
-    if (isa<ReshapeOp>(reshapeOp) && isRank0Tensor(reshapeOp->getOperand(1))) {
-      return true;
-    }
-  }
-  {
-    Operation* convertOp = *op->getOperand(2).getUsers().begin();
-    if (isa<ConvertOp>(convertOp)) {
-      auto resultBuffer =
-          convertOp->getOperand(convertOp->getNumOperands() - 1);
-      for (auto user : resultBuffer.getUsers()) {
-        if (isa<ReshapeOp>(user) && isRank0Tensor(user->getOperand(1)))
-          return true;
-      }
-    }
+  if (auto ty = op->getOperand(2).getType().dyn_cast<MemRefType>()) {
+    return ty.getRank() == 0;
   }
   return false;
 }
@@ -521,8 +501,7 @@ bool isRank2ColReduction(Operation* op) {
 
   int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
   auto dimensions = reduce_op.getDimensions().getValues<int64_t>();
-  return ((*dimensions.begin() == 0) && (rank == 2)) &&
-         !isRank2ScalarReduction(op);
+  return (*dimensions.begin() == 0) && (rank == 2);
 }
 
 // Return true if this op is a rank-2 transpose
@@ -813,6 +792,9 @@ FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
       getFusionStrategy(deviceAttr.getValue(), strategyStr);
   bool status = strategy.initFusionPattern(*shape_analysis, *this);
   fusion_type_ = fusionType;
+  if (dominant_op_ == nullptr) {
+    llvm::dbgs() << "init fusion pattern failed, dominate_op is nullptr\n";
+  }
   assert(status);
   (void)(status);
 }
@@ -1492,7 +1474,7 @@ bool BaseGpuFusionStrategy::isFusible(Operation* op) {
   // Only rank-2 tensor -> rank-1 tensor reduction are supported now.
   if (isa<lmhlo::ReduceOp>(op) &&
       (!isRank2RowReduction(op) && !isRank2ColReduction(op) &&
-       !isRank2ScalarReduction(op)))  // || isScalarReduction(op)))
+       !isRank2ScalarReduction(op)))
     return false;
 
   // if (isa<lmhlo::TransposeOp>(op) && isRank2or3Transpose(op)) return false;

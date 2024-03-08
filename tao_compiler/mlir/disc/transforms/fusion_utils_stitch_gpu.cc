@@ -18,9 +18,13 @@ namespace disc_ral {
 ////////////////////// Stitch GPU FusionStrategy Implemenation /////////
 ////////////////////////////////////////////////////////////////////////
 bool isScalarReduction(Operation* op) {
-  auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
-  if (!reduce_op || reduce_op.getDimensions().getNumElements() != 1)
-    return false;
+  if (auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op)) {
+    llvm::dbgs() << "reduce op:" << *reduce_op << "\n";
+    return reduce_op->getOperand(2).getType().cast<MemRefType>().getRank() == 0;
+  }
+  return false;
+  // if (!reduce_op || reduce_op.getDimensions().getNumElements() != 1)
+  //  return false;
   int rank = op->getOperand(2).getType().cast<MemRefType>().getRank();
   // TODO(yancey): rewrite scalar reduction result to scalar tensor to avoid
   // reshape to scalar tensor behand reduce op
@@ -42,7 +46,7 @@ bool findValidReductionOps(FusionPatternBase& target,
     if (!isa<lmhlo::ReduceOp>(op)) continue;
     if (isRank2RowReduction(op)) {
       row_reductions.push_back(op);
-    } else if (isRank2ColReduction(op) || isScalarReduction(op)) {
+    } else if (isRank2ColReduction(op) || isRank2ScalarReduction(op)) {
       // Middle col-reduction is not supported currently. We may support it with
       // AStitch technique in the future.
       int num_input_operand = op->getNumOperands() - getNumResultOperands(op);
@@ -55,7 +59,7 @@ bool findValidReductionOps(FusionPatternBase& target,
           }
         }
       }
-      if (isScalarReduction(op)) {
+      if (isRank2ScalarReduction(op)) {
         scalar_reductions.push_back(op);
       } else {
         col_reductions.push_back(op);
@@ -83,8 +87,9 @@ bool StitchGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   bool has_rank2_col_reduction =
       llvm::any_of(target.getOpList(),
                    [](Operation* op) { return isRank2ColReduction(op); });
-  bool has_rank2_scalar_reduction = llvm::any_of(
-      target.getOpList(), [](Operation* op) { return isScalarReduction(op); });
+  bool has_rank2_scalar_reduction =
+      llvm::any_of(target.getOpList(),
+                   [](Operation* op) { return isRank2ScalarReduction(op); });
 
   int cnt = has_rank2_row_reduction + has_rank2_col_reduction +
             has_rank2_scalar_reduction;

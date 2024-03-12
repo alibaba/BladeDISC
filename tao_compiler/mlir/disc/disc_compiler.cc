@@ -587,7 +587,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       createCanonicalizerPass(cano_rewrite_config, disablePatterns));
   // TODO(yancey): enable this pass after fix WAW issue in scalar reduction
   // codegen template
-  // pm.addNestedPass<FuncOp>(disc_ral::createDiscMemRefCSEPass());
+  if (!gpu_enabled)
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscMemRefCSEPass());
   // convert linearizeOp/delinearizeOp to std dialect.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertShapeToStandardPass());
   pm.addNestedPass<FuncOp>(

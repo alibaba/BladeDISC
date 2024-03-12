@@ -501,7 +501,7 @@ bool isRank2ColReduction(Operation* op) {
 
   int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
   auto dimensions = reduce_op.getDimensions().getValues<int64_t>();
-  return (*dimensions.begin() == 0) && (rank == 2);
+  return ((*dimensions.begin() == 0) && (rank == 2));
 }
 
 // Return true if this op is a rank-2 transpose
@@ -568,10 +568,8 @@ bool initFusionPatternBase(ShapeAnalysis& shapeAnalysis,
       inferredFusionType = FusionType::kRowReduction;
       inferredDominantOp = op;
     } else if (isRank2ColReduction(op)) {
-      if (inferredFusionType != FusionType::kRowReduction) {
-        inferredFusionType = FusionType::kColReduction;
-        inferredDominantOp = op;
-      }
+      inferredFusionType = FusionType::kColReduction;
+      inferredDominantOp = op;
     } else if (isRank2ScalarReduction(op)) {
       inferredFusionType = FusionType::kScalarReduction;
       inferredDominantOp = op;
@@ -1512,18 +1510,18 @@ bool BaseGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   if (cnt >= 2) {
     return false;
   }
-  /*
-    if (has_rank2_col_reduction) {
-      const auto& results = target.getResults();
-      auto ref_shape = getEffectiveShape(target, results[0]);
-      if (llvm::any_of(results, [&](Value result) {
-            auto op = target.findLastWriter(result);
-            return isa<lmhlo::TransposeOp>(op);
-          })) {
-        return false;
-      }
+
+  if (has_rank2_col_reduction) {
+    const auto& results = target.getResults();
+    auto ref_shape = getEffectiveShape(target, results[0]);
+    if (llvm::any_of(results, [&](Value result) {
+          auto op = target.findLastWriter(result);
+          return isa<lmhlo::TransposeOp>(op);
+        })) {
+      return false;
     }
-  */
+  }
+
   return BaseFusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target);
 }
 

@@ -5855,12 +5855,7 @@ LogicalResult lowerWithSchedulekInputCPU(
   b.setInsertionPointAfter(reductionForOp);
 
   // remove the root_op if it has no other users except the memref
-  if (non_fusion) {
-    for (Operation* root_op : root_ops) root_op->erase();
-  } else {
-    assert(parent != nullptr && "Parent must be provided for fusion lowering");
-    cleanUnusedLhloOps(parent);
-  }
+  for (Operation* root_op : root_ops) root_op->erase();
   return success();
 }
 

@@ -17,24 +17,6 @@ namespace disc_ral {
 
 ////////////////////// Stitch GPU FusionStrategy Implemenation /////////
 ////////////////////////////////////////////////////////////////////////
-bool isScalarReduction(Operation* op) {
-  if (auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op)) {
-    llvm::dbgs() << "reduce op:" << *reduce_op << "\n";
-    return reduce_op->getOperand(2).getType().cast<MemRefType>().getRank() == 0;
-  }
-  return false;
-  // if (!reduce_op || reduce_op.getDimensions().getNumElements() != 1)
-  //  return false;
-  int rank = op->getOperand(2).getType().cast<MemRefType>().getRank();
-  // TODO(yancey): rewrite scalar reduction result to scalar tensor to avoid
-  // reshape to scalar tensor behand reduce op
-  Operation* reshapeOp = *op->getOperand(2).getUsers().begin();
-  if (reshapeOp && isa<lmhlo::ReshapeOp>(reshapeOp) &&
-      reshapeOp->getOperand(1).getType().cast<MemRefType>().getRank() == 0) {
-    return true;
-  }
-  return false;
-}
 bool findValidReductionOps(FusionPatternBase& target,
                            SmallVectorImpl<Operation*>& row_reductions,
                            SmallVectorImpl<Operation*>& col_reductions,

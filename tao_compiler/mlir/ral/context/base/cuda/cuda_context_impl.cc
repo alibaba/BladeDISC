@@ -119,10 +119,13 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
 
   ncclComm_t nccl_comm = nullptr;
   GpuStreamHandle stream = nullptr;
+  GpuStreamHandle comm_stream = nullptr;
   // map blob ptr -> loaded module
   std::map<void*, GpuModuleHandle> blobs;
   // map <blob ptr, kernel name> -> callable kernel
   std::map<std::pair<void*, std::string>, GpuFunctionHandle> kernels;
+  // map int64 -> cudaEvent_t
+  std::map<int64_t, cudaEvent_t> async_pair_tokens;
 
   std::shared_ptr<Allocator> gpu_allocator;
   bool cache_workspace_mem_across_execution;
@@ -146,6 +149,7 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
                      "StreamSync");
 #else
     reportErrorIfAny(cuStreamSynchronize(stream), ctx, "StreamSync");
+    reportErrorIfAny(cuStreamSynchronize(comm_stream), ctx, "StreamSync");
 #endif
     for (const_buffer_t buffer : device_persistent_buffers) {
       gpu_allocator->dealloc(const_cast<buffer_t>(buffer));
@@ -173,6 +177,7 @@ std::unique_ptr<BaseContext> MakeBaseCudaContext(
     auto state = new BaseCudaContextState;
     state->stream = gpu_opt.stream;
     state->nccl_comm = gpu_opt.nccl_comm;
+    state->comm_stream = gpu_opt.comm_stream;
     if (gpu_opt.gpu_allocator != nullptr) {
       state->gpu_allocator = gpu_opt.gpu_allocator;
     } else {
@@ -204,6 +209,34 @@ BaseCudaExecutionContext::~BaseCudaExecutionContext() {}
 ncclComm_t BaseCudaExecutionContext::getNcclComm() {
   auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
   return state->nccl_comm;
+}
+
+GpuStreamHandle BaseCudaExecutionContext::getCommStream() {
+  auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  return state->comm_stream;
+}
+
+cudaEvent_t BaseCudaExecutionContext::getAsyncPairToken(int64_t key) {
+  auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  if (state->async_pair_tokens.find(key) != state->async_pair_tokens.end()) {
+    return state->async_pair_tokens[key];
+  }
+  return nullptr;
+}
+
+void BaseCudaExecutionContext::addAsyncPairToken(int64_t key,
+                                                 cudaEvent_t token) {
+  auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  state->async_pair_tokens[key] = token;
+  return;
+}
+
+void BaseCudaExecutionContext::removeAsyncPairToken(int64_t key) {
+  auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  if (state->async_pair_tokens.find(key) != state->async_pair_tokens.end()) {
+    state->async_pair_tokens.erase(key);
+  }
+  return;
 }
 
 void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {

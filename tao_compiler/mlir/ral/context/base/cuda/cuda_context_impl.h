@@ -48,6 +48,7 @@ using GpuStreamHandle = CUstream;
 struct BaseCudaContextOption {
   ncclComm_t nccl_comm = nullptr;
   GpuStreamHandle stream = nullptr;
+  GpuStreamHandle comm_stream = nullptr;
   int device_ordinal = 0;
   bool use_stream_executor = true;
   bool cache_workspace_mem_across_execution = false;
@@ -64,6 +65,12 @@ struct BaseCudaExecutionContext
   ~BaseCudaExecutionContext();
 
   ncclComm_t getNcclComm();
+
+  GpuStreamHandle getCommStream();
+
+  cudaEvent_t getAsyncPairToken(int64_t key);
+  void addAsyncPairToken(int64_t key, cudaEvent_t token);
+  void removeAsyncPairToken(int64_t key);
   // We need to sync on the gpu stream before we fetch the first output.
   bool synced = false;
   // all buffer allocated by the gpu_allocator

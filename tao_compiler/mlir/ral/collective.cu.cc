@@ -63,6 +63,9 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
   auto& dictAttr = attr->as<DictPDLAttr>();
   std::string reductionKind =
       dictAttr.get("reduction_kind").template as<StrPDLAttr>().getValue();
+
+  bool isAsync = dictAttr.get("is_async").template as<BoolPDLAttr>().getValue();
+
   ncclDataType_t ncclDtype = ncclDataTypeMapper<T>::value;
   auto ncclReductionType = getNcclReductionType(reductionKind);
 
@@ -74,7 +77,7 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
   auto gpu_driver = ctx->getDriver<tao::ral::gpu::GPUDriver>(
       tao::ral::gpu::GPUDriver::name());
   auto gpu_stream =
-      static_cast<cudaStream_t>(gpu_driver->asCUStream(ctx, stream_handle));
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getCommStream();
   auto nccl_comm =
       static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getNcclComm();
   auto ptr = static_cast<T*>(gpu_driver->alloc(ctx, element_count * sizeof(T)));
@@ -87,7 +90,67 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
   if (ncclResult != ncclSuccess) {
     ctx->signalError(Context::FAILURE, "fail to call ncclAllReduce\n");
   }
+
+  if (isAsync && gpu_stream) {
+    int64_t token_key =
+        dictAttr.get("async_token_key").template as<IntPDLAttr>().getValue();
+    cudaEvent_t event;
+
+    auto event_status = cudaEventCreate(&event);
+    if (event_status != cudaSuccess) {
+      ctx->signalError(Context::FAILURE, "cudaEventCreate failed\n");
+    }
+
+    auto record_status = cudaEventRecord(event, gpu_stream);
+    if (record_status != cudaSuccess) {
+      cudaEventDestroy(event);
+      ctx->signalError(Context::FAILURE, "cudaEventRecord failed\n");
+    }
+
+    static_cast<gpu::BaseCudaExecutionContext*>(ctx)->addAsyncPairToken(
+        token_key, event);
+  }
+
   return output;
+}
+
+template <typename T, int N>
+MemRefType<T, N> ral_async_collective_done(ExecutionContext* ctx,
+                                           void* stream_handle,
+                                           MemRefType<T, N> input,
+                                           void* customAttrs) {
+  auto attr =
+      getOrParsePDLAttr(ctx, customAttrs, "simple_test_fused_add_mul_kernel");
+  if (!attr) {
+    ctx->signalError(
+        Context::FAILURE,
+        "fail to parse custom_attrs in ral_async_collective_done\n");
+  }
+
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  int64_t token_key =
+      dictAttr.get("async_token_key").template as<IntPDLAttr>().getValue();
+  auto event =
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getAsyncPairToken(
+          token_key);
+  if (event) {
+    auto sync_status = cudaEventSynchronize(event);
+    if (sync_status != cudaSuccess) {
+      ctx->signalError(Context::FAILURE, "cudaEventSynchronize failed\n");
+    }
+    static_cast<gpu::BaseCudaExecutionContext*>(ctx)->removeAsyncPairToken(
+        token_key);
+    cudaEventDestroy(event);
+  }
+
+  // Increase ref count for input to prevent double free
+  auto it =
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->device_ptr_map.find(
+          input.data);
+  ;
+  ++it->second;
+
+  return input;
 }
 
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float, 1>);
@@ -98,5 +161,23 @@ TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 1>);
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 2>);
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 3>);
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 4>);
+
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float, 1>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float, 2>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float, 3>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float, 4>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float16, 1>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float16, 2>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float16, 3>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float16, 4>);
+
 }  //  namespace ral
 }  //  namespace tao

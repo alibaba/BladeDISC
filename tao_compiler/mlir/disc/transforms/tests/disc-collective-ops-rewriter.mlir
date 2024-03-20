@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-collecitve-ops-rewriter %s | FileCheck %s
+// RUN: disc-opt --disc-collective-ops-rewriter %s | FileCheck %s
 
 // CHECK-LABEL: @reduce_scatter
 func.func @reduce_scatter(%arg0: tensor<8x3xf32>) -> (tensor<2x3xf32>) attributes {tf.entry_function = {input_output_alias_outputs = "", input_output_alias_params = "", input_placements = "gpu", output_placements = "gpu"}} {

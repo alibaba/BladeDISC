@@ -1303,13 +1303,6 @@ LogicalResult lowerWithScheduleParallelReduction(
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   Value one = b.create<arith::ConstantIndexOp>(loc, 1);
   Value two = b.create<arith::ConstantIndexOp>(loc, 2);
-  auto elemFloatType = getLhloOpsElementType(root_op).cast<FloatType>();
-  Value zero_f = b.create<arith::ConstantOp>(
-      loc, b.getFloatAttr(getLhloOpsElementType(root_op), 0));
-  Value one_f = b.create<arith::ConstantOp>(
-      loc, b.getFloatAttr(getLhloOpsElementType(root_op), 1));
-
-  // Start to emit.
   Value num_blocks = b.create<arith::ConstantIndexOp>(loc, 1024);
   Value block_size = b.create<arith::ConstantIndexOp>(loc, 256);
 
@@ -1333,8 +1326,7 @@ LogicalResult lowerWithScheduleParallelReduction(
       b.create<gpu::ThreadIdOp>(loc, b.getIndexType(), gpu::Dimension::x);
   Value grid_dim =
       b.create<gpu::GridDimOp>(loc, b.getIndexType(), gpu::Dimension::x);
-  // tid = b.create<arith::RemSIOp>(loc, tid, block_dim);
-  //   i = blockIdx.x * block_size * 2 + tid;
+  // i = blockIdx.x * block_size * 2 + tid;
   Value i = b.create<arith::AddIOp>(
       loc,
       b.create<arith::MulIOp>(
@@ -1393,6 +1385,8 @@ LogicalResult lowerWithScheduleParallelReduction(
         Value data = createLoadOrUseCachedValue(
             loc, &b, root_op, *lhs, load_index, b.saveInsertionPoint());
         Value index2 = b.create<arith::AddIOp>(loc, var_j, block_dim);
+        Value iter_value =
+            *(for_op_k.getRegionIterArgs().begin() + scalar_red_root_op_idx);
         // if (i + grid_size < n)
         scf::IfOp if_tid_valid_op = b.create<scf::IfOp>(
             loc, /*resultTypes*/ init_values_types,
@@ -1404,17 +1398,19 @@ LogicalResult lowerWithScheduleParallelReduction(
         SmallVector<Value, 2> load_index2({index2, zero});
         Value data1 = createLoadOrUseCachedValue(
             loc, &b, root_op, *lhs, load_index2, b.saveInsertionPoint());
+        data1 = (accum_factory[scalar_red_root_op_idx])(iter_value, data1);
         b.setInsertionPointToEnd(&if_tid_valid_op.getThenRegion().front());
         b.create<scf::YieldOp>(loc, data1);
         b.setInsertionPointToStart(&if_tid_valid_op.getElseRegion().front());
-        b.create<scf::YieldOp>(loc, zero_f);
+        b.create<scf::YieldOp>(loc, iter_value);
+        // loc, cast<lmhlo::ReduceOp>(root_op).getInitValues().front());
         b.setInsertionPointAfter(if_tid_valid_op);
-        Value sum = (accum_factory[scalar_red_root_op_idx])(
+        Value acc = (accum_factory[scalar_red_root_op_idx])(
             data, if_tid_valid_op.getResults().front());
 
-        auto acc = (accum_factory[scalar_red_root_op_idx])(
-            *(for_op_k.getRegionIterArgs().begin() + scalar_red_root_op_idx),
-            sum);
+        // acc = (accum_factory[scalar_red_root_op_idx])(
+        //     *(for_op_k.getRegionIterArgs().begin() + scalar_red_root_op_idx),
+        //     acc);
         yield_values_for_if.push_back(acc);
         scalar_red_root_op_idx++;
       } else if (isa<lmhlo::ReduceOp>(root_op)) {

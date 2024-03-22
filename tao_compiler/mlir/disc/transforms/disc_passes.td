@@ -66,6 +66,11 @@ def ConvRewriterPass : Pass<"disc-conv-rewriter", "mlir::func::FuncOp"> {
   ];
 }
 
+def DiscCollectiveOpsRewriterPass : Pass<"disc-collective-ops-rewriter", "mlir::func::FuncOp"> {
+  let summary = "Rewrite mhlo collective ops to DISC custom library call";
+  let constructor = "createDiscCollectiveOpsRewriterPass()";
+}
+
 def MhloDecompositionRewriterPass : Pass<"disc-mhlo-decomp-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite and decompose mhlo ops.";
   let constructor = "createDiscMhloDecompositionRewriterPass()";

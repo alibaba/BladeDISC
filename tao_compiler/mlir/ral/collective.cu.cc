@@ -63,6 +63,9 @@ MemRefType<T, 0> ral_all_reduce_0d(ExecutionContext* ctx, void* stream_handle,
 
   std::string reductionKind =
       dictAttr.get("reduction_kind").template as<StrPDLAttr>().getValue();
+
+  bool isAsync = dictAttr.get("is_async").template as<BoolPDLAttr>().getValue();
+
   ncclDataType_t ncclDtype = ncclDataTypeMapper<T>::value;
   auto ncclReductionType = getNcclReductionType(reductionKind);
 
@@ -71,7 +74,7 @@ MemRefType<T, 0> ral_all_reduce_0d(ExecutionContext* ctx, void* stream_handle,
   auto gpu_driver = ctx->getDriver<tao::ral::gpu::GPUDriver>(
       tao::ral::gpu::GPUDriver::name());
   auto gpu_stream =
-      static_cast<cudaStream_t>(gpu_driver->asCUStream(ctx, stream_handle));
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getCommStream();
   auto nccl_comm =
       static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getNcclComm();
   auto ptr =
@@ -84,6 +87,27 @@ MemRefType<T, 0> ral_all_reduce_0d(ExecutionContext* ctx, void* stream_handle,
   if (ncclResult != ncclSuccess) {
     ctx->signalError(Context::FAILURE, "fail to call ncclAllReduce\n");
   }
+
+  if (isAsync) {
+    int64_t token_key =
+        dictAttr.get("async_token_key").template as<IntPDLAttr>().getValue();
+    cudaEvent_t event;
+
+    auto event_status = cudaEventCreate(&event);
+    if (event_status != cudaSuccess) {
+      ctx->signalError(Context::FAILURE, "cudaEventCreate failed\n");
+    }
+
+    auto record_status = cudaEventRecord(event, gpu_stream);
+    if (record_status != cudaSuccess) {
+      cudaEventDestroy(event);
+      ctx->signalError(Context::FAILURE, "cudaEventRecord failed\n");
+    }
+
+    static_cast<gpu::BaseCudaExecutionContext*>(ctx)
+        ->async_pair_tokens[token_key] = event;
+  }
+
   return output;
 }
 
@@ -101,6 +125,8 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
   ncclDataType_t ncclDtype = ncclDataTypeMapper<T>::value;
   auto ncclReductionType = getNcclReductionType(reductionKind);
 
+  bool isAsync = dictAttr.get("is_async").template as<BoolPDLAttr>().getValue();
+
   auto send_buffer = input.data;
   int input_elements = 1;
   for (int i = 0; i < N; ++i) {
@@ -109,7 +135,7 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
   auto gpu_driver = ctx->getDriver<tao::ral::gpu::GPUDriver>(
       tao::ral::gpu::GPUDriver::name());
   auto gpu_stream =
-      static_cast<cudaStream_t>(gpu_driver->asCUStream(ctx, stream_handle));
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getCommStream();
   auto nccl_comm =
       static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getNcclComm();
   auto ptr =
@@ -122,6 +148,27 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
   if (ncclResult != ncclSuccess) {
     ctx->signalError(Context::FAILURE, "fail to call ncclAllReduce\n");
   }
+
+  if (isAsync) {
+    int64_t token_key =
+        dictAttr.get("async_token_key").template as<IntPDLAttr>().getValue();
+    cudaEvent_t event;
+
+    auto event_status = cudaEventCreate(&event);
+    if (event_status != cudaSuccess) {
+      ctx->signalError(Context::FAILURE, "cudaEventCreate failed\n");
+    }
+
+    auto record_status = cudaEventRecord(event, gpu_stream);
+    if (record_status != cudaSuccess) {
+      cudaEventDestroy(event);
+      ctx->signalError(Context::FAILURE, "cudaEventRecord failed\n");
+    }
+
+    static_cast<gpu::BaseCudaExecutionContext*>(ctx)
+        ->async_pair_tokens[token_key] = event;
+  }
+
   return output;
 }
 
@@ -138,6 +185,8 @@ MemRefType<T, N> ral_all_gather(ExecutionContext* ctx, void* stream_handle,
       dictAttr.get("all_gather_dim").template as<IntPDLAttr>().getValue();
   auto replic_groups =
       dictAttr.get("replica_groups").template as<DenseElementsPDLAttr>();
+
+  bool isAsync = dictAttr.get("is_async").template as<BoolPDLAttr>().getValue();
   int output_sizes[N];
   for (int i = 0; i < N; ++i) output_sizes[i] = input.sizes[i];
   output_sizes[all_gather_dim] =
@@ -146,7 +195,7 @@ MemRefType<T, N> ral_all_gather(ExecutionContext* ctx, void* stream_handle,
   auto gpu_driver = ctx->getDriver<tao::ral::gpu::GPUDriver>(
       tao::ral::gpu::GPUDriver::name());
   auto gpu_stream =
-      static_cast<cudaStream_t>(gpu_driver->asCUStream(ctx, stream_handle));
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getCommStream();
   auto nccl_comm =
       static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getNcclComm();
   int input_elements = 1;
@@ -165,6 +214,27 @@ MemRefType<T, N> ral_all_gather(ExecutionContext* ctx, void* stream_handle,
                                    ncclDtype, nccl_comm, gpu_stream)) {
     ctx->signalError(Context::FAILURE, "fail to call ncclAllGather\n");
   }
+
+  if (isAsync) {
+    int64_t token_key =
+        dictAttr.get("async_token_key").template as<IntPDLAttr>().getValue();
+    cudaEvent_t event;
+
+    auto event_status = cudaEventCreate(&event);
+    if (event_status != cudaSuccess) {
+      ctx->signalError(Context::FAILURE, "cudaEventCreate failed\n");
+    }
+
+    auto record_status = cudaEventRecord(event, gpu_stream);
+    if (record_status != cudaSuccess) {
+      cudaEventDestroy(event);
+      ctx->signalError(Context::FAILURE, "cudaEventRecord failed\n");
+    }
+
+    static_cast<gpu::BaseCudaExecutionContext*>(ctx)
+        ->async_pair_tokens[token_key] = event;
+  }
+
   return output;
 }
 
@@ -185,6 +255,8 @@ MemRefType<T, N> ral_reduce_scatter(ExecutionContext* ctx, void* stream_handle,
       dictAttr.get("reduction_kind").template as<StrPDLAttr>().getValue();
   auto ncclReductionType = getNcclReductionType(reductionKind);
 
+  bool isAsync = dictAttr.get("is_async").template as<BoolPDLAttr>().getValue();
+
   int output_sizes[N];
   for (int i = 0; i < N; ++i) output_sizes[i] = input.sizes[i];
   output_sizes[scatter_dimension] =
@@ -193,7 +265,7 @@ MemRefType<T, N> ral_reduce_scatter(ExecutionContext* ctx, void* stream_handle,
   auto gpu_driver = ctx->getDriver<tao::ral::gpu::GPUDriver>(
       tao::ral::gpu::GPUDriver::name());
   auto gpu_stream =
-      static_cast<cudaStream_t>(gpu_driver->asCUStream(ctx, stream_handle));
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getCommStream();
   auto nccl_comm =
       static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getNcclComm();
   int output_elements = 1;
@@ -212,7 +284,69 @@ MemRefType<T, N> ral_reduce_scatter(ExecutionContext* ctx, void* stream_handle,
                         ncclReductionType, nccl_comm, gpu_stream)) {
     ctx->signalError(Context::FAILURE, "fail to call ncclReduceScatter\n");
   }
+
+  if (isAsync) {
+    int64_t token_key =
+        dictAttr.get("async_token_key").template as<IntPDLAttr>().getValue();
+    cudaEvent_t event;
+
+    auto event_status = cudaEventCreate(&event);
+    if (event_status != cudaSuccess) {
+      ctx->signalError(Context::FAILURE, "cudaEventCreate failed\n");
+    }
+
+    auto record_status = cudaEventRecord(event, gpu_stream);
+    if (record_status != cudaSuccess) {
+      cudaEventDestroy(event);
+      ctx->signalError(Context::FAILURE, "cudaEventRecord failed\n");
+    }
+
+    static_cast<gpu::BaseCudaExecutionContext*>(ctx)
+        ->async_pair_tokens[token_key] = event;
+  }
+
   return output;
+}
+
+template <typename T, int N>
+MemRefType<T, N> ral_async_collective_done(ExecutionContext* ctx,
+                                           void* stream_handle,
+                                           MemRefType<T, N> input,
+                                           void* customAttrs) {
+  auto attr =
+      getOrParsePDLAttr(ctx, customAttrs, "simple_test_fused_add_mul_kernel");
+  if (!attr) {
+    ctx->signalError(
+        Context::FAILURE,
+        "fail to parse custom_attrs in ral_async_collective_done\n");
+  }
+
+  // Increase ref count for input to prevent double free
+  auto it =
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->device_ptr_map.find(
+          input.data);
+  ;
+  ++it->second;
+
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  int64_t token_key =
+      dictAttr.get("async_token_key").template as<IntPDLAttr>().getValue();
+
+  bool isAsync = dictAttr.get("is_async").template as<BoolPDLAttr>().getValue();
+
+  if (isAsync) {
+    auto event = static_cast<gpu::BaseCudaExecutionContext*>(ctx)
+                     ->async_pair_tokens[token_key];
+    auto sync_status = cudaEventSynchronize(event);
+    if (sync_status != cudaSuccess) {
+      ctx->signalError(Context::FAILURE, "cudaEventSynchronize failed\n");
+    }
+    static_cast<gpu::BaseCudaExecutionContext*>(ctx)->async_pair_tokens.erase(
+        token_key);
+    cudaEventDestroy(event);
+  }
+
+  return input;
 }
 
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce_0d<float>);
@@ -243,6 +377,27 @@ TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<float16, 1>);
 TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<float16, 2>);
 TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<float16, 3>);
 TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<float16, 4>);
+
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float, 0>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float, 1>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float, 2>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float, 3>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float, 4>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float16, 0>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float16, 1>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float16, 2>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float16, 3>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<float16, 4>);
 
 }  //  namespace ral
 }  //  namespace tao

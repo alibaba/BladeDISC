@@ -328,7 +328,14 @@ createDiscEraseBufferDeallocationPass();
 
 // Insert ArgsMutationOp for buffer reuse
 std::unique_ptr<OperationPass<ModuleOp>> createDiscInputOutputAliasPass();
+
+// Modifty buffer allocation inst to reduce buffer live range
 std::unique_ptr<OperationPass<ModuleOp>> createDiscReduceBufferLiveRangePass();
+
+// rewrite mhlo collective ops to disc custom library call
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscCollectiveOpsRewriterPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 
@@ -342,6 +349,8 @@ std::unique_ptr<OperationPass<ModuleOp>> createDiscLhloRewriterPass();
 
 std::unique_ptr<OperationPass<ModuleOp>>
 createDiscOptimizationBarrierExpandPass();
+std::unique_ptr<OperationPass<ModuleOp>> createDiscArgsMutationExpandPass();
+std::unique_ptr<OperationPass<ModuleOp>> createDiscOpSchedulePass();
 
 }  // namespace mhlo_disc
 }  // namespace mlir

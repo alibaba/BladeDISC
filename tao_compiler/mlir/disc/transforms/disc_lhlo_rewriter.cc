@@ -195,7 +195,6 @@ struct DiscLhloRewriterPass
 
     patterns.insert<LhloConcatenateOpConverter>(&context);
     patterns.insert<LhloScatterOpConverter>(&context);
-    patterns.insert<LhloArgsMutationOpRewriter>(&context);
     if (failed(
             applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
       signalPassFailure();

@@ -29,3 +29,13 @@ def DiscOptimizationBarrierExpandPass : Pass<"disc-optimization-barrier-expand",
   let summary = "Expand OptimizationBarrierOp";
   let constructor = "createDiscOptimizationBarrierExpandPass()";
 }
+
+def DiscArgsMutationExpandPass : Pass<"disc-argsmutation-expand", "ModuleOp"> {
+  let summary = "Expand ArgsMutationOp";
+  let constructor = "createDiscArgsMutationExpandPass()";
+}
+
+def DiscOpSchedulePass : Pass<"disc-op-schedule", "ModuleOp"> {
+  let summary = "Schedule ops in a function";
+  let constructor = "createDiscOpSchedulePass()";
+}

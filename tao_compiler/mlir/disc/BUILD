@@ -493,6 +493,27 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_collective_ops_rewriter",
+    srcs = ["transforms/disc_collective_ops_rewriter.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = [
+        "tensorflow/compiler/xla/mlir_hlo/include",
+        "."
+    ],
+    deps = [
+        ":disc_util",
+        ":pass_details",
+        ":mhlo_disc",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "mhlo_decomp_rewriters",
     srcs = ["transforms/mhlo_decomp_rewriters.cc"],
     hdrs = ["transforms/passes.h"],
@@ -936,6 +957,63 @@ cc_library(
 cc_library(
     name = "disc_optimization_barrier_expand",
     srcs = ["transforms/disc_optimization_barrier_expand.cc"],
+    hdrs = [
+        "transforms/passes.h",
+        "transforms/rewriters.h",
+    ],
+    deps = [
+        ":lmhlo_disc",
+        ":pass_details",
+        ":placement_utils",
+        ":shape_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:ShapeTransforms",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:SCFDialect",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_op_schedule",
+    srcs = ["transforms/disc_op_schedule.cc"],
+    hdrs = [
+        "transforms/passes.h",
+        "transforms/rewriters.h",
+    ],
+    deps = [
+        ":lmhlo_disc",
+        ":pass_details",
+        ":placement_utils",
+        ":shape_utils",
+        ":fusion_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:ShapeTransforms",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:SCFDialect",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_argsmutation_expand",
+    srcs = ["transforms/disc_argsmutation_expand.cc"],
     hdrs = [
         "transforms/passes.h",
         "transforms/rewriters.h",
@@ -2348,6 +2426,7 @@ cc_library(
         ":quantized_dot_rewriter",
         ":disc_dot_merge",
         ":disc_quantized_dot_merge",
+        ":disc_argsmutation_expand",
         ":disc_algebraic_simplifier",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
@@ -2384,6 +2463,7 @@ cc_library(
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
         ":disc_outline_cpu_kernel",
+        ":disc_op_schedule",
         ":disc_optimization_barrier_expand",
         ":disc_parallel_loop_collapsing",
         ":disc_parallel_loop_tiling",
@@ -2407,6 +2487,7 @@ cc_library(
         ":input_inline_fusion",
         ":lhlo_fusion_inliner",
         ":mhlo_decomp_rewriters",
+        ":disc_collective_ops_rewriter",
         ":mhlo_mark_shape_calc",
         ":mhlo_placer",
         ":ral_inject_execution_context",

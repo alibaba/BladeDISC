@@ -137,22 +137,37 @@ struct DiscInputOutputAliasPass
     auto outputs = returnOp.getOperands();
 
     // Insert mhlo_disc::ArgsMutationOp
+    double total_reused_bytes = 0;
     for (int i = 0; i < params_index.size(); i++) {
       if (outputs[outputs_index[i]] == params[params_index[i]]) {
         continue;
       }
       // DISC now only support one-hop buffer sharing.
       auto defineOp = outputs[outputs_index[i]].getDefiningOp();
-      for (const auto& value : defineOp->getOperands()) {
-        if (params[params_index[i]] == value) {
-          builder.setInsertionPointAfterValue(outputs[outputs_index[i]]);
-          builder.create<mhlo_disc::ArgsMutationOp>(main_func.getLoc(),
-                                                    outputs[outputs_index[i]],
-                                                    params[params_index[i]]);
-          break;
-        }
+
+      // OptimizationBarrierOp doesnt need buffer reuse.
+      if (llvm::isa<mhlo::OptimizationBarrierOp>(defineOp)) {
+        continue;
       }
+
+      // for (const auto& value : defineOp->getOperands()) {
+      //  if (params[params_index[i]] == value) {
+      builder.setInsertionPointAfter(defineOp);
+      builder.create<mhlo_disc::ArgsMutationOp>(main_func.getLoc(),
+                                                outputs[outputs_index[i]],
+                                                params[params_index[i]]);
+      total_reused_bytes += outputs[outputs_index[i]]
+                                .getType()
+                                .dyn_cast<RankedTensorType>()
+                                .getNumElements() *
+                            4;
+      //    break;
+      //  }
+      //}
     }
+
+    llvm::dbgs() << "Total Reused Buffer Size For Module Input and Output Is "
+                 << total_reused_bytes / 1024 / 1024 / 1024 << " GB\n";
   }
 };
 

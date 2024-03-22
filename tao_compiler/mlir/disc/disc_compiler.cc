@@ -242,9 +242,11 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       /*printAfterOnlyOnChange=*/true,
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
 
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
   pm.addPass(disc_ral::createDiscInputOutputAliasPass());
   pm.addPass(mlir::createInlinerPass());
   // TODO(disc): Lower HLO shape constraints instead of eliding them here.
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscCollectiveOpsRewriterPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscMhloDecompositionRewriterPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscRemoveShapeConstraintsPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
@@ -428,6 +430,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addPass(mhlo::createLegalizeToLhloPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addPass(mhlo_disc::createDiscLhloRewriterPass());
+
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
   // Convert shape to std. Community ```convert-shape-to-std``` pass
@@ -528,9 +531,19 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+
+  bool disable_op_schedule = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_DISABLE_OP_SCHEDULE", false, &disable_op_schedule);
+  if(!disable_op_schedule) {
+    pm.addPass(mhlo_disc::createDiscOpSchedulePass());
+  }
+
   pm.addNestedPass<FuncOp>(disc_ral::createDiscReduceBufferLiveRangePass());
   pm.addNestedPass<FuncOp>(bufferization::createBufferDeallocationPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscBufferDeallocationPass());
+
+
+
 
   pm.addPass(disc_ral::createRalInjectExecutionContextPass());
   pm.addNestedPass<FuncOp>(
@@ -622,6 +635,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   }
 
   pm.addNestedPass<FuncOp>(disc_ral::createLhloFusionInlinerPass());
+
+  pm.addPass(mhlo_disc::createDiscArgsMutationExpandPass());
 
   if (gpu_enabled) {
     // Lower dot fusion to CUDA.
@@ -1011,12 +1026,22 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
 
   // Replace const arguments to ConstOp and update argument type if it is a
   // fixed-shaped input
+
+  std::string enable_alg_simp = "";
+
+  tensorflow::ReadStringFromEnvVar("DISC_ENBALE_ALG_SIMP", "",
+                                   &enable_alg_simp);
+  if (enable_alg_simp.size()) {
+    pm.addNestedPass<mlir::func::FuncOp>(
+        mlir::disc_ral::createDiscAlgebraicSimplifierPass());
+  }
+
   pm.addPass(mlir::disc_ral::createReviseArgsForStaticRankPass());
 
   // Note that the region-based control-flow produced here still contains
   // function call ops which get inlined by the subsequent inliner pass.
-  pm.addPass(mlir::TF::CreateTFFunctionalControlFlowToRegions());
-  pm.addPass(mlir::createInlinerPass());
+  // pm.addPass(mlir::TF::CreateTFFunctionalControlFlowToRegions());
+  // pm.addPass(mlir::createInlinerPass());
   pm.addNestedPass<mlir::func::FuncOp>(
       mlir::TF::CreateDropWhileShapeInvariantPass());
   // Create a replicated TensorList initialization ops for all of its uses. This

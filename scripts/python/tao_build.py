@@ -38,6 +38,7 @@ from common_setup import (
     get_source_root_dir,
     logger,
     which,
+    extra_link_flags,
     running_on_ci,
     ci_build_flag,
     remote_cache_token,
@@ -272,6 +273,7 @@ def configure(root, args):
 @time_stage()
 def build_tao_compiler(root, args):
     BAZEL_BUILD_CMD = "bazel build --verbose_failures --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
+    BAZEL_BUILD_CMD += extra_link_flags()
     TARGET_TAO_COMPILER_MAIN = "//decoupling:tao_compiler_main"
     TARGET_DISC_OPT = "//mlir/disc:disc-opt"
     TARGET_DISC_REPLAY = "//mlir/disc/tools/disc-replay:disc-replay-main"
@@ -346,6 +348,8 @@ def test_tao_compiler(root, args):
     BAZEL_TEST_CMD = "bazel test --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
     BAZEL_TEST_CMD += ci_build_flag()
     BAZEL_BUILD_CMD += ci_build_flag()
+    BAZEL_TEST_CMD += extra_link_flags()
+    BAZEL_BUILD_CMD += extra_link_flags()
     if running_on_ci():
         # NOTE: using the lower parallel jobs on CI host to avoid OOM
         BAZEL_TEST_CMD += " --jobs=10 --test_output=errors"
@@ -466,6 +470,7 @@ def tao_bridge_bazel_config(args):
             bazel_config += " --config=disc_mkldnn"
     if args.platform_alibaba:
         bazel_config += " --config=platform_alibaba"
+    bazel_config += extra_link_flags()
     return bazel_config
 
 @time_stage()

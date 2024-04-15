@@ -343,6 +343,8 @@ std::unique_ptr<OperationPass<ModuleOp>> createDiscLhloRewriterPass();
 std::unique_ptr<OperationPass<ModuleOp>>
 createDiscOptimizationBarrierExpandPass();
 
+std::unique_ptr<OperationPass<ModuleOp>> createDiscArgsMutationExpandPass();
+
 }  // namespace mhlo_disc
 }  // namespace mlir
 

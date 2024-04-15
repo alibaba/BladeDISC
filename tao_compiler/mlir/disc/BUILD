@@ -2337,6 +2337,34 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_argsmutation_expand",
+    srcs = ["transforms/disc_argsmutation_expand.cc"],
+    hdrs = [
+        "transforms/passes.h",
+        "transforms/rewriters.h",
+    ],
+    deps = [
+        ":lmhlo_disc",
+        ":pass_details",
+        ":placement_utils",
+        ":shape_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:ShapeTransforms",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:SCFDialect",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -2349,6 +2377,7 @@ cc_library(
         ":disc_dot_merge",
         ":disc_quantized_dot_merge",
         ":disc_algebraic_simplifier",
+        ":disc_argsmutation_expand",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
         ":disc_bf16_expansion",

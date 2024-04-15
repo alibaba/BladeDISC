@@ -143,15 +143,14 @@ struct DiscInputOutputAliasPass
       }
       // DISC now only support one-hop buffer sharing.
       auto defineOp = outputs[outputs_index[i]].getDefiningOp();
-      for (const auto& value : defineOp->getOperands()) {
-        if (params[params_index[i]] == value) {
-          builder.setInsertionPointAfterValue(outputs[outputs_index[i]]);
-          builder.create<mhlo_disc::ArgsMutationOp>(main_func.getLoc(),
-                                                    outputs[outputs_index[i]],
-                                                    params[params_index[i]]);
-          break;
-        }
+      if (llvm::isa<mhlo::OptimizationBarrierOp>(defineOp)) {
+        continue;
       }
+
+      builder.setInsertionPointAfter(defineOp);
+      builder.create<mhlo_disc::ArgsMutationOp>(main_func.getLoc(),
+                                                outputs[outputs_index[i]],
+                                                params[params_index[i]]);
     }
   }
 };

@@ -151,6 +151,11 @@ inline se::blas::ComputationType NativeTypeToBlasType<double>() {
   return se::blas::ComputationType::kF64;
 }
 
+template <>
+inline se::blas::ComputationType NativeTypeToBlasType<Eigen::bfloat16>() {
+  return se::blas::ComputationType::kBF16AsF32;
+}
+
 // The template was introduced, because not all instantiation of
 // DoGemmWithAlgorithm template arguments was support by ThenBlasGemv.
 template <typename InT, typename OutT, typename AlphaBeta>
@@ -293,7 +298,8 @@ se::blas::AlgorithmType tuningGemm(se::Stream* stream,
     se::blas::ProfileResult profile_result;
     DoGemmWithAlgorithm<InT, OutT, AlphaBeta>(
         /*batch_size*/ 1, lhs_matrix, rhs_matrix, output_matrix,
-        /*alpha*/ 1., /*beta*/ 0., stream, algorithm, &profile_result);
+        /*alpha*/ AlphaBeta(1.0), /*beta*/ AlphaBeta(0.0), stream, algorithm,
+        &profile_result);
 
     if (!profile_result.is_valid()) {
       TAO_VLOG(1) << "algo: " << algorithm << " is invalid.";
@@ -408,8 +414,8 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
 
   auto s = DoGemmWithAlgorithm<InT, OutT, E>(
       /*batch_size*/ 1, lhs_matrix, rhs_matrix, output_matrix,
-      /*alpha*/ E(1.),
-      /*beta*/ E(0.), stream, best_algo_wrapper,
+      /*alpha*/ static_cast<E>(1.0),
+      /*beta*/ static_cast<E>(0.0), stream, best_algo_wrapper,
       /*output_profile_result=*/nullptr);
 
   if (!s) {
@@ -1952,10 +1958,14 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
 }  // namespace gpu
 
 // gemm ops
+DEFINE_TAO_TYPE_NAME_HELPER(Eigen::bfloat16, "bf16");
 TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_gemm<float, float>);
 TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_gemm<double, double, double>);
 TAO_RAL_API("ral_gemm", "gpu",
             gpu::se_impl::ral_gemm<Eigen::half, Eigen::half>);
+TAO_RAL_API("ral_gemm", "gpu",
+            gpu::se_impl::ral_gemm<Eigen::bfloat16, Eigen::bfloat16>);
+
 TAO_RAL_API("ral_qgemm", "gpu", gpu::se_impl::ral_qgemm);
 TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_batch_gemm<float, float, 3>);
 TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_batch_gemm<float, float, 4>);
@@ -1965,6 +1975,8 @@ TAO_RAL_API("ral_gemm", "gpu",
             gpu::se_impl::ral_batch_gemm<double, double, 4, double>);
 TAO_RAL_API("ral_gemm", "gpu",
             gpu::se_impl::ral_batch_gemm<Eigen::half, Eigen::half, 3>);
+TAO_RAL_API("ral_gemm", "gpu",
+            gpu::se_impl::ral_batch_gemm<Eigen::bfloat16, Eigen::bfloat16, 3>);
 TAO_RAL_API("ral_gemm", "gpu",
             gpu::se_impl::ral_batch_gemm<Eigen::half, Eigen::half, 4>);
 #ifdef BLAZE_OPT

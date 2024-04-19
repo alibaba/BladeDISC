@@ -61,11 +61,13 @@ void ral_transpose(ExecutionContext* ctx, void* stream_handle,
 
   LaunchTransposeKernel<T>(stream, d_in, input_dims, d_out);
 }
-
+DEFINE_TAO_TYPE_NAME_HELPER(Eigen::bfloat16, "bf16");
 TAO_RAL_API("ral_transpose", "gpu", ral_transpose<float, 2>);
 TAO_RAL_API("ral_transpose", "gpu", ral_transpose<float, 3>);
 TAO_RAL_API("ral_transpose", "gpu", ral_transpose<Eigen::half, 2>);
 TAO_RAL_API("ral_transpose", "gpu", ral_transpose<Eigen::half, 3>);
+TAO_RAL_API("ral_transpose", "gpu", ral_transpose<Eigen::bfloat16, 2>);
+TAO_RAL_API("ral_transpose", "gpu", ral_transpose<Eigen::bfloat16, 3>);
 #endif
 
 }  //  namespace ral

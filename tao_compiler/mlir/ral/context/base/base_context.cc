@@ -235,6 +235,7 @@ void ral_base_cuda_send_output_0d(ExecutionContext* ctx, int64_t output_idx,
   TAO_RAL_API(tao::ral::kRalSendOutput, "cpu", ral_base_cuda_send_output_0d<T>);
 
 RAL_REGISTER_IO_FUNC_0D(float);
+RAL_REGISTER_IO_FUNC_0D(bfloat16);
 RAL_REGISTER_IO_FUNC_0D(double);
 RAL_REGISTER_IO_FUNC_0D(int8_t);
 RAL_REGISTER_IO_FUNC_0D(int32_t);
@@ -306,5 +307,13 @@ RAL_REGISTER_IO_FUNC(Eigen::half, 5);
 RAL_REGISTER_IO_FUNC(Eigen::half, 6);
 RAL_REGISTER_IO_FUNC(Eigen::half, 7);
 RAL_REGISTER_IO_FUNC(Eigen::half, 8);
+RAL_REGISTER_IO_FUNC(bfloat16, 1);
+RAL_REGISTER_IO_FUNC(bfloat16, 2);
+RAL_REGISTER_IO_FUNC(bfloat16, 3);
+RAL_REGISTER_IO_FUNC(bfloat16, 4);
+RAL_REGISTER_IO_FUNC(bfloat16, 5);
+RAL_REGISTER_IO_FUNC(bfloat16, 6);
+RAL_REGISTER_IO_FUNC(bfloat16, 7);
+RAL_REGISTER_IO_FUNC(bfloat16, 8);
 }  // namespace ral
 }  // namespace tao

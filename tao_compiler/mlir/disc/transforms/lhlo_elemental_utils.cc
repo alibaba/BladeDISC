@@ -1231,10 +1231,11 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
 
   Value zero_element;
   if (result_elem_type.isF16() || result_elem_type.isF32() ||
-      result_elem_type.isF64()) {
+      result_elem_type.isF64() || result_elem_type.isBF16()) {
     auto float_result_elem_type = result_elem_type.cast<FloatType>();
     zero_element = b->create<arith::ConstantFloatOp>(
-        loc, APFloat::getZero(float_result_elem_type.getFloatSemantics()),
+        loc,
+        APFloat::getZero(float_result_elem_type.getFloatSemantics(), false),
         float_result_elem_type);
   } else if (result_elem_type.isSignlessInteger() ||
              result_elem_type.isSignedInteger() ||
@@ -1304,7 +1305,17 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
 
     b->setInsertionPointToEnd(&if_inbound_ops[i].getElseRegion().front());
     if (i == num_input_operands - 1) {
-      b->create<scf::YieldOp>(loc, zero_element);  // expect never used
+      input_index[axis] = b->create<arith::SubIOp>(loc, out_idx, low_bound);
+      auto operand_memref = op.getOperand(i);
+      auto ret_value =
+          check_cache ? createLoadOrUseCachedValue(
+                            loc, b, op.getOperation(), operand_memref,
+                            input_index, b->saveInsertionPoint(), lower_config)
+                      : createMaySpecificLoad(*b, loc, op.getOperation(),
+                                              operand_memref, input_index,
+                                              lower_config);
+      b->create<scf::YieldOp>(loc, ret_value);
+      // b->create<scf::YieldOp>(loc, zero_element);  // expect never used
     } else {
       b->create<scf::YieldOp>(loc, if_inbound_ops[i + 1].getResults());
     }

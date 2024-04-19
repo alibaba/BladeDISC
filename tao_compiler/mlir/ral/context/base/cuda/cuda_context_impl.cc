@@ -671,6 +671,7 @@ void ral_base_cuda_d2h(ExecutionContext* ctx, void* stream_handle,
   TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast_0d<T, 8, 0>);
 
 RAL_REGISTER_BITCAST_FUNC_0D(Eigen::half);
+RAL_REGISTER_BITCAST_FUNC_0D(Eigen::bfloat16);
 RAL_REGISTER_BITCAST_FUNC_0D(float);
 RAL_REGISTER_BITCAST_FUNC_0D(double);
 RAL_REGISTER_BITCAST_FUNC_0D(int32_t);
@@ -684,6 +685,14 @@ RAL_REGISTER_BITCAST_FUNC(Eigen::half, 5);
 RAL_REGISTER_BITCAST_FUNC(Eigen::half, 6);
 RAL_REGISTER_BITCAST_FUNC(Eigen::half, 7);
 RAL_REGISTER_BITCAST_FUNC(Eigen::half, 8);
+RAL_REGISTER_BITCAST_FUNC(Eigen::bfloat16, 1);
+RAL_REGISTER_BITCAST_FUNC(Eigen::bfloat16, 2);
+RAL_REGISTER_BITCAST_FUNC(Eigen::bfloat16, 3);
+RAL_REGISTER_BITCAST_FUNC(Eigen::bfloat16, 4);
+RAL_REGISTER_BITCAST_FUNC(Eigen::bfloat16, 5);
+RAL_REGISTER_BITCAST_FUNC(Eigen::bfloat16, 6);
+RAL_REGISTER_BITCAST_FUNC(Eigen::bfloat16, 7);
+RAL_REGISTER_BITCAST_FUNC(Eigen::bfloat16, 8);
 RAL_REGISTER_BITCAST_FUNC(float, 1);
 RAL_REGISTER_BITCAST_FUNC(float, 2);
 RAL_REGISTER_BITCAST_FUNC(float, 3);
@@ -745,5 +754,6 @@ TAO_RAL_API(tao::ral::gpu::kRalGpuSyncOnStream, "gpu",
 TAO_RAL_API(tao::ral::gpu::kRalGpuMemset, "gpu", ral_base_cuda_memset);
 
 }  // namespace gpu
+DEFINE_TAO_TYPE_NAME_HELPER(Eigen::bfloat16, "bf16");
 }  // namespace ral
 }  // namespace tao

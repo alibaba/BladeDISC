@@ -87,7 +87,18 @@ LogicalResult getTypeEncoding(MLIRContext* ctx, Type t, StrT& out) {
       out.append(Twine("i").concat(Twine(int_type.getWidth())).str());
     }
   } else if (auto fp_type = t.dyn_cast<FloatType>()) {
-    out.append(Twine("f").concat(Twine(fp_type.getWidth())).str());
+    if (fp_type.isF16()) {
+      out.append("f16");
+    } else if (fp_type.isBF16()) {
+      out.append("bf16");
+    } else if (fp_type.isF32()) {
+      out.append("f32");
+    } else if (fp_type.isF64()) {
+      out.append("f64");
+    } else {
+      return failure();
+    }
+    // out.append(Twine("f").concat(Twine(fp_type.getWidth())).str());
   } else if (auto ctx_type = t.dyn_cast<RalExecutionContextType>() ||
                              t == llvm_i8ptr_type || t == llvm_ptr_type) {
     out.append("pvoid");

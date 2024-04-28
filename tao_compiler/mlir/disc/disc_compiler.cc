@@ -563,12 +563,12 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // optimization. Then this pass will be enabled by default.
     pm.addNestedPass<FuncOp>(disc_ral::createForLoopUnrollInterleavePass());
   }
+  // Origin: https://reviews.llvm.org/D147585
+  // Should be removed after rebasing to the latest llvm head
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscBF16ExpansionPass());
   mlir::arith::ArithExpandOpsOptions arith_option;
   arith_option.includeBf16 = true;
   pm.addNestedPass<FuncOp>(arith::createArithExpandOpsPass(arith_option));
-  // Origin: https://reviews.llvm.org/D147585
-  // Should be removed after rebasing to the latest llvm head
-  // pm.addNestedPass<FuncOp>(disc_ral::createDiscBF16ExpansionPass());
   pm.addNestedPass<FuncOp>(mlir::memref::createFoldMemRefAliasOpsPass());
 
   // Flatten multi dim memref accesses to its 1D format to enable more

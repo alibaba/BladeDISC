@@ -113,6 +113,7 @@ struct BFloat16TruncFOpConverter : public OpRewritePattern<arith::TruncFOp> {
     }
 
     Value bitcast = b.create<arith::BitcastOp>(i32Ty, operand);
+    /*
 
     Value c23 = createConst(op.getLoc(), i32Ty, 23, rewriter);
     Value c31 = createConst(op.getLoc(), i32Ty, 31, rewriter);
@@ -159,7 +160,21 @@ struct BFloat16TruncFOpConverter : public OpRewritePattern<arith::TruncFOp> {
     rounded = b.create<arith::OrIOp>(rounded, man);
 
     Value c16 = createConst(op.getLoc(), i32Ty, 16, rewriter);
-    Value shr = b.create<arith::ShRUIOp>(rounded, c16);
+    **/
+    //  uint32_t lsb = (input >> 16) & 1;
+    //  uint32_t rounding_bias = 0x7fff + lsb;
+    //  input += rounding_bias;
+    //  output.value = static_cast<uint16_t>(input >> 16);
+    // fast rouding algorithm to trunct fp32 to bf16:
+    // htps://hhhhhojeihsu.github.io/tensorflow_1.8_woboq/tensorflow_1.8_xla/tensorflow/tensorflow/core/lib/bfloat16/bfloat16.h.html#196
+    Value c16 = createConst(op.getLoc(), i32Ty, 16, rewriter);
+    Value c1 = createConst(op.getLoc(), i32Ty, 1, rewriter);
+    Value lsb = b.create<arith::ShRUIOp>(bitcast, c16);
+    lsb = b.create<arith::AndIOp>(lsb, c1);
+    Value rouding_bias = createConst(op.getLoc(), i32Ty, 0x7fff, rewriter);
+    rouding_bias = b.create<arith::AddIOp>(rouding_bias, lsb);
+    bitcast = b.create<arith::AddIOp>(bitcast, rouding_bias);
+    Value shr = b.create<arith::ShRUIOp>(bitcast, c16);
     Value trunc = b.create<arith::TruncIOp>(i16Ty, shr);
     Value result = b.create<arith::BitcastOp>(resultTy, trunc);
 

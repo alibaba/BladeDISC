@@ -493,6 +493,27 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_collective_ops_rewriter",
+    srcs = ["transforms/disc_collective_ops_rewriter.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = [
+        "tensorflow/compiler/xla/mlir_hlo/include",
+        "."
+    ],
+    deps = [
+        ":disc_util",
+        ":pass_details",
+        ":mhlo_disc",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "mhlo_decomp_rewriters",
     srcs = ["transforms/mhlo_decomp_rewriters.cc"],
     hdrs = ["transforms/passes.h"],
@@ -2436,6 +2457,7 @@ cc_library(
         ":input_inline_fusion",
         ":lhlo_fusion_inliner",
         ":mhlo_decomp_rewriters",
+        ":disc_collective_ops_rewriter",
         ":mhlo_mark_shape_calc",
         ":mhlo_placer",
         ":ral_inject_execution_context",

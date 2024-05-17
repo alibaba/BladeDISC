@@ -169,7 +169,8 @@ LogicalResult miscLowerHelper(OpBuilder& b, Location loc, Operation* opaque_op,
     memref = cast<lmhlo::LmhloOp>(&*op).getOperation()->getOperand(1);
   }
 
-  // for inplace scatter op, output_index according to operand(3)
+  // for inplace scatter op, output_index according to update_index, the
+  // operand(2) of lmhlo::ScatterOp
   if (isa<lmhlo::ScatterOp>(op) && isInplaceOperator(op)) {
     memref = cast<lmhlo::ScatterOp>(&*op).getOperation()->getOperand(2);
   }

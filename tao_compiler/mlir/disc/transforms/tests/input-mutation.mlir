@@ -1,4 +1,4 @@
-// RUN: disc-opt %s -disc-hlo-legalize-to-lhlo -hlo-legalize-to-lhlo -canonicalize -disc-lhlo-rewriter -split-input-file | FileCheck %s
+// RUN: disc-opt %s -disc-hlo-legalize-to-lhlo -hlo-legalize-to-lhlo -canonicalize -disc-lhlo-rewriter -disc-argsmutation-expand -split-input-file | FileCheck %s
 
 func.func @input_mutation(%arg0: tensor<8x32xf32>, %arg1: tensor<8x32xf32>) -> tensor<8x32xf32> {
   // CHECK: "lmhlo.add"(%arg0, %arg1, %arg0) : (memref<8x32xf32>, memref<8x32xf32>, memref<8x32xf32>) -> ()

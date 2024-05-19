@@ -624,6 +624,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addNestedPass<FuncOp>(disc_ral::createLhloFusionInlinerPass());
 
+  // Expand ArgsMutationOp to redirect memory writing target
+  pm.addPass(mhlo_disc::createDiscArgsMutationExpandPass());
+
   if (gpu_enabled) {
     // Lower dot fusion to CUDA.
     pm.addPass(disc_ral::createDiscCompIntensFusionToCUDASourcePass(

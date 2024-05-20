@@ -687,7 +687,6 @@ Value LowerInplaceScatterOp(OpBuilder* b, Location loc, lmhlo::ScatterOp op,
   if (calc_op == nullptr) {
     b->create<memref::StoreOp>(loc, update_value, result_memref, result_index);
   } else {
-    op.getOperation()->dump();
     Value original_value;
     if (!check_cache) {
       original_value =
@@ -701,14 +700,10 @@ Value LowerInplaceScatterOp(OpBuilder* b, Location loc, lmhlo::ScatterOp op,
     SmallVector<Value, 4> operand_values;
     operand_values.push_back(original_value);
     operand_values.push_back(update_value);
-    llvm::dbgs() << "before create atomic add\n";
-    op.getOperation()->dump();
     // atomic add to original_value
     b->create<memref::AtomicRMWOp>(loc, result_types[0],
                                    getAtomicRMWKind(op.getUpdateComputation()),
                                    update_value, result_memref, result_index);
-    llvm::dbgs() << "after create atomic add op\n";
-    op.getOperation()->dump();
   }
   b->create<scf::YieldOp>(loc, update_value);
   b->setInsertionPointToEnd(&if_inbound_op.getElseRegion().front());
@@ -717,7 +712,6 @@ Value LowerInplaceScatterOp(OpBuilder* b, Location loc, lmhlo::ScatterOp op,
   b->setInsertionPointAfter(if_inbound_op);
 
   Value result = *(if_inbound_op.getResults().begin());
-  llvm::dbgs() << "finish lowering scatter\n";
   return result;
 }
 
@@ -1715,9 +1709,7 @@ LoadOp createOffsetLoad(OpBuilder& b, Location loc, Value memref,
 
 // TODO: check the definition of "SignlessInteger"
 arith::AtomicRMWKind getAtomicRMWKind(Region& body) {
-  llvm::dbgs() << "start getAtomicRMWKind\n";
   auto calc_op = getReduceOperator(body);
-  llvm::dbgs() << "cal op:: " << *calc_op << "\n";
   auto num_operands = calc_op->getNumOperands();
   auto result_type = calc_op->getOperand(num_operands - 1).getType();
   auto result_elem_type = result_type.cast<MemRefType>().getElementType();

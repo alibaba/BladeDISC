@@ -152,7 +152,7 @@ Operation* getReduceOperator(Region& body) {
   int64_t num_calc_ops = 0;
   body.walk([&](Operation* op) {
     if (isa<memref::AllocOp>(op) || isa<lmhlo::CopyOp>(op) ||
-        isa<lmhlo::TerminatorOp>(op)) {
+        isa<lmhlo::TerminatorOp>(op) || isa<memref::DeallocOp>(op)) {
       return;
     }
     num_calc_ops++;
@@ -683,6 +683,7 @@ Value LowerInplaceScatterOp(OpBuilder* b, Location loc, lmhlo::ScatterOp op,
   if_inbound_op.getThenRegion().front().clear();
   if_inbound_op.getElseRegion().front().clear();
   b->setInsertionPointToEnd(&if_inbound_op.getThenRegion().front());
+
   if (calc_op == nullptr) {
     b->create<memref::StoreOp>(loc, update_value, result_memref, result_index);
   } else {
@@ -699,18 +700,10 @@ Value LowerInplaceScatterOp(OpBuilder* b, Location loc, lmhlo::ScatterOp op,
     SmallVector<Value, 4> operand_values;
     operand_values.push_back(original_value);
     operand_values.push_back(update_value);
-    auto num_operands = calc_op->getNumOperands();
-    auto result_type = calc_op->getOperand(num_operands - 1).getType();
-    auto result_elem_type = result_type.cast<MemRefType>().getElementType();
-    if (isa<lmhlo::AddOp>(calc_op)) {
-      updated_value = LhloOpToStdScalarOp::map<lmhlo::AddOp>(
-          llvm::cast<lmhlo::AddOp>(calc_op), result_elem_type, operand_values,
-          b);
-    } else {
-      assert(false && "unexpected update computation in scatter op");
-    }
-
-    b->create<memref::StoreOp>(loc, updated_value, result_memref, result_index);
+    // atomic add to original_value
+    b->create<memref::AtomicRMWOp>(loc, result_types[0],
+                                   getAtomicRMWKind(op.getUpdateComputation()),
+                                   update_value, result_memref, result_index);
   }
   b->create<scf::YieldOp>(loc, update_value);
   b->setInsertionPointToEnd(&if_inbound_op.getElseRegion().front());
@@ -719,7 +712,6 @@ Value LowerInplaceScatterOp(OpBuilder* b, Location loc, lmhlo::ScatterOp op,
   b->setInsertionPointAfter(if_inbound_op);
 
   Value result = *(if_inbound_op.getResults().begin());
-
   return result;
 }
 

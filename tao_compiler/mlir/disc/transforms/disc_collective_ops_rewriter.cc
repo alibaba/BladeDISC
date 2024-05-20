@@ -56,20 +56,9 @@ std::optional<std::string> ReductionKindToString(ReductionKind kind) {
 }
 
 bool EnableAsyncCollective(Operation* op) {
-  if (llvm::isa<mhlo::AllReduceOp>(op)) {
-    if (const char* env_p = std::getenv("ENABLE_ASYNC_ALL_REDUCE")) {
-      return std::strcmp(env_p, "true") == 0 || std::strcmp(env_p, "True") == 0;
-    }
-  } else if (llvm::isa<mhlo::AllGatherOp>(op)) {
-    if (const char* env_p = std::getenv("ENABLE_ASYNC_ALL_GATHER")) {
-      return std::strcmp(env_p, "true") == 0 || std::strcmp(env_p, "True") == 0;
-    }
-  } else if (llvm::isa<mhlo::ReduceScatterOp>(op)) {
-    if (const char* env_p = std::getenv("ENABLE_ASYNC_REDUCE_SCATTER")) {
-      return std::strcmp(env_p, "true") == 0 || std::strcmp(env_p, "True") == 0;
-    }
+  if (const char* env_p = std::getenv("ENABLE_ASYNC_COLLECTIVE")) {
+    return std::strcmp(env_p, "true") == 0 || std::strcmp(env_p, "True") == 0;
   }
-
   return false;
 }
 

@@ -145,8 +145,11 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
 #if TENSORFLOW_USE_ROCM
     reportErrorIfAny(stream_executor::wrap::hipStreamSynchronize(stream), ctx,
                      "StreamSync");
+    reportErrorIfAny(stream_executor::wrap::hipStreamSynchronize(comm_stream),
+                     ctx, "StreamSync");
 #else
     reportErrorIfAny(cuStreamSynchronize(stream), ctx, "StreamSync");
+    reportErrorIfAny(cuStreamSynchronize(comm_stream), ctx, "StreamSync");
 #endif
     for (const_buffer_t buffer : device_persistent_buffers) {
       gpu_allocator->dealloc(const_cast<buffer_t>(buffer));

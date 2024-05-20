@@ -41,8 +41,10 @@ namespace gpu {
 
 #if TENSORFLOW_USE_ROCM
 using GpuStreamHandle = hipStream_t;
+using GpuEventHandle = hipEvent_t;
 #else
 using GpuStreamHandle = CUstream;
+using GpuEventHandle = cudaEvent_t;
 #endif
 
 struct BaseCudaContextOption {
@@ -74,7 +76,7 @@ struct BaseCudaExecutionContext
   std::unordered_map<const_buffer_t, int> device_ptr_map;
 
   // map int64 -> cudaEvent_t
-  std::map<int64_t, cudaEvent_t> async_pair_tokens;
+  std::map<int64_t, GpuEventHandle> async_pair_tokens;
 
  protected:
   virtual void setOutputDeleter(OutputBufferWrapper& output) override;

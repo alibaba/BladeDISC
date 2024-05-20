@@ -531,10 +531,10 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
-  bool enable_op_schedule = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_OP_SCHEDULE", enable_op_schedule,
-                                 &enable_op_schedule);
-  if (enable_op_schedule) {
+  bool disable_op_schedule = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_OP_SCHEDULE", disable_op_schedule,
+                                 &disable_op_schedule);
+  if (!disable_op_schedule) {
     pm.addPass(mhlo_disc::createDiscOpSchedulePass());
   }
 

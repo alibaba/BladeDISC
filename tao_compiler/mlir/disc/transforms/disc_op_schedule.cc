@@ -957,6 +957,7 @@ struct DiscOpSchedulePass : public DiscOpSchedulePassBase<DiscOpSchedulePass> {
       return;
     }
 
+    bool need_schedule = false;
     // Initialization
     latency_estimator_ = new LatencyEstimator();
     async_tracker_ = new AsyncTracker(scheduler_config_);
@@ -965,7 +966,13 @@ struct DiscOpSchedulePass : public DiscOpSchedulePassBase<DiscOpSchedulePass> {
     for (auto& block : main_func.getBody()) {
       for (auto& op : block) {
         original_op_sequence.push_back(&op);
+        need_schedule =
+            need_schedule || async_tracker_->IsSupportedAsyncDone(&op);
       }
+    }
+
+    if (!need_schedule) {
+      return;
     }
 
     scheduler_core_ = new SchedulerCore(latency_estimator_, async_tracker_,

@@ -171,15 +171,6 @@ std::unique_ptr<BaseContext> MakeBaseCudaContext(
                      new ::tao::ral::gpu::GPUDriver(ctx.get())));
 
   ctx->getOrCreateResource(kRalBaseCudaContextState, [opt, gpu_opt]() {
-
-    // 获取设备句柄
-    CUdevice cuDevice;
-    cuDeviceGet(&cuDevice, gpu_opt.device_ordinal);
-
-    // 创建一个新的上下文，并将其设置为当前线程的活动上下文
-    CUcontext cuContext;
-    cuCtxCreate(&cuContext, 0, cuDevice);
-
     auto state = new BaseCudaContextState;
     state->stream = gpu_opt.stream;
     state->nccl_comm = gpu_opt.nccl_comm;
@@ -224,7 +215,6 @@ GpuStreamHandle BaseCudaExecutionContext::getCommStream() {
 
 void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
   {
-    auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
     if (synced) {
       synced = true;
       // TODO: pytorch may use multiple streams in this case stream
@@ -232,6 +222,7 @@ void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
       // reportErrorIfAny(cuStreamSynchronize(state->stream), this,
       // "StreamSync");
     }
+    auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
     std::lock_guard<std::mutex> lock(state->mu);
     const_buffer_t buffer = output.data();
     if (state->device_persistent_buffers.count(buffer)) {
@@ -446,11 +437,7 @@ void ral_base_cuda_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
   reportErrorIfAny(cuLaunchKernel(function, gridX, gridY, gridZ, blockX, blockY,
                                   blockZ, smem, stream, params, nullptr),
                    ctx, "LaunchKernel");
-#endif'
-
-  if(std::getenv("CUDA_LAUNCH_BLOCKING") != nullptr) {
-    reportErrorIfAny(cuStreamSynchronize(state->stream), ctx, "StreamSync");
-  }
+#endif
 }
 
 stream_t ral_base_cuda_get_stream(ExecutionContext* ctx, int32_t stream_id) {

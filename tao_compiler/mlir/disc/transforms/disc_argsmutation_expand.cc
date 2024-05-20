@@ -67,7 +67,6 @@ struct LhloDISCArgsMutationOpConverter
                                 PatternRewriter& rewriter) const override {
     auto op = lhloOp.getOperation();
     auto operands = op->getOperands();
-    // Value value = backtraceOperand<memref::ReinterpretCastOp>(operands[0]);
     operands[0].replaceAllUsesWith(operands[1]);
     rewriter.eraseOp(op);
     return success();

@@ -376,7 +376,6 @@ class ScheduleGraph {
   }
 
   void AddEdges(Operation* op, LatencyEstimator* latency_estimator) {
-
     auto node = nodes_.at(op);
     std::set<Operation*> dedup_output_ops;
 
@@ -388,7 +387,6 @@ class ScheduleGraph {
         for (auto idx = num_input_operand; idx < inner_op->getNumOperands();
              ++idx) {
           for (auto* user : inner_op->getOperand(idx).getUsers()) {
-
             GraphNode* user_node = nullptr;
             if (auto parent_op = user->getParentOfType<lmhlo::FusionOp>()) {
               user = parent_op;
@@ -445,7 +443,7 @@ class ScheduleGraph {
         user_node = nodes_.at(user);
 
         if (user_node->original_position < node->original_position) continue;
-  
+
         dedup_output_ops.insert(user);
         node->successors.push_back(Edge(
             user_node, latency_estimator->GetLatencyBetween(node, user_node)));
@@ -513,7 +511,6 @@ class ScheduleGraph {
     }
 
     for (auto& op : post_order_instructions) {
-
       auto node = nodes_.at(op);
       node->indegree = node->predecessors.size();
       node->outdegree = node->successors.size();
@@ -702,7 +699,8 @@ class ReadySetLt {
     };
     auto isNoOp = [&](GraphNode* node) {
       if (llvm::isa<lmhlo_disc::ArgsMutationOp, lmhlo::TerminatorOp,
-                    lmhlo::ConstantOp, func::ReturnOp, memref::AllocOp, memref::AllocaOp>(node->op)) {
+                    lmhlo::ConstantOp, func::ReturnOp, memref::AllocOp,
+                    memref::AllocaOp>(node->op)) {
         return true;
       }
       return false;

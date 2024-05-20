@@ -154,7 +154,6 @@ struct AllReduceOpConverter : public OpRewritePattern<mhlo::AllReduceOp> {
             DictionaryAttr::get(reduce_op->getContext(), attrs);
         reduce_op->setAttr("custom_attrs", newCustomAttrs);
 
-
         auto original_consumer = *(op->getResults()[i].user_begin());
 
         // Insert CollectiveDoneOp
@@ -164,7 +163,6 @@ struct AllReduceOpConverter : public OpRewritePattern<mhlo::AllReduceOp> {
         collective_done_op->setAttr(
             "call_target_name",
             rewriter.getStringAttr("ral_async_collective_done"));
-        // collective_done_op->moveBefore(original_consumer);
         newOutputs.push_back(collective_done_op.getResult(0));
       } else {
         newOutputs.push_back(reduce_op.getResult(0));
@@ -235,7 +233,6 @@ struct AllGatherOpConverter : public OpRewritePattern<mhlo::AllGatherOp> {
           DictionaryAttr::get(all_gather_op->getContext(), customAttrs);
       all_gather_op->setAttr("custom_attrs", newCustomAttrs);
 
-    
       auto original_consumer = *(op->getResult(0).user_begin());
 
       // Insert CollectiveDoneOp
@@ -245,7 +242,6 @@ struct AllGatherOpConverter : public OpRewritePattern<mhlo::AllGatherOp> {
       collective_done_op->setAttr(
           "call_target_name",
           rewriter.getStringAttr("ral_async_collective_done"));
-      // collective_done_op->moveBefore(original_consumer);
       rewriter.replaceOp(op, collective_done_op.getResult(0));
     } else {
       rewriter.replaceOp(op, all_gather_op.getResult(0));
@@ -332,7 +328,6 @@ struct ReduceScatterOpConverter
       collective_done_op->setAttr(
           "call_target_name",
           rewriter.getStringAttr("ral_async_collective_done"));
-      // collective_done_op->moveBefore(original_consumer);
       rewriter.replaceOp(op, collective_done_op.getResult(0));
     } else {
       rewriter.replaceOp(op, reduce_scatter_op.getResult(0));

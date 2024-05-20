@@ -69,15 +69,12 @@ struct BaseCudaExecutionContext
   GpuStreamHandle getCommStream();
 
   // We need to sync on the gpu stream before we fetch the first output.
-  bool synced = true;
+  bool synced = false;
   // all buffer allocated by the gpu_allocator
   std::unordered_map<const_buffer_t, int> device_ptr_map;
 
   // map int64 -> cudaEvent_t
   std::map<int64_t, cudaEvent_t> async_pair_tokens;
-
-  // Device context
-  CUcontext cuContext;
 
  protected:
   virtual void setOutputDeleter(OutputBufferWrapper& output) override;

@@ -66,21 +66,6 @@ Value backtraceOperand(Value operand) {
   return operand;
 }
 
-struct LhloArgsMutationOpRewriter
-    : public OpRewritePattern<lmhlo_disc::ArgsMutationOp> {
-  explicit LhloArgsMutationOpRewriter(MLIRContext* context)
-      : OpRewritePattern(context) {}
-  LogicalResult matchAndRewrite(lmhlo_disc::ArgsMutationOp lhloOp,
-                                PatternRewriter& rewriter) const override {
-    auto op = lhloOp.getOperation();
-    auto operands = op->getOperands();
-    Value value = backtraceOperand<memref::ReinterpretCastOp>(operands[0]);
-    value.replaceAllUsesWith(operands[1]);
-    rewriter.eraseOp(op);
-    return success();
-  }
-};
-
 struct LhloConcatenateOpConverter
     : public OpRewritePattern<lmhlo::ConcatenateOp> {
   explicit LhloConcatenateOpConverter(MLIRContext* context)

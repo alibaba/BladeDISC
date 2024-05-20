@@ -85,7 +85,7 @@ MemRefType<T, 0> ral_all_reduce_0d(ExecutionContext* ctx, void* stream_handle,
   auto recv_buffer = output.data;
 
   // Wait Upstream to Finish
-  if(isAsync) {
+  if (isAsync) {
     cudaEvent_t event;
     auto event_status = cudaEventCreate(&event);
     if (event_status != cudaSuccess) {
@@ -169,7 +169,7 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
   auto recv_buffer = output.data;
 
   // Wait Upstream to Finish
-  if(isAsync) {
+  if (isAsync) {
     cudaEvent_t event;
     auto event_status = cudaEventCreate(&event);
     if (event_status != cudaSuccess) {
@@ -193,7 +193,6 @@ MemRefType<T, N> ral_all_reduce(ExecutionContext* ctx, void* stream_handle,
   if (ncclResult != ncclSuccess) {
     ctx->signalError(Context::FAILURE, "fail to call ncclAllReduce\n");
   }
-  
 
   if (isAsync) {
     int64_t token_key =
@@ -258,7 +257,7 @@ MemRefType<T, N> ral_all_gather(ExecutionContext* ctx, void* stream_handle,
   ncclDataType_t ncclDtype = ncclDataTypeMapper<T>::value;
 
   // Wait Upstream to Finish
-  if(isAsync) {
+  if (isAsync) {
     cudaEvent_t event;
     auto event_status = cudaEventCreate(&event);
     if (event_status != cudaSuccess) {
@@ -345,7 +344,7 @@ MemRefType<T, N> ral_reduce_scatter(ExecutionContext* ctx, void* stream_handle,
   ncclDataType_t ncclDtype = ncclDataTypeMapper<T>::value;
 
   // Wait Upstream to Finish
-  if(isAsync) {
+  if (isAsync) {
     cudaEvent_t event;
     auto event_status = cudaEventCreate(&event);
     if (event_status != cudaSuccess) {
@@ -418,7 +417,7 @@ MemRefType<T, N> ral_async_collective_done(ExecutionContext* ctx,
   bool isAsync = dictAttr.get("is_async").template as<BoolPDLAttr>().getValue();
   auto comm_stream =
       static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getCommStream();
-  
+
   auto gpu_driver = ctx->getDriver<tao::ral::gpu::GPUDriver>(
       tao::ral::gpu::GPUDriver::name());
   auto compute_stream =

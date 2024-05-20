@@ -238,3 +238,22 @@ func.func @index_cast_simp(%arg0: index) -> index {
   %1 = arith.index_cast %0 : i64 to index
   return %1 : index
 }
+
+// ----
+
+// CHECK-LABEL: @select_simp
+func.func @select_simp(%arg0: tensor<16xf16>) -> (tensor<20xf16>, tensor<20xf16>) {
+  // CHECK: %0 = mhlo.constant dense<0.000000e+00> : tensor<20xf16>
+  // CHECK: %1 = mhlo.constant dense<0.000000e+00> : tensor<f16>
+  // CHECK: %2 = "mhlo.pad"(%arg0, %1) {edge_padding_high = dense<4> : tensor<1xi64>, edge_padding_low = dense<0> : tensor<1xi64>, interior_padding = dense<0> : tensor<1xi64>} : (tensor<16xf16>, tensor<f16>) -> tensor<20xf16>
+  %1 = mhlo.constant dense<true> : tensor<i1>
+  %3 = mhlo.constant dense<0.000000e+00> : tensor<20xf16>
+  %4 = mhlo.constant dense<0.000000e+00> : tensor<f16>
+  %5 = mhlo.constant dense<true> : tensor<16xi1>
+  %6 = "mhlo.pad"(%5, %1) {edge_padding_high = dense<4> : tensor<1xi64>, edge_padding_low = dense<0> : tensor<1xi64>, interior_padding = dense<0> : tensor<1xi64>} : (tensor<16xi1>, tensor<i1>) -> tensor<20xi1>
+  %7 = "mhlo.pad"(%arg0, %4) {edge_padding_high = dense<4> : tensor<1xi64>, edge_padding_low = dense<0> : tensor<1xi64>, interior_padding = dense<0> : tensor<1xi64>} : (tensor<16xf16>, tensor<f16>) -> tensor<20xf16>
+  %8 = "mhlo.select"(%6, %7, %3): (tensor<20xi1>, tensor<20xf16>, tensor<20xf16>) -> tensor<20xf16>
+  %10 = mhlo.constant dense<false> : tensor<20xi1>
+  %11 = "mhlo.select"(%10, %7, %3): (tensor<20xi1>, tensor<20xf16>, tensor<20xf16>) -> tensor<20xf16>
+  return %8, %3 : tensor<20xf16>, tensor<20xf16>
+}

@@ -90,6 +90,55 @@ struct MulOneTensorOp : public OpRewritePattern<mhlo::MulOp> {
   }
 };
 
+struct SelectSimplifierPattern : public OpRewritePattern<mhlo::SelectOp> {
+  using OpRewritePattern<mhlo::SelectOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::SelectOp op,
+                                PatternRewriter& rewriter) const override {
+    DenseElementsAttr valueAttr;
+    // select(x, y, y) -> y.
+    if (op.getOperand(1) == op.getOperand(2)) {
+      rewriter.replaceOp(op, op.getOperand(1));
+      return success();
+    } else if (allElementsAreSameValue(op.getOperand(0), -1)) {
+      // select(true, x, y) -> x.
+      rewriter.replaceOp(op, op.getOperand(1));
+      return success();
+    } else if (allElementsAreSameValue(op.getOperand(0), 0)) {
+      // select(false, x, y) -> y.
+      rewriter.replaceOp(op, op.getOperand(2));
+      return success();
+    } else if (matchPattern(op.getOperand(0), m_Op<mhlo::PadOp>()) &&
+               matchPattern(op.getOperand(1), m_Op<mhlo::PadOp>()) &&
+               matchPattern(op.getOperand(2), m_Op<mhlo::ConstantOp>())) {
+      // Select(Pad(true, False), Pad(weight, 0), 0) -> Pad(weight, 0)
+      auto condition = dyn_cast<mhlo::PadOp>(op.getOperand(0).getDefiningOp());
+      auto value1 = dyn_cast<mhlo::PadOp>(op.getOperand(1).getDefiningOp());
+      auto value2 =
+          dyn_cast<mhlo::ConstantOp>(op.getOperand(2).getDefiningOp());
+
+      if (!matchPattern(condition->getOperand(1), m_Op<mhlo::ConstantOp>())) {
+        return failure();
+      }
+
+      if (condition.getEdgePaddingLow() != value1.getEdgePaddingLow() ||
+          condition.getEdgePaddingHigh() != value1.getEdgePaddingHigh() ||
+          condition.getInteriorPadding() != value1.getInteriorPadding()) {
+        return failure();
+      }
+
+      if (allElementsAreSameValue(condition->getOperand(0), -1) &&
+          allElementsAreSameValue(condition->getOperand(1), 0) &&
+          allElementsAreSameValue(value1->getOperand(1), 0) &&
+          allElementsAreSameValue(op.getOperand(2), 0)) {
+        rewriter.replaceOp(op, op.getOperand(1));
+        return success();
+      }
+    }
+    return failure();
+  }
+};
+
 // convert:
 //   mhlo.pow(x, const integer n)
 // to:
@@ -554,7 +603,6 @@ void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
     TrunciSimplifierPattern,
     IndexCastSimplifierPattern
   >(patterns.getContext());
-
   if (isMemIntensiveOptExperimentalEnabled()) {
     // Will be enabled by default after a set of robustness testing.
     patterns.insert<FoldBcastOfComputationOnConstantPattern>(
@@ -564,7 +612,8 @@ void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
   // zero tensor related patterns
   patterns.insert<
     AddZeroTensorOp,
-    MulOneTensorOp
+    MulOneTensorOp,
+    SelectSimplifierPattern
   >(patterns.getContext());
   // clang-format on
 }

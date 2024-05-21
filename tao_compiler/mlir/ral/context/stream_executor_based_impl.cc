@@ -1958,13 +1958,18 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
 }  // namespace gpu
 
 // gemm ops
+#ifndef DISC_BUILD_FROM_TF_BRIDGE
 DEFINE_TAO_TYPE_NAME_HELPER(Eigen::bfloat16, "bf16");
-TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_gemm<float, float>);
-TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_gemm<double, double, double>);
 TAO_RAL_API("ral_gemm", "gpu",
             gpu::se_impl::ral_gemm<Eigen::half, Eigen::half>);
 TAO_RAL_API("ral_gemm", "gpu",
             gpu::se_impl::ral_gemm<Eigen::bfloat16, Eigen::bfloat16, float>);
+TAO_RAL_API("ral_gemm", "gpu",
+            gpu::se_impl::ral_batch_gemm<Eigen::bfloat16, Eigen::bfloat16, 3>);
+#endif
+TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_gemm<float, float>);
+TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_gemm<double, double, double>);
+
 TAO_RAL_API("ral_qgemm", "gpu", gpu::se_impl::ral_qgemm);
 TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_batch_gemm<float, float, 3>);
 TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_batch_gemm<float, float, 4>);
@@ -1974,8 +1979,7 @@ TAO_RAL_API("ral_gemm", "gpu",
             gpu::se_impl::ral_batch_gemm<double, double, 4, double>);
 TAO_RAL_API("ral_gemm", "gpu",
             gpu::se_impl::ral_batch_gemm<Eigen::half, Eigen::half, 3>);
-TAO_RAL_API("ral_gemm", "gpu",
-            gpu::se_impl::ral_batch_gemm<Eigen::bfloat16, Eigen::bfloat16, 3>);
+
 TAO_RAL_API("ral_gemm", "gpu",
             gpu::se_impl::ral_batch_gemm<Eigen::half, Eigen::half, 4>);
 #ifdef BLAZE_OPT

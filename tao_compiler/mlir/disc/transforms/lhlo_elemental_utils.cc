@@ -1315,7 +1315,6 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
                                               operand_memref, input_index,
                                               lower_config);
       b->create<scf::YieldOp>(loc, ret_value);
-      // b->create<scf::YieldOp>(loc, zero_element);  // expect never used
     } else {
       b->create<scf::YieldOp>(loc, if_inbound_ops[i + 1].getResults());
     }

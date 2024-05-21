@@ -51,7 +51,6 @@ bool findValidReductionOps(FusionPatternBase& target,
 }
 
 bool StitchGpuFusionStrategy::isFusible(Operation* op) {
-  // if (isa<lmhlo::ReduceOp>(op) && isRank2ScalarReduction(op)) return false;
   if (isa<lmhlo::TransposeOp>(op) && isRank2or3Transpose(op)) return false;
   return true;
 }

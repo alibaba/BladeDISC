@@ -57,10 +57,12 @@ void LaunchTransposeKernel(cudaStream_t stream, T* input,
 template void LaunchTransposeKernel<float>(cudaStream_t stream, float* input,
                                            std::vector<int64_t> input_dims,
                                            float* output);
-
 template void LaunchTransposeKernel<Eigen::half>(
     cudaStream_t stream, Eigen::half* input, std::vector<int64_t> input_dims,
     Eigen::half* output);
+template void LaunchTransposeKernel<Eigen::bfloat16>(
+    cudaStream_t stream, Eigen::bfloat16* input,
+    std::vector<int64_t> input_dims, Eigen::bfloat16* output);
 #endif
 
 }  //  namespace ral

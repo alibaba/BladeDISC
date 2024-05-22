@@ -25,7 +25,9 @@ class TestParallelConversion(unittest.TestCase):
                 super().__init__()
                 N = 100
                 linears = [torch.nn.Linear(10, 10) for _ in range(N)]
-                self.layers = torch.nn.Sequential(*linears)
+                adds = [torch.nn.LeakyReLU() for _ in range(N)]
+                interlieaved = list(sum(zip(linears, adds), ()))
+                self.layers = torch.nn.Sequential(*interlieaved)
 
             def forward(self, x):
                 return self.layers(x)
@@ -39,7 +41,8 @@ class TestParallelConversion(unittest.TestCase):
         traced = torch.jit.trace(model, datum)
         cfg = torch_blade.Config.get_current_context_or_new().clone()
         cfg.optimization_pipeline = torch_blade.mlir.backend_name()
-        cfg.experimental_subgraph_conversion_parallelism = 10
+        cfg.experimental_subgraph_conversion_parallelism = 100
+        cfg.customize_op_black_list = ['aten::relu', 'aten::leaky_relu']
         with cfg, min_group_nodes(1), logger_level_context("DEBUG"):
             opt_model = torch_blade.optimize(traced, model_inputs=(datum,))
         opt_out = opt_model(datum)

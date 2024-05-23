@@ -55,6 +55,13 @@ std::optional<std::string> ReductionKindToString(ReductionKind kind) {
   return std::nullopt;
 }
 
+bool EnableAsyncCollective(Operation* op) {
+  if (const char* env_p = std::getenv("ENABLE_ASYNC_COLLECTIVE")) {
+    return std::strcmp(env_p, "true") == 0 || std::strcmp(env_p, "True") == 0;
+  }
+  return false;
+}
+
 std::optional<std::string> MatchReductionComputation(Region& region) {
   if (!region.hasOneBlock()) {
     return std::nullopt;
@@ -92,6 +99,9 @@ struct AllReduceOpConverter : public OpRewritePattern<mhlo::AllReduceOp> {
     if (!reductionKind) {
       return failure();
     }
+
+    bool enable_async = EnableAsyncCollective(op.getOperation());
+
     for (int i = 0; i < op->getOperands().size(); ++i) {
       // no need call all_reduce op if no consumer
       if (op->getResult(i).getUsers().empty()) {
@@ -106,19 +116,46 @@ struct AllReduceOpConverter : public OpRewritePattern<mhlo::AllReduceOp> {
       op->setAttr("output_layouts", rewriter.getStringAttr("*"));
       op->setAttr("expected_input_layouts", rewriter.getStringAttr("*"));
       op->setAttr("expected_output_layouts", rewriter.getStringAttr("*"));
-      SmallVector<NamedAttribute> newAttrs;
-      newAttrs.push_back(
+
+      SmallVector<NamedAttribute> attrs;
+      attrs.push_back(
           NamedAttribute(rewriter.getStringAttr("reduction_kind"),
                          rewriter.getStringAttr(reductionKind.value())));
+      attrs.push_back(NamedAttribute(rewriter.getStringAttr("is_async"),
+                                     rewriter.getBoolAttr(enable_async)));
 
-      auto newCustomAttrs = DictionaryAttr::get(op->getContext(), newAttrs);
+      auto customAttrs = DictionaryAttr::get(op->getContext(), attrs);
 
-      op->setAttr("custom_attrs", newCustomAttrs);
+      op->setAttr("custom_attrs", customAttrs);
 
-      auto newOutput = rewriter.create<mhlo_disc::CustomCallV2Op>(
+      auto reduce_op = rewriter.create<mhlo_disc::CustomCallV2Op>(
           op->getLoc(), op->getResults()[i].getType(), op->getOperands()[i],
           op->getAttrs());
-      newOutputs.push_back(newOutput.getResult(0));
+
+      if (enable_async) {
+        int64_t async_pair_token =
+            reinterpret_cast<int64_t>(reduce_op.getOperation());
+        attrs.push_back(
+            NamedAttribute(rewriter.getStringAttr("async_token_key"),
+                           rewriter.getIntegerAttr(rewriter.getIntegerType(64),
+                                                   async_pair_token)));
+        auto newCustomAttrs =
+            DictionaryAttr::get(reduce_op->getContext(), attrs);
+        reduce_op->setAttr("custom_attrs", newCustomAttrs);
+
+        auto original_consumer = *(op->getResults()[i].user_begin());
+
+        // Insert CollectiveDoneOp
+        auto collective_done_op = rewriter.create<mhlo_disc::CustomCallV2Op>(
+            reduce_op->getLoc(), reduce_op->getResults()[0].getType(),
+            reduce_op->getResults()[0], reduce_op->getAttrs());
+        collective_done_op->setAttr(
+            "call_target_name",
+            rewriter.getStringAttr("ral_async_collective_done"));
+        newOutputs.push_back(collective_done_op.getResult(0));
+      } else {
+        newOutputs.push_back(reduce_op.getResult(0));
+      }
     }
     rewriter.replaceOp(op, newOutputs);
     return success();
@@ -153,6 +190,8 @@ struct AllGatherOpConverter : public OpRewritePattern<mhlo::AllGatherOp> {
         NamedAttribute(rewriter.getStringAttr("expected_output_layouts"),
                        rewriter.getStringAttr("*")));
 
+    bool enable_async = EnableAsyncCollective(op.getOperation());
+
     SmallVector<NamedAttribute, 4> customAttrs;
     customAttrs.push_back(
         NamedAttribute(rewriter.getStringAttr("all_gather_dim"),
@@ -160,15 +199,43 @@ struct AllGatherOpConverter : public OpRewritePattern<mhlo::AllGatherOp> {
     customAttrs.push_back(
         NamedAttribute(rewriter.getStringAttr("replica_groups"),
                        op->getAttr("replica_groups")));
+    customAttrs.push_back(NamedAttribute(rewriter.getStringAttr("is_async"),
+                                         rewriter.getBoolAttr(enable_async)));
 
     newAttrsVec.push_back(
         NamedAttribute(rewriter.getStringAttr("custom_attrs"),
                        rewriter.getDictionaryAttr(customAttrs)));
 
-    ArrayRef<NamedAttribute> newCustomAttrs(newAttrsVec);
-    auto newOp = rewriter.create<mhlo_disc::CustomCallV2Op>(
-        op->getLoc(), op->getResultTypes(), op->getOperands(), newCustomAttrs);
-    rewriter.replaceOp(op, newOp.getResults());
+    ArrayRef<NamedAttribute> allGatherOpAttrs(newAttrsVec);
+    auto all_gather_op = rewriter.create<mhlo_disc::CustomCallV2Op>(
+        op->getLoc(), op->getResultTypes(), op->getOperands(),
+        allGatherOpAttrs);
+
+    if (enable_async) {
+      int64_t async_pair_token =
+          reinterpret_cast<int64_t>(all_gather_op.getOperation());
+      customAttrs.push_back(
+          NamedAttribute(rewriter.getStringAttr("async_token_key"),
+                         rewriter.getIntegerAttr(rewriter.getIntegerType(64),
+                                                 async_pair_token)));
+      auto newCustomAttrs =
+          DictionaryAttr::get(all_gather_op->getContext(), customAttrs);
+      all_gather_op->setAttr("custom_attrs", newCustomAttrs);
+
+      auto original_consumer = *(op->getResult(0).user_begin());
+
+      // Insert CollectiveDoneOp
+      auto collective_done_op = rewriter.create<mhlo_disc::CustomCallV2Op>(
+          all_gather_op->getLoc(), all_gather_op->getResult(0).getType(),
+          all_gather_op->getResult(0), all_gather_op->getAttrs());
+      collective_done_op->setAttr(
+          "call_target_name",
+          rewriter.getStringAttr("ral_async_collective_done"));
+      rewriter.replaceOp(op, collective_done_op.getResult(0));
+    } else {
+      rewriter.replaceOp(op, all_gather_op.getResult(0));
+    }
+
     return success();
   }
 };
@@ -206,6 +273,8 @@ struct ReduceScatterOpConverter
         NamedAttribute(rewriter.getStringAttr("expected_output_layouts"),
                        rewriter.getStringAttr("*")));
 
+    bool enable_async = EnableAsyncCollective(op.getOperation());
+
     SmallVector<NamedAttribute, 4> customAttrs;
     customAttrs.push_back(
         NamedAttribute(rewriter.getStringAttr("reduction_kind"),
@@ -216,15 +285,42 @@ struct ReduceScatterOpConverter
     customAttrs.push_back(
         NamedAttribute(rewriter.getStringAttr("replica_groups"),
                        op->getAttr("replica_groups")));
+    customAttrs.push_back(NamedAttribute(rewriter.getStringAttr("is_async"),
+                                         rewriter.getBoolAttr(enable_async)));
 
     newAttrsVec.push_back(
         NamedAttribute(rewriter.getStringAttr("custom_attrs"),
                        rewriter.getDictionaryAttr(customAttrs)));
 
-    ArrayRef<NamedAttribute> newCustomAttrs(newAttrsVec);
-    auto newOp = rewriter.create<mhlo_disc::CustomCallV2Op>(
-        op->getLoc(), op->getResultTypes(), op->getOperands(), newCustomAttrs);
-    rewriter.replaceOp(op, newOp.getResults());
+    ArrayRef<NamedAttribute> reduceScatterOpAttrs(newAttrsVec);
+    auto reduce_scatter_op = rewriter.create<mhlo_disc::CustomCallV2Op>(
+        op->getLoc(), op->getResultTypes(), op->getOperands(),
+        reduceScatterOpAttrs);
+
+    if (enable_async) {
+      int64_t async_pair_token =
+          reinterpret_cast<int64_t>(reduce_scatter_op.getOperation());
+      customAttrs.push_back(
+          NamedAttribute(rewriter.getStringAttr("async_token_key"),
+                         rewriter.getIntegerAttr(rewriter.getIntegerType(64),
+                                                 async_pair_token)));
+      auto newCustomAttrs =
+          DictionaryAttr::get(reduce_scatter_op->getContext(), customAttrs);
+      reduce_scatter_op->setAttr("custom_attrs", newCustomAttrs);
+
+      auto original_consumer = *(op->getResult(0).user_begin());
+      // Insert CollectiveDoneOp
+      auto collective_done_op = rewriter.create<mhlo_disc::CustomCallV2Op>(
+          reduce_scatter_op->getLoc(),
+          reduce_scatter_op->getResult(0).getType(),
+          reduce_scatter_op->getResult(0), reduce_scatter_op->getAttrs());
+      collective_done_op->setAttr(
+          "call_target_name",
+          rewriter.getStringAttr("ral_async_collective_done"));
+      rewriter.replaceOp(op, collective_done_op.getResult(0));
+    } else {
+      rewriter.replaceOp(op, reduce_scatter_op.getResult(0));
+    }
     return success();
   }
 };

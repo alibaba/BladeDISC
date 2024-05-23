@@ -983,6 +983,35 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_op_schedule",
+    srcs = ["transforms/disc_op_schedule.cc"],
+    hdrs = [
+        "transforms/passes.h",
+        "transforms/rewriters.h",
+    ],
+    deps = [
+        ":lmhlo_disc",
+        ":pass_details",
+        ":placement_utils",
+        ":shape_utils",
+        ":fusion_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:ShapeTransforms",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:SCFDialect",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_lower_to_library_call",
     srcs = ["transforms/disc_lower_to_library_call.cc"],
     hdrs = [
@@ -2434,6 +2463,7 @@ cc_library(
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
         ":disc_outline_cpu_kernel",
+        ":disc_op_schedule",
         ":disc_optimization_barrier_expand",
         ":disc_parallel_loop_collapsing",
         ":disc_parallel_loop_tiling",

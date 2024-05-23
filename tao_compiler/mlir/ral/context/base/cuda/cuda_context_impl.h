@@ -41,13 +41,16 @@ namespace gpu {
 
 #if TENSORFLOW_USE_ROCM
 using GpuStreamHandle = hipStream_t;
+using GpuEventHandle = hipEvent_t;
 #else
 using GpuStreamHandle = CUstream;
+using GpuEventHandle = cudaEvent_t;
 #endif
 
 struct BaseCudaContextOption {
   ncclComm_t nccl_comm = nullptr;
   GpuStreamHandle stream = nullptr;
+  GpuStreamHandle comm_stream = nullptr;
   int device_ordinal = 0;
   bool use_stream_executor = true;
   bool cache_workspace_mem_across_execution = false;
@@ -64,10 +67,16 @@ struct BaseCudaExecutionContext
   ~BaseCudaExecutionContext();
 
   ncclComm_t getNcclComm();
+
+  GpuStreamHandle getCommStream();
+
   // We need to sync on the gpu stream before we fetch the first output.
   bool synced = false;
   // all buffer allocated by the gpu_allocator
   std::unordered_map<const_buffer_t, int> device_ptr_map;
+
+  // map int64 -> cudaEvent_t
+  std::map<int64_t, GpuEventHandle> async_pair_tokens;
 
  protected:
   virtual void setOutputDeleter(OutputBufferWrapper& output) override;

@@ -34,3 +34,8 @@ def DiscArgsMutationExpandPass : Pass<"disc-argsmutation-expand", "ModuleOp"> {
   let summary = "Expand ArgsMutationOp";
   let constructor = "createDiscArgsMutationExpandPass()";
 }
+
+def DiscOpSchedulePass : Pass<"disc-op-schedule", "ModuleOp"> {
+  let summary = "Schedule ops in a function";
+  let constructor = "createDiscOpSchedulePass()";
+}

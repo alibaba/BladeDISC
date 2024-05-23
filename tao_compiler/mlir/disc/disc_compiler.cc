@@ -242,6 +242,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       /*printAfterOnlyOnChange=*/true,
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
 
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
   pm.addPass(disc_ral::createDiscInputOutputAliasPass());
   pm.addPass(mlir::createInlinerPass());
   // TODO(disc): Lower HLO shape constraints instead of eliding them here.
@@ -529,6 +530,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+
+  bool disable_op_schedule = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_OP_SCHEDULE", disable_op_schedule,
+                                 &disable_op_schedule);
+  if (!disable_op_schedule) {
+    pm.addPass(mhlo_disc::createDiscOpSchedulePass());
+  }
+
   pm.addNestedPass<FuncOp>(disc_ral::createDiscReduceBufferLiveRangePass());
   pm.addNestedPass<FuncOp>(bufferization::createBufferDeallocationPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscBufferDeallocationPass());

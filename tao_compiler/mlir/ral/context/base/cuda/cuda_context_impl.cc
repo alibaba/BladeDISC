@@ -119,6 +119,7 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
 
   ncclComm_t nccl_comm = nullptr;
   GpuStreamHandle stream = nullptr;
+  GpuStreamHandle comm_stream = nullptr;
   // map blob ptr -> loaded module
   std::map<void*, GpuModuleHandle> blobs;
   // map <blob ptr, kernel name> -> callable kernel
@@ -144,8 +145,11 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
 #if TENSORFLOW_USE_ROCM
     reportErrorIfAny(stream_executor::wrap::hipStreamSynchronize(stream), ctx,
                      "StreamSync");
+    reportErrorIfAny(stream_executor::wrap::hipStreamSynchronize(comm_stream),
+                     ctx, "StreamSync");
 #else
     reportErrorIfAny(cuStreamSynchronize(stream), ctx, "StreamSync");
+    reportErrorIfAny(cuStreamSynchronize(comm_stream), ctx, "StreamSync");
 #endif
     for (const_buffer_t buffer : device_persistent_buffers) {
       gpu_allocator->dealloc(const_cast<buffer_t>(buffer));
@@ -173,6 +177,7 @@ std::unique_ptr<BaseContext> MakeBaseCudaContext(
     auto state = new BaseCudaContextState;
     state->stream = gpu_opt.stream;
     state->nccl_comm = gpu_opt.nccl_comm;
+    state->comm_stream = gpu_opt.comm_stream;
     if (gpu_opt.gpu_allocator != nullptr) {
       state->gpu_allocator = gpu_opt.gpu_allocator;
     } else {
@@ -204,6 +209,11 @@ BaseCudaExecutionContext::~BaseCudaExecutionContext() {}
 ncclComm_t BaseCudaExecutionContext::getNcclComm() {
   auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
   return state->nccl_comm;
+}
+
+GpuStreamHandle BaseCudaExecutionContext::getCommStream() {
+  auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  return state->comm_stream;
 }
 
 void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {

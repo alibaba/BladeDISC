@@ -5712,9 +5712,11 @@ struct DiscLhloLegalizeRootsToParallelLoops
     // TODO: We should put even single nodes into a fusion by fusion pass
     // Revisit this and walk lmhlo::FusionOp only after the revision done.
     func.walk([&](lmhlo::LmhloOp op) {
-      // Skip the embedded ops in lmhlo.fusion or lmhlo.reduce/scatter
+      // Skip the embedded ops in lmhlo.fusion or lmhlo.reduce/scatter or
+      // lmhlo_disc.args_mutation
       lmhlo::LmhloOp parent = op->getParentOfType<lmhlo::LmhloOp>();
-      if (parent && !isa<lmhlo::FusionOp>(op)) {
+      if (isa<lmhlo_disc::ArgsMutationOp>(op) ||
+          parent && !isa<lmhlo::FusionOp>(op)) {
         return;
       }
       if (isFusionType<FusionType::kStitch>(op) &&

@@ -418,7 +418,7 @@ void OpsPlacer::placeI32Ops() {
     if (isa<mhlo_disc::CustomCallV2Op>(op)) return;
 
     if (isa<mhlo::TupleOp, mhlo::GetTupleElementOp, mhlo::WhileOp, mhlo::IfOp,
-            mhlo::ReturnOp>(op)) {
+            mhlo::ReturnOp, mhlo_disc::ArgsMutationOp>(op)) {
       return;
     }
     // Skip the Op that is already placed on CPU

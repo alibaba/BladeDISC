@@ -15,8 +15,8 @@ jobs:
       cuda_version: cu116
       runner_tag: gpu-a10
       remote_runtime_docker: bladedisc:latest-runtime-torch1.13.1-cu116
-      develop_base_image: nvidia/cuda:11.6.0-cudnn8-devel-ubuntu20.04
-      runtime_base_image: nvidia/cuda:11.6.0-cudnn8-devel-ubuntu20.04
+      develop_base_image: nvidia/cuda:11.6.1-cudnn8-devel-ubuntu20.04
+      runtime_base_image: nvidia/cuda:11.6.1-cudnn8-devel-ubuntu20.04
       extra_build_args: --build-arg PYTHON_VERSION=PYTHON3.8 --build-arg ENABLE_FIND_FASTEST_APT_SOURCE=OFF
       extra_envs: -e TORCH_BLADE_BUILD_TENSORRT_STATIC=OFF
           -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.13.1+cu116

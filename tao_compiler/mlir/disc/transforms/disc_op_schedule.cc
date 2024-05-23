@@ -354,7 +354,7 @@ class ScheduleGraph {
   explicit ScheduleGraph(std::vector<Operation*>& post_order_instructions,
                          LatencyEstimator* latency_estimator,
                          AsyncTracker* async_tracker) {
-    InitilizeGrpahTopology(post_order_instructions, latency_estimator,
+    InitilizeGraphTopology(post_order_instructions, latency_estimator,
                            async_tracker);
     InitializeGraphAnalysis(latency_estimator, async_tracker);
   }
@@ -497,7 +497,7 @@ class ScheduleGraph {
     }
   }
 
-  void InitilizeGrpahTopology(std::vector<Operation*>& post_order_instructions,
+  void InitilizeGraphTopology(std::vector<Operation*>& post_order_instructions,
                               LatencyEstimator* latency_estimator,
                               AsyncTracker* async_tracker) {
     original_order_ = post_order_instructions;

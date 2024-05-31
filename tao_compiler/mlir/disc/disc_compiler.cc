@@ -244,6 +244,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
   pm.addPass(disc_ral::createDiscInputOutputAliasPass());
+  pm.addPass(disc_ral::createDiscShapePropagatePass());
   pm.addPass(mlir::createInlinerPass());
   // TODO(disc): Lower HLO shape constraints instead of eliding them here.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscCollectiveOpsRewriterPass());

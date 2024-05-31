@@ -673,3 +673,8 @@ def DiscReduceBufferLiveRangePass : Pass<"disc-reduce-buffer-live-range", "mlir:
   let summary = "reduce buffer live range";
   let constructor = "createDiscReduceBufferLiveRangePass()";
 }
+
+def DiscShapePropagatePass : Pass<"disc-shape-propagate", "ModuleOp"> {
+  let summary = "shape analysis pass";
+  let constructor = "createDiscShapePropagatePass()";
+}

@@ -132,6 +132,95 @@ LogicalResult SliceOpConvert::matchAndRewrite(mhlo::SliceOp op,
       op, op.getType(), operand, startIndices, limitIndices, strides);
   return success();
 }
+
+struct ScatterOpConverter : public OpRewritePattern<mhlo::ScatterOp> {
+ public:
+  using OpRewritePattern<mhlo::ScatterOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ScatterOp hloOp,
+                                PatternRewriter& rewriter) const override {
+    Operation* op = hloOp.getOperation();
+    auto operands = hloOp.getOperands();
+
+    if (!operands[0]
+             .getType()
+             .cast<RankedTensorType>()
+             .getElementType()
+             .isBF16()) {
+      return failure();
+    }
+
+    auto& body = hloOp.getUpdateComputation();
+    Operation* calcOp = nullptr;
+    body.walk([&](Operation* op) {
+      if (llvm::isa<mhlo::AddOp, mhlo::MulOp, mhlo::MaxOp, mhlo::MinOp>(op))
+        calcOp = op;
+    });
+    if (!calcOp) {
+      return failure();
+    }
+
+    // Insert Type Conversion
+    auto selfBf16Type = operands[0].getType().cast<RankedTensorType>();
+    auto selfFp32Type = RankedTensorType::get(selfBf16Type.getShape().vec(),
+                                              rewriter.getF32Type());
+
+    auto srcBf16Type = operands[2].getType().cast<RankedTensorType>();
+    auto srcFp32Type = RankedTensorType::get(srcBf16Type.getShape().vec(),
+                                             rewriter.getF32Type());
+
+    auto self_convert_type = rewriter.create<mhlo::ConvertOp>(
+        hloOp.getLoc(), selfFp32Type, hloOp.getOperand(0));
+    auto src_convert_type = rewriter.create<mhlo::ConvertOp>(
+        hloOp.getLoc(), srcFp32Type, hloOp.getOperand(2));
+
+    SmallVector<Value> newOperands;
+    newOperands.push_back(self_convert_type->getResult(0));
+    newOperands.push_back(operands[1]);
+    newOperands.push_back(src_convert_type->getResult(0));
+
+    auto scatterOp = rewriter.create<mhlo::ScatterOp>(
+        hloOp.getLoc(), selfFp32Type, newOperands, hloOp->getAttrs());
+
+    auto res_convert_back = rewriter.create<mhlo::ConvertOp>(
+        hloOp.getLoc(), selfBf16Type, scatterOp->getResult(0));
+
+    // Construct updateComputation region, here we treat it as update operation
+    Block& block = scatterOp.getUpdateComputation().emplaceBlock();
+    auto blockArgType =
+        RankedTensorType::get({}, selfFp32Type.getElementType());
+    block.addArgument(blockArgType, hloOp.getLoc());
+    block.addArgument(blockArgType, hloOp.getLoc());
+    {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&block);
+      auto createOp = [&](auto opType) {
+        return rewriter
+            .create<decltype(opType)>(op->getLoc(), block.getArgument(0),
+                                      block.getArgument(1))
+            .getResult();
+      };
+
+      Value retValue;
+      if (llvm::isa<mhlo::AddOp>(calcOp)) {
+        retValue = createOp(mhlo::AddOp());
+      } else if (llvm::isa<mhlo::MulOp>(calcOp)) {
+        retValue = createOp(mhlo::MulOp());
+      } else if (llvm::isa<mhlo::MaxOp>(calcOp)) {
+        retValue = createOp(mhlo::MaxOp());
+      } else if (llvm::isa<mhlo::MinOp>(calcOp)) {
+        retValue = createOp(mhlo::MinOp());
+      } else {
+        // Should not happen
+        retValue = block.getArgument(1);
+      }
+      rewriter.create<mhlo::ReturnOp>(op->getLoc(), retValue);
+    }
+
+    rewriter.replaceOp(hloOp, res_convert_back->getResult(0));
+
+    return success();
+  }
+};
 }  // namespace
 
 struct MhloDecompositionRewriterPass
@@ -148,6 +237,7 @@ struct MhloDecompositionRewriterPass
     patterns.insert<BatchNormInferenceOpConvert>(ctx);
     patterns.insert<PadOpConvert>(ctx);
     patterns.insert<SliceOpConvert>(ctx);
+    patterns.insert<ScatterOpConverter>(ctx);
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");
       signalPassFailure();

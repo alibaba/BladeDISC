@@ -35,3 +35,21 @@ func.func @batch_norm_inference(%arg0: tensor<?x128x?x?xf32>, %arg1: tensor<128x
   %0 = "mhlo.batch_norm_inference"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64} : (tensor<?x128x?x?xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>) -> tensor<?x128x?x?xf32>
   return %0: tensor<?x128x?x?xf32>
 }
+
+// -----
+
+// CHECK-LABEL: @bf16_scatter
+func.func @bf16_scatter(%arg0: tensor<2x3xbf16>, %arg1: tensor<2x2xi64>, %arg2: tensor<2xbf16>) -> tensor<2x3xbf16>{
+  // CHECK: %0 = mhlo.convert %arg0 : (tensor<2x3xbf16>) -> tensor<2x3xf32>
+  // CHECK: %1 = mhlo.convert %arg2 : (tensor<2xbf16>) -> tensor<2xf32>
+  %1 = "mhlo.scatter"(%arg0, %arg1, %arg2) ({
+    ^bb0(%arg6: tensor<bf16>, %arg7: tensor<bf16>):
+      %15 = "mhlo.convert"(%arg6) : (tensor<bf16>) -> tensor<f32>
+      %16 = "mhlo.convert"(%arg7) : (tensor<bf16>) -> tensor<f32>
+      %17 = "mhlo.add"(%15, %16) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+      %18 = "mhlo.convert"(%17) : (tensor<f32>) -> tensor<bf16>
+      mhlo.return %18 : tensor<bf16>
+    }) {indices_are_sorted = false, scatter_dimension_numbers = #mhlo.scatter<inserted_window_dims = [0, 1], scatter_dims_to_operand_dims = [0, 1], index_vector_dim = 1>, unique_indices = false} : (tensor<2x3xbf16>, tensor<2x2xi64>, tensor<2xbf16>) -> tensor<2x3xbf16>
+  // CHECK: %3 = mhlo.convert %2 : (tensor<2x3xf32>) -> tensor<2x3xbf16>
+  return %1 : tensor<2x3xbf16>
+}

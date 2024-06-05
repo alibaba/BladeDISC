@@ -28,6 +28,8 @@
 namespace tao {
 namespace ral {
 
+DEFINE_TAO_TYPE_NAME_HELPER(Eigen::bfloat16, "bf16");
+
 using tao::ral::gpu::GPUDriver;
 const char* kRalGpuD2DCopy = "d2d";
 const char* kRalGpuH2DCopy = "h2d";
@@ -274,6 +276,16 @@ RAL_REGISTER_CONST_CUDA_FUNC(Eigen::half, 5);
 RAL_REGISTER_CONST_CUDA_FUNC(Eigen::half, 6);
 RAL_REGISTER_CONST_CUDA_FUNC(Eigen::half, 7);
 RAL_REGISTER_CONST_CUDA_FUNC(Eigen::half, 8);
+
+RAL_REGISTER_CONST_CUDA_FUNC_0D(Eigen::bfloat16);
+RAL_REGISTER_CONST_CUDA_FUNC(Eigen::bfloat16, 1);
+RAL_REGISTER_CONST_CUDA_FUNC(Eigen::bfloat16, 2);
+RAL_REGISTER_CONST_CUDA_FUNC(Eigen::bfloat16, 3);
+RAL_REGISTER_CONST_CUDA_FUNC(Eigen::bfloat16, 4);
+RAL_REGISTER_CONST_CUDA_FUNC(Eigen::bfloat16, 5);
+RAL_REGISTER_CONST_CUDA_FUNC(Eigen::bfloat16, 6);
+RAL_REGISTER_CONST_CUDA_FUNC(Eigen::bfloat16, 7);
+RAL_REGISTER_CONST_CUDA_FUNC(Eigen::bfloat16, 8);
 #endif  // TAO_RAL_USE_STREAM_EXECUTOR
 
 static inline void ral_base_cuda_d2d_copy_memref_impl(ExecutionContext* ctx,
@@ -509,6 +521,16 @@ RAL_REGISTER_GPU_COPY_MEMREF_FUNC(int8_t, 5);
 RAL_REGISTER_GPU_COPY_MEMREF_FUNC(int8_t, 6);
 RAL_REGISTER_GPU_COPY_MEMREF_FUNC(int8_t, 7);
 RAL_REGISTER_GPU_COPY_MEMREF_FUNC(int8_t, 8);
+
+RAL_REGISTER_GPU_COPY_MEMREF_FUNC_0D(Eigen::bfloat16);
+RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::bfloat16, 1);
+RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::bfloat16, 2);
+RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::bfloat16, 3);
+RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::bfloat16, 4);
+RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::bfloat16, 5);
+RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::bfloat16, 6);
+RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::bfloat16, 7);
+RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::bfloat16, 8);
 #endif  // TAO_RAL_USE_STREAM_EXECUTOR
 
 }  // namespace ral

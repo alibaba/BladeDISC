@@ -41,6 +41,11 @@ struct ncclDataTypeMapper<int> {
   static const ncclDataType_t value = ncclInt;
 };
 
+template <>
+struct ncclDataTypeMapper<bfloat16> {
+  static const ncclDataType_t value = ncclHalf;
+};
+
 const std::unordered_map<std::string, ncclRedOp_t> kReductionTypeMap = {
     {"sum", ncclSum}, {"prod", ncclProd}, {"min", ncclMin}, {"max", ncclMax}};
 
@@ -447,6 +452,11 @@ TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 1>);
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 2>);
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 3>);
 TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<float16, 4>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce_0d<bfloat16>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<bfloat16, 1>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<bfloat16, 2>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<bfloat16, 3>);
+TAO_RAL_API("ral_all_reduce", "gpu", ral_all_reduce<bfloat16, 4>);
 
 TAO_RAL_API("ral_all_gather", "gpu", ral_all_gather<float, 1>);
 TAO_RAL_API("ral_all_gather", "gpu", ral_all_gather<float, 2>);
@@ -456,6 +466,10 @@ TAO_RAL_API("ral_all_gather", "gpu", ral_all_gather<float16, 1>);
 TAO_RAL_API("ral_all_gather", "gpu", ral_all_gather<float16, 2>);
 TAO_RAL_API("ral_all_gather", "gpu", ral_all_gather<float16, 3>);
 TAO_RAL_API("ral_all_gather", "gpu", ral_all_gather<float16, 4>);
+TAO_RAL_API("ral_all_gather", "gpu", ral_all_gather<bfloat16, 1>);
+TAO_RAL_API("ral_all_gather", "gpu", ral_all_gather<bfloat16, 2>);
+TAO_RAL_API("ral_all_gather", "gpu", ral_all_gather<bfloat16, 3>);
+TAO_RAL_API("ral_all_gather", "gpu", ral_all_gather<bfloat16, 4>);
 
 TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<float, 1>);
 TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<float, 2>);
@@ -465,6 +479,10 @@ TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<float16, 1>);
 TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<float16, 2>);
 TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<float16, 3>);
 TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<float16, 4>);
+TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<bfloat16, 1>);
+TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<bfloat16, 2>);
+TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<bfloat16, 3>);
+TAO_RAL_API("ral_reduce_scatter", "gpu", ral_reduce_scatter<bfloat16, 4>);
 
 TAO_RAL_API("ral_async_collective_done", "gpu",
             ral_async_collective_done<float, 0>);
@@ -486,6 +504,15 @@ TAO_RAL_API("ral_async_collective_done", "gpu",
             ral_async_collective_done<float16, 3>);
 TAO_RAL_API("ral_async_collective_done", "gpu",
             ral_async_collective_done<float16, 4>);
-
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<bfloat16, 0>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<bfloat16, 1>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<bfloat16, 2>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<bfloat16, 3>);
+TAO_RAL_API("ral_async_collective_done", "gpu",
+            ral_async_collective_done<bfloat16, 4>);
 }  //  namespace ral
 }  //  namespace tao

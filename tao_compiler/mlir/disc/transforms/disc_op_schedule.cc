@@ -971,16 +971,14 @@ struct DiscOpSchedulePass : public DiscOpSchedulePassBase<DiscOpSchedulePass> {
       }
     }
 
+    if (!need_schedule) {
+      return;
+    }
+
     scheduler_core_ = new SchedulerCore(latency_estimator_, async_tracker_,
                                         scheduler_config_);
     auto scheduled_op_sequence =
         scheduler_core_->ScheduleComputation(original_op_sequence);
-
-    // Just fallback
-    if (!need_schedule &&
-        scheduled_op_sequence.size() != original_op_sequence.size()) {
-      return;
-    }
 
     for (auto& block : main_func.getBody()) {
       for (int op_idx = 0; op_idx < scheduled_op_sequence.size(); op_idx++) {

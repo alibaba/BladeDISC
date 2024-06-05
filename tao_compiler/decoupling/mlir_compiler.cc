@@ -383,7 +383,7 @@ Status CompilerMLIR::ConvertToMlir(const TaoCompilerInput& input,
     VLOG(2) << "\nMLIR Module (after standard pipeline) END }\n";
   }
 
-  // TF_RETURN_IF_ERROR(::tensorflow::ConvertTF2MlirHlo(*module));
+  TF_RETURN_IF_ERROR(::tensorflow::ConvertTF2MlirHlo(*module));
   if (VLOG_IS_ON(2)) {
     VLOG(0) << "MLIR Module (after tf2xla) BEGIN {\n";
     module->dump();

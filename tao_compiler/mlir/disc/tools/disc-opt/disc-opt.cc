@@ -51,6 +51,7 @@ int main(int argc, char** argv) {
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
   mlir::disc_ral::registerTransformDialectCommonExtension(registry);
+  registry.insert<mlir::shape::ShapeDialect>();
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
   registry.insert<mlir::chlo::ChloDialect>();

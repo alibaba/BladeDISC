@@ -49,14 +49,32 @@ namespace disc_ral {
 using ::mlir::func::FuncOp;
 
 namespace {
+struct ShapeContext {
+  ShapeContext() = default;
+  ShapeContext(Value value, SmallVector<int64_t> shape)
+      : value(value), shape(shape){};
+
+  Value value;
+  SmallVector<int64_t> shape;
+};
 struct DiscShapePropagatePass
     : public DiscShapePropagatePassBase<DiscShapePropagatePass> {
   DiscShapePropagatePass()
       : DiscShapePropagatePassBase<
             DiscShapePropagatePass>::DiscShapePropagatePassBase() {}
-
+  void getDependentDialects(DialectRegistry& registry) const override {
+    DiscShapePropagatePassBase<DiscShapePropagatePass>::getDependentDialects(
+        registry);
+    registry.insert<shape::ShapeDialect>();
+  }
   void runOnOperation() override;
 };
+bool isBinaryOp(Operation* op) {
+  return isa<mhlo::AddOp>(*op) || isa<mhlo::CompareOp>(*op) ||
+         isa<mhlo::SelectOp>(*op) || isa<mhlo::ConvertOp>(*op);
+}
+
+bool isUnaryOp(Operation* op) { return isa<mhlo::ConvertOp>(op); }
 
 std::optional<Value> getConstTensor(OpBuilder& b, Operation* op,
                                     ArrayRef<int> vec,
@@ -70,23 +88,17 @@ std::optional<Value> getConstTensor(OpBuilder& b, Operation* op,
     op->emitOpError("getConstTensor(): number of elements mismatch.");
     return std::nullopt;
   }
-
   auto const_type = RankedTensorType::get(shape, b.getI64Type());
   auto const_attr = DenseElementsAttr::get(const_type, vec);
-
   auto const_op =
       b.create<mhlo::ConstantOp>(op->getLoc(), const_type, const_attr);
   return const_op.getResult();
 }
 
-LogicalResult HandleBinaryOp(OpBuilder& b, Operation* op) {
-  // set result type same as input type
-  auto shape = op->getOperand(0).getType().cast<RankedTensorType>().getShape();
+std::optional<ShapeContext> HandleBinaryOp(OpBuilder& b, Operation* op,
+                                           ShapeContext& inputCtx) {
   auto elemTy =
       op->getOperand(0).getType().cast<RankedTensorType>().getElementType();
-  auto resultElemTy =
-      op->getResult(0).getType().cast<RankedTensorType>().getElementType();
-  op->getResult(0).setType(RankedTensorType::get(shape, resultElemTy));
   if (auto const_op =
           dyn_cast<mhlo::ConstantOp>(op->getOperand(1).getDefiningOp())) {
     b.setInsertionPoint(op);
@@ -96,32 +108,20 @@ LogicalResult HandleBinaryOp(OpBuilder& b, Operation* op) {
     auto scalar_const_op = getConstTensor(b, op, {value}, {});
     Value inputShape =
         b.create<shape::ShapeOfOp>(op->getLoc(), op->getOperand(0));
-    auto rank = shape.size();
+    auto rank = inputCtx.shape.size();
     SmallVector<int64_t> boradcast_dim;
     boradcast_dim.push_back(static_cast<int64_t>(rank));
 
     auto bcast_op = b.create<mhlo::DynamicBroadcastInDimOp>(
-        op->getLoc(), RankedTensorType::get(shape, elemTy),
+        op->getLoc(), RankedTensorType::get(inputCtx.shape, elemTy),
         scalar_const_op.value(), inputShape, b.getI64TensorAttr({}));
     const_op.getResult().replaceAllUsesWith(bcast_op.getResult());
     const_op.erase();
   }
-  return success();
+  return ShapeContext(op->getResult(0), inputCtx.shape);
 }
 
-LogicalResult HandleUnaryOp(OpBuilder& b, Operation* op) {
-  int n = op->getOperands().size();
-  // set result type same as input type
-  auto shape = op->getOperand(0).getType().cast<RankedTensorType>().getShape();
-  auto elemTy =
-      op->getOperand(0).getType().cast<RankedTensorType>().getElementType();
-  auto resultElemTy =
-      op->getResult(0).getType().cast<RankedTensorType>().getElementType();
-  op->getResult(0).setType(RankedTensorType::get(shape, resultElemTy));
-  return success();
-}
-LogicalResult HandleDot(OpBuilder& b, Operation* op) {
-  if (!isa<mhlo::DotOp>(op)) return success();
+std::optional<ShapeContext> HandleDot(OpBuilder& b, Operation* op) {
   auto dot_op = cast<mhlo::DotOp>(op);
   auto lhs_shape =
       dot_op.getOperand(0).getType().cast<RankedTensorType>().getShape();
@@ -129,56 +129,85 @@ LogicalResult HandleDot(OpBuilder& b, Operation* op) {
       dot_op.getOperand(1).getType().cast<RankedTensorType>().getShape();
   auto result_shape =
       dot_op.getResult().getType().cast<RankedTensorType>().getShape();
-  SmallVector<int64_t, 4> new_shape;
+  SmallVector<int64_t> new_shape;
   new_shape.push_back(lhs_shape[0]);
   new_shape.push_back(rhs_shape[1]);
-  dot_op.getResult().setType(RankedTensorType::get(
-      new_shape,
-      dot_op.getResult().getType().cast<RankedTensorType>().getElementType()));
-  return success();
+  return ShapeContext(op->getResult(0), new_shape);
 }
 
-bool isUnaryOp(Operation* op) {
-  return isa<mhlo::AddOp>(*op) || isa<mhlo::CompareOp>(*op) ||
-         isa<mhlo::SelectOp>(*op) || isa<mhlo::ConvertOp>(*op);
-}
-
-bool isBinaryOp(Operation* op) { return isa<mhlo::ConvertOp>(op); }
-
-LogicalResult eraseInputTensorShapesFromAttr(
-    FuncOp& main, StringRef input_dynamic_dims_attr,
-    SmallVector<Type, 4>& new_arg_types) {
+LogicalResult parseInputDynamicDims(
+    StringRef input_dynamic_dims_attr,
+    std::vector<std::pair<int, std::vector<int>>>& input_dynamic_dims) {
   SmallVector<StringRef, 4> parsed_dynamic_dims;
   input_dynamic_dims_attr.split(parsed_dynamic_dims, "|");
   for (auto kv : parsed_dynamic_dims) {
     SmallVector<StringRef, 4> pair;
     kv.split(pair, ":");
     if (pair.size() != 2) {
-      main.emitError("input_dynamic_dims format error");
       return failure();
     }
     int arg_index = std::stoi(pair[0].str());
-    auto arg = main.getArgument(arg_index);
-
-    auto arg_ty = new_arg_types[arg_index].dyn_cast<RankedTensorType>();
-    if (!arg_ty) {
-      main.emitError("input tensor type not found");
-      return failure();
-    }
-    auto shape = arg_ty.getShape();
-    SmallVector<int64_t, 4> new_shape(shape.begin(), shape.end());
     SmallVector<StringRef, 4> dims;
     pair[1].split(dims, ",");
+    std::vector<int> dim_vec;
     for (auto dim : dims) {
-      new_shape[std::stoi(dim.str())] = ShapedType::kDynamic;
+      dim_vec.push_back(std::stoi(dim.str()));
     }
-    auto new_ty = RankedTensorType::get(new_shape, arg_ty.getElementType());
-    arg.setType(new_ty);
-    new_arg_types[arg_index] = new_ty;
-    main.getArgument(arg_index).setType(new_ty);
+    input_dynamic_dims.push_back({arg_index, dim_vec});
   }
   return success();
 }
+
+void applyShapeContext(ShapeContext& ctx) {
+  auto res_ty = ctx.value.getType().dyn_cast<RankedTensorType>();
+  if (!res_ty) return;
+  auto elemTy = res_ty.getElementType();
+  ctx.value.setType(RankedTensorType::get(ctx.shape, elemTy));
+}
+
+std::optional<ShapeContext> propagateOpShape(OpBuilder& rewriter, Operation* op,
+                                             ShapeContext& inputCtx) {
+  if (isBinaryOp(op)) {
+    return HandleBinaryOp(rewriter, op, inputCtx);
+  }
+  if (isUnaryOp(op)) {
+    auto shape = inputCtx.shape;
+    auto elemTy =
+        op->getOperand(0).getType().cast<RankedTensorType>().getElementType();
+    auto resultElemTy =
+        op->getResult(0).getType().cast<RankedTensorType>().getElementType();
+    mlir::Value result = op->getResult(0);
+    return ShapeContext(op->getResult(0), shape);
+  }
+
+  return std::nullopt;
+}
+
+bool isConcreteShape(ShapeContext& ctx) {
+  for (auto dim : ctx.shape) {
+    if (dim == ShapedType::kDynamic) return false;
+  }
+  return true;
+}
+
+void visitOperator(ModuleOp& m, OpBuilder& rewriter, Operation* op,
+                   ShapeContext& ctx) {
+  if (isConcreteShape(ctx)) return;
+  // later to process these operators
+  if (isa<func::ReturnOp>(op)) return;
+
+  auto resultShapeCtx = propagateOpShape(rewriter, op, ctx);
+  if (!resultShapeCtx) {
+    m.emitError("failed update shape context on op:" +
+                op->getName().stripDialect().str());
+    return;
+  }
+  for (auto user : op->getResult(0).getUsers()) {
+    visitOperator(m, rewriter, user, resultShapeCtx.value());
+  }
+  applyShapeContext(*resultShapeCtx);
+}
+
 void DiscShapePropagatePass::runOnOperation() {
   ModuleOp m = getOperation();
   FuncOp main = m.lookupSymbol<FuncOp>("main");
@@ -191,7 +220,6 @@ void DiscShapePropagatePass::runOnOperation() {
     return;
   }
 
-  // stage1: fixup input tensor shapes accroding to attr
   auto dict_attr = main->getAttrOfType<DictionaryAttr>("tf.entry_function");
   if (!dict_attr) {
     signalPassFailure();
@@ -202,31 +230,39 @@ void DiscShapePropagatePass::runOnOperation() {
   if (param_str.getValue().empty()) {
     return;
   }
-  SmallVector<Type, 4> new_arg_types;
+  SmallVector<Type, 4> new_arg_types, new_return_types;
   for (auto arg : main.getArguments()) {
     new_arg_types.push_back(arg.getType());
   }
-  if (failed(eraseInputTensorShapesFromAttr(main, param_str, new_arg_types))) {
-    m.emitError("failed erase input tensor shapes from attr");
+  // stage1: parse attribute input_dynamic_dims to a map
+  std::vector<std::pair<int, std::vector<int>>> input_dynamic_dims;
+  if (failed(parseInputDynamicDims(param_str.getValue(), input_dynamic_dims))) {
+    m.emitError("failed parse input dynamic dims");
     signalPassFailure();
     return;
   }
+  // stage2: visit all operators to propagate shape
+  for (auto pair : input_dynamic_dims) {
+    int argIdx = pair.first;
+    Value value = main.getArgument(argIdx);
+    auto ty = value.getType().cast<RankedTensorType>();
+    SmallVector<int64_t> newShape;
+    std::copy(ty.getShape().begin(), ty.getShape().end(),
+              std::back_inserter(newShape));
+    for (auto dim : pair.second) {
+      newShape[dim] = ShapedType::kDynamic;
+    }
+    ShapeContext ctx(value, newShape);
+    auto newType = RankedTensorType::get(newShape, ty.getElementType());
+    for (auto user : main.getArgument(argIdx).getUsers()) {
+      visitOperator(m, rewriter, user, ctx);
+    }
+    new_arg_types[argIdx] = newType;
+    applyShapeContext(ctx);
+  }
 
-  // stage2: propagate tensor shapes or rewrite graph with dynamic operator
-  SmallVector<Type, 4> new_return_types;
+  // stage3: visit all return operators to update function signature
   main.walk([&](Operation* op) {
-    if (isUnaryOp(op)) {
-      if (failed(HandleUnaryOp(rewriter, op))) {
-        m.emitError("failed handle unary op: ");
-        signalPassFailure();
-        return;
-      }
-    }
-    if (failed(HandleDot(rewriter, op))) {
-      m.emitError("failed handle dot op: ");
-      signalPassFailure();
-      return;
-    }
     if (isa<func::ReturnOp>(*op)) {
       for (auto operand : op->getOperands()) {
         new_return_types.push_back(operand.getType());

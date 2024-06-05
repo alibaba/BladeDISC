@@ -140,6 +140,32 @@ struct SelectSimplifierPattern : public OpRewritePattern<mhlo::SelectOp> {
 };
 
 // convert:
+//   y = mhlo.convert(x: TypeB) -> TypeA
+//   z = mhlo.convert(y: TypeA) -> TypeB
+//   u = mhlo.op(z)
+// to:
+//   u = mhlo.op(x)
+struct ConvertSimplifierPattern : public OpRewritePattern<mhlo::ConvertOp> {
+  using OpRewritePattern<mhlo::ConvertOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::ConvertOp op,
+                                PatternRewriter& rewriter) const override {
+    if (!matchPattern(op.getOperand(), m_Op<mhlo::ConvertOp>())) {
+      return failure();
+    }
+
+    auto inputConvertOp =
+        dyn_cast<mhlo::ConvertOp>(op.getOperand().getDefiningOp());
+    if (inputConvertOp.getOperand().getType() == op.getResult().getType()) {
+      rewriter.replaceOp(op, inputConvertOp.getOperand());
+      return success();
+    }
+
+    return failure();
+  }
+};
+
+// convert:
 //   mhlo.pow(x, const integer n)
 // to:
 //   %1 = x * 1
@@ -613,7 +639,8 @@ void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
   patterns.insert<
     AddZeroTensorOp,
     MulOneTensorOp,
-    SelectSimplifierPattern
+    SelectSimplifierPattern,
+    ConvertSimplifierPattern
   >(patterns.getContext());
   // clang-format on
 }

@@ -98,13 +98,15 @@ std::optional<Value> getConstTensor(OpBuilder& b, Operation* op,
 
 std::optional<ShapeContext> HandleBinaryOp(OpBuilder& b, Operation* op,
                                            ShapeContext& inputCtx) {
-  auto elemTy =
-      op->getOperand(0).getType().cast<RankedTensorType>().getElementType();
+  if (op->getOperand(1).isa<BlockArgument>()) {
+    return ShapeContext(op->getResult(0), inputCtx.shape);
+  }
   if (auto const_op =
           dyn_cast<mhlo::ConstantOp>(op->getOperand(1).getDefiningOp())) {
+    auto elemTy =
+        op->getOperand(0).getType().cast<RankedTensorType>().getElementType();
     b.setInsertionPoint(op);
     auto dense_attr = const_op.getValue().dyn_cast<mlir::DenseElementsAttr>();
-
     int64_t value = (*dense_attr.getValues<APInt>().begin()).getSExtValue();
     auto scalar_const_op = getConstTensor(b, op, {value}, {});
     Value inputShape =
@@ -190,7 +192,6 @@ std::optional<ShapeContext> propagateOpShape(OpBuilder& rewriter, Operation* op,
     mlir::Value result = op->getResult(0);
     return ShapeContext(op->getResult(0), shape);
   }
-
   return std::nullopt;
 }
 
@@ -204,7 +205,7 @@ bool isConcreteShape(ShapeContext& ctx) {
 void visitOperator(ModuleOp& m, OpBuilder& rewriter, Operation* op,
                    ShapeContext& ctx) {
   if (isConcreteShape(ctx)) return;
-  // later to process these operators
+  // later to process return operators
   if (isa<func::ReturnOp>(op)) return;
 
   auto resultShapeCtx = propagateOpShape(rewriter, op, ctx);
@@ -239,6 +240,7 @@ void DiscShapePropagatePass::runOnOperation() {
   if (failed(parseInputDynamicDims(main, input_dynamic_dims))) {
     return;
   }
+  // skip this pass if no dynamic dims attribute
   if (input_dynamic_dims.size() == 0) return;
   // stage2: visit all operators to propagate shape
   for (auto pair : input_dynamic_dims) {

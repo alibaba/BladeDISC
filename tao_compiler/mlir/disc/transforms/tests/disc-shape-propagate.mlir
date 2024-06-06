@@ -11,11 +11,9 @@ func.func @main(%arg0: tensor<4x101xi64>, %arg1: tensor<4x101xi64>) -> tensor<4x
 // -----
 // CHECK-LABEL: main
 func.func @main(%arg0: tensor<4x101xi64>) -> tensor<4x101xi1> attributes{tf.entry_function = {input_dynamic_dims = "0:1"}}{
-  // CHECK: %0 = mhlo.constant dense<0> : tensor<i64>
   // CHECK: %1 = shape.shape_of %arg0 : tensor<4x?xi64> -> tensor<2xindex>
   // CHECK: %2 = "mhlo.dynamic_broadcast_in_dim"(%0, %1) {broadcast_dimensions = dense<> : tensor<0xi64>} : (tensor<i64>, tensor<2xindex>) -> tensor<4x?xi64>
-  // CHECK: %3 = mhlo.compare  LT, %arg0, %2 : (tensor<4x?xi64>, tensor<4x?xi64>) -> tensor<4x?xi1>
-  %0 = mhlo.constant dense<0> : tensor<4x101xi64> 
+  %0 = mhlo.constant dense<0> : tensor<4x101xi64>
   %1 = "mhlo.compare"(%arg0, %0) {comparison_direction = #mhlo<comparison_direction LT>} : (tensor<4x101xi64>, tensor<4x101xi64>) -> tensor<4x101xi1>
   return %1 : tensor<4x101xi1>
 }

@@ -184,13 +184,7 @@ std::optional<ShapeContext> propagateOpShape(OpBuilder& rewriter, Operation* op,
     return HandleBinaryOp(rewriter, op, inputCtx);
   }
   if (isUnaryOp(op)) {
-    auto shape = inputCtx.shape;
-    auto elemTy =
-        op->getOperand(0).getType().cast<RankedTensorType>().getElementType();
-    auto resultElemTy =
-        op->getResult(0).getType().cast<RankedTensorType>().getElementType();
-    mlir::Value result = op->getResult(0);
-    return ShapeContext(op->getResult(0), shape);
+    return ShapeContext(op->getResult(0), inputCtx.shape);
   }
   return std::nullopt;
 }

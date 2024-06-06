@@ -235,7 +235,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   auto printingFlags = OpPrintingFlags();
   printingFlags.elideLargeElementsAttrs(16);
   pm.enableIRPrinting(
-      /*shouldPrintBeforePass=*/nullptr,
+      /*shouldPrintBeforePass=*/
+      nullptr,
       /*shouldPrintAfterPass=*/
       [](Pass* pass, Operation*) { return VLOG_IS_ON(1); },
       /*printModuleScope=*/false,
@@ -1016,7 +1017,8 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   auto printingFlags = mlir::OpPrintingFlags();
   printingFlags.elideLargeElementsAttrs(16);
   pm.enableIRPrinting(
-      /*shouldPrintBeforePass=*/nullptr,
+      /*shouldPrintBeforePass=*/
+      nullptr,
       /*shouldPrintAfterPass=*/
       [](mlir::Pass* pass, mlir::Operation*) { return VLOG_IS_ON(1); },
       /*printModuleScope=*/false,

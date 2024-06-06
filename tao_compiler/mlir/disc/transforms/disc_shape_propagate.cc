@@ -49,6 +49,7 @@ namespace disc_ral {
 using ::mlir::func::FuncOp;
 
 namespace {
+std::string kDynamicDimsAttr = "input_dynamic_dims";
 struct ShapeContext {
   ShapeContext() = default;
   ShapeContext(Value value, SmallVector<int64_t> shape)
@@ -136,10 +137,20 @@ std::optional<ShapeContext> HandleDot(OpBuilder& b, Operation* op) {
 }
 
 LogicalResult parseInputDynamicDims(
-    StringRef input_dynamic_dims_attr,
+    func::FuncOp main,
     std::vector<std::pair<int, std::vector<int>>>& input_dynamic_dims) {
+  auto dict_attr = main->getAttrOfType<DictionaryAttr>("tf.entry_function");
+  if (!dict_attr) {
+    return failure();
+  }
+  if (!dict_attr.get(kDynamicDimsAttr)) {
+    return failure();
+  }
+  StringRef param_str =
+      dict_attr.get(kDynamicDimsAttr).dyn_cast<mlir::StringAttr>();
+
   SmallVector<StringRef, 4> parsed_dynamic_dims;
-  input_dynamic_dims_attr.split(parsed_dynamic_dims, "|");
+  param_str.split(parsed_dynamic_dims, "|");
   for (auto kv : parsed_dynamic_dims) {
     SmallVector<StringRef, 4> pair;
     kv.split(pair, ":");
@@ -210,7 +221,7 @@ void visitOperator(ModuleOp& m, OpBuilder& rewriter, Operation* op,
 
 void DiscShapePropagatePass::runOnOperation() {
   ModuleOp m = getOperation();
-  FuncOp main = m.lookupSymbol<FuncOp>("main");
+  auto main = m.lookupSymbol<FuncOp>("main");
   MLIRContext* context = &getContext();
   mlir::OpBuilder rewriter(context);
   OpBuilder b(main);
@@ -219,28 +230,16 @@ void DiscShapePropagatePass::runOnOperation() {
     signalPassFailure();
     return;
   }
-
-  auto dict_attr = main->getAttrOfType<DictionaryAttr>("tf.entry_function");
-  if (!dict_attr) {
-    signalPassFailure();
-    return;
-  }
-  auto param_str =
-      dict_attr.get("input_dynamic_dims").dyn_cast<mlir::StringAttr>();
-  if (param_str.getValue().empty()) {
-    return;
-  }
   SmallVector<Type, 4> new_arg_types, new_return_types;
   for (auto arg : main.getArguments()) {
     new_arg_types.push_back(arg.getType());
   }
   // stage1: parse attribute input_dynamic_dims to a map
   std::vector<std::pair<int, std::vector<int>>> input_dynamic_dims;
-  if (failed(parseInputDynamicDims(param_str.getValue(), input_dynamic_dims))) {
-    m.emitError("failed parse input dynamic dims");
-    signalPassFailure();
+  if (failed(parseInputDynamicDims(main, input_dynamic_dims))) {
     return;
   }
+  if (input_dynamic_dims.size() == 0) return;
   // stage2: visit all operators to propagate shape
   for (auto pair : input_dynamic_dims) {
     int argIdx = pair.first;
@@ -269,7 +268,6 @@ void DiscShapePropagatePass::runOnOperation() {
       }
     }
   });
-  // stage3: update function signature
   main.setType(
       FunctionType::get(main.getContext(), new_arg_types, new_return_types));
 }

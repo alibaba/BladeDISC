@@ -76,6 +76,12 @@ bool isBinaryOp(Operation* op) {
 }
 
 bool isUnaryOp(Operation* op) { return isa<mhlo::ConvertOp>(op); }
+bool isConcreteShape(ShapeContext& ctx) {
+  for (auto dim : ctx.shape) {
+    if (dim == ShapedType::kDynamic) return false;
+  }
+  return true;
+}
 
 std::optional<Value> getConstTensor(OpBuilder& b, Operation* op,
                                     ArrayRef<int> vec,
@@ -125,19 +131,6 @@ std::optional<ShapeContext> HandleBinaryOp(OpBuilder& b, Operation* op,
   return ShapeContext(op->getResult(0), inputCtx.shape);
 }
 
-std::optional<ShapeContext> HandleDot(OpBuilder& b, Operation* op) {
-  auto dot_op = cast<mhlo::DotOp>(op);
-  auto lhs_shape =
-      dot_op.getOperand(0).getType().cast<RankedTensorType>().getShape();
-  auto rhs_shape =
-      dot_op.getOperand(1).getType().cast<RankedTensorType>().getShape();
-  auto result_shape =
-      dot_op.getResult().getType().cast<RankedTensorType>().getShape();
-  SmallVector<int64_t> new_shape;
-  new_shape.push_back(lhs_shape[0]);
-  new_shape.push_back(rhs_shape[1]);
-  return ShapeContext(op->getResult(0), new_shape);
-}
 template <typename OpTy>
 std::optional<ShapeContext> propagateHelper(OpBuilder& b, Operation* op,
                                             ShapeContext& inputCtx) {
@@ -219,13 +212,6 @@ std::optional<ShapeContext> propagateOpShape(OpBuilder& rewriter, Operation* op,
     }
   }
   return std::nullopt;
-}
-
-bool isConcreteShape(ShapeContext& ctx) {
-  for (auto dim : ctx.shape) {
-    if (dim == ShapedType::kDynamic) return false;
-  }
-  return true;
 }
 
 void visitOperator(ModuleOp& m, OpBuilder& rewriter, Operation* op,

@@ -191,6 +191,8 @@ createDiscUnhandledAtomicRMWConverterPass();
 std::unique_ptr<OperationPass<ModuleOp>> createDiscShapeSimplifierPass(
     const std::string& entry_func_name = "main", bool insert_tie_shape = false);
 
+std::unique_ptr<OperationPass<ModuleOp>> createDiscShapePropagatePass();
+
 // Using approximation impl for some special math ops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscMathApproximationPass();
 

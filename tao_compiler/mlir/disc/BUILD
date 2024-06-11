@@ -1666,6 +1666,29 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_shape_propagate",
+    srcs = ["transforms/disc_shape_propagate.cc"],
+    hdrs = [
+    ],
+    deps = [
+        ":mhlo_disc",
+        ":pass_details",
+        ":shape_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_dot_merge",
     srcs = ["transforms/disc_dot_merge.cc"],
     hdrs = [
@@ -2471,6 +2494,7 @@ cc_library(
         ":disc_remove_shape_constraints",
         ":disc_shape_optimization",
         ":disc_shape_simplifier",
+        "disc_shape_propagate",
         ":disc_shape_to_std",
         ":disc_sparse_op_rewriter",
         ":disc_specialize_fusion_with_speculation",

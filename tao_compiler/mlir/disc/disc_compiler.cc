@@ -235,7 +235,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   auto printingFlags = OpPrintingFlags();
   printingFlags.elideLargeElementsAttrs(16);
   pm.enableIRPrinting(
-      /*shouldPrintBeforePass=*/nullptr,
+      /*shouldPrintBeforePass=*/
+      nullptr,
       /*shouldPrintAfterPass=*/
       [](Pass* pass, Operation*) { return VLOG_IS_ON(1); },
       /*printModuleScope=*/false,
@@ -244,6 +245,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
   pm.addPass(disc_ral::createDiscInputOutputAliasPass());
+  pm.addPass(disc_ral::createDiscShapePropagatePass());
   pm.addPass(mlir::createInlinerPass());
   // TODO(disc): Lower HLO shape constraints instead of eliding them here.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscCollectiveOpsRewriterPass());
@@ -1015,7 +1017,8 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   auto printingFlags = mlir::OpPrintingFlags();
   printingFlags.elideLargeElementsAttrs(16);
   pm.enableIRPrinting(
-      /*shouldPrintBeforePass=*/nullptr,
+      /*shouldPrintBeforePass=*/
+      nullptr,
       /*shouldPrintAfterPass=*/
       [](mlir::Pass* pass, mlir::Operation*) { return VLOG_IS_ON(1); },
       /*printModuleScope=*/false,

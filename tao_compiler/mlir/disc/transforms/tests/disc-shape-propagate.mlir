@@ -78,14 +78,6 @@ func.func @main(%arg0: tensor<4x101x4096xf32>) -> tensor<4x101xf32> attributes{t
 
 // -----
 // CHECK-LABEL: main
-func.func @main(%arg0: tensor<4x32x101x128xbf16>) -> tensor<4x32x101x64xbf16> attributes{tf.entry_function = {input_dynamic_dims = "0:2"}}{
-  // %0 = mhlo.real_dynamic_slice %arg0, %from_elements, %from_elements_7, %from_elements_6 : (tensor<4x32x?x128xbf16>, tensor<4xindex>, tensor<4xindex>, tensor<4xindex>) -> tensor<4x32x?x64xbf16
-  %140 = "mhlo.slice"(%arg0) {limit_indices = dense<[4, 32, 101, 64]> : tensor<4xi64>, start_indices = dense<0> : tensor<4xi64>, strides = dense<1> : tensor<4xi64>} : (tensor<4x32x101x128xbf16>) -> tensor<4x32x101x64xbf16>
-  return %140 : tensor<4x32x101x64xbf16>
-}
-
-// -----
-// CHECK-LABEL: main
 func.func @main(%arg0: tensor<4x32x101x64xbf16>, %arg1: tensor<4x32x101x64xbf16>) -> tensor<4x32x101x128xbf16> attributes{tf.entry_function = {input_dynamic_dims = "0:3"}}{
   // CHECK: %0 = "mhlo.concatenate"(%arg0, %arg1) {dimension = 3 : i64} : (tensor<4x32x101x?xbf16>, tensor<4x32x101x64xbf16>) -> tensor<4x32x101x?xbf16>
   %1 = "mhlo.concatenate"(%arg0, %arg1) {dimension = 3 : i64} : (tensor<4x32x101x64xbf16>, tensor<4x32x101x64xbf16>) -> tensor<4x32x101x128xbf16>
@@ -174,9 +166,20 @@ func.func @main(%arg0: tensor<32001x4096xf32>, %arg1: tensor<4x101x1xi64>) -> te
   %1 = "mhlo.gather"(%arg0, %arg1) {dimension_numbers = #mhlo.gather<offset_dims = [2], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 2>, indices_are_sorted = false, slice_sizes = dense<[1, 2048]> : tensor<2xi64>} : (tensor<32001x4096xf32>, tensor<4x101x1xi64>) -> tensor<4x101x2048xf32>
   return %1 : tensor<4x101x2048xf32>
 }
+
+
+// -----
+// CHECK-LABEL: main
+func.func @main(%arg0: tensor<4x32x101x128xbf16>) -> tensor<4x32x101x64xbf16> attributes{tf.entry_function = {input_dynamic_dims = "0:2"}}{
+  // %0 = mhlo.real_dynamic_slice %arg0, %from_elements, %from_elements_7, %from_elements_6 : (tensor<4x32x?x128xbf16>, tensor<4xindex>, tensor<4xindex>, tensor<4xindex>) -> tensor<4x32x?x64xbf16
+  %140 = "mhlo.slice"(%arg0) {limit_indices = dense<[4, 32, 101, 64]> : tensor<4xi64>, start_indices = dense<0> : tensor<4xi64>, strides = dense<1> : tensor<4xi64>} : (tensor<4x32x101x128xbf16>) -> tensor<4x32x101x64xbf16>
+  return %140 : tensor<4x32x101x64xbf16>
+}
+
+// -----
+// CHECK-LABEL: main
 func.func @main(%arg0: tensor<1x101x128xbf16>) -> tensor<101x128xbf16> attributes{tf.entry_function = {input_dynamic_dims = "0:1"}}{
   // CHECK: %0 = mhlo.dynamic_reshape %arg0, %from_elements : (tensor<1x?x128xbf16>, tensor<2xindex>) -> tensor<?x128xbf16>
   %0 = mhlo.reshape %arg0: (tensor<1x101x128xbf16>) -> tensor<101x128xbf16>
   return %0: tensor<101x128xbf16>
 }
-

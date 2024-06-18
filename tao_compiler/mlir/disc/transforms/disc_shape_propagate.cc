@@ -47,14 +47,12 @@ namespace mlir {
 namespace disc_ral {
 
 using ::mlir::func::FuncOp;
-
 namespace {
 std::string kDynamicDimsAttr = "input_dynamic_dims";
 struct ShapeContext {
   ShapeContext() = default;
   ShapeContext(Value value, SmallVector<int64_t> shape)
       : value(value), shape(shape){};
-
   Value value;
   SmallVector<int64_t> shape;
 };
@@ -71,6 +69,8 @@ struct DiscShapePropagatePass
     registry.insert<arith::ArithDialect>();
     registry.insert<mhlo::MhloDialect>();
   }
+  void visitOperator(ModuleOp& m, OpBuilder& rewriter, Operation* op,
+                     ShapeContext& ctx);
   void runOnOperation() override;
 };
 bool isBinaryOp(Operation* op) {
@@ -119,7 +119,8 @@ std::optional<ShapeContext> HandleBinaryOp(OpBuilder& b, Operation* op,
         op->getOperand(0).getType().cast<RankedTensorType>().getElementType();
     b.setInsertionPoint(op);
     auto dense_attr = const_op.getValue().dyn_cast<mlir::DenseElementsAttr>();
-    int64_t value = (*dense_attr.getValues<APInt>().begin()).getSExtValue();
+    // int64_t value = (*dense_attr.getValues<APInt>().begin()).getSExtValue();
+    int64_t value = 0;
     auto scalar_const_op = getConstTensor(b, op, {value}, {});
     Value inputShape =
         b.create<shape::ShapeOfOp>(op->getLoc(), op->getOperand(0));
@@ -220,7 +221,7 @@ std::optional<ShapeContext> propagateHelper<mhlo::ReshapeOp>(
       b.create<mhlo::DynamicReshapeOp>(op->getLoc(), dReshapeOpResultType,
                                        reshape_op.getOperand(), reshapeShape);
   op->getResult(0).replaceAllUsesWith(dReshapeOp.getResult());
-  op->erase();
+  // op->erase();
   return ShapeContext(dReshapeOp->getResult(0), newShape);
 }
 
@@ -267,7 +268,7 @@ std::optional<ShapeContext> propagateHelper<mhlo::SliceOp>(
       loc, sliceOpResultType, slice_op.getOperand(), baseIndicesValue,
       limitIndicesValue, stridesValue);
   op->getResult(0).replaceAllUsesWith(dyncSliceOp.getResult());
-  op->erase();
+  // op->erase();
   return ShapeContext(dyncSliceOp->getResult(0), newShape);
 }
 
@@ -523,45 +524,60 @@ std::optional<ShapeContext> propagateOpShape(OpBuilder& rewriter, Operation* op,
   if (auto ctx = HandleBinaryOp(rewriter, op, inputCtx)) {
     return ctx;
   }
-  using PropagationFunc =
-      std::optional<ShapeContext> (*)(OpBuilder&, Operation*, ShapeContext&);
-  const std::vector<PropagationFunc> propagationFunctions = {
-      propagateHelper<mhlo::ConcatenateOp>,
-      propagateHelper<mhlo::DotOp>,
-      propagateHelper<mhlo::DynamicGatherOp>,
-      propagateHelper<mhlo::GatherOp>,
-      propagateHelper<mhlo::ReduceOp>,
-      propagateHelper<mhlo::TransposeOp>,
-      propagateHelper<tensor::DimOp>,
-      propagateHelper<mhlo::SliceOp>,
-      propagateHelper<mhlo::ReshapeOp>,
-  };
-  // Iterate over the propagation functions and apply each one
-  for (const auto& propagate : propagationFunctions) {
-    rewriter.setInsertionPoint(op);
-    if (auto ctx = propagate(rewriter, op, inputCtx)) {
-      return ctx;
-    }
+#define PROPAGATE_OP_HANDLER(opType)                              \
+  if (auto t##opType = dyn_cast<mhlo::opType>(op)) {              \
+    rewriter.setInsertionPoint(op);                               \
+    return propagateHelper<mhlo::opType>(rewriter, op, inputCtx); \
   }
+  PROPAGATE_OP_HANDLER(DotOp);
+  PROPAGATE_OP_HANDLER(SliceOp);
+  PROPAGATE_OP_HANDLER(ReshapeOp);
+  PROPAGATE_OP_HANDLER(ConcatenateOp);
+  PROPAGATE_OP_HANDLER(ReduceOp);
+  PROPAGATE_OP_HANDLER(TransposeOp);
+  PROPAGATE_OP_HANDLER(GatherOp);
+  PROPAGATE_OP_HANDLER(DynamicGatherOp);
+  PROPAGATE_OP_HANDLER(DimOp);
+#undef PROPAGATE_OP_HANDLER
   return std::nullopt;
-}
+  /*
 
-void visitOperator(ModuleOp& m, OpBuilder& rewriter, Operation* op,
-                   ShapeContext& ctx) {
+    using PropagationFunc =
+        std::optional<ShapeContext> (*)(OpBuilder&, Operation*, ShapeContext&);
+    const std::vector<PropagationFunc> propagationFunctions = {
+        propagateHelper<mhlo::DotOp>,
+        propagateHelper<mhlo::SliceOp>,
+        propagateHelper<mhlo::ReshapeOp>,
+    };
+    // Iterate over the propagation functions and apply each one
+    for (const auto& propagate : propagationFunctions) {
+      rewriter.setInsertionPoint(op);
+      llvm::dbgs() << "try propagate op:" << op->getName() << "\n";
+      if (auto ctx = propagate(rewriter, op, inputCtx)) {
+        return ctx;
+      }
+    }
+    return std::nullopt;
+  */
+}  // namespace
+
+void DiscShapePropagatePass::visitOperator(ModuleOp& m, OpBuilder& rewriter,
+                                           Operation* op, ShapeContext& ctx) {
+  llvm::dbgs() << "becore valid concreate shape\n";
   if (isConcreteShape(ctx)) return;
   // later to process return operators
   if (isa<func::ReturnOp>(op)) return;
-
   auto resultShapeCtx = propagateOpShape(rewriter, op, ctx);
   if (!resultShapeCtx) {
-    m.emitError("failed update shape context on op:" +
+    m.emitError("failed propagate shape on op:" +
                 op->getName().stripDialect().str());
+    signalPassFailure();
     return;
   }
-
-  for (auto user : op->getResult(0).getUsers()) {
+  for (auto user : resultShapeCtx->value.getUsers()) {
     visitOperator(m, rewriter, user, resultShapeCtx.value());
   }
+  if (!resultShapeCtx->value) return;
   applyShapeContext(*resultShapeCtx);
 }
 

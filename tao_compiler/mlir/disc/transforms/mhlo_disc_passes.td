@@ -39,3 +39,8 @@ def DiscOpSchedulePass : Pass<"disc-op-schedule", "ModuleOp"> {
   let summary = "Schedule ops in a function";
   let constructor = "createDiscOpSchedulePass()";
 }
+
+def DiscRematerializationPass : Pass<"disc-rematerialization", "ModuleOp"> {
+  let summary = "Remat to reduce peak memory";
+  let constructor = "createDiscRematerializationPass()";
+}

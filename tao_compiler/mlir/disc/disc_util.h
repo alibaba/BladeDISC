@@ -171,6 +171,9 @@ int getNumResultOperands(Operation* op);
 // simplification.
 int getShmemSizeBytesNotAffectOccupancy(int cc_major, int cc_minor);
 
+// Return peak memory limit for remat pass
+size_t getRematerializationPeakMemoryLimitInBytes();
+
 // Return the element type of the result of given lmhlo op.
 Type getLhloOpsElementType(Operation* op);
 

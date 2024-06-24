@@ -127,8 +127,7 @@ std::optional<ShapeContext> HandleBinaryOp(OpBuilder& b, Operation* op,
         op->getOperand(0).getType().cast<RankedTensorType>().getElementType();
     b.setInsertionPoint(op);
     auto dense_attr = constOp.getValue().dyn_cast<mlir::DenseElementsAttr>();
-    // int64_t value = (*dense_attr.getValues<APInt>().begin()).getSExtValue();
-    int64_t value = 0;
+    int64_t value = dense_attr.getValues<int64_t>()[0];
     auto scalar_const_op = getConstTensor(b, op, {value}, {});
     Value inputShape =
         b.create<shape::ShapeOfOp>(op->getLoc(), op->getOperand(0));
@@ -525,7 +524,6 @@ std::optional<ShapeContext> propagateHelper<mhlo::GatherOp>(
     }
 
     if (include_this_dim && src_shape[dim_idx] == dim_size.getSExtValue()) {
-      // new_shape.push_back(ShapedType::kDynamic);
       new_shape.push_back(dim_size.getSExtValue());
     } else if (include_this_dim &&
                src_shape[dim_idx] != dim_size.getSExtValue()) {

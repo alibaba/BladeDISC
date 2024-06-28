@@ -1,14 +1,14 @@
 # BladeDISC Introduction <!-- omit in toc -->
 
 ## We're hiring!🔥🔥🔥
-We're always looking for candicates to join dev team. Your're the one we're searching for long:
-* 🥷 If you are an compiler or AI enthusiasts.
+We're always looking for candidates to join our dev team. You're the one we're searching for long:
+* 🥷 If you are a compiler or AI enthusiast.
 * ⭐️ or if you are experienced in optimization on CPUs and GPUs.
-* ⚙️ or if you wanna build an unified and automated compiler to optimize both inference and training workload.
+* ⚙️ or if you wanna build a unified and automated compiler to optimize both inference and training workload.
 * 🤿 or if you are using BladeDISC in production or research projects, and wanna have a deeper dive into it.
 * ✄ or you wanna build cutting-edge infrastructure in the AIGC era.
 
-Please contact us via email or Dingtalk at the bottom of page.⬇️⬇️⬇️
+Please contact us via email or Dingtalk at the bottom of the page.⬇️⬇️⬇️
 
 - [What's New](#whats-new)
 - [Overview](#overview)

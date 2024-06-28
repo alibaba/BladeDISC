@@ -334,6 +334,29 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_offloading",
+    srcs = ["transforms/disc_offloading.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = ["include"],
+    deps = [
+        ":disc_util",
+        ":mhlo_disc",
+        ":pass_details",
+        ":shape_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:GPUDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:Transforms", 
+    ]
+)
+
+cc_library(
     name = "disc_lhlo_elemental_utils",
     srcs = ["transforms/lhlo_elemental_utils.cc"],
     hdrs = ["transforms/lhlo_elemental_utils.h"],
@@ -2447,6 +2470,7 @@ cc_library(
         ":MhloDiscPassIncGen",
         ":conv_rewriter",
         ":quantized_dot_rewriter",
+        ":disc_offloading",
         ":disc_dot_merge",
         ":disc_quantized_dot_merge",
         ":disc_algebraic_simplifier",

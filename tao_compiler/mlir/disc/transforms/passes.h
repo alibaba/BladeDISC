@@ -354,6 +354,8 @@ createDiscOptimizationBarrierExpandPass();
 
 std::unique_ptr<OperationPass<ModuleOp>> createDiscOpSchedulePass();
 
+std::unique_ptr<OperationPass<ModuleOp>> createDiscRematerializationPass();
+
 std::unique_ptr<OperationPass<ModuleOp>> createDiscArgsMutationExpandPass();
 
 }  // namespace mhlo_disc

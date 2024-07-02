@@ -113,6 +113,7 @@ LogicalResult PadOpConvert::matchAndRewrite(mhlo::PadOp op,
 }  // namespace
 
 namespace {
+
 struct SliceOpConvert : public OpRewritePattern<mhlo::SliceOp> {
   explicit SliceOpConvert(MLIRContext* context) : OpRewritePattern(context) {}
   LogicalResult matchAndRewrite(mhlo::SliceOp op,
@@ -130,6 +131,22 @@ LogicalResult SliceOpConvert::matchAndRewrite(mhlo::SliceOp op,
   auto operand = op.getOperand();
   rewriter.replaceOpWithNewOp<mhlo::RealDynamicSliceOp>(
       op, op.getType(), operand, startIndices, limitIndices, strides);
+
+  return success();
+}
+
+struct ArithConstOpConvert : public OpRewritePattern<arith::ConstantOp> {
+  explicit ArithConstOpConvert(MLIRContext* context)
+      : OpRewritePattern(context) {}
+  LogicalResult matchAndRewrite(arith::ConstantOp op,
+                                PatternRewriter& rewriter) const override;
+};
+
+LogicalResult ArithConstOpConvert::matchAndRewrite(
+    arith::ConstantOp op, PatternRewriter& rewriter) const {
+  auto resultType = op.getType().dyn_cast<RankedTensorType>();
+  if (!resultType or resultType.getRank() < 1) return failure();
+  rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, op.getValue());
   return success();
 }
 
@@ -234,6 +251,7 @@ struct MhloDecompositionRewriterPass
     MLIRContext* ctx = &getContext();
 
     RewritePatternSet patterns(ctx);
+    patterns.insert<ArithConstOpConvert>(ctx);
     patterns.insert<BatchNormInferenceOpConvert>(ctx);
     patterns.insert<PadOpConvert>(ctx);
     patterns.insert<SliceOpConvert>(ctx);

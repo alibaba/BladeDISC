@@ -159,6 +159,17 @@ cc_library(
         "@llvm-project//llvm:Support",
     ],
 )
+cc_library(
+    name = "buffer_live_range",
+    srcs = ["utils/buffer_live_range.cc"],
+    hdrs = ["utils/buffer_live_range.h"],
+    includes = ["include"],
+    deps = [
+        "@llvm-project//llvm:Support",
+        ":disc_util",
+        ":mhlo_disc",
+    ],
+)
 
 tf_cc_test(
     name = "cycle_detector_test",

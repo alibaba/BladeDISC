@@ -51,14 +51,20 @@ struct DiscOffloadingPass : public DiscOffloadingPassBase<DiscOffloadingPass> {
     registry.insert<lmhlo_disc::LmhloDiscDialect>();
   }
   void runOnOperation() override;
+  void InsertOffloadingOp(mlir::OpBuilder& rewriter, Operation* prevOp,
+                          Operation* op, Value buffer,
+                          std::vector<Operation*> consumers);
 };
 
 struct LiveRange {
-  Operation* startOp;
-  Operation* endOp;
+  Value buffer;
+  Operation* startOp = nullptr;
+  Operation* endOp = nullptr;
   std::vector<std::pair<Operation*, int64_t>> ranges;
   int64_t start_position;
+  int64_t end_position;
 };
+
 struct LiveRangeHash {
   std::size_t operator()(const Value& operand) const {
     std::size_t hash = mlir::hash_value(operand);
@@ -67,6 +73,8 @@ struct LiveRangeHash {
 };
 using BufferLiveRanges =
     std::unordered_map<mlir::Value, LiveRange, LiveRangeHash>;
+using BufferList = std::vector<std::pair<mlir::Value, LiveRange>>;
+using BufferMap = std::unordered_map<mlir::Value, LiveRange>;
 int64_t getElementSize(Type elementType) {
   if (elementType.isF32()) {
     return sizeof(float);
@@ -109,50 +117,127 @@ int64_t getMemRefSize(Value value) {
   return numElements * elementSize;
 }
 
-Operation* mayFusionOp(Operation* op) {
-  if (auto fusionOp = dyn_cast_or_null<lmhlo::FusionOp>(op->getParentOp())) {
-    return fusionOp;
-  }
-  return op;
+float bytesToMB(int64_t bytes) { return bytes * 1.0 / (1024.0 * 1024.0); }
+
+bool isHostBuffer(Value value) {
+  auto memRefType = value.getType().cast<MemRefType>();
+  return memRefType.getMemorySpace() == 0;
 }
-float bytesToGB(int64_t bytes) { return bytes * 1.0 / (1024.0 * 1024.0); }
+
 int64_t memoryPeakEvalution(ModuleOp main, bool printDetail = false) {
+  int64_t usageMemory = 0;
   int64_t peakMemory = 0;
   main.walk([&](Operation* op) {
     if (auto allocOp = dyn_cast<memref::AllocOp>(op)) {
       // skip if host buffer
-      for (auto user : allocOp.getResult().getUsers()) {
-        if (isa<lmhlo_disc::D2HOp>(user)) {
-          return;
-        }
+      auto buffer = allocOp.getResult();
+      if (isHostBuffer(buffer)) {
+        return;
       }
-      peakMemory += getMemRefSize(allocOp.getResult());
+      usageMemory += getMemRefSize(allocOp.getResult());
+      peakMemory = std::max(peakMemory, usageMemory);
       if (printDetail) {
         llvm::dbgs() << "memory usage: "
-                     << llvm::format("%0.2f", bytesToGB(peakMemory)) << " MB\n";
+                     << llvm::format("%0.2f", bytesToMB(usageMemory))
+                     << " MB\n";
       }
     } else if (auto deallocOp = dyn_cast<memref::DeallocOp>(op)) {
-      peakMemory -= getMemRefSize(deallocOp.getOperand());
+      usageMemory -= getMemRefSize(deallocOp.getOperand());
       if (printDetail) {
         llvm::dbgs() << "memory usage: "
-                     << llvm::format("%0.2f", bytesToGB(peakMemory)) << " MB\n";
+                     << llvm::format("%0.2f", bytesToMB(usageMemory))
+                     << " MB\n";
       }
     }
   });
   return peakMemory;
 }
+
+struct LivingBuffers {
+  Value buffer;
+  Operation* startOp = nullptr;
+  Operation* endOp = nullptr;
+  std::vector<std::pair<Operation*, int64_t>> consumers;
+  int64_t start_position;
+};
+
+class BufferLiveRange {
+ public:
+  explicit BufferLiveRange(ModuleOp main) : main_(main) {}
+  void AllocateBuffer(Value value, Operation* op, int64_t position);
+  void Analysis();
+  std::vector<Value> getBufferList() { return buffer_list_; }
+  LivingBuffers getLivingBuffers(Value value) {
+    if (living_buffer_map_.count(value) == 0) {
+      return LivingBuffers();
+    }
+    return living_buffer_map_[value];
+  }
+
+ private:
+  ModuleOp main_;
+  std::vector<Value> buffer_list_;
+  std::unordered_map<Value, LivingBuffers, LiveRangeHash> living_buffer_map_;
+};
+void BufferLiveRange::AllocateBuffer(Value value, Operation* op,
+                                     int64_t position) {
+  LivingBuffers livingBuffers;
+  livingBuffers.startOp = op;
+  livingBuffers.start_position = position;
+  livingBuffers.buffer = value;
+  living_buffer_map_[value] = livingBuffers;
+  buffer_list_.push_back(value);
+}
+void BufferLiveRange::Analysis() {
+  buffer_list_.clear();
+  living_buffer_map_.clear();
+  int64_t position;
+  main_.walk([&](Operation* op) {
+    // Traverse the function's blocks and operations.
+    if (auto allocOp = dyn_cast<memref::AllocOp>(op)) {
+      auto buffer = allocOp.getResult();
+      if (isHostBuffer(allocOp.getResult())) {
+        return;
+      }
+      AllocateBuffer(buffer, op, position);
+    } else if (auto deallocOp = dyn_cast<memref::DeallocOp>(op)) {
+      living_buffer_map_[deallocOp.getOperand()].endOp = deallocOp;
+    } else if (auto returnOp = dyn_cast<func::ReturnOp>(op)) {
+      for (auto operand : returnOp.getOperands()) {
+        if (living_buffer_map_.count(operand)) {
+          living_buffer_map_[operand].endOp = returnOp;
+        }
+      }
+    } else if (isa<lmhlo_disc::H2DOp>(op) || isa<lmhlo_disc::D2HOp>(op)) {
+      return;
+    } else {
+      for (Value operand : op->getOperands()) {
+        if (living_buffer_map_.count(operand)) {
+          living_buffer_map_[operand].consumers.push_back(std::make_pair(
+              op, position - living_buffer_map_[operand].start_position));
+        }
+      }
+    }
+    position++;
+  });
+}
+
 BufferLiveRanges getBufferLiveRanges(ModuleOp main) {
   BufferLiveRanges bufferLiveRanges;
   int64_t position = 0;
   main.walk([&](Operation* op) {
     // Traverse the function's blocks and operations.
     if (auto allocOp = dyn_cast<memref::AllocOp>(op)) {
+      if (isHostBuffer(allocOp.getResult())) {
+        return;
+      }
       LiveRange range;
       range.startOp = op;
       range.start_position = position;
-      bufferLiveRanges[allocOp.getResult()] = range;
+      auto buffer = allocOp.getResult();
+      bufferLiveRanges[buffer] = range;
     } else if (auto deallocOp = dyn_cast<memref::DeallocOp>(op)) {
-      bufferLiveRanges[deallocOp.getOperand()].endOp = op;
+      bufferLiveRanges[deallocOp.getOperand()].endOp = deallocOp;
     } else if (auto returnOp = dyn_cast<func::ReturnOp>(op)) {
       for (auto operand : returnOp.getOperands()) {
         if (bufferLiveRanges.count(operand)) {
@@ -173,72 +258,86 @@ BufferLiveRanges getBufferLiveRanges(ModuleOp main) {
   });
   return bufferLiveRanges;
 }
+void DiscOffloadingPass::InsertOffloadingOp(mlir::OpBuilder& rewriter,
+                                            Operation* prevOp, Operation* op,
+                                            Value buffer,
+                                            std::vector<Operation*> consumers) {
+  auto memrefType = buffer.getType().cast<MemRefType>();
+  // insert offloading an loading inst
+  if (auto fusionOp = dyn_cast<lmhlo::FusionOp>(prevOp->getParentOp())) {
+    rewriter.setInsertionPointAfter(fusionOp);
+  } else {
+    rewriter.setInsertionPointAfter(prevOp);
+  }
+  // offloading to host
+  auto hostBuffer =
+      rewriter
+          .create<memref::AllocOp>(prevOp->getLoc(),
+                                   buffer.getType().cast<MemRefType>())
+          .getResult();
+  // delete gpu.address_global attribute on host buffer
+  hostBuffer.setType(MemRefType::get(memrefType.getShape(),
+                                     memrefType.getElementType(), {}, 0));
+  rewriter.create<lmhlo_disc::D2HOp>(op->getLoc(), buffer, hostBuffer);
+  rewriter.create<memref::DeallocOp>(op->getLoc(), buffer);
 
+  if (auto fusionOp = dyn_cast<lmhlo::FusionOp>(op->getParentOp())) {
+    rewriter.setInsertionPoint(fusionOp);
+  } else {
+    rewriter.setInsertionPoint(op);
+  }
+  // loading to device
+  auto deviceBuffer = rewriter
+                          .create<memref::AllocOp>(
+                              op->getLoc(), buffer.getType().cast<MemRefType>())
+                          .getResult();
+  rewriter.create<lmhlo_disc::H2DOp>(op->getLoc(), hostBuffer, deviceBuffer);
+  // update operand value to new device buffer
+  for (size_t i = 0; i < consumers.size(); i++) {
+    auto consumer = consumers[i];
+    for (size_t j = 0; j < consumer->getNumOperands(); j++) {
+      if (consumer->getOperand(j) == buffer) {
+        consumer->setOperand(j, deviceBuffer);
+      }
+    }
+  }
+}
 void DiscOffloadingPass::runOnOperation() {
   auto main = getOperation();
   auto context = main->getContext();
   mlir::OpBuilder rewriter(context);
-  // BufferLiveRange bufferLiveRange(main);
-  // bufferLiveRange.Analysis();
   //  1. find all buffer live-range
-  // auto bufferLiveRanges = getBufferLiveRanges(main);
   bool changed = true;
-  int iteration = 300;
+  int iteration = 200;
   memoryPeakEvalution(main, true);
-  llvm::dbgs() << "=================\n";
-  while (iteration--) {
+  llvm::dbgs() << "======\n";
+  BufferLiveRange bufferLiveRange(main);
+  while (!changed || iteration--) {
     changed = false;
     int64_t memoryPeak = memoryPeakEvalution(main);
-    auto bufferLiveRanges = getBufferLiveRanges(main);
-    // llvm::dbgs() << "memoryPeak: "
-    //              << memoryPeak * 1.0 / (1024.0 * 1024.0 * 1024.0) << " GB
-    //              \n";
-    for (auto& pair : bufferLiveRanges) {
-      auto buffer = pair.first;
-      auto liveRange = pair.second;
-      for (size_t i = 1; i < liveRange.ranges.size(); i++) {
-        // TODO(yancey.yx) using a common cost function to decide the offloading
-        if (liveRange.ranges[i].second > 1000) {
-          changed = true;
-          auto prevOp = liveRange.ranges[i - 1].first;
-          auto op = liveRange.ranges[i].first;
-          if (auto fusionOp =
-                  dyn_cast<lmhlo::FusionOp>(prevOp->getParentOp())) {
-            rewriter.setInsertionPointAfter(fusionOp);
-          } else {
-            rewriter.setInsertionPointAfter(prevOp);
-          }
-          // offloading to host
-          auto hostBuffer =
-              rewriter
-                  .create<memref::AllocOp>(prevOp->getLoc(),
-                                           buffer.getType().cast<MemRefType>())
-                  .getResult();
-          rewriter.create<lmhlo_disc::D2HOp>(op->getLoc(), buffer, hostBuffer);
-          rewriter.create<memref::DeallocOp>(op->getLoc(), buffer);
+    bufferLiveRange.Analysis();
 
-          if (auto fusionOp = dyn_cast<lmhlo::FusionOp>(op->getParentOp())) {
-            rewriter.setInsertionPoint(fusionOp);
-          } else {
-            rewriter.setInsertionPoint(op);
+    auto bufferLiveRanges = getBufferLiveRanges(main);
+    for (auto buffer : bufferLiveRange.getBufferList()) {
+      auto livingBuffers = bufferLiveRange.getLivingBuffers(buffer);
+      for (size_t i = 1; i < livingBuffers.consumers.size(); ++i) {
+        // TODO(yancey.yx) using a common cost function to decide the offloading
+        if (livingBuffers.consumers[i].second -
+                livingBuffers.consumers[i - 1].second >
+            1000) {
+          auto prevOp = livingBuffers.consumers[i - 1].first;
+          auto op = livingBuffers.consumers[i].first;
+
+          // collect users of the buffer after offloading op
+          std::vector<Operation*> consumers;
+          for (size_t j = i; j < livingBuffers.consumers.size(); j++) {
+            consumers.push_back(livingBuffers.consumers[j].first);
           }
-          // loading to device
-          auto deviceBuffer =
-              rewriter
-                  .create<memref::AllocOp>(op->getLoc(),
-                                           buffer.getType().cast<MemRefType>())
-                  .getResult();
-          rewriter.create<lmhlo_disc::H2DOp>(op->getLoc(), hostBuffer,
-                                             deviceBuffer);
-          for (size_t j = i; j < liveRange.ranges.size(); j++) {
-            auto consumer = liveRange.ranges[i].first;
-            for (size_t k = 0; k < op->getNumOperands(); k++) {
-              if (consumer->getOperand(k) == buffer) {
-                consumer->setOperand(k, deviceBuffer);
-              }
-            }
-          }
-          llvm::dbgs() << "cutting live range: " << liveRange.ranges[i].second
+          consumers.push_back(livingBuffers.endOp);
+
+          InsertOffloadingOp(rewriter, prevOp, op, buffer, consumers);
+          llvm::dbgs() << "cutting live range: "
+                       << livingBuffers.consumers[i].second
                        << " to 0, after offloading buffer: " << buffer
                        << " reduce peak memory from "
                        << memoryPeak * 1.0 / (1024.0 * 1024.0 * 1024.0)
@@ -246,13 +345,16 @@ void DiscOffloadingPass::runOnOperation() {
                        << memoryPeakEvalution(main) * 1.0 /
                               (1024.0 * 1024.0 * 1024.0)
                        << " GB\n";
+          changed = true;
           break;
         }
       }
       if (changed) break;
     }
-    memoryPeakEvalution(main, true);
   }
+  llvm::dbgs() << "======\n";
+  memoryPeakEvalution(main, true);
+  main.dump();
 }
 std::unique_ptr<OperationPass<ModuleOp>> createDiscOffloadingPass() {
   return std::make_unique<DiscOffloadingPass>();

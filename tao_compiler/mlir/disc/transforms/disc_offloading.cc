@@ -317,7 +317,6 @@ void DiscOffloadingPass::runOnOperation() {
     int64_t memoryPeak = memoryPeakEvalution(main);
     bufferLiveRange.Analysis();
 
-    auto bufferLiveRanges = getBufferLiveRanges(main);
     for (auto buffer : bufferLiveRange.getBufferList()) {
       auto livingBuffers = bufferLiveRange.getLivingBuffers(buffer);
       for (size_t i = 1; i < livingBuffers.consumers.size(); ++i) {

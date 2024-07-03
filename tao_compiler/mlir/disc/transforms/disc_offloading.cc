@@ -222,42 +222,6 @@ void BufferLiveRange::Analysis() {
   });
 }
 
-BufferLiveRanges getBufferLiveRanges(ModuleOp main) {
-  BufferLiveRanges bufferLiveRanges;
-  int64_t position = 0;
-  main.walk([&](Operation* op) {
-    // Traverse the function's blocks and operations.
-    if (auto allocOp = dyn_cast<memref::AllocOp>(op)) {
-      if (isHostBuffer(allocOp.getResult())) {
-        return;
-      }
-      LiveRange range;
-      range.startOp = op;
-      range.start_position = position;
-      auto buffer = allocOp.getResult();
-      bufferLiveRanges[buffer] = range;
-    } else if (auto deallocOp = dyn_cast<memref::DeallocOp>(op)) {
-      bufferLiveRanges[deallocOp.getOperand()].endOp = deallocOp;
-    } else if (auto returnOp = dyn_cast<func::ReturnOp>(op)) {
-      for (auto operand : returnOp.getOperands()) {
-        if (bufferLiveRanges.count(operand)) {
-          bufferLiveRanges[operand].endOp = returnOp;
-        }
-      }
-    } else if (isa<lmhlo_disc::H2DOp>(op) || isa<lmhlo_disc::D2HOp>(op)) {
-      return;
-    } else {
-      for (Value operand : op->getOperands()) {
-        if (bufferLiveRanges.count(operand)) {
-          bufferLiveRanges[operand].ranges.push_back(std::make_pair(
-              op, position - bufferLiveRanges[operand].start_position));
-        }
-      }
-    }
-    position++;
-  });
-  return bufferLiveRanges;
-}
 void DiscOffloadingPass::InsertOffloadingOp(mlir::OpBuilder& rewriter,
                                             Operation* prevOp, Operation* op,
                                             Value buffer,

@@ -72,7 +72,7 @@ struct DiscShapePropagatePass
     registry.insert<mhlo::MhloDialect>();
   }
   void visitOperator(ModuleOp& m, OpBuilder& rewriter, Operation* op,
-                     ShapeContext& ctx);
+                     ShapeContext& ctx, bool printFlag = false);
   // std::stack<ShapeContext>& ctxStack);
   void runOnOperation() override;
 };
@@ -110,7 +110,13 @@ std::optional<Value> getConstTensor(OpBuilder& b, Operation* op,
       b.create<mhlo::ConstantOp>(op->getLoc(), const_type, const_attr);
   return const_op.getResult();
 }
-
+void PrintCtx(ShapeContext& ctx) {
+  llvm::dbgs() << "value: ";
+  ctx.value.dump();
+  for (size_t i = 0; i < ctx.shape.size(); ++i) {
+    llvm::dbgs() << "shape: [" << i << "] = " << ctx.shape[i] << "\n";
+  }
+}
 std::optional<ShapeContext> HandleBinaryOp(OpBuilder& b, Operation* op,
                                            ShapeContext& inputCtx) {
   auto bcastOp = dyn_cast_or_null<mhlo::BroadcastInDimOp>(
@@ -122,12 +128,14 @@ std::optional<ShapeContext> HandleBinaryOp(OpBuilder& b, Operation* op,
     auto elemTy =
         op->getOperand(0).getType().cast<RankedTensorType>().getElementType();
     b.setInsertionPoint(op);
-    Value inputShape =
-        b.create<shape::ShapeOfOp>(op->getLoc(), op->getOperand(0));
+    auto shapeOf = b.create<shape::ShapeOfOp>(op->getLoc(), op->getOperand(0));
+    auto outShape =
+        bcastOp.getResult().getType().cast<RankedTensorType>().getShape();
     auto dynBcastOp = b.create<mhlo::DynamicBroadcastInDimOp>(
-        op->getLoc(), RankedTensorType::get(inputCtx.shape, elemTy),
-        bcastOp->getOperand(0), inputShape, b.getI64TensorAttr({}));
+        op->getLoc(), RankedTensorType::get(outShape, elemTy),
+        bcastOp->getOperand(0), shapeOf, bcastOp.getBroadcastDimensions());
     bcastOp.getResult().replaceAllUsesWith(dynBcastOp.getResult());
+    bcastOp->erase();
   }
   return ShapeContext(op->getResult(0), inputCtx.shape);
 }
@@ -539,6 +547,7 @@ std::optional<ShapeContext> propagateHelper<mhlo::GatherOp>(
           attr.getStartIndexMap(), attr.getIndexVectorDim()),
       gather_op.getIndicesAreSorted());
   gather_op.getResult().replaceAllUsesWith(dynamic_gather_op.getResult());
+  gather_op->erase();
 
   // Update DynamicGatherOp result shape information
   return propagateHelper<mhlo::DynamicGatherOp>(
@@ -627,17 +636,23 @@ std::optional<ShapeContext> propagateOpShape(OpBuilder& rewriter, Operation* op,
 
 bool shouldStopPropagation(Operation* op, ShapeContext& ctx) {
   if (isConcreteShape(ctx)) return true;
-  if (isa<func::ReturnOp, mhlo::PadOp, shape::ShapeOfOp, tensor::DimOp>(op))
+  if (isa<func::ReturnOp, mhlo::PadOp, shape::ShapeOfOp, tensor::DimOp,
+          tensor::FromElementsOp>(op))
     return true;
   if (isa<mhlo::ReduceOp>(op->getParentOp())) return true;
 
   return false;
 }
 void DiscShapePropagatePass::visitOperator(ModuleOp& m, OpBuilder& rewriter,
-                                           Operation* op, ShapeContext& ctx) {
+                                           Operation* rootOp, ShapeContext& ctx,
+                                           bool printFlag) {
   std::stack<std::pair<Operation*, ShapeContext>> stack;
   std::stack<ShapeContext> ctxStack;
-  stack.push({op, ctx});
+  llvm::SetVector<Operation*> visited;
+  llvm::dbgs() << "rootOp:";
+  rootOp->dump();
+  stack.push({rootOp, ctx});
+  visited.insert(rootOp);
   while (!stack.empty()) {
     auto [op, inputCtx] = stack.top();
     stack.pop();
@@ -645,6 +660,9 @@ void DiscShapePropagatePass::visitOperator(ModuleOp& m, OpBuilder& rewriter,
       while (!ctxStack.empty()) {
         auto ctx = ctxStack.top();
         ctxStack.pop();
+        if (isa<shape::ShapeOfOp>(ctx.value.getDefiningOp())) {
+          PrintCtx(ctx);
+        }
         applyShapeContext(ctx);
       }
       continue;
@@ -660,7 +678,11 @@ void DiscShapePropagatePass::visitOperator(ModuleOp& m, OpBuilder& rewriter,
     SmallVector<Operation*> users(resultCtx->value.getUsers().begin(),
                                   resultCtx->value.getUsers().end());
     for (size_t i = 0; i < users.size(); ++i) {
+      if (visited.count(users[i]) ||
+          shouldStopPropagation(users[i], resultCtx.value()))
+        continue;
       stack.push({users[i], *resultCtx});
+      visited.insert(users[i]);
     }
   }
 }
@@ -699,8 +721,11 @@ void DiscShapePropagatePass::runOnOperation() {
     }
     ShapeContext ctx(value, newShape);
     auto newType = RankedTensorType::get(newShape, ty.getElementType());
-    for (auto user : main.getArgument(argIdx).getUsers()) {
-      visitOperator(m, rewriter, user, ctx);
+    SmallVector<Operation*, 4> users(value.getUsers().begin(),
+                                     value.getUsers().end());
+    // for (auto user : main.getArgument(argIdx).getUsers()) {
+    for (auto user : users) {
+      visitOperator(m, rewriter, user, ctx, true);
     }
     new_arg_types[argIdx] = newType;
     applyShapeContext(ctx);

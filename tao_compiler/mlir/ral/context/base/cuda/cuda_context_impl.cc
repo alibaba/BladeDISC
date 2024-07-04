@@ -266,6 +266,9 @@ buffer_t ral_base_cuda_alloc(ExecutionContext* ctx, size_t bytes) {
   void* ptr = state->gpu_allocator->alloc(bytes);
   TAO_VLOG(1) << "after ral_base_cuda_alloc with ptr=  " << ptr;
   exec_ctx->device_ptr_map.insert(std::make_pair(ptr, 1));
+
+  // Track in eviction_manager
+  exec_ctx->eviction_manager.TrackAlloc(ptr, bytes);
   return ptr;
 }
 
@@ -320,6 +323,9 @@ void ral_base_cuda_dealloc(ExecutionContext* ctx, buffer_t buffer) {
     TAO_VLOG(1) << "delete buffer after ref-count becoming zero";
   }
   TAO_VLOG(1) << "after ral_base_cuda_dealloc with ptr =  " << buffer;
+
+  // Track in eviction_manager
+  exec_ctx->eviction_manager.TrackDealloc(buffer);
 }
 
 buffer_t ral_base_cuda_raw_alloc(Context* ctx, size_t bytes) {

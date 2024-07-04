@@ -44,3 +44,14 @@ def DiscRematerializationPass : Pass<"disc-rematerialization", "ModuleOp"> {
   let summary = "Remat to reduce peak memory";
   let constructor = "createDiscRematerializationPass()";
 }
+
+
+def DiscDynamicEvictPass : Pass<"disc-dynamic-recompute", "ModuleOp"> {
+  let summary = "Auto recompute for dynamic shape graph";
+  let constructor = "createDiscDynamicEvictPass()";
+}
+
+def DiscEvictExpandPass : Pass<"disc-evict-expand", "ModuleOp"> {
+  let summary = "Expand EvictOp";
+  let constructor = "createDiscEvictExpandPass()";
+}

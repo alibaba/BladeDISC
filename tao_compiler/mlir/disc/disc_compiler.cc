@@ -243,9 +243,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       /*printAfterOnlyOnChange=*/true,
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
 
+  pm.addPass(disc_ral::createDiscShapePropagatePass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
   pm.addPass(disc_ral::createDiscInputOutputAliasPass());
-  pm.addPass(disc_ral::createDiscShapePropagatePass());
   pm.addPass(mlir::createInlinerPass());
   // TODO(disc): Lower HLO shape constraints instead of eliding them here.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscCollectiveOpsRewriterPass());
@@ -465,7 +465,12 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
        (gpu_options.cc_major == 8 && gpu_options.cc_minor == 6));
   bool enable_stitch =
       isStitchEnabled() || (gpu_enabled && enable_comp_intens_fusion);
-  if (enable_shape_constraint_ir) {
+
+  bool disable_fusion = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_DISABLE_GRAPH_FUSION", disable_fusion,
+                                 &disable_fusion);
+
+  if (enable_shape_constraint_ir && !disable_fusion) {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscDuplicateComputationForFusionPass(
             gpu_enabled, enable_stitch ? "stitch" : "base"));
@@ -492,12 +497,42 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   bool mlir_compute_intensive_codegen =
       useTransformSchedule() &&
       (!gpu_enabled || (gpu_enabled && gpu_options.cc_major >= 8));
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscFusionPass(
-      gpu_enabled, fusion_strategy, mlir_compute_intensive_codegen));
-  if (enable_comp_intens_fusion && gpu_enabled) {
+
+  if (!disable_fusion) {
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscFusionPass(
+        gpu_enabled, fusion_strategy, mlir_compute_intensive_codegen));
+  }
+
+  if (!disable_fusion && enable_comp_intens_fusion && gpu_enabled) {
     pm.addPass(disc_ral::createDiscCompIntensFusionToFuncPass());
   }
-  if (gpu_enabled) {
+
+  // Place here so we dont need to process scf ops.
+  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(createCSEPass());
+  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+
+
+  // Unified Op scheduler for dynamic and static shape ops
+  bool disable_op_schedule = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_DISABLE_OP_SCHEDULE",
+                                 disable_op_schedule, &disable_op_schedule);
+  if (!disable_op_schedule) {
+    pm.addPass(mhlo_disc::createDiscOpSchedulePass());
+  }
+
+  // Auto recompute pass on dynamic shape graph
+  bool disable_auto_recompute = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_DISABLE_AUTO_RECOMPUTE",
+                                 disable_auto_recompute, &disable_auto_recompute);
+  
+  if(!disable_auto_recompute) {
+    pm.addPass(mhlo_disc::createDiscDynamicEvictPass());
+  }
+
+  pm.addPass(mhlo_disc::createDiscEvictExpandPass());
+
+  if (gpu_enabled && !disable_fusion) {
     // TODO: Support cpu stitch with splat const
     pm.addNestedPass<FuncOp>(disc_ral::createDiscFuseSplatConstPass());
     pm.addNestedPass<FuncOp>(
@@ -514,7 +549,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
-  if (enable_stitch && !gpu_enabled) {
+  if (!disable_fusion && enable_stitch && !gpu_enabled) {
     pm.addNestedPass<FuncOp>(disc_ral::createDiscStitchFusionPass());
   }
 
@@ -533,18 +568,15 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
-  bool disable_op_schedule = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_DISABLE_OP_SCHEDULE",
-                                 disable_op_schedule, &disable_op_schedule);
-  if (!disable_op_schedule) {
-    pm.addPass(mhlo_disc::createDiscOpSchedulePass());
-  }
-
   pm.addNestedPass<FuncOp>(disc_ral::createDiscReduceBufferLiveRangePass());
   pm.addNestedPass<FuncOp>(bufferization::createBufferDeallocationPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscBufferDeallocationPass());
 
-  pm.addPass(mhlo_disc::createDiscRematerializationPass());
+  // Remove DiscRematerializationPass for now.
+  // Since Buffer GetMemoryUsageForValue does not support Dynamic Shape Memref
+  if (!disable_op_schedule) {
+    // pm.addPass(mhlo_disc::createDiscRematerializationPass());
+  }
 
   pm.addPass(disc_ral::createRalInjectExecutionContextPass());
   pm.addNestedPass<FuncOp>(

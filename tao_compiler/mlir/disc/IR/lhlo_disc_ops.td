@@ -317,8 +317,51 @@ def LHLODISC_OptimizationBarrierOp : LHLODISC_Op<"optimization_barrier", []> {
   );
 
   let results = (outs Variadic<LHLO_BufferOrIndexBuffer>);
- 
 }
 
+def LHLODISC_EvictOp : LHLODISC_Op<"evict", []> {
+  let summary = "evict buffer to release memory pressure";
+  let description = [{
+
+    Example:
+    ```mlir
+    %result0, %result1 = lmhlo_disc.evict %operand0, %operand1 : memref<f32>, memref<f32>
+    ```
+  }];
+
+  let arguments = (ins
+    Arg<Variadic<LHLO_BufferOrIndexBuffer>, "", [MemRead]>:$args
+  );
+
+  let results = (outs Variadic<LHLO_BufferOrIndexBuffer>);
+}
+
+def LHLODISC_EvictionCheckOp : LHLODISC_Op<"eviction_check", []> {
+  let summary = "check whether the buffer is evicted, return a memref<i1>";
+  let description = [{
+    Example:
+    ```mlir
+    %result0 = lmhlo_disc.eviction_check %operand0: -> memref<i1>
+    ```
+  }];
+
+  let arguments = (ins
+    Arg<Variadic<LHLO_BufferOrIndexBuffer>, "", [MemRead]>:$args
+  );
+
+  let results = (outs Variadic<LHLO_BufferOrIndexBuffer>);
+}
+
+def LHLODISC_ReallocOp : LHLODISC_Op<"realloc", []> {
+  let summary = "Realloc buffer and bind the buffer to the output.";
+  let description = [{
+    This operator is used to realloc buffer and bind the buffer to the output.
+  }];
+  let arguments = (ins
+    Arg<Variadic<LHLO_BufferOrIndexBuffer>, "", [MemRead]>:$args
+  );
+
+  let results = (outs Variadic<LHLO_BufferOrIndexBuffer>);
+}
 
 #endif // LMHLO_DISC_OPS

@@ -448,7 +448,6 @@ Value getCopyRemovableResult(Operation* op) {
     if (placement_utils::isGpuMemRef(result)) return result;
 #endif
   }
-
   return {};
 }
 
@@ -655,6 +654,41 @@ struct CopyLikeOpConvertor : public OpRewritePattern<OpTy> {
     return success();
   }
 };
+
+struct BufferizationCloneOpConvertor : public OpRewritePattern<bufferization::CloneOp> {
+  using OpRewritePattern<bufferization::CloneOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(bufferization::CloneOp lhloOp,
+                                PatternRewriter& rewriter) const override {
+    
+    llvm::dbgs() << "Convert Bufferization::CloneOp to ral_shallow_copy \n";
+
+    auto op = lhloOp.getOperation();
+    SmallVector<Value, 4> newOutputs;
+    for (int i = 0; i < op->getOperands().size(); ++i) {
+      op->setAttr("call_target_name", rewriter.getStringAttr("ral_shallow_copy"));
+      op->setAttr("device", rewriter.getStringAttr("d"));
+      op->setAttr("input_placements", rewriter.getStringAttr("d"));
+      op->setAttr("output_placements", rewriter.getStringAttr("h"));
+      op->setAttr("input_layouts", rewriter.getStringAttr("*"));
+      op->setAttr("output_layouts", rewriter.getStringAttr("*"));
+      op->setAttr("expected_input_layouts", rewriter.getStringAttr("*"));
+      op->setAttr("expected_output_layouts", rewriter.getStringAttr("*"));
+
+      SmallVector<NamedAttribute> attrs;
+      auto customAttrs = DictionaryAttr::get(op->getContext(), attrs);
+      op->setAttr("custom_attrs", customAttrs);
+
+      auto shallow_copy = rewriter.create<lmhlo_disc::CustomCallV2Op>(
+          op->getLoc(), op->getResults()[i].getType(), op->getOperands()[i],
+          op->getAttrs());
+      newOutputs.push_back(shallow_copy.getResult(0));
+    }
+    rewriter.replaceOp(op, newOutputs);
+    return success();
+  }
+};
+
 
 struct CustomCallOpConvertor : public OpRewritePattern<CustomCallOp> {
   using OpRewritePattern<CustomCallOp>::OpRewritePattern;
@@ -928,6 +962,7 @@ struct DiscLowerToLibraryCallPass
         context, "ral_qgemm");
 
     // custom call related
+    patterns.insert<BufferizationCloneOpConvertor>(context);
     patterns.insert<CustomCallV2OpConvertor>(context, gpu_enabled_);
 
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {

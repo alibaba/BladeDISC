@@ -33,6 +33,11 @@
 #include "mlir/ral/ral_context.h"
 #include "third_party/nccl/nccl.h"
 
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>
+
 // Raw cuda ral implementation.
 
 namespace tao {
@@ -57,6 +62,69 @@ struct BaseCudaContextOption {
   std::shared_ptr<Allocator> gpu_allocator;
 };
 
+struct EvictionManager {
+  using BufferInt64Ptr = int64_t;
+  EvictionManager() {
+    // Need to read from env
+    execution_memory_usage_limit_ = 10ll * 1024ll * 1024ll * 1024ll;
+  }
+
+  bool Evict(BufferInt64Ptr memref_buffer) {
+    if(reinterpret_cast<void*>(memref_buffer) == nullptr) return true;
+    if(current_execution_memory_usage_ < execution_memory_usage_limit_) return false;
+    return true;
+  }
+
+  std::vector<bool> Evict(std::vector<BufferInt64Ptr>& memref_buffers, std::vector<double>& distance_to_next_usage) {
+    std::vector<bool> evicted_memrefs(memref_buffers.size(), false);
+    std::vector<std::pair<BufferInt64Ptr, double>> memref_scores;
+
+    if(current_execution_memory_usage_ < execution_memory_usage_limit_)  return evicted_memrefs;
+    
+    for (int idx=0; idx < memref_buffers.size(); idx++) {
+      // Already evicted
+      if (reinterpret_cast<void*>(memref_buffers[idx]) == nullptr) {
+        evicted_memrefs[idx] = true;
+      } else {
+        memref_scores.push_back(std::make_pair(idx, memref_size_map_[memref_buffers[idx]] *  distance_to_next_usage[idx]));
+      }
+    }
+
+    std::sort(memref_scores.begin(), memref_scores.end(),
+              [](const std::pair<BufferInt64Ptr, double>& a,
+                 const std::pair<BufferInt64Ptr, double>& b) {
+                return a.second > b.second;
+              });
+    
+    size_t current_memory_usage = current_execution_memory_usage_;
+    for (auto pair : memref_scores) {
+      evicted_memrefs[pair.first] = true;
+      current_memory_usage -= memref_size_map_[memref_buffers[pair.first]];
+      if(current_memory_usage < execution_memory_usage_limit_) break;
+    }
+    return evicted_memrefs;
+  }
+
+  // Track runtime allocation & deallocation actions
+  void TrackAlloc(void* buffer, size_t size) {
+    auto buffer_int64_ptr = reinterpret_cast<BufferInt64Ptr>(buffer);
+    memref_size_map_[buffer_int64_ptr] = size;
+    current_execution_memory_usage_ += size;
+  }
+
+  void TrackDealloc(void* buffer) {
+    auto buffer_int64_ptr = reinterpret_cast<BufferInt64Ptr>(buffer);
+    current_execution_memory_usage_ -= memref_size_map_[buffer_int64_ptr];
+    memref_size_map_.erase(buffer_int64_ptr);
+  }
+
+  private:
+    std::unordered_map<BufferInt64Ptr, size_t> memref_size_map_;
+    size_t current_execution_memory_usage_ = 0;
+    size_t execution_memory_usage_limit_ = 0;
+
+};
+
 std::unique_ptr<BaseContext> MakeBaseCudaContext(
     BaseContextOption& opt, ::tao::ral::cpu::BaseCpuContextOption& cpu_opt,
     ::tao::ral::gpu::BaseCudaContextOption& gpu_opt);
@@ -77,6 +145,8 @@ struct BaseCudaExecutionContext
 
   // map int64 -> cudaEvent_t
   std::map<int64_t, GpuEventHandle> async_pair_tokens;
+
+  EvictionManager eviction_manager;
 
  protected:
   virtual void setOutputDeleter(OutputBufferWrapper& output) override;

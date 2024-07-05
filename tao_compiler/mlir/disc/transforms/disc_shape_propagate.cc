@@ -44,6 +44,7 @@ limitations under the License.
 #include "mlir/disc/disc_util.h"
 #include "mlir/disc/transforms/PassDetail.h"
 #include "mlir/disc/transforms/shape_utils.h"
+#include "tensorflow/tsl/platform/default/logging.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -72,8 +73,7 @@ struct DiscShapePropagatePass
     registry.insert<mhlo::MhloDialect>();
   }
   void visitOperator(ModuleOp& m, OpBuilder& rewriter, Operation* op,
-                     ShapeContext& ctx, bool printFlag = false);
-  // std::stack<ShapeContext>& ctxStack);
+                     ShapeContext& ctx);
   void runOnOperation() override;
 };
 bool isBinaryOp(Operation* op) {
@@ -110,6 +110,7 @@ std::optional<Value> getConstTensor(OpBuilder& b, Operation* op,
       b.create<mhlo::ConstantOp>(op->getLoc(), const_type, const_attr);
   return const_op.getResult();
 }
+
 void PrintCtx(ShapeContext& ctx) {
   llvm::dbgs() << "value: ";
   ctx.value.dump();
@@ -117,22 +118,19 @@ void PrintCtx(ShapeContext& ctx) {
     llvm::dbgs() << "shape: [" << i << "] = " << ctx.shape[i] << "\n";
   }
 }
+
 std::optional<ShapeContext> HandleBinaryOp(OpBuilder& b, Operation* op,
                                            ShapeContext& inputCtx) {
-  auto bcastOp = dyn_cast_or_null<mhlo::BroadcastInDimOp>(
-      op->getOperand(1).getDefiningOp());
-  if (!bcastOp) {
-    return ShapeContext(op->getResult(0), inputCtx.shape);
-  }
-  if (bcastOp) {
+  if (auto bcastOp = dyn_cast_or_null<mhlo::BroadcastInDimOp>(
+          op->getOperand(1).getDefiningOp())) {
     auto elemTy =
         op->getOperand(0).getType().cast<RankedTensorType>().getElementType();
     b.setInsertionPoint(op);
     auto shapeOf = b.create<shape::ShapeOfOp>(op->getLoc(), op->getOperand(0));
     auto outShape =
-        bcastOp.getResult().getType().cast<RankedTensorType>().getShape();
+        op->getOperand(0).getType().cast<RankedTensorType>().getShape();
     auto dynBcastOp = b.create<mhlo::DynamicBroadcastInDimOp>(
-        op->getLoc(), RankedTensorType::get(outShape, elemTy),
+        op->getLoc(), RankedTensorType::get(inputCtx.shape, elemTy),
         bcastOp->getOperand(0), shapeOf, bcastOp.getBroadcastDimensions());
     bcastOp.getResult().replaceAllUsesWith(dynBcastOp.getResult());
     bcastOp->erase();
@@ -588,7 +586,6 @@ LogicalResult parseInputDynamicDims(
 }
 
 void applyShapeContext(ShapeContext& ctx) {
-  if (!ctx.value) return;
   auto res_ty = ctx.value.getType().dyn_cast<RankedTensorType>();
   if (!res_ty) return;
   auto elemTy = res_ty.getElementType();
@@ -598,7 +595,12 @@ void applyShapeContext(ShapeContext& ctx) {
 std::optional<ShapeContext> propagateOpShape(OpBuilder& rewriter, Operation* op,
                                              ShapeContext& inputCtx) {
   if (isUnaryOp(op)) {
-    return ShapeContext(op->getResult(0), inputCtx.shape);
+    if (inputCtx.value == op->getOperand(0)) {
+      return ShapeContext(op->getResult(0), inputCtx.shape);
+    }
+    SmallVector<int64_t> newShape = llvm::to_vector<4>(
+        op->getOperand(0).getType().cast<RankedTensorType>().getShape());
+    return ShapeContext(op->getResult(0), newShape);
   }
   if (isBinaryOp(op)) {
     return HandleBinaryOp(rewriter, op, inputCtx);
@@ -643,16 +645,34 @@ bool shouldStopPropagation(Operation* op, ShapeContext& ctx) {
 
   return false;
 }
+struct OperationValuePairHash {
+  std::size_t operator()(const std::pair<Operation*, Value>& pair) const {
+    return llvm::hash_combine(pair.first, pair.second);
+  }
+};
+// Custom equality function for std::pair<Operation*, Value>
+struct OperationValuePairEqual {
+  bool operator()(const std::pair<Operation*, Value>& lhs,
+                  const std::pair<Operation*, Value>& rhs) const {
+    return lhs.first == rhs.first && lhs.second == rhs.second;
+  }
+};
+
 void DiscShapePropagatePass::visitOperator(ModuleOp& m, OpBuilder& rewriter,
-                                           Operation* rootOp, ShapeContext& ctx,
-                                           bool printFlag) {
+                                           Operation* rootOp,
+                                           ShapeContext& ctx) {
   std::stack<std::pair<Operation*, ShapeContext>> stack;
   std::stack<ShapeContext> ctxStack;
-  llvm::SetVector<Operation*> visited;
-  llvm::dbgs() << "rootOp:";
-  rootOp->dump();
+  std::unordered_set<std::pair<Operation*, Value>, OperationValuePairHash,
+                     OperationValuePairEqual>
+      visited;
+  if (VLOG_IS_ON(1)) {
+    VLOG(1) << "rootOp:";
+    rootOp->dump();
+  }
   stack.push({rootOp, ctx});
-  visited.insert(rootOp);
+  auto pair = std::make_pair(rootOp, ctx.value);
+  visited.insert(pair);
   while (!stack.empty()) {
     auto [op, inputCtx] = stack.top();
     stack.pop();
@@ -660,9 +680,6 @@ void DiscShapePropagatePass::visitOperator(ModuleOp& m, OpBuilder& rewriter,
       while (!ctxStack.empty()) {
         auto ctx = ctxStack.top();
         ctxStack.pop();
-        if (isa<shape::ShapeOfOp>(ctx.value.getDefiningOp())) {
-          PrintCtx(ctx);
-        }
         applyShapeContext(ctx);
       }
       continue;
@@ -678,12 +695,16 @@ void DiscShapePropagatePass::visitOperator(ModuleOp& m, OpBuilder& rewriter,
     SmallVector<Operation*> users(resultCtx->value.getUsers().begin(),
                                   resultCtx->value.getUsers().end());
     for (size_t i = 0; i < users.size(); ++i) {
-      if (visited.count(users[i]) ||
-          shouldStopPropagation(users[i], resultCtx.value()))
-        continue;
+      auto pair = std::make_pair(users[i], resultCtx->value);
+      if (visited.count(pair)) continue;
       stack.push({users[i], *resultCtx});
-      visited.insert(users[i]);
+      visited.insert(pair);
     }
+  }
+  while (!ctxStack.empty()) {
+    auto ctx = ctxStack.top();
+    ctxStack.pop();
+    applyShapeContext(ctx);
   }
 }
 void DiscShapePropagatePass::runOnOperation() {
@@ -723,9 +744,8 @@ void DiscShapePropagatePass::runOnOperation() {
     auto newType = RankedTensorType::get(newShape, ty.getElementType());
     SmallVector<Operation*, 4> users(value.getUsers().begin(),
                                      value.getUsers().end());
-    // for (auto user : main.getArgument(argIdx).getUsers()) {
     for (auto user : users) {
-      visitOperator(m, rewriter, user, ctx, true);
+      visitOperator(m, rewriter, user, ctx);
     }
     new_arg_types[argIdx] = newType;
     applyShapeContext(ctx);

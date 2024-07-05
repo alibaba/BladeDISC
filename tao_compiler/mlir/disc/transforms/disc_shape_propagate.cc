@@ -73,7 +73,8 @@ struct DiscShapePropagatePass
     registry.insert<mhlo::MhloDialect>();
   }
   void visitOperator(ModuleOp& m, OpBuilder& rewriter, Operation* op,
-                     ShapeContext& ctx);
+                     ShapeContext& ctx,
+                     std::unordered_map<int, Value>& symbolicMap);
   void runOnOperation() override;
 };
 bool isBinaryOp(Operation* op) {
@@ -592,8 +593,9 @@ void applyShapeContext(ShapeContext& ctx) {
   ctx.value.setType(RankedTensorType::get(ctx.shape, elemTy));
 }
 
-std::optional<ShapeContext> propagateOpShape(OpBuilder& rewriter, Operation* op,
-                                             ShapeContext& inputCtx) {
+std::optional<ShapeContext> propagateOpShape(
+    OpBuilder& rewriter, Operation* op, ShapeContext& inputCtx,
+    std::unordered_map<int, Value>& symbolicMap) {
   if (isUnaryOp(op)) {
     if (inputCtx.value == op->getOperand(0)) {
       return ShapeContext(op->getResult(0), inputCtx.shape);
@@ -608,9 +610,14 @@ std::optional<ShapeContext> propagateOpShape(OpBuilder& rewriter, Operation* op,
   if (isa<tensor::DimOp>(op)) {
     return propagateHelper<tensor::DimOp>(rewriter, op, inputCtx);
   }
-  if (isa<mhlo::BroadcastInDimOp>(op)) {
+  if (auto bcastOp = dyn_cast<mhlo::BroadcastInDimOp>(op)) {
     auto result = op->getResult(0);
     auto resultTy = result.getType().cast<RankedTensorType>();
+    auto elemTy = resultTy.getElementType();
+    bool withSymbolicShape = false;
+    SmallVector<Value, 4> mhloShape;
+    SmallVector<int64_t> shapes;
+
     SmallVector<int64_t> newShape = llvm::to_vector<4>(resultTy.getShape());
     return ShapeContext(result, newShape);
   }
@@ -658,9 +665,9 @@ struct OperationValuePairEqual {
   }
 };
 
-void DiscShapePropagatePass::visitOperator(ModuleOp& m, OpBuilder& rewriter,
-                                           Operation* rootOp,
-                                           ShapeContext& ctx) {
+void DiscShapePropagatePass::visitOperator(
+    ModuleOp& m, OpBuilder& rewriter, Operation* rootOp, ShapeContext& ctx,
+    std::unordered_map<int, Value>& symbolicMap) {
   std::stack<std::pair<Operation*, ShapeContext>> stack;
   std::stack<ShapeContext> ctxStack;
   std::unordered_set<std::pair<Operation*, Value>, OperationValuePairHash,
@@ -684,7 +691,7 @@ void DiscShapePropagatePass::visitOperator(ModuleOp& m, OpBuilder& rewriter,
       }
       continue;
     }
-    auto resultCtx = propagateOpShape(rewriter, op, inputCtx);
+    auto resultCtx = propagateOpShape(rewriter, op, inputCtx, symbolicMap);
     if (!resultCtx) {
       m.emitError("failed propagate shape on op:" +
                   op->getName().stripDialect().str());
@@ -744,8 +751,51 @@ void DiscShapePropagatePass::runOnOperation() {
     auto newType = RankedTensorType::get(newShape, ty.getElementType());
     SmallVector<Operation*, 4> users(value.getUsers().begin(),
                                      value.getUsers().end());
+    rewriter.setInsertionPointToStart(&main.getBody().front());
+    auto dimValue = rewriter.create<tensor::DimOp>(users[0]->getLoc(), value,
+                                                   pair.second[0]);
+    std::unordered_map<int, Value> symbolicMap;
+    auto concretShape =
+        value.getType().cast<RankedTensorType>().getShape()[pair.second[0]];
+    symbolicMap.insert({concretShape, dimValue});
+    llvm::dbgs() << "symoblic map: " << pair.second[0] << ":";
+    dimValue.dump();
+    main.walk([&](Operation* op) {
+      if (auto bcastOp = dyn_cast<mhlo::BroadcastInDimOp>(op)) {
+        auto result = op->getResult(0);
+        auto resultTy = result.getType().cast<RankedTensorType>();
+        auto elemTy = resultTy.getElementType();
+        bool withSymbolicShape = false;
+        SmallVector<Value, 4> mhloShape;
+        SmallVector<int64_t> shapes;
+        rewriter.setInsertionPoint(op);
+        for (auto dim : resultTy.getShape()) {
+          if (symbolicMap.count(dim)) {
+            withSymbolicShape = true;
+            mhloShape.push_back(symbolicMap[dim]);
+            shapes.push_back(ShapedType::kDynamic);
+          } else {
+            mhloShape.push_back(
+                rewriter.create<arith::ConstantIndexOp>(op->getLoc(), dim));
+            shapes.push_back(dim);
+          }
+        }
+        if (withSymbolicShape) {
+          auto mhloShapeValue =
+              rewriter.create<tensor::FromElementsOp>(op->getLoc(), mhloShape);
+          auto mhloBroadcastInDimOp =
+              rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+                  op->getLoc(), RankedTensorType::get(shapes, elemTy),
+                  op->getOperand(0), mhloShapeValue,
+                  bcastOp.getBroadcastDimensions());
+          mhloBroadcastInDimOp.dump();
+          op->getResult(0).replaceAllUsesWith(mhloBroadcastInDimOp.getResult());
+          op->erase();
+        }
+      }
+    });
     for (auto user : users) {
-      visitOperator(m, rewriter, user, ctx);
+      visitOperator(m, rewriter, user, ctx, symbolicMap);
     }
     new_arg_types[argIdx] = newType;
     applyShapeContext(ctx);

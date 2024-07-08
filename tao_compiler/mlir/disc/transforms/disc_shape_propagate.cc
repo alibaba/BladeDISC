@@ -283,6 +283,13 @@ std::optional<ShapeContext> propagateHelper<mhlo::SliceOp>(
         inputCtx.shape[i] == ShapedType::kDynamic) {
       limitIndices[i] = b.create<tensor::DimOp>(loc, slice_op.getOperand(), i);
       newShape[i] = inputCtx.shape[i];
+    } else if (limitIndicesCst != inputShape[i] &&
+               inputCtx.shape[i] == ShapedType::kDynamic) {
+      auto limitOffset = inputShape[i] - limitIndicesCst;
+      auto inputDim = b.create<tensor::DimOp>(loc, slice_op.getOperand(), i);
+      limitIndices[i] = b.create<arith::SubIOp>(
+          loc, inputDim, b.create<arith::ConstantIndexOp>(loc, limitOffset));
+      newShape[i] = inputCtx.shape[i];
     } else {
       limitIndices[i] =
           b.create<arith::ConstantIndexOp>(slice_op.getLoc(), limitIndicesCst);
@@ -744,6 +751,11 @@ void DiscShapePropagatePass::runOnOperation() {
     SmallVector<int64_t> newShape;
     std::copy(ty.getShape().begin(), ty.getShape().end(),
               std::back_inserter(newShape));
+    if (pair.second.size() != 1 || pair.second[0] != 1) {
+      main.emitError("only support sequence length dims equal to 1");
+      signalPassFailure();
+      return;
+    }
     for (auto dim : pair.second) {
       newShape[dim] = ShapedType::kDynamic;
     }
@@ -752,14 +764,27 @@ void DiscShapePropagatePass::runOnOperation() {
     SmallVector<Operation*, 4> users(value.getUsers().begin(),
                                      value.getUsers().end());
     rewriter.setInsertionPointToStart(&main.getBody().front());
-    auto dimValue = rewriter.create<tensor::DimOp>(users[0]->getLoc(), value,
-                                                   pair.second[0]);
     std::unordered_map<int, Value> symbolicMap;
-    auto concretShape =
-        value.getType().cast<RankedTensorType>().getShape()[pair.second[0]];
-    symbolicMap.insert({concretShape, dimValue});
-    llvm::dbgs() << "symoblic map: " << pair.second[0] << ":";
-    dimValue.dump();
+    // sequence length
+    auto seqlen = ty.getShape()[pair.second[0]];
+    auto seqlenValue = rewriter.create<tensor::DimOp>(users[0]->getLoc(), value,
+                                                      pair.second[0]);
+    symbolicMap.insert({seqlen, seqlenValue});
+
+    // bsz * sequence length - 1
+    auto bszSeqlen = ty.getShape()[0] * (seqlen - 1);
+    auto bszValue =
+        rewriter.create<tensor::DimOp>(users[0]->getLoc(), value, 0);
+    // bszSeqlenValue = bsz * (seqlen - 1)
+    auto bszSeqlenValue = rewriter.create<arith::MulIOp>(
+        users[0]->getLoc(), bszValue,
+        rewriter.create<arith::SubIOp>(
+            users[0]->getLoc(), seqlenValue,
+            rewriter.create<arith::ConstantIndexOp>(users[0]->getLoc(), 1)));
+
+    bszSeqlenValue.dump();
+    symbolicMap.insert({bszSeqlen, bszSeqlenValue});
+
     main.walk([&](Operation* op) {
       if (auto bcastOp = dyn_cast<mhlo::BroadcastInDimOp>(op)) {
         auto result = op->getResult(0);
@@ -788,7 +813,6 @@ void DiscShapePropagatePass::runOnOperation() {
                   op->getLoc(), RankedTensorType::get(shapes, elemTy),
                   op->getOperand(0), mhloShapeValue,
                   bcastOp.getBroadcastDimensions());
-          mhloBroadcastInDimOp.dump();
           op->getResult(0).replaceAllUsesWith(mhloBroadcastInDimOp.getResult());
           op->erase();
         }

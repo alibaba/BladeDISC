@@ -174,9 +174,10 @@ std::optional<ShapeContext> propagateHelper<mhlo::DotOp>(
   }
 }
 
-template <>
-std::optional<ShapeContext> propagateHelper<mhlo::ReshapeOp>(
-    OpBuilder& b, Operation* op, ShapeContext& inputCtx) {
+std::optional<ShapeContext> HandleReshapeOp(
+    OpBuilder& b, Operation* op, ShapeContext& inputCtx,
+    std::unordered_map<int, Value>& symbolicMap) {
+  b.setInsertionPoint(op);
   auto reshape_op = dyn_cast<mhlo::ReshapeOp>(op);
   if (!reshape_op) return std::nullopt;
   Type intType = b.getIntegerType(32);
@@ -186,13 +187,48 @@ std::optional<ShapeContext> propagateHelper<mhlo::ReshapeOp>(
       reshape_op.getResult().getType().cast<RankedTensorType>();
   auto resultRank = resultRankType.getRank();
   auto resultShape = resultRankType.getShape();
+  auto inputShape = reshape_op.getOperand().getType().cast<RankedTensorType>();
   SmallVector<int64_t> newShape(resultRank, ShapedType::kDynamic);
+  bool symbolicSeqlen = false;
+  for (size_t i = 0; i < resultShape.size(); ++i) {
+    if (symbolicMap.count(resultShape[i])) {
+      symbolicSeqlen = true;
+    }
+  }
+  if (symbolicSeqlen) {
+    SmallVector<Value, 4> newShapeValues;
+    SmallVector<int64_t> newShape;
+    for (size_t i = 0; i < resultShape.size(); ++i) {
+      if (symbolicMap.count(resultShape[i])) {
+        newShape.push_back(ShapedType::kDynamic);
+        newShapeValues.push_back(symbolicMap[resultShape[i]]);
+      } else {
+        newShape.push_back(resultShape[i]);
+        newShapeValues.push_back(
+            b.create<arith::ConstantIndexOp>(op->getLoc(), resultShape[i]));
+      }
+    }
+    Value shapeValue =
+        b.create<tensor::FromElementsOp>(op->getLoc(), newShapeValues);
+    auto shape = b.create<shape::ShapeOfOp>(op->getLoc(), op->getOperand(0));
+    auto numElems = b.create<shape::NumElementsOp>(op->getLoc(), shape);
+    auto computeReshapeShape = b.create<mhlo::ComputeReshapeShapeOp>(
+        op->getLoc(), shapeValue.getType(), numElems.getResult(), shapeValue);
+    auto dynReshapeOpResultType =
+        RankedTensorType::get(newShape, resultRankType.getElementType());
+    auto dynReshapeOp = b.create<mhlo::DynamicReshapeOp>(
+        op->getLoc(), dynReshapeOpResultType, reshape_op.getOperand(),
+        computeReshapeShape);
+    dynReshapeOp.dump();
+    op->getResult(0).replaceAllUsesWith(dynReshapeOp.getResult());
+    op->erase();
+    return ShapeContext(dynReshapeOp->getResult(0), newShape);
+  }
   int64_t numel =
       std::accumulate(inputCtx.shape.begin(), inputCtx.shape.end(), int64_t(1),
                       [](int64_t acc, int64_t num) {
                         return num == ShapedType::kDynamic ? acc : acc * num;
                       });
-
   bool inferenced = true;
   while (inferenced) {
     inferenced = false;
@@ -617,6 +653,9 @@ std::optional<ShapeContext> propagateOpShape(
   if (isa<tensor::DimOp>(op)) {
     return propagateHelper<tensor::DimOp>(rewriter, op, inputCtx);
   }
+  if (isa<mhlo::ReshapeOp>(op)) {
+    return HandleReshapeOp(rewriter, op, inputCtx, symbolicMap);
+  }
   if (auto bcastOp = dyn_cast<mhlo::BroadcastInDimOp>(op)) {
     auto result = op->getResult(0);
     auto resultTy = result.getType().cast<RankedTensorType>();
@@ -635,7 +674,7 @@ std::optional<ShapeContext> propagateOpShape(
   }
   PROPAGATE_OP_HANDLER(DotOp);
   PROPAGATE_OP_HANDLER(SliceOp);
-  PROPAGATE_OP_HANDLER(ReshapeOp);
+  // PROPAGATE_OP_HANDLER(ReshapeOp);
   PROPAGATE_OP_HANDLER(ConcatenateOp);
   PROPAGATE_OP_HANDLER(ReduceOp);
   PROPAGATE_OP_HANDLER(TransposeOp);
@@ -721,6 +760,43 @@ void DiscShapePropagatePass::visitOperator(
     applyShapeContext(ctx);
   }
 }
+std::optional<Operation*> HandleDyncBroadcastOp(
+    OpBuilder& rewriter, Operation* op,
+    std::unordered_map<int, Value>& symbolicMap) {
+  auto bcastOp = dyn_cast<mhlo::BroadcastInDimOp>(op);
+  if (!bcastOp) return std::nullopt;
+  auto result = op->getResult(0);
+  auto resultTy = result.getType().cast<RankedTensorType>();
+  auto elemTy = resultTy.getElementType();
+  bool withSymbolicShape = false;
+  SmallVector<Value, 4> mhloShape;
+  SmallVector<int64_t> shapes;
+  rewriter.setInsertionPoint(op);
+  for (auto dim : resultTy.getShape()) {
+    if (symbolicMap.count(dim)) {
+      withSymbolicShape = true;
+      mhloShape.push_back(symbolicMap[dim]);
+      shapes.push_back(ShapedType::kDynamic);
+    } else {
+      mhloShape.push_back(
+          rewriter.create<arith::ConstantIndexOp>(op->getLoc(), dim));
+      shapes.push_back(dim);
+    }
+  }
+  if (withSymbolicShape) {
+    auto mhloShapeValue =
+        rewriter.create<tensor::FromElementsOp>(op->getLoc(), mhloShape);
+    auto mhloBroadcastInDimOp = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        op->getLoc(), RankedTensorType::get(shapes, elemTy), op->getOperand(0),
+        mhloShapeValue, bcastOp.getBroadcastDimensions());
+    op->getResult(0).replaceAllUsesWith(mhloBroadcastInDimOp.getResult());
+    op->erase();
+    return mhloBroadcastInDimOp;
+  }
+  return std::nullopt;
+}
+void HandleSymbolicSeqlenDimension(
+    std::unordered_map<int, Value>& symbolicMap) {}
 void DiscShapePropagatePass::runOnOperation() {
   ModuleOp m = getOperation();
   auto main = m.lookupSymbol<FuncOp>("main");
@@ -765,57 +841,27 @@ void DiscShapePropagatePass::runOnOperation() {
                                      value.getUsers().end());
     rewriter.setInsertionPointToStart(&main.getBody().front());
     std::unordered_map<int, Value> symbolicMap;
-    // sequence length
+    // seqlen
     auto seqlen = ty.getShape()[pair.second[0]];
     auto seqlenValue = rewriter.create<tensor::DimOp>(users[0]->getLoc(), value,
                                                       pair.second[0]);
     symbolicMap.insert({seqlen, seqlenValue});
 
-    // bsz * sequence length - 1
+    // bszSeqlen = bsz * (seqlen - 1)
     auto bszSeqlen = ty.getShape()[0] * (seqlen - 1);
     auto bszValue =
         rewriter.create<tensor::DimOp>(users[0]->getLoc(), value, 0);
-    // bszSeqlenValue = bsz * (seqlen - 1)
     auto bszSeqlenValue = rewriter.create<arith::MulIOp>(
         users[0]->getLoc(), bszValue,
         rewriter.create<arith::SubIOp>(
             users[0]->getLoc(), seqlenValue,
             rewriter.create<arith::ConstantIndexOp>(users[0]->getLoc(), 1)));
 
-    bszSeqlenValue.dump();
     symbolicMap.insert({bszSeqlen, bszSeqlenValue});
 
     main.walk([&](Operation* op) {
-      if (auto bcastOp = dyn_cast<mhlo::BroadcastInDimOp>(op)) {
-        auto result = op->getResult(0);
-        auto resultTy = result.getType().cast<RankedTensorType>();
-        auto elemTy = resultTy.getElementType();
-        bool withSymbolicShape = false;
-        SmallVector<Value, 4> mhloShape;
-        SmallVector<int64_t> shapes;
-        rewriter.setInsertionPoint(op);
-        for (auto dim : resultTy.getShape()) {
-          if (symbolicMap.count(dim)) {
-            withSymbolicShape = true;
-            mhloShape.push_back(symbolicMap[dim]);
-            shapes.push_back(ShapedType::kDynamic);
-          } else {
-            mhloShape.push_back(
-                rewriter.create<arith::ConstantIndexOp>(op->getLoc(), dim));
-            shapes.push_back(dim);
-          }
-        }
-        if (withSymbolicShape) {
-          auto mhloShapeValue =
-              rewriter.create<tensor::FromElementsOp>(op->getLoc(), mhloShape);
-          auto mhloBroadcastInDimOp =
-              rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-                  op->getLoc(), RankedTensorType::get(shapes, elemTy),
-                  op->getOperand(0), mhloShapeValue,
-                  bcastOp.getBroadcastDimensions());
-          op->getResult(0).replaceAllUsesWith(mhloBroadcastInDimOp.getResult());
-          op->erase();
-        }
+      if (auto dynOp = HandleDyncBroadcastOp(rewriter, op, symbolicMap)) {
+        users.push_back(dynOp.value());
       }
     });
     for (auto user : users) {
@@ -835,7 +881,6 @@ void DiscShapePropagatePass::runOnOperation() {
   });
   main.setType(
       FunctionType::get(main.getContext(), new_arg_types, new_return_types));
-  main.dump();
 }
 
 }  // namespace

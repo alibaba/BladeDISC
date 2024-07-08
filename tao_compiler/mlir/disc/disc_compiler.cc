@@ -242,10 +242,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       /*printModuleScope=*/false,
       /*printAfterOnlyOnChange=*/true,
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
-
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
-  pm.addPass(disc_ral::createDiscInputOutputAliasPass());
   pm.addPass(disc_ral::createDiscShapePropagatePass());
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
+  // pm.addPass(disc_ral::createDiscInputOutputAliasPass());
   pm.addPass(mlir::createInlinerPass());
   // TODO(disc): Lower HLO shape constraints instead of eliding them here.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscCollectiveOpsRewriterPass());
@@ -269,8 +268,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscLowerQuantizeAndDequantizePass());
   }
-
   bool enable_shape_constraint_ir = useShapeConstraintIR();
+
   if (!enable_shape_constraint_ir) {
     // propagate some known shape information.
     pm.addPass(disc_ral::createDiscShapeSimplifierPass());
@@ -279,7 +278,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
   }
-
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertTensorToStandardPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertHloToStandardPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
@@ -638,7 +636,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createLhloFusionInlinerPass());
 
   // Expand ArgsMutationOp to redirect memory writing target
-  pm.addPass(mhlo_disc::createDiscArgsMutationExpandPass());
+  // pm.addPass(mhlo_disc::createDiscArgsMutationExpandPass());
 
   if (gpu_enabled) {
     // Lower dot fusion to CUDA.

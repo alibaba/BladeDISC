@@ -985,7 +985,6 @@ SliceOpShapeHelper::SliceOpShapeHelper(Operation* op) : op(op) {
   assert(startAttr.getNumElements() == ty.getRank());
   assert(limitAttr.getNumElements() == ty.getRank());
   assert(strideAttr.getNumElements() == ty.getRank());
-
   for (int i = 0; i < ty.getRank(); ++i) {
     mergeStartIndex(i, startAttr.getValues<int64_t>()[i]);
     mergeLimitIndex(i, limitAttr.getValues<int64_t>()[i]);
@@ -1020,9 +1019,12 @@ LogicalResult SliceOpShapeHelper::markAsFullySlicedAxis(int axis) {
 LogicalResult SliceOpShapeHelper::mergeStartIndex(int axis, int64_t value) {
   assert(axis < static_cast<int>(startIndices.size()));
 
-  if (startIndices[axis] != value && value != ShapeValueState::kUnknown &&
-      startIndices[axis] != ShapeValueState::kUnknown)
-    return failure();
+  // NOTE(yancey): commented out the following check to support dynamic slice,
+  // it's valid if start index greater than 0, let's recovery this if statement
+  // if any issue occurs.
+  // if (startIndices[axis] != value && value != ShapeValueState::kUnknown &&
+  //     startIndices[axis] != ShapeValueState::kUnknown)
+  //   return failure();
 
   if (startIndices[axis] == ShapeValueState::kUnknown)
     startIndices[axis] = value;

@@ -858,7 +858,7 @@ std::optional<Operation*> HandleConstOp(
       scalar_const_op = rewriter.create<mhlo::ConstantOp>(
           op->getLoc(), const_type, const_attr);
     } else if (elemTy.isa<BFloat16Type>()) {
-      auto value = (*dense_attr.getValues<APFloat>().begin()).convertToDouble();
+      auto value = (*dense_attr.getValues<APFloat>().begin());
       auto const_type = RankedTensorType::get({}, elemTy);
       auto const_attr = DenseElementsAttr::get(const_type, {value});
       scalar_const_op = rewriter.create<mhlo::ConstantOp>(
@@ -972,8 +972,6 @@ void DiscShapePropagatePass::runOnOperation() {
     symbolicMap.insert({seqlenSliced, seqlenValue});
     // batch size
     auto bsz = ty.getShape()[0];
-    // auto bszValue =
-    //     rewriter.create<tensor::DimOp>(users[0]->getLoc(), value, 0);
     auto bszValue =
         rewriter.create<arith::ConstantIndexOp>(users[0]->getLoc(), bsz);
     // symbolicMap.insert({bsz, bszValue});

@@ -423,7 +423,6 @@ struct BroadCastInDimOfReshapeOpCanonicalizationPattern
     return success();
   }
 };
-
 // Simplifier extract and from-element op pattern, an example as following:
 //  %0 = tensor.extract %arg0[] : tensor<f32>
 //  %1 = tensor.from_elements %0 : tensor<1xf32>
@@ -530,7 +529,34 @@ struct IndexCastSimplifierPattern
     return failure();
   }
 };
-
+// Simplify extract pattern to avoid scalar tensor. An examples as following:
+// %2 = "mhlo.get_dimension_size"(%1)
+// %3 = "tensor.extract" %2[] -> i32
+// %from_elements = tensor.from_elements %3, ...
+//
+// this pattern will be converted to:
+// %2 = "tensor.dim"(%1, %cst0) -> i32
+// %from_elements = tensor.from_elements %2, ...
+struct SimplifierExtractPattern : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op->getLoc();
+    Value input = op->getOperand(0);
+    auto elemTy = input.getType().cast<RankedTensorType>().getElementType();
+    auto getDimOp = dyn_cast<mhlo::GetDimensionSizeOp>(input.getDefiningOp());
+    if (!getDimOp) return failure();
+    Value tensor = getDimOp->getOperand(0);
+    auto dim = getDimOp.getDimension();
+    auto newDimValue =
+        rewriter.create<tensor::DimOp>(loc, tensor, dim).getResult();
+    auto castValue =
+        rewriter.create<arith::IndexCastOp>(loc, elemTy, newDimValue)
+            .getResult();
+    rewriter.replaceOp(op, castValue);
+    return success();
+  }
+};
 // Consant folding the broadcasted constant, for patterns like:
 //   %0 = mhlo.constant // Scalar or splat constant
 //   %1 = mhlo.dynamic_broadcast_in_dim(%0, ...)
@@ -625,7 +651,8 @@ void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>,
-    SimplifierFromElementsPattern,
+    SimplifierExtractPattern,
+    //SimplifierFromElementsPattern,
     TrunciSimplifierPattern,
     IndexCastSimplifierPattern
   >(patterns.getContext());

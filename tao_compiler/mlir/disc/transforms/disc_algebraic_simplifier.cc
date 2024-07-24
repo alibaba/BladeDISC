@@ -438,6 +438,8 @@ struct SimplifierFromElementsPattern
     auto loc = op->getLoc();
     Value input = op->getOperand(0);
     Value result = op->getResult(0);
+    // only support scalar tensor
+    if (op->getNumOperands() != 1) return failure();
     auto extractOp = input.getDefiningOp<tensor::ExtractOp>();
     if (!extractOp) return failure();
 
@@ -652,7 +654,7 @@ void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>,
     SimplifierExtractPattern,
-    //SimplifierFromElementsPattern,
+    SimplifierFromElementsPattern,
     TrunciSimplifierPattern,
     IndexCastSimplifierPattern
   >(patterns.getContext());

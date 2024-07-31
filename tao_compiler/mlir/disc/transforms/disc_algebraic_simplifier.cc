@@ -9,6 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stack>
+
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
@@ -531,34 +533,94 @@ struct IndexCastSimplifierPattern
     return failure();
   }
 };
-// Simplify extract pattern to avoid scalar tensor. An examples as following:
+// Simplify get_dimension_size pattern. An examples as following:
+// Case 1):
 // %2 = "mhlo.get_dimension_size"(%1)
 // %3 = "tensor.extract" %2[] -> i32
 // %from_elements = tensor.from_elements %3, ...
-//
-// this pattern will be converted to:
+// Convert to:
 // %2 = "tensor.dim"(%1, %cst0) -> i32
 // %from_elements = tensor.from_elements %2, ...
-struct SimplifierExtractPattern : public OpRewritePattern<tensor::ExtractOp> {
-  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+//
+// Case 2):
+// %2 = "mhlo.get_dimension_size"(%1)
+// %3 = mhlo.mul %2, %4
+// %4 = "tensor.extract" %3[] -> i32
+// %from_elements = tensor.from_elements %4, ...
+// Convert to:
+// %2 = "tensor.dim"(%1, %cst0) -> i32
+// %3 = arith.mul %2, %4
+// %from_elements = tensor.from_elements %3, ...
+
+struct SimplifierGetDimensionSizePattern
+    : public OpRewritePattern<mhlo::GetDimensionSizeOp> {
+  using OpRewritePattern<mhlo::GetDimensionSizeOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::GetDimensionSizeOp getDimOp,
                                 PatternRewriter& rewriter) const override {
-    auto loc = op->getLoc();
-    Value input = op->getOperand(0);
-    auto elemTy = input.getType().cast<RankedTensorType>().getElementType();
-    auto getDimOp = dyn_cast<mhlo::GetDimensionSizeOp>(input.getDefiningOp());
-    if (!getDimOp) return failure();
+    auto loc = getDimOp->getLoc();
     Value tensor = getDimOp->getOperand(0);
     auto dim = getDimOp.getDimension();
-    auto newDimValue =
+    auto elemTy = getDimOp.getResult()
+                      .getType()
+                      .cast<RankedTensorType>()
+                      .getElementType();
+
+    SmallVector<Operation*, 4> ops;
+    std::stack<Operation*> stack;
+    for (auto user : getDimOp->getUsers()) {
+      if (isa<tensor::ExtractOp, func::ReturnOp, mhlo::ReshapeOp,
+              mhlo::DynamicBroadcastInDimOp>(user))
+        continue;
+      stack.push(user);
+    }
+    while (!stack.empty()) {
+      auto user = stack.top();
+      stack.pop();
+      ops.push_back(user);
+      for (auto op : user->getUsers()) {
+        if (isa<tensor::ExtractOp, func::ReturnOp, mhlo::ReshapeOp,
+                mhlo::DynamicBroadcastInDimOp>(op))
+          continue;
+        stack.push(op);
+      }
+    }
+    for (auto op : ops) {
+      auto loc = op->getLoc();
+      rewriter.setInsertionPoint(op);
+      auto v1 = rewriter.create<tensor::ExtractOp>(loc, op->getOperand(0));
+      auto v2 = rewriter.create<tensor::ExtractOp>(loc, op->getOperand(1));
+      Value newOpValue;
+      if (isa<mhlo::MulOp>(op)) {
+        newOpValue = rewriter.create<arith::MulIOp>(loc, v1, v2).getResult();
+      } else if (isa<mhlo::AddOp>(op)) {
+        newOpValue = rewriter.create<arith::AddIOp>(loc, v1, v2).getResult();
+      } else if (isa<mhlo::SubtractOp>(op)) {
+        newOpValue = rewriter.create<arith::SubIOp>(loc, v1, v2).getResult();
+      } else if (isa<mhlo::DivOp>(op)) {
+        newOpValue = rewriter.create<arith::DivSIOp>(loc, v1, v2).getResult();
+      } else {
+        return failure();
+      }
+      auto result = rewriter.create<tensor::FromElementsOp>(
+          loc, getDimOp.getResult().getType().cast<RankedTensorType>(),
+          newOpValue);
+      op->replaceAllUsesWith(result);
+    }
+    rewriter.setInsertionPoint(getDimOp);
+    auto dimValue =
         rewriter.create<tensor::DimOp>(loc, tensor, dim).getResult();
-    auto castValue =
-        rewriter.create<arith::IndexCastOp>(loc, elemTy, newDimValue)
+    auto castValue = rewriter.create<arith::IndexCastOp>(loc, elemTy, dimValue);
+    auto dimValueTensor =
+        rewriter
+            .create<tensor::FromElementsOp>(
+                loc, getDimOp.getResult().getType().cast<RankedTensorType>(),
+                ValueRange{castValue})
             .getResult();
-    rewriter.replaceOp(op, castValue);
+    getDimOp.replaceAllUsesWith(dimValueTensor);
     return success();
   }
 };
+
 // Consant folding the broadcasted constant, for patterns like:
 //   %0 = mhlo.constant // Scalar or splat constant
 //   %1 = mhlo.dynamic_broadcast_in_dim(%0, ...)
@@ -653,10 +715,10 @@ void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>,
-    SimplifierExtractPattern,
     SimplifierFromElementsPattern,
     TrunciSimplifierPattern,
-    IndexCastSimplifierPattern
+    IndexCastSimplifierPattern,
+    SimplifierGetDimensionSizePattern
   >(patterns.getContext());
   if (isMemIntensiveOptExperimentalEnabled()) {
     // Will be enabled by default after a set of robustness testing.

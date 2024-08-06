@@ -257,3 +257,20 @@ func.func @select_simp(%arg0: tensor<16xf16>) -> (tensor<20xf16>, tensor<20xf16>
   %11 = "mhlo.select"(%10, %7, %3): (tensor<20xi1>, tensor<20xf16>, tensor<20xf16>) -> tensor<20xf16>
   return %8, %3 : tensor<20xf16>, tensor<20xf16>
 }
+
+// -----
+
+// CHECK-LABEL: @main
+func.func @main(%arg0: tensor<?x10xf32>, %arg1: tensor<10xf32>) -> tensor<?x10xf32> {
+  %c10_i32 = arith.constant 10 : i32
+  %c_0 = mhlo.constant dense<4> : tensor<i32>
+  // CHECK: %dim = tensor.dim %arg0, %c0 : tensor<?x10xf32>
+  // CHECK: %0 = arith.index_cast %dim : index to i32
+  %2 = "mhlo.get_dimension_size"(%arg0) {dimension = 0 : i64} : (tensor<?x10xf32>) -> tensor<i32>
+  // CHECK: %1 = arith.muli %0, %c4_i32 : i32
+  %3 = mhlo.multiply %2, %c_0 : tensor<i32>
+  %extracted = tensor.extract %3[] : tensor<i32>
+  %from_elements = tensor.from_elements %extracted, %c10_i32 : tensor<2xi32>
+  %4 = "mhlo.dynamic_broadcast_in_dim"(%arg1, %from_elements) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<10xf32>, tensor<2xi32>) -> tensor<?x10xf32>
+  return %4 : tensor<?x10xf32>
+}

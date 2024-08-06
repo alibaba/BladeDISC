@@ -238,7 +238,6 @@ void addBoolFlags(EnvSettings& envSettings, const std::string& key) {
   } else {
     size_t original_size = envSettings.size();
     for (int i = 0; i < original_size; ++i) {
-      envSettings[i][key].first = "false";
       envSettings.push_back(envSettings[i]);
       envSettings[i][key].first = "true";
     }

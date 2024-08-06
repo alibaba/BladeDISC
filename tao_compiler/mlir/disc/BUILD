@@ -159,6 +159,17 @@ cc_library(
         "@llvm-project//llvm:Support",
     ],
 )
+cc_library(
+    name = "buffer_live_range",
+    srcs = ["utils/buffer_live_range.cc"],
+    hdrs = ["utils/buffer_live_range.h"],
+    includes = ["include"],
+    deps = [
+        "@llvm-project//llvm:Support",
+        ":disc_util",
+        ":mhlo_disc",
+    ],
+)
 
 tf_cc_test(
     name = "cycle_detector_test",
@@ -331,6 +342,29 @@ cc_library(
         "@llvm-project//mlir:LLVMDialect",
     ],
     alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_offloading",
+    srcs = ["transforms/disc_offloading.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = ["include"],
+    deps = [
+        ":disc_util",
+        ":mhlo_disc",
+        ":pass_details",
+        ":shape_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:GPUDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:Transforms", 
+    ]
 )
 
 cc_library(
@@ -2447,6 +2481,7 @@ cc_library(
         ":MhloDiscPassIncGen",
         ":conv_rewriter",
         ":quantized_dot_rewriter",
+        ":disc_offloading",
         ":disc_dot_merge",
         ":disc_quantized_dot_merge",
         ":disc_algebraic_simplifier",

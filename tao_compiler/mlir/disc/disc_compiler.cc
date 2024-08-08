@@ -544,6 +544,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(bufferization::createBufferDeallocationPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscBufferDeallocationPass());
 
+  pm.addPass(mhlo_disc::createDiscRematerializationPass());
+
   pm.addPass(disc_ral::createRalInjectExecutionContextPass());
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscLowerToLibraryCallPass(gpu_enabled));

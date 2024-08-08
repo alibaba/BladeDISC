@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "mlir/disc/disc_util.h"
 
+#include <limits.h>
+
 #include <numeric>
 #include <optional>
 
@@ -417,6 +419,20 @@ int getNumResultOperands(Operation* op) {
 
 int getShmemSizeBytesNotAffectOccupancy(int cc_major, int cc_minor) {
   return 8192;
+}
+
+size_t getRematerializationPeakMemoryLimitInBytes() {
+  bool disabled = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_DISABLE_REMATERIALIZARION", disabled,
+                                 &disabled);
+  if (disabled) return std::numeric_limits<size_t>::max();
+
+  int64_t peak_memory_limit_in_bytes = std::numeric_limits<int64_t>::max();
+  tensorflow::ReadInt64FromEnvVar("DISC_REMATERIALIZATION_PEAK_MEMORY_IN_BYTES",
+                                  peak_memory_limit_in_bytes,
+                                  &peak_memory_limit_in_bytes);
+
+  return (size_t)peak_memory_limit_in_bytes;
 }
 
 Type getLhloOpsElementType(Operation* op) {

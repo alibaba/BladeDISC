@@ -1305,14 +1305,14 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
 
     b->setInsertionPointToEnd(&if_inbound_ops[i].getElseRegion().front());
     if (i == num_input_operands - 1) {
-      input_index[axis] = b->create<arith::SubIOp>(loc, out_idx, low_bound);
-      auto operand_memref = op.getOperand(i);
+      // we expect this branch never be executed
+      input_index[axis] = b->create<arith::ConstantIndexOp>(loc, 0);
       auto ret_value =
           check_cache ? createLoadOrUseCachedValue(
-                            loc, b, op.getOperation(), operand_memref,
+                            loc, b, op.getOperation(), op.getOperand(i),
                             input_index, b->saveInsertionPoint(), lower_config)
                       : createMaySpecificLoad(*b, loc, op.getOperation(),
-                                              operand_memref, input_index,
+                                              op.getOperand(i), input_index,
                                               lower_config);
       b->create<scf::YieldOp>(loc, ret_value);
     } else {

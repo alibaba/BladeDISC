@@ -2232,7 +2232,7 @@ cc_library(
 cc_library(
     name = "disc_offloading",
     srcs = [
-        "transforms/disc_offloading.cc",
+        "transforms/disc_dynamic_offloading.cc",
         "transforms/disc_remat_utils.cc"
     ],
     hdrs = [

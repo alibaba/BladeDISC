@@ -42,8 +42,8 @@
 namespace mlir {
 namespace disc_ral {
 constexpr StringRef kRematBlockTypeAttr = "disc.remat.type";
-constexpr StringRef kRematBufferAttr = "disc.remat.dummy-buffer";
-constexpr StringRef kRematMinSymDim = "disc.remat.min-sym-dim";
+constexpr StringRef kRematBufferAttr = "disc.remat.is_dummy_buffer";
+constexpr StringRef kRematMinSymDim = "disc.remat.min_symbolic_dim";
 
 struct DiscOffloadingPass : public DiscOffloadingPassBase<DiscOffloadingPass> {
   DiscOffloadingPass()
@@ -61,10 +61,6 @@ struct DiscOffloadingPass : public DiscOffloadingPassBase<DiscOffloadingPass> {
   void InsertRematBlock(mlir::OpBuilder& b, LivingBuffer& livingBuffer,
                         Value rematCond, std::vector<OpWithPosition>& ops,
                         int64_t minSymValue);
-  void InsertOffloadingOp(mlir::OpBuilder& rewriter, Operation* prevOp,
-                          Operation* op, Value buffer,
-                          std::vector<Operation*> consumers, Value symbS0,
-                          int64_t cstMinS0);
 };
 Location getFusionLocation(OpBuilder& b, Operation* op) {
   if (auto fusionOp = dyn_cast<lmhlo::FusionOp>(op->getParentOp())) {
@@ -136,7 +132,7 @@ bool IsDynamicShapeBuffer(Value buffer) {
   }
   return false;
 }
-Value createAllocOp(OpBuilder& b, Location loc, Value refBuffer) {
+Value cloneBuffer(OpBuilder& b, Location loc, Value buffer) {
   MemRefType type = refBuffer.getType().cast<MemRefType>();
   SmallVector<Value, 4> dynShape;
   for (size_t i = 0; i < type.getRank(); i++) {
@@ -153,11 +149,25 @@ Value createAllocOp(OpBuilder& b, Location loc, Value refBuffer) {
   return allocOp.getResult();
 }
 
+// InsertRematBlock create a remat block for the living buffer:
+// reload and offload blocks are always pair in graph:
+//
+// if remat_cond:
+//   return offload(buffer)
+// else:
+//   return dummy_buffer
+// ......
+// if remat_cond:
+//   return reload(buffer)
+// else:
+//   return buffer
 void DiscOffloadingPass::InsertRematBlock(mlir::OpBuilder& b,
                                           LivingBuffer& livingBuffer,
                                           Value rematCond,
                                           std::vector<OpWithPosition>& ops,
                                           int64_t minSymValue) {
+  // TODO(yancey): we need a custom operator to handle the dummy buffer to avoid
+  // call alloc or dealloc operator
   auto buffer = livingBuffer.buffer;
   auto startOp = livingBuffer.start;
   auto endOp = livingBuffer.end;
@@ -165,12 +175,7 @@ void DiscOffloadingPass::InsertRematBlock(mlir::OpBuilder& b,
   auto deviceMemrefType = buffer.getType().cast<MemRefType>();
   auto hostMemrefType = MemRefType::get(
       deviceMemrefType.getShape(), deviceMemrefType.getElementType(), {}, 0);
-  // offloading to host
-  // get dynamic dim of buffer and insert into ValueRange
-  // if remat_cond:
-  //   yield offload(buffer)
-  // else:
-  //   yield dummy_buffer
+  // insert offload block
   auto offloadIfOp =
       b.create<scf::IfOp>(startOp->getLoc(),
                           /*resultTypes*/ hostMemrefType, rematCond,
@@ -183,7 +188,7 @@ void DiscOffloadingPass::InsertRematBlock(mlir::OpBuilder& b,
                                       b.getI64IntegerAttr(minSymValue));
   offloadIfOp.getThenRegion().front().clear();
   b.setInsertionPointToEnd(&offloadIfOp.getThenRegion().front());
-  auto hostBuffer = createAllocOp(b, endOp->getLoc(), buffer);
+  auto hostBuffer = cloneBuffer(b, endOp->getLoc(), buffer);
   hostBuffer.setType(MemRefType::get(deviceMemrefType.getShape(),
                                      deviceMemrefType.getElementType(), {}, 0));
   b.create<lmhlo_disc::D2HOp>(endOp->getLoc(), buffer, hostBuffer);
@@ -192,7 +197,7 @@ void DiscOffloadingPass::InsertRematBlock(mlir::OpBuilder& b,
 
   offloadIfOp.getElseRegion().front().clear();
   b.setInsertionPointToStart(&offloadIfOp.getElseRegion().front());
-  auto dummyHostBuffer = createAllocOp(b, endOp->getLoc(), buffer);
+  auto dummyHostBuffer = cloneBuffer(b, endOp->getLoc(), buffer);
   dummyHostBuffer.getDefiningOp()->setAttr(kRematBufferAttr,
                                            b.getBoolAttr(true));
   dummyHostBuffer.setType(MemRefType::get(
@@ -222,17 +227,17 @@ void DiscOffloadingPass::InsertRematBlock(mlir::OpBuilder& b,
   reloadIfOp.getThenRegion().front().clear();
   b.setInsertionPointToStart(&reloadIfOp.getThenRegion().front());
 
-  auto deviceBuffer = createAllocOp(b, endOp->getLoc(), buffer);
+  auto deviceBuffer = cloneBuffer(b, endOp->getLoc(), buffer);
   deviceBuffer.setType(deviceMemrefType);
   auto h2dOp = b.create<lmhlo_disc::H2DOp>(
       endOp->getLoc(), offloadIfOp.getResult(0), deviceBuffer);
   b.create<scf::YieldOp>(endOp->getLoc(), deviceBuffer);
   reloadIfOp.getElseRegion().front().clear();
   b.setInsertionPointToStart(&reloadIfOp.getElseRegion().front());
-  auto dummyDeviceBuffer = createAllocOp(b, endOp->getLoc(), buffer);
+  auto dummyDeviceBuffer = cloneBuffer(b, endOp->getLoc(), buffer);
   dummyDeviceBuffer.setType(deviceMemrefType);
-  dummyDeviceBuffer.getDefiningOp()->setAttr(
-      b.getStringAttr("disc.remat.dummy-buffer"), b.getBoolAttr(true));
+  dummyDeviceBuffer.getDefiningOp()->setAttr(kRematBufferAttr,
+                                             b.getBoolAttr(true));
   b.create<scf::YieldOp>(endOp->getLoc(), buffer);
   for (auto pair : ops) {
     auto op = pair.first;
@@ -246,125 +251,6 @@ void DiscOffloadingPass::InsertRematBlock(mlir::OpBuilder& b,
     }
   }
 }
-void DiscOffloadingPass::InsertOffloadingOp(mlir::OpBuilder& b,
-                                            Operation* prevOp, Operation* op,
-                                            Value buffer,
-                                            std::vector<Operation*> consumers,
-                                            Value symbS0, int64_t cstMinS0) {
-  Location loc = prevOp->getLoc();
-  if (auto fusionOp = dyn_cast<lmhlo::FusionOp>(prevOp->getParentOp())) {
-    b.setInsertionPointAfter(fusionOp);
-    loc = fusionOp.getLoc();
-  } else {
-    b.setInsertionPointAfter(prevOp);
-  }
-  auto offloadCond = b.create<arith::CmpIOp>(
-      loc, arith::CmpIPredicate::sgt, symbS0,
-      b.create<arith::ConstantIndexOp>(op->getLoc(), cstMinS0));
-  b.setInsertionPointAfter(offloadCond);
-  StringRef attrName = SymbolicDimOp::getSymbolicDimAttrName();
-  auto deviceMemrefType = buffer.getType().cast<MemRefType>();
-  auto hostMemrefType = MemRefType::get(
-      deviceMemrefType.getShape(), deviceMemrefType.getElementType(), {}, 0);
-  // offloading to host
-  // get dynamic dim of buffer and insert into ValueRange
-  auto offloadIfOp =
-      b.create<scf::IfOp>(op->getLoc(),
-                          /*resultTypes*/ hostMemrefType, offloadCond,
-                          /*hasElseRegion*/ true);
-  offloadIfOp.getOperation()->setAttr(
-      attrName, buffer.getDefiningOp()->getAttr(attrName));
-  offloadIfOp.getOperation()->setAttr(kRematBlockTypeAttr,
-                                      b.getStringAttr("offload"));
-  offloadIfOp.getOperation()->setAttr(kRematMinSymDim,
-                                      b.getI64IntegerAttr(cstMinS0));
-  offloadIfOp.getThenRegion().front().clear();
-  b.setInsertionPointToEnd(&offloadIfOp.getThenRegion().front());
-  auto hostBuffer = createAllocOp(b, op->getLoc(), buffer);
-  hostBuffer.setType(MemRefType::get(deviceMemrefType.getShape(),
-                                     deviceMemrefType.getElementType(), {}, 0));
-  b.create<lmhlo_disc::D2HOp>(op->getLoc(), buffer, hostBuffer);
-  b.create<memref::DeallocOp>(op->getLoc(), buffer);
-  b.create<scf::YieldOp>(op->getLoc(), hostBuffer);
-
-  offloadIfOp.getElseRegion().front().clear();
-  b.setInsertionPointToStart(&offloadIfOp.getElseRegion().front());
-  auto dummyHostBuffer = createAllocOp(b, op->getLoc(), buffer);
-  dummyHostBuffer.getDefiningOp()->setAttr(kRematBufferAttr,
-                                           b.getBoolAttr(true));
-  dummyHostBuffer.setType(MemRefType::get(
-      deviceMemrefType.getShape(), deviceMemrefType.getElementType(), {}, 0));
-  b.create<scf::YieldOp>(op->getLoc(), dummyHostBuffer);
-  b.setInsertionPointAfter(offloadIfOp);
-
-  if (auto fusionOp = dyn_cast<lmhlo::FusionOp>(op->getParentOp())) {
-    b.setInsertionPoint(fusionOp);
-  } else {
-    b.setInsertionPoint(op);
-  }
-
-  // insert reload block
-  scf::IfOp reloadIfOp =
-      b.create<scf::IfOp>(op->getLoc(),
-                          /*resultTypes*/ deviceMemrefType, offloadCond,
-                          /*hasElseRegion*/ true);
-  if (buffer.getDefiningOp()->hasAttr(attrName)) {
-    reloadIfOp.getOperation()->setAttr(
-        attrName, buffer.getDefiningOp()->getAttr(attrName));
-  }
-  reloadIfOp.getOperation()->setAttr(kRematBlockTypeAttr,
-                                     b.getStringAttr("reload"));
-  reloadIfOp.getOperation()->setAttr(kRematMinSymDim,
-                                     b.getI64IntegerAttr(cstMinS0));
-  reloadIfOp.getThenRegion().front().clear();
-  b.setInsertionPointToStart(&reloadIfOp.getThenRegion().front());
-
-  auto deviceBuffer = createAllocOp(b, op->getLoc(), buffer);
-  deviceBuffer.setType(deviceMemrefType);
-  auto h2dOp = b.create<lmhlo_disc::H2DOp>(
-      op->getLoc(), offloadIfOp.getResult(0), deviceBuffer);
-  b.create<scf::YieldOp>(op->getLoc(), deviceBuffer);
-  reloadIfOp.getElseRegion().front().clear();
-  b.setInsertionPointToStart(&reloadIfOp.getElseRegion().front());
-  auto dummyDeviceBuffer = createAllocOp(b, op->getLoc(), buffer);
-  dummyDeviceBuffer.setType(deviceMemrefType);
-  dummyDeviceBuffer.getDefiningOp()->setAttr(
-      b.getStringAttr("disc.remat.dummy-buffer"), b.getBoolAttr(true));
-  b.create<scf::YieldOp>(op->getLoc(), buffer);
-
-  for (size_t i = 0; i < consumers.size(); i++) {
-    auto consumer = consumers[i];
-    for (size_t j = 0; j < consumer->getNumOperands(); j++) {
-      if (consumer->getOperand(j) == buffer) {
-        consumer->setOperand(j, reloadIfOp.getResult(0));
-      }
-    }
-  }
-}
-Value getSymBufferSize(OpBuilder& b, Location loc, Value buffer,
-                       ShapeConstraintIRAnalysis& shapeAnalysis) {
-  int64_t factor = 1;
-  SmallVector<SymbolicDimOp, 4> symbols;
-  SmallVector<Value, 4> dimValues;
-  auto memrefType = buffer.getType().cast<MemRefType>();
-  for (size_t i = 0; i < memrefType.getRank(); ++i) {
-    auto dim = memrefType.getShape()[i];
-    if (dim == ShapedType::kDynamic) {
-      dimValues.push_back(b.create<memref::DimOp>(loc, buffer, i));
-    } else {
-      factor *= dim;
-    }
-  }
-  Value numal = b.create<arith::ConstantIndexOp>(loc, factor);
-  for (auto dim : dimValues) {
-    numal = b.create<arith::MulIOp>(loc, numal, dim);
-  }
-  return numal;
-}
-
-struct SymbolicDimProductSum {
-  llvm::SmallVector<SymbolicDimProduct> symbolProds;
-};
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
                               const SymbolicDimProduct& prod) {
@@ -381,59 +267,14 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
   }
   return os;
 }
-/*
-SymbolicDimProductSum symbolicDimProductSub(SymbolicDimProductSum sum,
-                                            SymbolicDimProduct b) {
-  bool mergeSymbols = false;
-  SymbolicDimProductSum result;
-
-  for (auto symbolProd : sum.symbolProds) {
-    if (symbolProd.symbols == b.symbols) {
-      mergeSymbols = true;
-      symbolProd.factor -= b.factor;
-      if (symbolProd.factor == 0) {
-        continue;
-      }
-      result.symbolProds.push_back(symbolProd);
-    } else {
-      result.symbolProds.push_back(symbolProd);
-    }
-  }
-  if (!mergeSymbols) {
-    b.factor *= -b.factor;
-    result.symbolProds.push_back(b);
-  }
-  return result;
-}
-SymbolicDimProductSum symbolicDimProductSumAdd(SymbolicDimProductSum sum,
-                                               SymbolicDimProduct b) {
-  SymbolicDimProductSum result;
-  bool mergeSymbols = false;
-  for (auto symbolProd : sum.symbolProds) {
-    if (symbolProd.symbols == b.symbols) {
-      mergeSymbols = true;
-      symbolProd.factor += b.factor;
-      result.symbolProds.push_back(symbolProd);
-    } else {
-      result.symbolProds.push_back(symbolProd);
-    }
-  }
-  if (!mergeSymbols) {
-    result.symbolProds.push_back(b);
-  }
-  return result;
-}
-*/
-// Dumps SymbolicDimProduct to the output stream
-
-std::tuple<bool, double, double> solveQuadratic(int64_t A, int64_t B,
-                                                int64_t C) {
-  if (A == 0) {
+std::tuple<bool, double, double> solveQuadratic(int64_t a, int64_t b,
+                                                int64_t c) {
+  if (a == 0) {
     throw std::invalid_argument(
         "Coefficient A cannot be zero in a quadratic equation.");
   }
 
-  double discriminant = B * B - 4 * A * C;
+  double discriminant = b * b - 4 * a * c;
   // no solution if b^2 - 4ac < 0
   if (discriminant < 0) {
     return std::make_tuple(false, 0.0, 0.0);
@@ -442,9 +283,9 @@ std::tuple<bool, double, double> solveQuadratic(int64_t A, int64_t B,
   double sqrtDiscriminant = std::sqrt(discriminant);
 
   // compute x1, x2
-  int64_t X1 = (-B + sqrtDiscriminant) / (2 * A);
-  int64_t X2 = (-B - sqrtDiscriminant) / (2 * A);
-  return std::make_tuple(true, X1, X2);
+  int64_t x1 = (-b + sqrtDiscriminant) / (2 * a);
+  int64_t x2 = (-b - sqrtDiscriminant) / (2 * a);
+  return std::make_tuple(true, x1, x2);
 }
 int64_t findMinSymbolicDimValue(MemoryUsage memoryPeakExpr,
                                 int64_t memoryLimitation) {
@@ -462,6 +303,9 @@ int64_t findMinSymbolicDimValue(MemoryUsage memoryPeakExpr,
     }
   }
   c -= memoryLimitation;
+  if (a == 0) {
+    return -c / b;
+  }
   auto [hasSolution, x0, x1] = solveQuadratic(a, b, c);
   if (!hasSolution) {
     throw std::invalid_argument("No solution for the quadratic equation.");
@@ -469,19 +313,6 @@ int64_t findMinSymbolicDimValue(MemoryUsage memoryPeakExpr,
   return std::max(x0, x1);
 }
 
-int64_t getConcretValuewithCst(SymbolicDimProductSum prod, int64_t cstValue) {
-  int64_t factor = 1;
-  for (auto symProd : prod.symbolProds) {
-    if (symProd.symbols.size() == 0) {
-      factor += symProd.factor;
-    } else if (symProd.symbols.size() == 1) {
-      factor += symProd.factor * cstValue;
-    } else if (symProd.symbols.size() == 2) {
-      factor += symProd.factor * cstValue * cstValue;
-    }
-  }
-  return factor;
-}
 bool inRematOffloadBlock(Value value) {
   if (auto ifOp = dyn_cast<scf::IfOp>(value.getDefiningOp()->getParentOp())) {
     auto blockType =
@@ -530,7 +361,7 @@ Value InsertRematCond(mlir::OpBuilder& b, Location loc, Value s0,
       b.create<arith::ConstantIndexOp>(s0.getLoc(), minS0));
   return offloadCond;
 }
-vector<LivingBuffer> FilterLivingBuffers(
+std::vector<LivingBuffer> FilterBuffers(
     std::vector<LivingBuffer> livingBuffers) {
   std::vector<LivingBuffer> result;
   for (auto lb : livingBuffers) {
@@ -545,22 +376,22 @@ vector<LivingBuffer> FilterLivingBuffers(
   }
   return result;
 }
-void SortByPrioriy(std::vector<LivingBuffer>& livingBuffers) {
+void SortBuffersByPrioriy(std::vector<LivingBuffer>& livingBuffers) {
   std::sort(livingBuffers.begin(), livingBuffers.end(),
             [](const LivingBuffer& a, const LivingBuffer& b) {
               return a.living_range > b.living_range;
             });
 }
 std::optional<LivingBuffer> PickHighestPriorityLivingBuffer(
-    std::vector<LivingBuffer>& livingBuffers) {
+    const std::vector<LivingBuffer>& livingBuffers) {
   // step1: filter living buffers which can not reduce the peak memory or too
   // small buffer
-  auto buffers = FilterLivingBuffers(livingBuffers);
+  auto buffers = FilterBuffers(livingBuffers);
   if (buffers.size() == 0) {
     return std::nullopt;
   }
   // step2: sort living buffers by priority, e.g. living range value
-  SortByPrioriy(buffers);
+  SortBuffersByPrioriy(buffers);
   return buffers[0];
 }
 void DiscOffloadingPass::runOnOperation() {
@@ -570,17 +401,15 @@ void DiscOffloadingPass::runOnOperation() {
   mlir::OpBuilder b(main);
   const int64_t memoryLimitation = 21474836480;  // 30GB
   llvm::dbgs() << "memory limitation: " << memoryLimitation << "\n";
-  //  1. find all buffer live-range
   bool changed = true;
   int maxIteration = 200;
   std::unique_ptr<SymbolicMemoryProfiler> profiler(
       new SymbolicMemoryProfiler(main));
-
-  std::unique_ptr<ShapeAnalysis> shapeAnalysisPtr;
-  std::unique_ptr<DiscBufferLivingRange> bufferLivingRange;
-  bufferLivingRange.reset(new DiscBufferLivingRange(main));
-  shapeAnalysisPtr.reset(new ShapeConstraintIRAnalysis(main));
-
+  std::unique_ptr<DiscBufferLivingRange> bufferLivingRange(
+      new DiscBufferLivingRange(main));
+  // mapping symbolic dim(S0) in shape constrint graph to SSA value
+  // TODO(yancey): please note, we only support only one symbolic dim now,
+  // let's find a way to enhancement this.
   auto symS0Value = findSymbolicDimValue(main, "S0");
   if (!symS0Value) {
     llvm::errs() << "failed to find S0 value\n";
@@ -599,17 +428,12 @@ void DiscOffloadingPass::runOnOperation() {
     auto memoryPeakExpr = profiler->GetPeakMemory();
     int64_t minS0 = findMinSymbolicDimValue(memoryPeakExpr, memoryLimitation);
 
-    llvm::dbgs() << "min s0: " << minS0 << "\n";
-    auto livingBuffer = PickHighestPriorityLivingBuffer(
-        std::vector<LivingBuffer> & livingBuffers);
-    if (auto buffer = livingBuffer.value()) {
-      llvm::dbgs() << "living range: " << buffer.living_range << "\n";
-      auto startOp = buffer.start;
-      auto endOp = buffer.end;
-      auto buffer = buffer.buffer;
+    auto livingBuffer =
+        PickHighestPriorityLivingBuffer(bufferLivingRange->GetLivingBuffers());
+    if (livingBuffer.has_value()) {
+      auto buffer = livingBuffer.value();
       auto users = bufferLivingRange->GetUsersOrderByPosition(buffer.buffer);
-
-      auto loc = getFusionLocation(b, startOp);
+      auto loc = getFusionLocation(b, buffer.start);
       auto rematCond = InsertRematCond(b, loc, symS0Value.value(), minS0);
       InsertRematBlock(b, buffer, rematCond, users, minS0);
       changed = true;

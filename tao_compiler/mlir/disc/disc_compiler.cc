@@ -242,10 +242,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       /*printModuleScope=*/false,
       /*printAfterOnlyOnChange=*/true,
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
-
+  pm.addPass(disc_ral::createDiscShapePropagatePass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
   pm.addPass(disc_ral::createDiscInputOutputAliasPass());
-  pm.addPass(disc_ral::createDiscShapePropagatePass());
   pm.addPass(mlir::createInlinerPass());
   // TODO(disc): Lower HLO shape constraints instead of eliding them here.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscCollectiveOpsRewriterPass());
@@ -269,8 +268,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscLowerQuantizeAndDequantizePass());
   }
-
   bool enable_shape_constraint_ir = useShapeConstraintIR();
+
   if (!enable_shape_constraint_ir) {
     // propagate some known shape information.
     pm.addPass(disc_ral::createDiscShapeSimplifierPass());
@@ -279,7 +278,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
   }
-
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertTensorToStandardPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertHloToStandardPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
@@ -500,9 +498,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   if (gpu_enabled) {
     // TODO: Support cpu stitch with splat const
     pm.addNestedPass<FuncOp>(disc_ral::createDiscFuseSplatConstPass());
-    pm.addNestedPass<FuncOp>(
-        disc_ral::createDiscSpecializeFusionWithSpeculationPass(
-            gpu_options.sm_count, gpu_options.max_threads_per_sm));
+    // pm.addNestedPass<FuncOp>(
+    //     disc_ral::createDiscSpecializeFusionWithSpeculationPass(
+    //         gpu_options.sm_count, gpu_options.max_threads_per_sm));
   } else {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscDuplicateComputationAfterFusionPass());
@@ -545,6 +543,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscBufferDeallocationPass());
 
   pm.addPass(disc_ral::createRalInjectExecutionContextPass());
+  // pm.addPass(mhlo_disc::createDiscArgsMutationExpandPass());
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscOffloadingPass());
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscLowerToLibraryCallPass(gpu_enabled));
   pm.addPass(disc_ral::createDiscConstToRALPass(options.metadata_file_path));

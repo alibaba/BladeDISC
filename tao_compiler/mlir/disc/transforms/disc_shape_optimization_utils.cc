@@ -84,13 +84,13 @@ bool compareSymbolicDimProduct(const SymbolicDimProduct& lhs,
   return false;
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
-                              const SymbolicDimProduct& product) {
-  os << "SymbolicDimProduct[\n\tfactor: " << product.factor << ",\n";
-  for (auto& s : product.symbols) os << "\tsymbol: " << s << "\n";
-  os << "]\n";
-  return os;
-}
+// llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
+//                               const SymbolicDimProduct& product) {
+//   os << "SymbolicDimProduct[\n\tfactor: " << product.factor << ",\n";
+//   for (auto& s : product.symbols) os << "\tsymbol: " << s << "\n";
+//   os << "]\n";
+//   return os;
+// }
 
 SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m), symbolTable_(m_) {}
 
@@ -101,7 +101,14 @@ LogicalResult SymbolicDimMgr::load() {
   });
   return loadShapeConstraintGraph();
 }
-
+std::optional<SymbolicDimOp> SymbolicDimMgr::findSymbolicDimOp(StringRef name) {
+  for (auto p : symbolDimUnionSet_) {
+    if (p.first.getName() == name) {
+      return p.first;
+    }
+  }
+  return std::nullopt;
+}
 std::string SymbolicDimMgr::getNextName() {
   std::string name;
   do {
@@ -248,7 +255,26 @@ SymbolicDimMgr::simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
 
   return std::make_pair(std::move(newLhs), std::move(newRhs));
 }
+SymbolicDimProduct SymbolicDimMgr::symbolicDimProductAdd(
+    const SymbolicDimProduct& x, const SymbolicDimProduct& y) {
+  SymbolicDimProduct result;
+  result.factor = x.factor + y.factor;
+  llvm::dbgs() << "x: " << x << "\n";
+  llvm::dbgs() << "y: " << y << "\n";
 
+  // SymbolicDimProduct newLhs, newRhs;
+  for (auto sym : x.symbols) result.symbols.push_back(sym);
+  for (auto sym : y.symbols) result.symbols.push_back(sym);
+  llvm::dbgs() << "add result: " << result << "\n";
+  auto newResult = simplifySymbolicDimProduct(result);
+  llvm::dbgs() << "new result: " << result << "\n";
+  return newResult;
+}
+SymbolicDimProduct symbolicDimProductSub(const SymbolicDimProduct& x,
+                                         const SymbolicDimProduct& y) {
+  SymbolicDimProduct result;
+  return result;
+}
 std::optional<SymbolicDimProduct> SymbolicDimMgr::symbolicDimProductDivide(
     const SymbolicDimProduct& lhs, const SymbolicDimProduct& rhs) {
   LLVM_DEBUG(llvm::dbgs() << "Try to check if x % y == 0?\nx = " << lhs
@@ -985,7 +1011,6 @@ SliceOpShapeHelper::SliceOpShapeHelper(Operation* op) : op(op) {
   assert(startAttr.getNumElements() == ty.getRank());
   assert(limitAttr.getNumElements() == ty.getRank());
   assert(strideAttr.getNumElements() == ty.getRank());
-
   for (int i = 0; i < ty.getRank(); ++i) {
     mergeStartIndex(i, startAttr.getValues<int64_t>()[i]);
     mergeLimitIndex(i, limitAttr.getValues<int64_t>()[i]);
@@ -1020,9 +1045,12 @@ LogicalResult SliceOpShapeHelper::markAsFullySlicedAxis(int axis) {
 LogicalResult SliceOpShapeHelper::mergeStartIndex(int axis, int64_t value) {
   assert(axis < static_cast<int>(startIndices.size()));
 
-  if (startIndices[axis] != value && value != ShapeValueState::kUnknown &&
-      startIndices[axis] != ShapeValueState::kUnknown)
-    return failure();
+  // NOTE(yancey): commented out the following check to support dynamic slice,
+  // it's valid if start index greater than 0, let's recovery this if statement
+  // if any issue occurs.
+  // if (startIndices[axis] != value && value != ShapeValueState::kUnknown &&
+  //     startIndices[axis] != ShapeValueState::kUnknown)
+  //   return failure();
 
   if (startIndices[axis] == ShapeValueState::kUnknown)
     startIndices[axis] = value;

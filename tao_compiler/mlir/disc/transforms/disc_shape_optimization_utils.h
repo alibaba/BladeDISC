@@ -361,6 +361,11 @@ class SymbolicDimMgr {
   std::optional<SymbolicDimProduct> symbolicDimProductDivide(
       const SymbolicDimProduct& x, const SymbolicDimProduct& y);
 
+  SymbolicDimProduct symbolicDimProductAdd(const SymbolicDimProduct& x,
+                                           const SymbolicDimProduct& y);
+  SymbolicDimProduct symbolicDimProductSub(const SymbolicDimProduct& x,
+                                           const SymbolicDimProduct& y);
+
   // mark group [a0, b0, ...] and group [a1, b1, c1, ...] are group
   // multiplication equal `a0 * b0 * ... = a1 * b1 * c1 * ...`
   bool isSymbolicDimProductEqual(const SymbolicDimProduct& lhs,
@@ -378,9 +383,10 @@ class SymbolicDimMgr {
 
   // Returns a clone of the original symbol
   SymbolicDimOp cloneSymbol(SymbolicDimOp symbol);
+  std::optional<SymbolicDimOp> findSymbolicDimOp(StringRef name);
 
-  // Clones a group of symbols and the relationships among the symbols in the
-  // group. Returns ok if success, otherwise failure.
+  // Clones a group of symbols and the relationships among the symbols in
+  // the group. Returns ok if success, otherwise failure.
   LogicalResult cloneSymbolGroup(
       const DenseSet<SymbolicDimOp>& symbols,
       DenseMap<SymbolicDimOp, SymbolicDimOp>& mapping);

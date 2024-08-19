@@ -337,6 +337,7 @@ std::unique_ptr<OperationPass<ModuleOp>> createDiscReduceBufferLiveRangePass();
 // rewrite mhlo collective ops to disc custom library call
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscCollectiveOpsRewriterPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscOffloadingPass();
 
 }  // namespace disc_ral
 }  // namespace mlir

@@ -678,3 +678,8 @@ def DiscShapePropagatePass : Pass<"disc-shape-propagate", "ModuleOp"> {
   let summary = "shape analysis pass";
   let constructor = "createDiscShapePropagatePass()";
 }
+
+def DiscOffloadingPass : Pass<"disc-offloading", "mlir::func::FuncOp"> {
+  let summary = "auto offlaoding pass";
+  let constructor = "createDiscOffloadingPass()";
+}

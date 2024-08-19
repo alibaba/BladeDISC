@@ -361,11 +361,6 @@ class SymbolicDimMgr {
   std::optional<SymbolicDimProduct> symbolicDimProductDivide(
       const SymbolicDimProduct& x, const SymbolicDimProduct& y);
 
-  SymbolicDimProduct symbolicDimProductAdd(const SymbolicDimProduct& x,
-                                           const SymbolicDimProduct& y);
-  SymbolicDimProduct symbolicDimProductSub(const SymbolicDimProduct& x,
-                                           const SymbolicDimProduct& y);
-
   // mark group [a0, b0, ...] and group [a1, b1, c1, ...] are group
   // multiplication equal `a0 * b0 * ... = a1 * b1 * c1 * ...`
   bool isSymbolicDimProductEqual(const SymbolicDimProduct& lhs,

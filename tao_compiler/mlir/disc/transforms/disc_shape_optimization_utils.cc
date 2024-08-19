@@ -84,13 +84,20 @@ bool compareSymbolicDimProduct(const SymbolicDimProduct& lhs,
   return false;
 }
 
-// llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
-//                               const SymbolicDimProduct& product) {
-//   os << "SymbolicDimProduct[\n\tfactor: " << product.factor << ",\n";
-//   for (auto& s : product.symbols) os << "\tsymbol: " << s << "\n";
-//   os << "]\n";
-//   return os;
-// }
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
+                              const SymbolicDimProduct& prod) {
+  os << prod.factor;
+  if (prod.symbols.size() > 0) os << "*";
+  for (size_t j = 0; j < prod.symbols.size(); ++j) {
+    auto dimOp = prod.symbols[j];
+    if (j != prod.symbols.size() - 1) {
+      os << dimOp.getName() << "*";
+    } else {
+      os << dimOp.getName();
+    }
+  }
+  return os;
+}
 
 SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m), symbolTable_(m_) {}
 
@@ -254,26 +261,6 @@ SymbolicDimMgr::simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
   if (!newRhs.factor) newRhs.symbols.clear();
 
   return std::make_pair(std::move(newLhs), std::move(newRhs));
-}
-SymbolicDimProduct SymbolicDimMgr::symbolicDimProductAdd(
-    const SymbolicDimProduct& x, const SymbolicDimProduct& y) {
-  SymbolicDimProduct result;
-  result.factor = x.factor + y.factor;
-  llvm::dbgs() << "x: " << x << "\n";
-  llvm::dbgs() << "y: " << y << "\n";
-
-  // SymbolicDimProduct newLhs, newRhs;
-  for (auto sym : x.symbols) result.symbols.push_back(sym);
-  for (auto sym : y.symbols) result.symbols.push_back(sym);
-  llvm::dbgs() << "add result: " << result << "\n";
-  auto newResult = simplifySymbolicDimProduct(result);
-  llvm::dbgs() << "new result: " << result << "\n";
-  return newResult;
-}
-SymbolicDimProduct symbolicDimProductSub(const SymbolicDimProduct& x,
-                                         const SymbolicDimProduct& y) {
-  SymbolicDimProduct result;
-  return result;
 }
 std::optional<SymbolicDimProduct> SymbolicDimMgr::symbolicDimProductDivide(
     const SymbolicDimProduct& lhs, const SymbolicDimProduct& rhs) {

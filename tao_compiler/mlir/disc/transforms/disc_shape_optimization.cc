@@ -1766,27 +1766,23 @@ LogicalResult applyShapeComputationOptimization(
   if (failed(useSameSSAValueIfSymbolicEqual(analysis, changed)))
     return analysis.getFunc()->emitError(
         "useSameSSAValueIfSymbolicEqual failed\n");
-  analysis.getFunc().dump();
 
   // 2, After propagation some (partial) known dim size infos, refined
   // the ranked tensor type.
   if (failed(refineTensorType(analysis, changed)))
     return analysis.getFunc()->emitError("refineTensorType failed\n");
-  analysis.getFunc().dump();
 
   // 3, simplify some expression after propagation shape constraint info.
   // e.g. if symbolic dim %d is known not negative, then `arith.cmpi eq, %d,
   // %c-1` could be replaced with a const.
   if (failed(simplifyAccordingToShapeConstraintInfo(analysis, changed)))
     return analysis.getFunc()->emitError("fail to simplify\n");
-  analysis.getFunc().dump();
 
   // 4, inject some static known infos. For example,
   // - some axes of a slice op is fully sliced;
   // - some axes of a pad op are not padded;
   if (failed(injectStaticKnownInfo(analysis, changed)))
     return analysis.getFunc()->emitError("fail to injectStaticKnownInfo\n");
-  analysis.getFunc().dump();
   return success();
 }
 
@@ -1805,13 +1801,9 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
     changed = false;
     std::chrono::steady_clock::time_point begin, end;
     DISC_DEBUG(begin = std::chrono::steady_clock::now());
-    llvm::dbgs() << "before runCanonicalizer\n";
-    main.dump();
     if (failed(runCanonicalizer(m, runner))) {
       return failure();
     }
-    llvm::dbgs() << "after runCanonicalizer\n";
-    main.dump();
     DISC_DEBUG(end = std::chrono::steady_clock::now());
     DISC_DEBUG(llvm::dbgs()
                << "  runCanonicalizer takes: "
@@ -1852,8 +1844,6 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
     if (failed(analysis.run())) {
       return m.emitError() << "fail to analysis shape computation IR\n";
     }
-    llvm::dbgs() << "after analysis.run()\n";
-    main.dump();
     DISC_DEBUG(end = std::chrono::steady_clock::now());
     DISC_DEBUG(llvm::dbgs()
                << "  Building ShapeComputationIRAnalysis takes: "
@@ -1866,8 +1856,6 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
     if (failed(applyShapeComputationOptimization(analysis, changed))) {
       return m.emitError() << "fail to optimize shape computation IR\n";
     }
-    llvm::dbgs() << "after applyShapeComputationOptimization\n";
-    main.dump();
     DISC_DEBUG(end = std::chrono::steady_clock::now());
     DISC_DEBUG(llvm::dbgs()
                << "  applyShapeComputationOptimization takes: "
@@ -1901,8 +1889,6 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
   if (failed(runCanonicalizer(m, runner))) {
     return failure();
   }
-  llvm::dbgs() << "after runCanonicalizer\n";
-  main.dump();
   LLVM_DEBUG(llvm::dbgs() << "Module after optimizeShapeComputation:\n"
                           << m << "\n");
   return success();

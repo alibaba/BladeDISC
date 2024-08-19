@@ -252,21 +252,6 @@ void DiscOffloadingPass::InsertRematBlock(mlir::OpBuilder& b,
   }
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
-                              const SymbolicDimProduct& prod) {
-  // print prod
-  os << prod.factor;
-  if (prod.symbols.size() > 0) os << "*";
-  for (size_t j = 0; j < prod.symbols.size(); ++j) {
-    auto dimOp = prod.symbols[j];
-    if (j != prod.symbols.size() - 1) {
-      os << dimOp.getName() << "*";
-    } else {
-      os << dimOp.getName();
-    }
-  }
-  return os;
-}
 std::tuple<bool, double, double> solveQuadratic(int64_t a, int64_t b,
                                                 int64_t c) {
   if (a == 0) {

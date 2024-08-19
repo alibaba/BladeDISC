@@ -213,7 +213,6 @@ class ShapeConstraintIRAnalysis : public ShapeAnalysis {
   // rhs.shape[rd0] * rhs.shape[rd1] * ...`
   bool isProductEqual(Value lhs, ArrayRef<int> lhsDimIdxs, Value rhs,
                       ArrayRef<int> rhsDimIdxs) override;
-  bool buildSymbolicDimProduct(SymbolicDimProduct& prod, Value value);
 
  private:
   // The operation this analysis runs on.

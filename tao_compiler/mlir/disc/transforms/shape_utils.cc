@@ -1989,23 +1989,6 @@ bool ShapeConstraintIRAnalysis::isShapeEqual(Value lhs, Value rhs) {
   return lhsSyms == rhsSyms;
 }
 
-bool ShapeConstraintIRAnalysis::buildSymbolicDimProduct(
-    SymbolicDimProduct& prod, Value value) {
-  auto ty = value.getType().dyn_cast<ShapedType>();
-  auto it = memrefValue2SymDims_.find(value);
-  if (!ty || !ty.hasRank()) return false;
-  for (size_t idx = 0; idx < ty.getRank(); ++idx) {
-    if (ty.getShape()[idx] == ShapedType::kDynamic) {
-      if (it == memrefValue2SymDims_.end() || it->second.size() <= idx)
-        return false;
-      prod.symbols.push_back(it->second[idx]);
-    } else {
-      prod.factor *= ty.getShape()[idx];
-    }
-  }
-  return true;
-}
-
 bool ShapeConstraintIRAnalysis::isProductEqual(Value lhs,
                                                ArrayRef<int> lhsDimIdxs,
                                                Value rhs,

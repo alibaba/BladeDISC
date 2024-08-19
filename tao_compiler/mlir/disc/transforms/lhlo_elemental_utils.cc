@@ -1305,8 +1305,6 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
 
     b->setInsertionPointToEnd(&if_inbound_ops[i].getElseRegion().front());
     if (i == num_input_operands - 1) {
-      b->create<scf::YieldOp>(loc, zero_element);
-      /*
       input_index[axis] = b->create<arith::SubIOp>(loc, out_idx, low_bound);
       auto operand_memref = op.getOperand(i);
       auto ret_value =
@@ -1317,7 +1315,6 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
                                               operand_memref, input_index,
                                               lower_config);
       b->create<scf::YieldOp>(loc, ret_value);
-      */
     } else {
       b->create<scf::YieldOp>(loc, if_inbound_ops[i + 1].getResults());
     }

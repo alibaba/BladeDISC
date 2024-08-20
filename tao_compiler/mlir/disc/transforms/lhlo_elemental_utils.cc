@@ -1360,7 +1360,22 @@ Value elementalLower<lmhlo_disc::ConcatenateOp>(OpBuilder* b, Location loc,
 
   auto int_ptr =
       b->create<memref::LoadOp>(loc, ptr_array, ValueRange{operand_index});
-  Type ptr_type = LLVM::LLVMPointerType::get(FloatType::getF32(ctx));
+  auto elem_ty = out.getType().cast<MemRefType>().getElementType();
+  // if elem_ty is bf16
+  Type ptr_type;
+  if (elem_ty.isBF16()) {
+    ptr_type = LLVM::LLVMPointerType::get(FloatType::getBF16(ctx));
+  } else if (elem_ty.isF16()) {
+    ptr_type = LLVM::LLVMPointerType::get(FloatType::getF16(ctx));
+  } else if (elem_ty.isF32()) {
+    ptr_type = LLVM::LLVMPointerType::get(FloatType::getF32(ctx));
+  } else if (elem_ty.isInteger(32)) {
+    ptr_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 32));
+  } else {
+    op.emitError("unsupported element type for ConcatenateOp");
+    return Value(nullptr);
+  }
+
   auto llvm_ptr = b->create<LLVM::IntToPtrOp>(loc, ptr_type, int_ptr);
 
   SmallVector<Value, 4> input_index;

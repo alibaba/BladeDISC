@@ -87,11 +87,11 @@ struct LhloConcatenateOpConverter
                                 PatternRewriter& rewriter) const override {
     Operation* op = lhloOp.getOperation();
     if (!isFixedShape(lhloOp)) return failure();
-
     auto operands = op->getOperands();
 
     // TODO(yancey): support CPU place
-    if (!placement_utils::isGpuMemRef(operands[0])) return failure();
+    auto deviceAttr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);
+    if (!deviceAttr || deviceAttr.getValue() != kGpu) return failure();
     int num_input_operands = op->getNumOperands() - 1;
 
     SmallVector<Value, 4> ptr_array;

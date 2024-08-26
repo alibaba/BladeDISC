@@ -1369,8 +1369,10 @@ Value elementalLower<lmhlo_disc::ConcatenateOp>(OpBuilder* b, Location loc,
     ptr_type = LLVM::LLVMPointerType::get(FloatType::getF16(ctx));
   } else if (elem_ty.isF32()) {
     ptr_type = LLVM::LLVMPointerType::get(FloatType::getF32(ctx));
-  } else if (elem_ty.isInteger(32)) {
-    ptr_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 32));
+  } else if (elem_ty.isInteger(32) || elem_ty.isInteger(64) ||
+             elem_ty.isInteger(8)) {
+    ptr_type = LLVM::LLVMPointerType::get(
+        IntegerType::get(ctx, elem_ty.getIntOrFloatBitWidth()));
   } else {
     op.emitError("unsupported element type for ConcatenateOp");
     return Value(nullptr);

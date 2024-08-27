@@ -145,6 +145,8 @@ def configure(args):
         if cache_token:
             _write(f"--remote_cache={cache_token}", cmd="build")
             _write(f"--remote_cache={cache_token}", cmd="test")
+            logger.info("Bazel remote cache enabled.")
+
         _config("debug" if args.debug_build else "release")
         _action_env("PYTHON_BIN_PATH", which("python3"))
         _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))

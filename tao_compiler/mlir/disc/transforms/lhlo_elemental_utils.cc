@@ -1305,14 +1305,14 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
 
     b->setInsertionPointToEnd(&if_inbound_ops[i].getElseRegion().front());
     if (i == num_input_operands - 1) {
-      input_index[axis] = b->create<arith::SubIOp>(loc, out_idx, low_bound);
-      auto operand_memref = op.getOperand(i);
+      // we expect this branch never be executed
+      input_index[axis] = b->create<arith::ConstantIndexOp>(loc, 0);
       auto ret_value =
           check_cache ? createLoadOrUseCachedValue(
-                            loc, b, op.getOperation(), operand_memref,
+                            loc, b, op.getOperation(), op.getOperand(i),
                             input_index, b->saveInsertionPoint(), lower_config)
                       : createMaySpecificLoad(*b, loc, op.getOperation(),
-                                              operand_memref, input_index,
+                                              op.getOperand(i), input_index,
                                               lower_config);
       b->create<scf::YieldOp>(loc, ret_value);
     } else {
@@ -1360,7 +1360,24 @@ Value elementalLower<lmhlo_disc::ConcatenateOp>(OpBuilder* b, Location loc,
 
   auto int_ptr =
       b->create<memref::LoadOp>(loc, ptr_array, ValueRange{operand_index});
-  Type ptr_type = LLVM::LLVMPointerType::get(FloatType::getF32(ctx));
+  auto elem_ty = out.getType().cast<MemRefType>().getElementType();
+  // if elem_ty is bf16
+  Type ptr_type;
+  if (elem_ty.isBF16()) {
+    ptr_type = LLVM::LLVMPointerType::get(FloatType::getBF16(ctx));
+  } else if (elem_ty.isF16()) {
+    ptr_type = LLVM::LLVMPointerType::get(FloatType::getF16(ctx));
+  } else if (elem_ty.isF32()) {
+    ptr_type = LLVM::LLVMPointerType::get(FloatType::getF32(ctx));
+  } else if (elem_ty.isInteger(32) || elem_ty.isInteger(64) ||
+             elem_ty.isInteger(8)) {
+    ptr_type = LLVM::LLVMPointerType::get(
+        IntegerType::get(ctx, elem_ty.getIntOrFloatBitWidth()));
+  } else {
+    op.emitError("unsupported element type for ConcatenateOp");
+    return Value(nullptr);
+  }
+
   auto llvm_ptr = b->create<LLVM::IntToPtrOp>(loc, ptr_type, int_ptr);
 
   SmallVector<Value, 4> input_index;

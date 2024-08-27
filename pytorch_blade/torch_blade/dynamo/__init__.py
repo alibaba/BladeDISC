@@ -67,7 +67,6 @@ def _disc_compile(fx_g: fx.GraphModule, inps, use_ts=False, is_training=True) ->
                     v = v.type
                 new_kwargs[k] = v
             node.kwargs = new_kwargs
-
         fx_g.graph.lint()
         fx_g.recompile()
         f = torch.jit.script(fx_g)

@@ -17,10 +17,10 @@ namespace disc_ral {
 
 ////////////////////// Stitch GPU FusionStrategy Implemenation /////////
 ////////////////////////////////////////////////////////////////////////
-
 bool findValidReductionOps(FusionPatternBase& target,
                            SmallVectorImpl<Operation*>& row_reductions,
-                           SmallVectorImpl<Operation*>& col_reductions) {
+                           SmallVectorImpl<Operation*>& col_reductions,
+                           SmallVectorImpl<Operation*>& scalar_reductions) {
   row_reductions.clear();
   col_reductions.clear();
   auto& op_list = target.getOpList();
@@ -28,7 +28,7 @@ bool findValidReductionOps(FusionPatternBase& target,
     if (!isa<lmhlo::ReduceOp>(op)) continue;
     if (isRank2RowReduction(op)) {
       row_reductions.push_back(op);
-    } else if (isRank2ColReduction(op)) {
+    } else if (isRank2ColReduction(op) || isRank2ScalarReduction(op)) {
       // Middle col-reduction is not supported currently. We may support it with
       // AStitch technique in the future.
       int num_input_operand = op->getNumOperands() - getNumResultOperands(op);
@@ -41,7 +41,11 @@ bool findValidReductionOps(FusionPatternBase& target,
           }
         }
       }
-      col_reductions.push_back(op);
+      if (isRank2ScalarReduction(op)) {
+        scalar_reductions.push_back(op);
+      } else {
+        col_reductions.push_back(op);
+      }
     } else {
       // Non supported reduction type.
       return false;
@@ -65,8 +69,13 @@ bool StitchGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   bool has_rank2_col_reduction =
       llvm::any_of(target.getOpList(),
                    [](Operation* op) { return isRank2ColReduction(op); });
+  bool has_rank2_scalar_reduction =
+      llvm::any_of(target.getOpList(),
+                   [](Operation* op) { return isRank2ScalarReduction(op); });
 
-  if (has_rank2_row_reduction && has_rank2_col_reduction) {
+  int cnt = has_rank2_row_reduction + has_rank2_col_reduction +
+            has_rank2_scalar_reduction;
+  if (cnt >= 2) {
     return false;
   }
 
@@ -371,7 +380,9 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
 
   SmallVector<Operation*, 4> row_reductions;
   SmallVector<Operation*, 4> col_reductions;
-  if (!findValidReductionOps(fusion_pattern, row_reductions, col_reductions)) {
+  SmallVector<Operation*, 4> scalar_reductions;
+  if (!findValidReductionOps(fusion_pattern, row_reductions, col_reductions,
+                             scalar_reductions)) {
     LLVM_DEBUG(llvm::dbgs() << "Check reduction ops failed.");
     return false;
   }
@@ -440,7 +451,23 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
               return true;
             }
             Value shape = getEffectiveShape(fusion_pattern, result);
-            return isRank2ColReduction(op) &&
+            return (isRank2ColReduction(op)) &&
+                   shapeAnalysis.isShapeEqual(ref_shape, shape);
+          })) {
+        return false;
+      }
+    } else if (!scalar_reductions.empty()) {
+      fusion_type = FusionType::kScalarReduction;
+      dominant_op = scalar_reductions.back();
+      Value ref = cast<lmhlo::LmhloOp>(dominant_op).getResultBuffer();
+      Value ref_shape = getEffectiveShape(fusion_pattern, ref);
+      if (!llvm::all_of(results, [&](Value result) {
+            auto op = fusion_pattern.findLastWriter(result);
+            if (op == dominant_op) {
+              return true;
+            }
+            Value shape = getEffectiveShape(fusion_pattern, result);
+            return (isRank2ColReduction(op)) &&
                    shapeAnalysis.isShapeEqual(ref_shape, shape);
           })) {
         return false;

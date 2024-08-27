@@ -489,6 +489,10 @@ struct TransposeConverter : public OpRewritePattern<lmhlo::TransposeOp> {
 
   LogicalResult matchAndRewrite(lmhlo::TransposeOp op,
                                 PatternRewriter& rewriter) const override {
+    if (auto fusion_op =
+            op.getOperation()->getParentOfType<lmhlo::FusionOp>()) {
+      return failure();
+    }
     auto permutation = op.getPermutation().getValues<int64_t>();
     int rank = permutation.size();
     if (rank != 2 && rank != 3) return failure();

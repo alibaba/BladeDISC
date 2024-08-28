@@ -544,7 +544,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addPass(disc_ral::createRalInjectExecutionContextPass());
   // pm.addPass(mhlo_disc::createDiscArgsMutationExpandPass());
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscOffloadingPass());
+  // pm.addNestedPass<FuncOp>(disc_ral::createDiscOffloadingPass());
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscLowerToLibraryCallPass(gpu_enabled));
   pm.addPass(disc_ral::createDiscConstToRALPass(options.metadata_file_path));

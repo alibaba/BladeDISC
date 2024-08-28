@@ -222,15 +222,23 @@ int64_t getMemRefSize(Value value) {
   return numElements * elementSize;
 }
 SymbolicDimProduct getSymbolicMemrefBytes(Value buffer, SymbolicDimMgr* mgr) {
+  if (!mgr) {
+    llvm::errs() << "mgr is nullptr\n";
+    return SymbolicDimProduct{};
+  }
   auto s0 = mgr->findSymbolicDimOp("S0");
+  if (!s0.has_value()) {
+    llvm::errs() << "SymbolicDimOp S0 not found\n";
+  }
   auto ty = buffer.getType().cast<MemRefType>();
   auto elementBytes = getElementSize(ty.getElementType());
   if (hasDynamicDimension(buffer)) {
     if (auto recvOp = dyn_cast<disc_ral::RecvInputOp>(buffer.getDefiningOp())) {
       // get first user of the buffer
-      if (auto rcastOp =
-              dyn_cast<memref::ReinterpretCastOp>(*buffer.getUsers().begin())) {
-        buffer = rcastOp.getResult();
+      for (auto user : buffer.getUsers()) {
+        if (isa<memref::ReinterpretCastOp>(user)) {
+          buffer = user->getResult(0);
+        }
       }
     }
     auto symDims = getMemRefValueSymbolicDims(*mgr, buffer);
@@ -382,15 +390,11 @@ std::vector<int64_t> ConcretMemoryUsageSimulator(int64_t concretValue) {
 
 LogicalResult SymbolicMemoryProfiler::Analysis() {
   mlir::OpBuilder b(main_);
-  std::unique_ptr<ShapeAnalysis> shapeAnalysisPtr;
-  shapeAnalysisPtr.reset(new ShapeConstraintIRAnalysis(main_));
-  auto shapeIRAnalysis =
-      dynamic_cast<ShapeConstraintIRAnalysis*>(shapeAnalysisPtr.get());
-  if (!shapeIRAnalysis) {
-    llvm::errs() << "shape analysis failed\n";
+  mgr_ = &shapeAnalysis_.symbolicDimMgr();
+  if (!mgr_) {
+    llvm::errs() << "mgr is nullptr\n";
     return failure();
   }
-  mgr_ = &shapeIRAnalysis->symbolicDimMgr();
   memory_usage_list_.clear();
 
   MemoryUsage currentUsage;
@@ -438,7 +442,7 @@ LogicalResult SymbolicMemoryProfiler::Analysis() {
   // NOTE: search peak memory expr with fake symbolic value, please
   // note, it's a fuzzy search algorithm, the result may not be accurate
   // but it's good enough for most cases
-  peak_memory_ = findPeakMemoryWithFakeValue(memory_usage_list_, 2048);
+  peak_memory_ = findPeakMemoryWithFakeValue(memory_usage_list_, 4096);
   return success();
 }
 

@@ -35,6 +35,8 @@ using stream_t = void*;
 
 extern const char* kRalGpuAlloc;
 extern const char* kRalGpuAllocPersistent;
+extern const char* kRalGpuPinnedAlloc;
+extern const char* kRalGpuPinnedDealloc;
 extern const char* kRalGpuDealloc;
 extern const char* kRalGpuRawAlloc;
 extern const char* kRalGpuRawDealloc;

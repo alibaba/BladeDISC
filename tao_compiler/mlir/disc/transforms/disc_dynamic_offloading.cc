@@ -32,6 +32,7 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"  // TF:llvm-project
+#include "mlir/disc/IR/disc_ral_ops.h"
 #include "mlir/disc/IR/hlo_disc_ops.h"
 #include "mlir/disc/IR/lhlo_disc_ops.h"
 #include "mlir/disc/disc_util.h"
@@ -76,51 +77,9 @@ using FuncOp = mlir::func::FuncOp;
 SymbolicDimProduct getSymbolicMemRefSize(Value value, SymbolicDimMgr* mgr,
                                          MLIRContext* ctx) {
   auto memRefType = value.getType().cast<MemRefType>();
-  // get symbolic dims of the memref
-  // auto symbolics = getSymbolicDims(value);
   auto symbolics = mgr->getOrCreateSymbolicDimsForRankedValue(value);
   SymbolicDimProduct prod{symbolics};
   return prod;
-}
-/*
-int64_t getMemRefSize(Value value) {
-  auto memRefType = value.getType().cast<MemRefType>();
-  int64_t elementSize = getElementSize(memRefType.getElementType());
-  if (elementSize < 0) {
-    return -1;  // Unsupported type
-  }
-
-  int64_t numElements = 1;
-  for (int64_t dim : memRefType.getShape()) {
-    numElements *= dim;
-  }
-  return numElements * elementSize;
-}
-*/
-
-bool shouldSkipBufferInPeakMemoryEstimator(Value value) {
-  if (IsHostBuffer(value)) return true;
-
-  // skip buffer if it is a temp buffer which only used inside of a fusion op
-  // alloc = memref.alloc
-  // lmhlo.fusion() {
-  //    op1(buffer0, buffer1, alloc)
-  //    op2(alloc, buffer2, buffer3)
-  // }
-  // dealloc = memref.dealloc alloc
-  Operation* prevFusionOp = nullptr;
-  for (auto user : value.getUsers()) {
-    if (isa<memref::DeallocOp>(user)) continue;
-    if (auto fusionOp = dyn_cast<lmhlo::FusionOp>(user->getParentOp())) {
-      if (!prevFusionOp) prevFusionOp = fusionOp;
-      if (prevFusionOp != fusionOp) {
-        return false;
-      }
-    } else {
-      return false;
-    }
-  }
-  return true;
 }
 
 bool IsDynamicShapeBuffer(Value buffer) {
@@ -133,34 +92,61 @@ bool IsDynamicShapeBuffer(Value buffer) {
   return false;
 }
 Value cloneBuffer(OpBuilder& b, Location loc, Value buffer) {
-  MemRefType type = refBuffer.getType().cast<MemRefType>();
+  MemRefType type = buffer.getType().cast<MemRefType>();
   SmallVector<Value, 4> dynShape;
   for (size_t i = 0; i < type.getRank(); i++) {
     if (type.getShape()[i] == ShapedType::kDynamic) {
-      dynShape.push_back(b.create<memref::DimOp>(loc, refBuffer, i));
+      dynShape.push_back(b.create<memref::DimOp>(loc, buffer, i));
     }
   }
   auto allocOp = b.create<memref::AllocOp>(loc, type, dynShape);
   StringRef attrName = SymbolicDimOp::getSymbolicDimAttrName();
-  if (refBuffer.getDefiningOp()->hasAttr(attrName)) {
-    allocOp.getOperation()->setAttr(
-        attrName, refBuffer.getDefiningOp()->getAttr(attrName));
+  if (buffer.getDefiningOp()->hasAttr(attrName)) {
+    allocOp.getOperation()->setAttr(attrName,
+                                    buffer.getDefiningOp()->getAttr(attrName));
   }
   return allocOp.getResult();
 }
-
+Value GetContextValueFromFunctionArguments(Operation* op) {
+  Value ctx;
+  if (auto func = op->getParentOfType<func::FuncOp>()) {
+    if (func.getArgument(0).getType().isa<RalExecutionContextType>()) {
+      return func.getArgument(0);
+    }
+    op->emitError() << "Argument#0 must be RalExecutionContextType.";
+  }
+  return ctx;
+}
+Value GetDefaultStreamHandle(Operation* op, OpBuilder& rewriter) {
+  Location loc = op->getLoc();
+  MLIRContext* ctx = rewriter.getContext();
+  Type llvm_int32_type = IntegerType::get(ctx, 32);
+  Value zero = rewriter.create<LLVM::ConstantOp>(loc, llvm_int32_type,
+                                                 rewriter.getI32IntegerAttr(0));
+  Type pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
+  Value stream_idx = rewriter.create<LLVM::IntToPtrOp>(loc, pointer_type, zero);
+  return stream_idx;
+}
 // InsertRematBlock create a remat block for the living buffer:
 // reload and offload blocks are always pair in graph:
 //
-// if remat_cond:
-//   return offload(buffer)
+// if remat_cond: // pre-offloading block
+//   buffer = pin_memory_alloc()
+//
+// if remat_cond: // offload block
+//   wait_on_stream()
+//   host_buffer = offload(buffer)
+//   return host_bufer
 // else:
 //   return dummy_buffer
 // ......
-// if remat_cond:
+// if remat_cond: // async reload block
 //   return reload(buffer)
 // else:
 //   return buffer
+//
+// if remat_cond: // wait reload block
+//   stream_wait(host_buffer)
 void DiscOffloadingPass::InsertRematBlock(mlir::OpBuilder& b,
                                           LivingBuffer& livingBuffer,
                                           Value rematCond,
@@ -234,10 +220,10 @@ void DiscOffloadingPass::InsertRematBlock(mlir::OpBuilder& b,
   b.create<scf::YieldOp>(endOp->getLoc(), deviceBuffer);
   reloadIfOp.getElseRegion().front().clear();
   b.setInsertionPointToStart(&reloadIfOp.getElseRegion().front());
-  auto dummyDeviceBuffer = cloneBuffer(b, endOp->getLoc(), buffer);
-  dummyDeviceBuffer.setType(deviceMemrefType);
-  dummyDeviceBuffer.getDefiningOp()->setAttr(kRematBufferAttr,
-                                             b.getBoolAttr(true));
+  // auto dummyDeviceBuffer = cloneBuffer(b, endOp->getLoc(), buffer);
+  // dummyDeviceBuffer.setType(deviceMemrefType);
+  // dummyDeviceBuffer.getDefiningOp()->setAttr(kRematBufferAttr,
+  //                                           b.getBoolAttr(true));
   b.create<scf::YieldOp>(endOp->getLoc(), buffer);
   for (auto pair : ops) {
     auto op = pair.first;
@@ -250,6 +236,27 @@ void DiscOffloadingPass::InsertRematBlock(mlir::OpBuilder& b,
       }
     }
   }
+  if (auto fusionOp = dyn_cast<lmhlo::FusionOp>(endOp->getParentOp())) {
+    b.setInsertionPoint(fusionOp);
+  } else {
+    b.setInsertionPoint(endOp);
+  }
+
+  // insert reload sync block
+  scf::IfOp waitIfOp = b.create<scf::IfOp>(
+      endOp->getLoc(), /*resultTypes*/ ArrayRef<Type>{}, rematCond,
+      /*hasElseRegion*/ false);
+  waitIfOp.getOperation()->setAttr(kRematBlockTypeAttr,
+                                   b.getStringAttr("reload_sync"));
+  b.setInsertionPointToStart(&waitIfOp.getThenRegion().front());
+  auto ctx = GetContextValueFromFunctionArguments(endOp);
+  Value stream_handle = GetDefaultStreamHandle(endOp, b);
+  auto sync_op =
+      b.create<DispatchOp>(endOp->getLoc(), TypeRange{}, ctx, stream_handle,
+                           "sync_on_stream", false, "gpu");
+
+  // b.create<memref::DeallocOp>(endOp->getLoc(), offloadIfOp.getResult(0));
+  b.setInsertionPointAfter(waitIfOp);
 }
 
 std::tuple<bool, double, double> solveQuadratic(int64_t a, int64_t b,
@@ -350,13 +357,19 @@ std::vector<LivingBuffer> FilterBuffers(
     std::vector<LivingBuffer> livingBuffers) {
   std::vector<LivingBuffer> result;
   for (auto lb : livingBuffers) {
-    // TODO(yancey): just for experiment, let's remove this condition in the
-    // future
-    if (!IsDynamicShapeBuffer(lb.buffer)) {
-      continue;
-    }
+    // filter buffer which living range is too small
+    if (lb.living_range < 1000) continue;
+    // filter scalar buffer
+    auto type = lb.buffer.getType().cast<MemRefType>();
+    if (type.getRank() == 0) continue;
     // filter buffer if already in remat block
     if (isa<scf::IfOp>((lb.start->getParentOp()))) continue;
+    bool isEscapsedBuffer = std::any_of(
+        lb.buffer.getUsers().begin(), lb.buffer.getUsers().end(),
+        [](auto user) {
+          return isa<disc_ral::SendOutputOp, lmhlo_disc::ArgsMutationOp>(user);
+        });
+    if (isEscapsedBuffer) continue;
     result.push_back(lb);
   }
   return result;
@@ -384,12 +397,21 @@ void DiscOffloadingPass::runOnOperation() {
   if (main.getName() == SymbolicDimMgr::getShapeConstraintGraphFunctionName())
     return;
   mlir::OpBuilder b(main);
-  const int64_t memoryLimitation = 21474836480;  // 30GB
+  // TOOD(yancey): using a ratio to control the memory limitation
+  const int64_t memoryLimitation = 32212254720;  // 30GB
   llvm::dbgs() << "memory limitation: " << memoryLimitation << "\n";
   bool changed = true;
-  int maxIteration = 200;
+  int maxIteration = 100;
+  std::unique_ptr<ShapeAnalysis> shapeAnalysisPtr(
+      new ShapeConstraintIRAnalysis(main));
+  auto shapeIRAnalysis =
+      dynamic_cast<ShapeConstraintIRAnalysis*>(shapeAnalysisPtr.get());
+  if (!shapeIRAnalysis) {
+    llvm::errs() << "shape analysis failed\n";
+    return;
+  }
   std::unique_ptr<SymbolicMemoryProfiler> profiler(
-      new SymbolicMemoryProfiler(main));
+      new SymbolicMemoryProfiler(main, *shapeIRAnalysis));
   std::unique_ptr<DiscBufferLivingRange> bufferLivingRange(
       new DiscBufferLivingRange(main));
   // mapping symbolic dim(S0) in shape constrint graph to SSA value
@@ -424,6 +446,7 @@ void DiscOffloadingPass::runOnOperation() {
       changed = true;
     }
   }
+  main.dump();
 }
 std::unique_ptr<OperationPass<mlir::func::FuncOp>> createDiscOffloadingPass() {
   return std::make_unique<DiscOffloadingPass>();

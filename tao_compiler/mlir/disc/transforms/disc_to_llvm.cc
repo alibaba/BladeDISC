@@ -67,6 +67,8 @@ constexpr const char* kRalDispatchFunctionName = "disc_ral_call";
 constexpr const char* kRalGpuLaunch = "ral_kernel_launch";
 constexpr const char* kRalCpuLaunch = "ral_kernel_launch";
 constexpr const char* kMalloc = "alloc";
+constexpr const char* kPinnedMalloc = "ral_gpu_pinned_alloc";
+constexpr const char* kPinnedFree = "ral_gpu_pinned_dealloc";
 constexpr const char* kFree = "dealloc";
 constexpr const char* kRalCompIntensFusion = "ral_comp_intens_fusion";
 
@@ -736,11 +738,28 @@ LogicalResult ConvertMemRefAllocOpToDispatchOpPattern::matchAndRewrite(
   getMemRefDescriptorSizes(loc, memref_type,
                            llvm::to_vector<4>(adaptor.getOperands()), rewriter,
                            sizes, strides, sizeBytes);
-
-  // create dispatch op
-  auto dispatch_op = rewriter.create<disc_ral::DispatchOp>(
-      loc, getVoidPtrType(), context_arg, sizeBytes, kMalloc, false, device);
-  Value allocated_byte_ptr = dispatch_op.getResult(0);
+  // using pinned memory to overlap data transfer and computation kernels
+  bool pinnedMemory = false;
+  for (auto user : memref.getUsers()) {
+    if (auto dispatch = dyn_cast<disc_ral::DispatchOp>(user)) {
+      if (dispatch.getCallTargetName() == "d2h") {
+        pinnedMemory = true;
+        break;
+      }
+    }
+  }
+  StringRef targetName = kMalloc;
+  Operation* dispatch_op;
+  if (device == "cpu" && pinnedMemory) {
+    // create dispatch op
+    dispatch_op = rewriter.create<disc_ral::DispatchOp>(
+        loc, getVoidPtrType(), context_arg, sizeBytes, kPinnedMalloc, false,
+        "gpu");
+  } else {
+    dispatch_op = rewriter.create<disc_ral::DispatchOp>(
+        loc, getVoidPtrType(), context_arg, sizeBytes, kMalloc, false, device);
+  }
+  Value allocated_byte_ptr = dispatch_op->getResult(0);
 
   // Create the MemRef descriptor.
   MemRefDescriptor memRefDescriptor = CreateMemRefDescriptor(
@@ -793,10 +812,26 @@ LogicalResult ConvertMemRefDeallocOpToDispatchOpPattern::matchAndRewrite(
   MemRefDescriptor memref(adaptor.getMemref());
   Value allocated_bytes_ptr = rewriter.create<LLVM::BitcastOp>(
       loc, getVoidPtrType(), memref.allocatedPtr(rewriter, loc));
-
-  ModuleOp module = op->getParentOfType<ModuleOp>();
-  rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
-      op, TypeRange{}, context_arg, allocated_bytes_ptr, kFree, false, device);
+  bool pinnedMemory = false;
+  for (auto user : dealloc_op.getMemref().getUsers()) {
+    if (auto dispatch = dyn_cast<disc_ral::DispatchOp>(user)) {
+      if (dispatch.getCallTargetName() == "h2d") {
+        pinnedMemory = true;
+        break;
+      }
+    }
+  }
+  if (device == "cpu" && pinnedMemory) {
+    // using pinned memory to achive higher performance to transfer data between
+    // host and device
+    rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
+        dealloc_op, TypeRange{}, context_arg, allocated_bytes_ptr, kPinnedFree,
+        false, "gpu");
+  } else {
+    rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
+        dealloc_op, TypeRange{}, context_arg, allocated_bytes_ptr, kFree, false,
+        device);
+  }
   return success();
 }
 

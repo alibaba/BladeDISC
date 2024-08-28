@@ -88,7 +88,6 @@ class DiscBufferLivingRange {
 
 using MemoryUsage = llvm::SmallVector<SymbolicDimProduct>;
 
-// MemoryUsage operator+=(MemoryUsage& lhs, const SymbolicDimProduct& rhs);
 MemoryUsage& operator+=(MemoryUsage& lhs, const SymbolicDimProduct& rhs);
 MemoryUsage& operator-=(MemoryUsage& lhs, const SymbolicDimProduct& rhs);
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
@@ -98,7 +97,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
 // mlir function, it will return the peak memory usage and the memory usage
 class SymbolicMemoryProfiler {
  public:
-  explicit SymbolicMemoryProfiler(mlir::func::FuncOp& main) : main_(main) {}
+  explicit SymbolicMemoryProfiler(mlir::func::FuncOp& main,
+                                  ShapeConstraintIRAnalysis& shapeAnalysis)
+      : main_(main), shapeAnalysis_(shapeAnalysis) {}
   LogicalResult Analysis();
   MemoryUsage GetPeakMemory() { return peak_memory_; }
   std::vector<MemoryUsage> GetMemoryUsageList() { return memory_usage_list_; }
@@ -122,6 +123,7 @@ class SymbolicMemoryProfiler {
   mlir::func::FuncOp main_;
   MemoryUsage peak_memory_;
   std::vector<MemoryUsage> memory_usage_list_;
+  ShapeConstraintIRAnalysis& shapeAnalysis_;
 };
 
 }  // namespace disc_ral

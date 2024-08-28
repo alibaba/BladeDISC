@@ -28,6 +28,8 @@ namespace gpu {
 
 const char* kRalGpuAlloc = "alloc";
 const char* kRalGpuAllocPersistent = "ral_gpu_alloc_persistent";
+const char* kRalGpuPinnedAlloc = "ral_gpu_pinned_alloc";
+const char* kRalGpuPinnedDealloc = "ral_gpu_pinned_dealloc";
 const char* kRalGpuDealloc = "dealloc";
 const char* kRalGpuRawAlloc = "raw_gpu_alloc";
 const char* kRalGpuRawDealloc = "raw_gpu_dealloc";

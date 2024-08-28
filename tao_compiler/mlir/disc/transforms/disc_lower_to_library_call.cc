@@ -184,7 +184,9 @@ struct GpuCopyOpConvertor : public OpRewritePattern<OpTy> {
         op.getLoc(), TypeRange{}, ctx, newOperands, target_, false, "gpu");
     // TODO(disc): Re-visit this is necessary.
     // TODO(disc): add a pass to merge sync_on_stream call.
-    InsertSyncOnStream(op, ctx, stream_handle, rewriter);
+    if (!isa<scf::IfOp>(op->getParentOp())) {
+      InsertSyncOnStream(op, ctx, stream_handle, rewriter);
+    }
     rewriter.replaceOp(op, newOp.getResults());
     return success();
   }

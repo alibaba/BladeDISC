@@ -1503,6 +1503,9 @@ DenseMap<Value, Value> buildSymbolDimInstancesDominantMap(
     // we should let as much values as possible to be dominated by a same root
     for (Value root : roots) {
       for (Value v : instances) {
+        // llvm::dbgs() << "print root/v: ";
+        // root.dump();
+        // v.dump();
         if (dominantMap.find(v) == dominantMap.end() &&
             dominanceInfo.dominates(root, v.getDefiningOp())) {
           dominantMap[v] = root;
@@ -1689,6 +1692,7 @@ LogicalResult injectStaticKnownInfo(ShapeComputationIRAnalysis& analysis,
       };
 
   for (mhlo::RealDynamicSliceOp op : sliceOps) {
+    op->dump();
     SliceOpShapeHelper helper(op);
     Value in = op->getOperand(0);
     Value out = op->getResult(0);
@@ -1698,10 +1702,11 @@ LogicalResult injectStaticKnownInfo(ShapeComputationIRAnalysis& analysis,
     auto outDims = analysis.rankedTensor2SymDims(out);
     if (inDims.has_value() && outDims.has_value()) {
       for (const auto& en : llvm::enumerate(llvm::zip(*inDims, *outDims))) {
-        if (std::get<0>(en.value()) == std::get<1>(en.value()))
+        if (std::get<0>(en.value()) == std::get<1>(en.value())) {
           if (failed(helper.markAsFullySlicedAxis(en.index())))
-            return op->emitError() << "failed to mark axis" << en.index()
+            return op->emitError() << "failed to mark axis " << en.index()
                                    << " to be fully sliced\n";
+        }
       }
     }
 
@@ -1778,7 +1783,6 @@ LogicalResult applyShapeComputationOptimization(
   // - some axes of a pad op are not padded;
   if (failed(injectStaticKnownInfo(analysis, changed)))
     return analysis.getFunc()->emitError("fail to injectStaticKnownInfo\n");
-
   return success();
 }
 

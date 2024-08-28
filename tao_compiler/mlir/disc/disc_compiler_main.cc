@@ -210,11 +210,13 @@ int RealMain() {
                << " s.\n";
 
   llvm::dbgs() << "[[ INFO ]] Running TF2XLA\n";
+  /*
   auto s = tensorflow::ConvertTF2MlirHlo(module);
   if (!s.ok()) {
     llvm::dbgs() << "ConvertTF2MlirHlo failed: " << s.ToString() << "\n";
     return 1;
   }
+  */
 
   if (VLOG_IS_ON(0)) {
     llvm::dbgs() << "======== BEGIN After TF2HLO =========\n";

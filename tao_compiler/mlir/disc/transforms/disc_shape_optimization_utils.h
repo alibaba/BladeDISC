@@ -378,9 +378,10 @@ class SymbolicDimMgr {
 
   // Returns a clone of the original symbol
   SymbolicDimOp cloneSymbol(SymbolicDimOp symbol);
+  std::optional<SymbolicDimOp> findSymbolicDimOp(StringRef name);
 
-  // Clones a group of symbols and the relationships among the symbols in the
-  // group. Returns ok if success, otherwise failure.
+  // Clones a group of symbols and the relationships among the symbols in
+  // the group. Returns ok if success, otherwise failure.
   LogicalResult cloneSymbolGroup(
       const DenseSet<SymbolicDimOp>& symbols,
       DenseMap<SymbolicDimOp, SymbolicDimOp>& mapping);

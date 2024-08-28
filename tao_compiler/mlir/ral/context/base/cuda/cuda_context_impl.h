@@ -55,6 +55,7 @@ struct BaseCudaContextOption {
   bool use_stream_executor = true;
   bool cache_workspace_mem_across_execution = false;
   std::shared_ptr<Allocator> gpu_allocator;
+  std::shared_ptr<Allocator> cuda_host_allocator;
 };
 
 std::unique_ptr<BaseContext> MakeBaseCudaContext(

@@ -341,6 +341,7 @@ cc_library(
         ":codegen_utils",
         ":disc_shape_optimization_utils",
         ":disc_util",
+        ":disc_offloading",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
@@ -2228,7 +2229,35 @@ cc_library(
     ],
     alwayslink = 1,
 )
-
+cc_library(
+    name = "disc_offloading",
+    srcs = [
+        "transforms/disc_dynamic_offloading.cc",
+        "transforms/disc_remat_utils.cc"
+    ],
+    hdrs = [
+        "transforms/passes.h",
+        "transforms/disc_remat_utils.h"
+    ],
+    includes = ["include"],
+    deps = [
+        ":disc_ral",
+        ":disc_util",
+        ":mhlo_disc",
+        ":pass_details",
+        ":shape_utils",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:GPUDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:Transforms", 
+    ]
+)
 cc_library(
     name = "disc_custom_call_rewriter",
     srcs = ["transforms/disc_custom_call_rewriter.cc"],

@@ -126,6 +126,7 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
   std::map<std::pair<void*, std::string>, GpuFunctionHandle> kernels;
 
   std::shared_ptr<Allocator> gpu_allocator;
+  std::shared_ptr<Allocator> cuda_host_allocator;
   bool cache_workspace_mem_across_execution;
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
   ::stream_executor::Stream* se_stream;
@@ -183,6 +184,7 @@ std::unique_ptr<BaseContext> MakeBaseCudaContext(
     } else {
       state->gpu_allocator.reset(new InternalAllocator(gpu_alloc, gpu_dealloc));
     }
+    state->cuda_host_allocator = gpu_opt.cuda_host_allocator;
     state->cache_workspace_mem_across_execution =
         opt.cache_workspace_mem_across_execution;
 
@@ -268,7 +270,18 @@ buffer_t ral_base_cuda_alloc(ExecutionContext* ctx, size_t bytes) {
   exec_ctx->device_ptr_map.insert(std::make_pair(ptr, 1));
   return ptr;
 }
-
+buffer_t ral_base_cuda_pinned_alloc(ExecutionContext* ctx, size_t bytes) {
+  auto* state =
+      ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  auto exec_ctx = dynamic_cast<BaseCudaExecutionContext*>(ctx);
+  std::lock_guard<std::mutex> lock(state->mu);
+  TAO_VLOG(1) << "before ral_base_cuda_pinned_alloc alloc " << bytes;
+  bytes = (bytes ? bytes : 1);
+  void* ptr = state->cuda_host_allocator->alloc(bytes);
+  TAO_VLOG(1) << "after ral_base_cuda_pinned_alloc with ptr=  " << ptr;
+  exec_ctx->host_ptr_map.insert(std::make_pair(ptr, 1));
+  return ptr;
+}
 void ral_base_cuda_memset(ExecutionContext* ctx, stream_t handle,
                           buffer_t buffer, int value, size_t bytes) {
   if (!buffer) {
@@ -320,6 +333,32 @@ void ral_base_cuda_dealloc(ExecutionContext* ctx, buffer_t buffer) {
     TAO_VLOG(1) << "delete buffer after ref-count becoming zero";
   }
   TAO_VLOG(1) << "after ral_base_cuda_dealloc with ptr =  " << buffer;
+}
+void ral_base_cuda_pinned_dealloc(ExecutionContext* ctx, buffer_t buffer) {
+  /*
+  if (!buffer) {
+    TAO_VLOG(1) << "ral_base_cuda_dealloc early return for nullptr";
+    return;
+  }
+
+  auto* state =
+      ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  auto exec_ctx = dynamic_cast<BaseCudaExecutionContext*>(ctx);
+
+  std::lock_guard<std::mutex> lock(state->mu);
+  TAO_VLOG(1) << "before ral_base_cuda_pinned_dealloc with ptr = " << buffer;
+  if (state->device_persistent_buffers.count(buffer)) return;
+  auto it = exec_ctx->host_ptr_map.find(buffer);
+  CHECK(it != exec_ctx->host_ptr_map.end());
+  if (--it->second == 0) {
+    cudaFreeHost(buffer);
+    exec_ctx->host_ptr_map.erase(buffer);
+    TAO_VLOG(1) << "delete buffer after ref-count becoming zero";
+  }
+  TAO_VLOG(1) << "after ral_base_cuda_pinned_dealloc with ptr =  " << buffer;
+  */
+
+  TAO_VLOG(1) << "after ral_base_cuda_pinned_dealloc with ptr =  " << buffer;
 }
 
 buffer_t ral_base_cuda_raw_alloc(Context* ctx, size_t bytes) {
@@ -498,6 +537,8 @@ void ral_base_cuda_sync_on_stream(ExecutionContext* ctx, stream_t sidx) {
     ctx->signalError(Context::FAILURE, "not a valid stream idx");
     return;
   }
+  auto comm_stream =
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getCommStream();
 
   auto* state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
@@ -505,7 +546,7 @@ void ral_base_cuda_sync_on_stream(ExecutionContext* ctx, stream_t sidx) {
   reportErrorIfAny(stream_executor::wrap::hipStreamSynchronize(state->stream),
                    ctx, "StreamSync");
 #else
-  reportErrorIfAny(cuStreamSynchronize(state->stream), ctx, "StreamSync");
+  reportErrorIfAny(cuStreamSynchronize(comm_stream), ctx, "StreamSync");
 #endif
 }
 
@@ -626,6 +667,10 @@ template <typename T, int N, int M, typename P = int64_t>
 
 void ral_base_cuda_h2d(ExecutionContext* ctx, void* stream_handle,
                        const void* h_src, buffer_t d_dst, size_t bytes) {
+  TAO_VLOG(1) << "ral_base_cuda_h2d, h_src: " << h_src << ", d_dst: " << d_dst
+              << ", bytes: " << bytes;
+  auto comm_stream =
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getCommStream();
   auto* state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 #if TENSORFLOW_USE_ROCM
@@ -635,15 +680,19 @@ void ral_base_cuda_h2d(ExecutionContext* ctx, void* stream_handle,
       ctx, "cuMemcpyHtoDAsync");
 #else
   reportErrorIfAny(
-      cuMemcpyHtoDAsync((GpuDevicePtr)d_dst, h_src, bytes, state->stream), ctx,
+      cuMemcpyHtoDAsync((GpuDevicePtr)d_dst, h_src, bytes, comm_stream), ctx,
       "cuMemcpyHtoDAsync");
 #endif
 }
 
 void ral_base_cuda_d2h(ExecutionContext* ctx, void* stream_handle,
                        buffer_t d_src, buffer_t h_dst, size_t bytes) {
+  TAO_VLOG(1) << "ral_base_cuda_d2h, d_src: " << d_src << ", h_dst: " << h_dst
+              << ", bytes: ";
   auto* state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+  auto comm_stream =
+      static_cast<gpu::BaseCudaExecutionContext*>(ctx)->getCommStream();
 #if TENSORFLOW_USE_ROCM
   reportErrorIfAny(
       stream_executor::wrap::hipMemcpyDtoHAsync(
@@ -651,7 +700,7 @@ void ral_base_cuda_d2h(ExecutionContext* ctx, void* stream_handle,
       ctx, "cuMemcpyDtoHAsync");
 #else
   reportErrorIfAny(
-      cuMemcpyDtoHAsync(h_dst, (GpuDevicePtr)d_src, bytes, state->stream), ctx,
+      cuMemcpyDtoHAsync(h_dst, (GpuDevicePtr)d_src, bytes, comm_stream), ctx,
       "cuMemcpyDtoHAsync");
 #endif
 }
@@ -745,10 +794,14 @@ RAL_REGISTER_BITCAST_FUNC(bool, 7);
 RAL_REGISTER_BITCAST_FUNC(bool, 8);
 
 TAO_RAL_API(tao::ral::gpu::kRalGpuAlloc, "gpu", ral_base_cuda_alloc);
+TAO_RAL_API(tao::ral::gpu::kRalGpuPinnedAlloc, "gpu",
+            ral_base_cuda_pinned_alloc);
 TAO_RAL_API(tao::ral::gpu::kRalGpuAllocPersistent, "gpu",
             ral_base_cuda_alloc_persistent);
 TAO_RAL_API(tao::ral::gpu::kRalGpuDealloc, "gpu", ral_base_cuda_dealloc);
 TAO_RAL_API(tao::ral::gpu::kRalGpuRawAlloc, "gpu", ral_base_cuda_raw_alloc);
+TAO_RAL_API(tao::ral::gpu::kRalGpuPinnedDealloc, "gpu",
+            ral_base_cuda_pinned_dealloc);
 TAO_RAL_API(tao::ral::gpu::kRalGpuRawDealloc, "gpu", ral_base_cuda_raw_dealloc);
 TAO_RAL_API(tao::ral::gpu::kRalGpuLaunch, "gpu", ral_base_cuda_launch);
 TAO_RAL_API(tao::ral::gpu::kRalGpuGetStream, "gpu", ral_base_cuda_get_stream);

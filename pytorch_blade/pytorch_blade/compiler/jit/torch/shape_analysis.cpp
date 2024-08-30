@@ -1504,6 +1504,12 @@ class ShapePropagator : public PropertyPropBase {
          "aten::to.prim_Device(Tensor(a) self, Device? device, int? dtype=None, bool non_blocking=False, bool copy=False) -> Tensor(a|b)"},
         [](Node* node) -> type_vec_t {
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
+            auto dtype = type->scalarType();
+            at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
+            if (maybe_dtype_option && maybe_dtype_option->isInt()) {
+              dtype = maybe_dtype_option->toScalarType();
+            }
+
             auto device = getDeviceFromValue(node->namedInput(attr::device));
             if (type->dim()) {
               auto scalarType =
@@ -1512,7 +1518,7 @@ class ShapePropagator : public PropertyPropBase {
                 scalarType = type->scalarType();
               }
               return {TensorType::create(
-                          scalarType,
+                          dtype,
                           device,
                           type->dim(),
                           /*requires_grad=*/c10::nullopt)

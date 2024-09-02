@@ -267,6 +267,20 @@ def LHLODISC_SourceCodeOp: LHLODISC_Op<"source_code", [AttrSizedOperandSegments]
   );
 }
 
+def LHLODISC_EVTPythonCodeOp: LHLODISC_Op<"evt_python_code", [AttrSizedOperandSegments]> {
+  let summary = "EVTPythonCode operator";
+  let description = [{
+    It maintains the source code and the corresponding operands/results of the
+    code. The order of {args, output} are the same with that of the source code.
+  }];
+  let arguments = (ins
+    Arg<Variadic<LHLO_BufferOrIndexBuffer>, "", [MemRead]>:$args,
+    Arg<Variadic<LHLO_BufferOrIndexBuffer>, "", [MemWrite]>:$output,
+    StrAttr:$code,
+    StrAttr:$call_target_name
+  );
+}
+
 def LHLODISC_ConcatenateOp : LHLODISC_Op<"concatenate", []> {
   let summary = "DISC's concatenate op";
   let description = [{

@@ -1053,28 +1053,32 @@ LogicalResult ConvertCpuLaunchOpToDispatchOpPattern::matchAndRewrite(
   return success();
 }
 
+template<typename OpT>
 class ConvertSourceCodeOpToDispatchOpPattern
-    : public ConvertOpToLLVMPattern<lmhlo_disc::SourceCodeOp> {
+    : public ConvertOpToLLVMPattern<OpT> {
  public:
+  using ConvertOpToLLVMPattern<OpT>::ConvertOpToLLVMPattern;
+  using OpAdaptor = typename OpT::Adaptor;
   ConvertSourceCodeOpToDispatchOpPattern(LLVMTypeConverter& type_converter,
                                          SymbolTable& symbol_table)
-      : ConvertOpToLLVMPattern<lmhlo_disc::SourceCodeOp>(type_converter),
+      : ConvertOpToLLVMPattern<OpT>(type_converter),
         type_converter_(type_converter),
         symbol_table_(symbol_table) {}
 
  private:
   LogicalResult matchAndRewrite(
-      lmhlo_disc::SourceCodeOp source_code_op, OpAdaptor adaptor,
+      OpT source_code_op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override;
-  Value generateParamsArray(lmhlo_disc::SourceCodeOp source_code_op,
+  Value generateParamsArray(OpT source_code_op,
                             ValueRange operands, OpBuilder& builder,
                             int& num_arguments) const;
   SymbolTable& symbol_table_;
   LLVMTypeConverter& type_converter_;
 };
 
-Value ConvertSourceCodeOpToDispatchOpPattern::generateParamsArray(
-    lmhlo_disc::SourceCodeOp source_code_op, ValueRange operands,
+template<typename OpT>
+Value ConvertSourceCodeOpToDispatchOpPattern<OpT>::generateParamsArray(
+    OpT source_code_op, ValueRange operands,
     OpBuilder& builder, int& num_arguments) const {
   MLIRContext* ctx = builder.getContext();
 
@@ -1120,8 +1124,9 @@ Value ConvertSourceCodeOpToDispatchOpPattern::generateParamsArray(
   return array_ptr;
 }
 
-LogicalResult ConvertSourceCodeOpToDispatchOpPattern::matchAndRewrite(
-    lmhlo_disc::SourceCodeOp source_code_op, OpAdaptor adaptor,
+template<typename OpT>
+LogicalResult ConvertSourceCodeOpToDispatchOpPattern<OpT>::matchAndRewrite(
+    OpT source_code_op, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   // Create a global for the kernel name. Make sure the trailing zero is
   // included in the constant.
@@ -1137,7 +1142,7 @@ LogicalResult ConvertSourceCodeOpToDispatchOpPattern::matchAndRewrite(
 
   // Create a global for dyn lib path.
   auto dyn_lib_path_attr =
-      source_code_op->getAttrOfType<StringAttr>(kDynLibPathAttr);
+      source_code_op->template getAttrOfType<StringAttr>(kDynLibPathAttr);
   if (!dyn_lib_path_attr) {
     return failure();
   }
@@ -1176,7 +1181,7 @@ LogicalResult ConvertSourceCodeOpToDispatchOpPattern::matchAndRewrite(
 
   // The Ral Context is the first argument of the surrounding LLVMFunc.
   Value context_arg =
-      source_code_op->getParentOfType<LLVM::LLVMFuncOp>().getArgument(0);
+      source_code_op->template getParentOfType<LLVM::LLVMFuncOp>().getArgument(0);
 
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
       source_code_op, TypeRange{}, context_arg, newOperands,
@@ -1404,7 +1409,8 @@ void populateDiscToLLVMConversionPatterns(LLVMTypeConverter* converter,
       ConvertLaunchFuncOpToRalCallPattern,
       ConvertMemRefAllocOpToDispatchOpPattern,
       ConvertMemRefDeallocOpToDispatchOpPattern,
-      ConvertSourceCodeOpToDispatchOpPattern,
+      ConvertSourceCodeOpToDispatchOpPattern<lmhlo_disc::SourceCodeOp>,
+      ConvertSourceCodeOpToDispatchOpPattern<lmhlo_disc::EvtSourceOp>,
       DispatchOpToLLVMPattern,
       PrintfToLLVMPattern,
       GetPointerToLLVMPattern

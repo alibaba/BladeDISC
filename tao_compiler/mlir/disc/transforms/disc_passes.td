@@ -629,6 +629,17 @@ def DiscGPUSourceToLibPass : Pass<"disc-gpu-source-to-lib", "ModuleOp"> {
   ];
 }
 
+def DiscGPUEvtSourceToLibPass : Pass<"disc-gpu-evt-source-to-lib", "ModuleOp"> {
+  let summary = "Pass to convert cutlass python source code to library.";
+  let constructor = "createDiscGPUEvtSourceToLibPass()";
+  let options = [
+    Option<"cc_major_", "gpu-sm-cc-major", "int",
+            /*default=*/"8", "gpu sm cc_major.">,
+    Option<"cc_minor_", "gpu-sm-cc-minor", "int",
+            /*default=*/"0", "gpu sm cc_minor.">,
+  ];
+}
+
 def DiscTransformLegalizeToLoopPass : Pass<"disc-transform-legalize-to-loop", "mlir::func::FuncOp"> {
   let summary = "Legalize transfrom fusion pattern to loop.";
   let constructor = "createDiscTransformLegalizeToLoopPass()";

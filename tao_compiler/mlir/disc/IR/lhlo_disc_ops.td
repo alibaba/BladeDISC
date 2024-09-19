@@ -267,8 +267,8 @@ def LHLODISC_SourceCodeOp: LHLODISC_Op<"source_code", [AttrSizedOperandSegments]
   );
 }
 
-def LHLODISC_EVTPythonCodeOp: LHLODISC_Op<"evt_python_code", [AttrSizedOperandSegments]> {
-  let summary = "EVTPythonCode operator";
+def LHLODISC_EvtSourceOp: LHLODISC_Op<"evt_source_code", [AttrSizedOperandSegments]> {
+  let summary = "Evt Python Source Code operator";
   let description = [{
     It maintains the source code and the corresponding operands/results of the
     code. The order of {args, output} are the same with that of the source code.

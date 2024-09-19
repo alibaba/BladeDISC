@@ -34,81 +34,12 @@ namespace {
 
 std::string compile_cmd = "python3 DISC_DIR/DISC_FILE_NAME.py";
 
-// The compile trajectory follows the CUDA compilation trajectory,
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#cuda-compilation-trajectory
-std::vector<std::string> compile_trajectory_template = {
-    R"(DISC_CUDA_HOME/nvvm/bin/cicc --c++11 --gnu_version=DISC_GNU_VERSION \
-    --allow_managed -arch compute_DISC_SM -m64 -ftz=1 \
-    -prec_div=0 -prec_sqrt=0 -fmad=1 -fast-math --gen_div_approx_ftz \
-    --include_file_name "DISC_DIR/DISC_FILE_NAME.fatbin.c" -tused \
-    -nvvmir-library "/usr/local/cuda/bin/../nvvm/libdevice/libdevice.10.bc" \
-    --gen_module_id_file \
-    --module_id_file_name "DISC_DIR/DISC_FILE_NAME.module_id" \
-    --gen_c_file_name "DISC_DIR/DISC_FILE_NAME.cudafe1.c" \
-    --stub_file_name "DISC_DIR/DISC_FILE_NAME.cudafe1.stub.c" \
-    --gen_device_file_name "DISC_DIR/DISC_FILE_NAME.cudafe1.gpu" \
-    "DISC_DIR/DISC_FILE_NAME.cpp1.ii" \
-    -o "DISC_DIR/DISC_FILE_NAME.ptx" )",
-
-    R"(ptxas -arch=sm_DISC_SM -m64 "DISC_DIR/DISC_FILE_NAME.ptx" \
-    -o "DISC_DIR/DISC_FILE_NAME.cubin" )",
-
-    R"(fatbinary --create="DISC_DIR/DISC_FILE_NAME.fatbin" -64 \
-    --cicc-cmdline="-ftz=1 -prec_div=0 -prec_sqrt=0 -fmad=1 " \
-    "--image3=kind=elf,sm=DISC_SM,file=DISC_DIR/DISC_FILE_NAME.cubin" \
-    --embedded-fatbin="DISC_DIR/DISC_FILE_NAME.fatbin.c" )",
-
-    R"(cudafe++ --c++11 --gnu_version=DISC_GNU_VERSION --allow_managed --m64 \
-    --parse_templates \
-    --gen_c_file_name "DISC_DIR/DISC_FILE_NAME.cudafe1.cpp" \
-    --stub_file_name "DISC_DIR/DISC_FILE_NAME.cudafe1.stub.c" \
-    --module_id_file_name "DISC_DIR/DISC_FILE_NAME.module_id" \
-    "DISC_DIR/DISC_FILE_NAME.cpp4.ii" )",
-
-    R"(gcc -std=c++11 -D__CUDA_ARCH__=DISC_CUDA_ARCH -c -x c++ \
-    -DCUDA_DOUBLE_MATH_FUNCTIONS -fPIC -O3 \
-    "-IDISC_CUDA_HOME/targets/x86_64-linux/include" -m64 \
-    "DISC_DIR/DISC_FILE_NAME.cudafe1.cpp" \
-    -o "DISC_DIR/DISC_FILE_NAME.o" )",
-
-    R"(nvlink --arch=sm_DISC_SM \
-    --register-link-binaries="DISC_DIR/DISC_FILE_NAME_dlink.reg.c" -m64 \
-    -L"DISC_CUDA_HOME/lib64" "-LDISC_CUDA_HOME/targets/x86_64-linux/lib/stubs" \
-    "-LDISC_CUDA_HOME/targets/x86_64-linux/lib" -cpu-arch=X86_64 \
-    "DISC_DIR/DISC_FILE_NAME.o" -lcudadevrt \
-    -o "DISC_DIR/DISC_FILE_NAME_dlink.cubin" )",
-
-    R"(fatbinary --create="DISC_DIR/DISC_FILE_NAME_dlink.fatbin" -64 \
-    --cicc-cmdline="-ftz=1 -prec_div=0 -prec_sqrt=0 -fmad=1 " -link \
-    "--image3=kind=elf,sm=DISC_SM,file=DISC_DIR/DISC_FILE_NAME_dlink.cubin" \
-    --embedded-fatbin="DISC_DIR/DISC_FILE_NAME_dlink.fatbin.c" )",
-
-    R"(gcc -std=c++11 -c -x c++ -fPIC \
-    -DFATBINFILE="\"DISC_DIR/DISC_FILE_NAME_dlink.fatbin.c\"" \
-    -DREGISTERLINKBINARYFILE="\"DISC_DIR/DISC_FILE_NAME_dlink.reg.c\"" \
-    -I. -D__NV_EXTRA_INITIALIZATION= -D__NV_EXTRA_FINALIZATION= \
-    -D__CUDA_INCLUDE_COMPILER_INTERNAL_HEADERS__ -fPIC -O3 \
-    "-IDISC_CUDA_HOME/targets/x86_64-linux/include" \
-    -D__CUDACC_VER_MAJOR__=DISC_CUDA_MAJOR \
-    -D__CUDACC_VER_MINOR__=DISC_CUDA_MINOR \
-    -D__CUDA_API_VER_MAJOR__=DISC_CUDA_MAJOR \
-    -D__CUDA_API_VER_MINOR__=DISC_CUDA_MINOR -m64 \
-    "DISC_CUDA_HOME/bin/crt/link.stub" \
-    -o "DISC_DIR/DISC_FILE_NAME_dlink.o" )",
-
-    R"(g++ -fPIC -O3 -m64 -std=c++11 -Wl,--start-group \
-    "DISC_DIR/DISC_FILE_NAME_dlink.o" "DISC_DIR/DISC_FILE_NAME.o" \
-    -shared -L"DISC_CUDA_HOME/lib64" \
-    "-LDISC_CUDA_HOME/targets/x86_64-linux/lib/stubs" \
-    "-LDISC_CUDA_HOME/targets/x86_64-linux/lib" -lcudadevrt -lcudart_static \
-    -lrt -lpthread -ldl -Wl,--end-group -o "DISC_DIR/DISC_FILE_NAME.so" )"};
-
-class DiscGPUEvtToLibPass
-    : public DiscGPUEvtToLibPassBase<DiscGPUEvtToLibPass> {
+class DiscGPUEvtSourceToLibPass
+    : public DiscGPUEvtSourceToLibPassBase<DiscGPUEvtSourceToLibPass> {
  public:
-  explicit DiscGPUEvtToLibPass(int cc_major, int cc_minor)
-      : DiscGPUEvtToLibPassBase<
-            DiscGPUEvtToLibPass>::DiscGPUEvtToLibPassBase() {
+  explicit DiscGPUEvtSourceToLibPass(int cc_major, int cc_minor)
+      : DiscGPUEvtSourceToLibPassBase<
+            DiscGPUEvtSourceToLibPass>::DiscGPUEvtSourceToLibPassBase() {
     cc_major_ = cc_major;
     cc_minor_ = cc_minor;
   }
@@ -118,8 +49,8 @@ class DiscGPUEvtToLibPass
 
     // Find ops containing CUDA code and concatenate CUDA code.
     std::string cuda_code;
-    SmallVector<lmhlo_disc::EVTPythonCodeOp> source_code_ops;
-    m.walk([&](lmhlo_disc::EVTPythonCodeOp source_code_op) {
+    SmallVector<lmhlo_disc::EvtSourceOp> source_code_ops;
+    m.walk([&](lmhlo_disc::EvtSourceOp source_code_op) {
       source_code_ops.push_back(source_code_op);
     });
 
@@ -154,7 +85,7 @@ class DiscGPUEvtToLibPass
   std::string findCUDAHome();
 };
 
-bool DiscGPUEvtToLibPass::executeCommand(const std::string& cmd,
+bool DiscGPUEvtSourceToLibPass::executeCommand(const std::string& cmd,
                                          std::string* output) {
   FILE* pipe = popen(cmd.c_str(), "r");
   if (!pipe) {
@@ -170,7 +101,7 @@ bool DiscGPUEvtToLibPass::executeCommand(const std::string& cmd,
   return pclose(pipe) == 0;
 }
 
-LogicalResult DiscGPUEvtToLibPass::compilePreprocessedCUDAEvtToLib(
+LogicalResult DiscGPUEvtSourceToLibPass::compilePreprocessedCUDAEvtToLib(
     const std::string& source, std::string& bin_path) {
 #if defined(GOOGLE_CUDA)
 #ifndef SKIP_COMPUTE_INTENSIVE_FUSION
@@ -211,7 +142,7 @@ LogicalResult DiscGPUEvtToLibPass::compilePreprocessedCUDAEvtToLib(
 #endif  // GOOGLE_CUDA
 }
 
-std::string DiscGPUEvtToLibPass::findCUDAHome() {
+std::string DiscGPUEvtSourceToLibPass::findCUDAHome() {
   for (const std::string& cuda_root : tsl::CandidateCudaRoots()) {
     std::string path = tensorflow::io::JoinPath(cuda_root, "bin", "nvcc");
     VLOG(2) << "Looking for nvcc at " << path;
@@ -225,9 +156,9 @@ std::string DiscGPUEvtToLibPass::findCUDAHome() {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>> createDiscGPUEvtToLibPass(
+std::unique_ptr<OperationPass<ModuleOp>> createDiscGPUEvtSourceToLibPass(
     int cc_major, int cc_minor) {
-  return std::make_unique<DiscGPUEvtToLibPass>(cc_major, cc_minor);
+  return std::make_unique<DiscGPUEvtSourceToLibPass>(cc_major, cc_minor);
 }
 
 }  // namespace disc_ral

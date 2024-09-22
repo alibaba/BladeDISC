@@ -2325,6 +2325,24 @@ disc_cc_library(
     alwayslink = 1,
 )
 
+disc_cc_library(
+    name = "disc_gpu_evt_to_lib",
+    srcs = [
+        "transforms/disc_gpu_evt_to_lib.cc",
+    ],
+    deps = [
+        ":disc_util",
+        ":lmhlo_disc",
+        ":pass_details",
+        "@llvm-project//mlir:Pass",
+        "@org_tensorflow//tensorflow/tsl/platform:cuda_libdevice_path",
+        "@org_tensorflow//tensorflow/core:lib",
+    ] + if_cuda_is_configured([
+        ":compute_intensive_fusion_deps",
+    ]),
+    alwayslink = 1,
+)
+
 cc_library(
     name = "disc_transform_schedule",
     srcs = ["transforms/disc_transform_schedule.cc"],
@@ -2474,6 +2492,7 @@ cc_library(
         ":disc_fusion",
         ":disc_gpu_kernel_to_blob",
         ":disc_gpu_source_to_lib",
+        ":disc_gpu_evt_to_lib",
         ":disc_hlo_legalize_to_lhlo",
         ":disc_lhlo_rewriter",
         ":disc_hlo_to_std",

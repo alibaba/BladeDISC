@@ -501,6 +501,38 @@ struct TrunciSimplifierPattern : public OpRewritePattern<arith::TruncIOp> {
   }
 };
 
+// Simplifier dot and transpose op pattern, an example as following:
+// from: Dot(A^T, B)^T
+// to: Dot(B^T, A)
+struct SimplifierDotTransposePattern
+    : public OpRewritePattern<mhlo::TransposeOp> {
+  using OpRewritePattern<mhlo::TransposeOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::TransposeOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op->getLoc();
+    Value input = op->getOperand(0);
+    auto dotOp = input.getDefiningOp<mhlo::DotOp>();
+    if (!dotOp) {
+      return failure();
+    }
+    auto lhs = dotOp.getLhs();
+    auto rhs = dotOp.getRhs();
+    auto lhsTranspose = lhs.getDefiningOp<mhlo::TransposeOp>();
+    if (!lhsTranspose) {
+      llvm::dbgs() << "hls should be transposed tensor\n";
+      return failure();
+    }
+    auto rhsTranspose = rewriter.create<mhlo::TransposeOp>(
+        loc, rhs, lhsTranspose.getPermutation());
+    auto newDotOp = rewriter.create<mhlo::DotOp>(
+        loc, op.getType(), rhsTranspose, lhsTranspose.getOperand(),
+        dotOp.getPrecisionConfigAttr());
+    rewriter.replaceOp(op, newDotOp.getResult());
+    newDotOp->getParentOp()->dump();
+    return success();
+  }
+};
+
 // Simplify index_cast pattern. An examples as following:
 //  %0 = arith.index_cast %arg0 : index to i32
 //  %1 = arith.index_cast %0 : i32 to index
@@ -718,7 +750,8 @@ void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
     SimplifierFromElementsPattern,
     TrunciSimplifierPattern,
     IndexCastSimplifierPattern,
-    SimplifierGetDimensionSizePattern
+    SimplifierGetDimensionSizePattern,
+    SimplifierDotTransposePattern
   >(patterns.getContext());
   if (isMemIntensiveOptExperimentalEnabled()) {
     // Will be enabled by default after a set of robustness testing.

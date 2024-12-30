@@ -111,6 +111,7 @@ enum FusionType {
   // kInput fusion pattern and all reduce ops of the fused pattern are column
   // reduction
   kColReduction,
+  kScalarReduction,
   // kInput fusion pattern
   kInput,
   // Stitch Fusion pattern
@@ -155,6 +156,8 @@ bool isRowReduction(Operation* op);
 
 // Returns true if this op is a rank-2 column reduction.
 bool isRank2ColReduction(Operation* op);
+
+bool isRank2ScalarReduction(Operation* op);
 
 // Returns true if this op is a rank-2 or rank-3 transpose
 bool isRank2or3Transpose(Operation* op);

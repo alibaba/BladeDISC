@@ -117,8 +117,8 @@ struct ConvertReduceOpWithSmallWidthIntType
     int rank = ty.getRank();
     int ndims_to_reduce = static_cast<int>(dims_to_reduce.size());
 
-    if (rank != 2 || ndims_to_reduce != 1) {
-      // Suppose that there are only rank-2 row/colunm reduction after
+    if (rank != 2) {
+      // Suppose that there are only rank-2 row/colunm/scalar reduction after
       // `canonicalize-reduction` pass.
       return failure();
     }

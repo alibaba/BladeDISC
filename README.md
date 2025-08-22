@@ -1,4 +1,4 @@
-# BladeDISC Introduction <!-- omit in toc -->
+Amazing opportunity for beginners in AI-ML# BladeDISC Introduction <!-- omit in toc -->
 
 ## We're hiring!🔥🔥🔥
 We're always looking for candicates to join dev team. Your're the one we're searching for long:
